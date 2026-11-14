@@ -34,6 +34,29 @@
         }
       );
 
+      checks = kolohelios-nix.lib.forEachSupportedSystem (
+        { pkgs, ... }:
+        {
+          bootstrap-export =
+            pkgs.runCommand "cuestacean-bootstrap-export"
+              {
+                nativeBuildInputs = [
+                  pkgs.cue
+                  pkgs.jq
+                ];
+              }
+              ''
+                set -euo pipefail
+                export LC_ALL=C TZ=UTC
+                cue export ${../../bootstrap/literal.cue} --out json | jq -S . > first.json
+                cue export ${../../bootstrap/literal.cue} --out json | jq -S . > second.json
+                cmp first.json second.json
+                diff -u ${../../bootstrap/literal.json} first.json
+                touch "$out"
+              '';
+        }
+      );
+
       formatter = kolohelios-nix.formatter;
     };
 }
