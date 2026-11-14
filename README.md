@@ -8,8 +8,9 @@ and Rust as the execution target. The ambition is full self-hosting, not merely
 using CUE to configure a handwritten Rust compiler.
 
 There is no compiler implementation yet. The [bootstrap fixtures](bootstrap/README.md)
-define integer-literal and addition trees in CUE and export them to checked-in
-JSON using upstream CUE.
+define integer-literal and addition trees, plus proposed evaluation rules, in
+CUE and export them to checked-in JSON using upstream CUE. The rules are data;
+there is no rule executor yet.
 
 ## CUE all the way down
 
@@ -59,7 +60,7 @@ With direnv, `direnv allow` enters this environment from the repository root.
 See [development tooling](infra/tooling/README.md) for regeneration commands.
 There is no compiler build yet: CI checks the tooling environment, project
 declarations, generated-file drift, reproducible export of the bootstrap
-fixtures, and rejection of malformed expression trees.
+fixtures, and rejection of malformed expression trees and rule descriptions.
 
 - Nix pins the development environment and upstream CUE bootstrap tool.
 - [Shaka](https://github.com/kolohelios/kolohelios/tree/main/tools/shaka)

@@ -25,6 +25,7 @@ lockfile pins both FlakeHub inputs and upstream CUE through Nixpkgs.
 Within this directory, `just validate` checks Nix formatting, flake evaluation,
 whitespace, and the [bootstrap export](../../bootstrap/README.md). The flake's
 `bootstrap-export` check exports each CUE fixture twice, compares both exports
-with its committed JSON artifact, and requires malformed expression trees to
-fail export. Repo-wide `shaka preflight` also validates the CUE project schema
-and rejects drift in generated files or unaccounted GitHub Actions workflows.
+with its committed JSON artifact, and requires malformed expression trees and
+evaluation-rule descriptions to fail export. Repo-wide `shaka preflight` also
+validates the CUE project schema and rejects drift in generated files or
+unaccounted GitHub Actions workflows.

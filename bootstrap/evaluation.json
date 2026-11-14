@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "rules": {
+    "add": {
+      "result": {
+        "left": {
+          "field": "left",
+          "op": "evaluate"
+        },
+        "op": "sum",
+        "right": {
+          "field": "right",
+          "op": "evaluate"
+        }
+      }
+    },
+    "integer": {
+      "result": {
+        "field": "value",
+        "op": "field"
+      }
+    }
+  }
+}
