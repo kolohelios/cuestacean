@@ -44,23 +44,31 @@ For fun, for the delight of building the tool with the tool, and to explore
 whether Rust and different implementation choices can make CUE faster.
 Performance is a hypothesis to benchmark, not a promise.
 
-## Development plan
+## Development
 
-- Nix will pin the development environment and bootstrap toolchain.
-- [Shaka](https://github.com/kolohelios/kolohelios/tree/main/tools/shaka) will
-  provide shared repository and build tooling, extended where necessary.
-- GitHub Actions will test the build once build machinery exists.
+Enter the pinned CUE and Shaka environment, then run the same gate as CI:
+
+```sh
+nix develop ./infra/tooling
+shaka preflight
+```
+
+With direnv, `direnv allow` enters this environment from the repository root.
+See [development tooling](infra/tooling/README.md) for regeneration commands.
+There is no compiler build yet: CI currently checks the tooling environment,
+project declarations, and generated-file drift.
+
+- Nix pins the development environment and upstream CUE bootstrap tool.
+- [Shaka](https://github.com/kolohelios/kolohelios/tree/main/tools/shaka)
+  provides shared repository and validation tooling.
 - Changes will arrive as small, focused pull requests for maintainer review and
   manual merging; no automatic merging.
-- Repository policy will be declared in `.shaka/repo.cue` and audited with Shaka
-  in a follow-up. Required build checks will be enabled when those checks exist.
-
-The first pull request deliberately contains only this README.
+- `.shaka/repo.cue` declares repository policy. Run `shaka repo audit` to check
+  GitHub settings; `cuestacean validate` is the required CI check.
 
 ## License and upstream
 
-Apache-2.0 is the intended license. A license file will follow before
-implementation code is introduced. Any material copied or translated from
+Licensed under [Apache-2.0](LICENSE). Any material copied or translated from
 upstream CUE will retain applicable copyright, license, and notice obligations.
 
 Cuestacean is an independent experiment, not an official CUE project.

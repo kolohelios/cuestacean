@@ -1,0 +1,122 @@
+{
+  "nodes": {
+    "kolohelios-nix": {
+      "inputs": {
+        "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1794357597,
+        "narHash": "sha256-F0MEroJ1rCqNG2s751QtB9dXWJNFMSbN9guE8VCoses=",
+        "rev": "0de8047f653d5178513dc600f7b59297de569b19",
+        "revCount": 791,
+        "type": "tarball",
+        "url": "https://api.flakehub.com/f/pinned/kolohelios/kolohelios-nix/0.1.791%2Brev-0de8047f653d5178513dc600f7b59297de569b19/01a1c80f-38fc-7563-8b99-a9ae4d69c92f/source.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://flakehub.com/f/kolohelios/kolohelios-nix/%2A.tar.gz"
+      }
+    },
+    "kolohelios-nix_2": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_2"
+      },
+      "locked": {
+        "lastModified": 1794357597,
+        "narHash": "sha256-F0MEroJ1rCqNG2s751QtB9dXWJNFMSbN9guE8VCoses=",
+        "rev": "0de8047f653d5178513dc600f7b59297de569b19",
+        "revCount": 791,
+        "type": "tarball",
+        "url": "https://api.flakehub.com/f/pinned/kolohelios/kolohelios-nix/0.1.791%2Brev-0de8047f653d5178513dc600f7b59297de569b19/01a1c80f-38fc-7563-8b99-a9ae4d69c92f/source.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://flakehub.com/f/kolohelios/kolohelios-nix/%2A.tar.gz"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1794165970,
+        "narHash": "sha256-XuAV2cUwaod3Bt4XFVqiXz3v1w2ex16W6Sv4S7EWres=",
+        "rev": "ac588ef1c914865dad517b337ea0eb9694a4021c",
+        "revCount": 1018227,
+        "type": "tarball",
+        "url": "https://api.flakehub.com/f/pinned/NixOS/nixpkgs/0.2605.1018227%2Brev-ac588ef1c914865dad517b337ea0eb9694a4021c/01a1c3f5-87fc-7ef0-9887-3fc0d515c775/source.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://flakehub.com/f/NixOS/nixpkgs/0"
+      }
+    },
+    "nixpkgs_2": {
+      "locked": {
+        "lastModified": 1794165970,
+        "narHash": "sha256-XuAV2cUwaod3Bt4XFVqiXz3v1w2ex16W6Sv4S7EWres=",
+        "rev": "ac588ef1c914865dad517b337ea0eb9694a4021c",
+        "revCount": 1018227,
+        "type": "tarball",
+        "url": "https://api.flakehub.com/f/pinned/NixOS/nixpkgs/0.2605.1018227%2Brev-ac588ef1c914865dad517b337ea0eb9694a4021c/01a1c3f5-87fc-7ef0-9887-3fc0d515c775/source.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://flakehub.com/f/NixOS/nixpkgs/0"
+      }
+    },
+    "root": {
+      "inputs": {
+        "kolohelios-nix": "kolohelios-nix",
+        "nixpkgs": [
+          "kolohelios-nix",
+          "nixpkgs"
+        ],
+        "shaka": "shaka"
+      }
+    },
+    "rust-overlay": {
+      "inputs": {
+        "nixpkgs": [
+          "shaka",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1777432579,
+        "narHash": "sha256-Ce11TStDsqCge2vAAfLKe2+4lDI5cSX5ZYZOuKJBKKQ=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "3ecb5e6ab380ced3272ef7fcfe398bffbcc0f152",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "shaka": {
+      "inputs": {
+        "kolohelios-nix": "kolohelios-nix_2",
+        "nixpkgs": [
+          "shaka",
+          "kolohelios-nix",
+          "nixpkgs"
+        ],
+        "rust-overlay": "rust-overlay"
+      },
+      "locked": {
+        "lastModified": 1794694269,
+        "narHash": "sha256-K32nU382TPeDCJ8Lq1LHQiCtNWbLT35N4d2tOt89+yw=",
+        "rev": "9a66ae639f342f392b3ad5f23fe039ae98525b6e",
+        "revCount": 818,
+        "type": "tarball",
+        "url": "https://api.flakehub.com/f/pinned/kolohelios/shaka/0.1.818%2Brev-9a66ae639f342f392b3ad5f23fe039ae98525b6e/01a1dc20-5c3a-7341-9288-978fa263848f/source.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://flakehub.com/f/kolohelios/shaka/%2A.tar.gz"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
