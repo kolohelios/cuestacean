@@ -48,10 +48,18 @@
               ''
                 set -euo pipefail
                 export LC_ALL=C TZ=UTC
-                cue export ${../../bootstrap/literal.cue} --out json | jq -S . > first.json
-                cue export ${../../bootstrap/literal.cue} --out json | jq -S . > second.json
-                cmp first.json second.json
-                diff -u ${../../bootstrap/literal.json} first.json
+                for fixture in literal addition; do
+                  cue export ${../../bootstrap/schema.cue} ${../../bootstrap}/$fixture.cue --out json | jq -S . > first.json
+                  cue export ${../../bootstrap/schema.cue} ${../../bootstrap}/$fixture.cue --out json | jq -S . > second.json
+                  cmp first.json second.json
+                  diff -u ${../../bootstrap}/$fixture.json first.json
+                done
+                for fixture in ${../../bootstrap/tests/invalid}/*.cue; do
+                  if cue export ${../../bootstrap/schema.cue} "$fixture" --out json > invalid.log 2>&1; then
+                    echo "Expected rejection: $fixture" >&2
+                    exit 1
+                  fi
+                done
                 touch "$out"
               '';
         }

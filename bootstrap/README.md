@@ -1,18 +1,31 @@
-# First bootstrap boundary
+# Bootstrap expression fixtures
 
-`literal.cue` defines a constrained integer-literal shape and instantiates it.
-The pinned upstream Go CUE tool evaluates it into `literal.json`. Definitions
-such as `#IntegerLiteral` do not appear in the exported artifact.
+`schema.cue` defines a recursive expression tree with two node kinds:
 
-This is a serialization fixture, not a compiler or a settled intermediate
-representation. It establishes the first source-to-artifact boundary that
-Cuestacean will eventually need to reproduce without upstream CUE.
+- `integer`: an integer `value`.
+- `add`: ordered `left` and `right` expression children.
+
+`#Program` wraps an expression with `formatVersion: 1`. Node definitions reject
+unexpected fields. Missing fields with a single allowed value (such as the
+format version) can be supplied by CUE unification; export still requires a
+concrete, complete expression.
+
+`literal.cue` instantiates the original integer literal. `addition.cue` describes
+`20 + (10 + 12)`, preserving its nested tree rather than evaluating it to `42`.
+The pinned upstream Go CUE tool exports these into the matching JSON files.
+Definitions such as `#Expression` do not appear in the exported artifacts.
+
+These are experimental syntax and serialization fixtures, not an evaluator,
+compiler, or settled intermediate representation. They exercise the
+source-to-artifact boundary that Cuestacean will eventually need to reproduce
+without upstream CUE. They do not yet describe executable implementation rules.
 
 From the repository root, enter the pinned environment and regenerate:
 
 ```sh
 nix develop ./infra/tooling
-cue export bootstrap/literal.cue --out json | jq -S . > bootstrap/literal.json
+cue export bootstrap/schema.cue bootstrap/literal.cue --out json | jq -S . > bootstrap/literal.json
+cue export bootstrap/schema.cue bootstrap/addition.cue --out json | jq -S . > bootstrap/addition.json
 ```
 
 The byte format here is JSON formatted by the pinned `jq -S .`: recursively
@@ -20,9 +33,11 @@ sorted object keys, two-space indentation, and a trailing newline. This is a
 local output convention, not a claim of general JSON canonicalization.
 
 Run `shaka preflight` from the repository root to validate. Its Nix check runs
-two separate exports, compares them byte-for-byte, and compares the result
-against the committed artifact. Invalid CUE, differing exports, or a stale or
-hand-edited JSON artifact fails the check. CI uses this same gate.
+two separate exports for each fixture, compares them byte-for-byte, and compares
+the results against the committed artifacts. It also requires every fixture in
+`tests/invalid/` to fail export: unknown node kinds, missing operands, nested
+non-integer values, and unexpected fields. Differing exports, stale JSON, or
+accepting any invalid tree fails the check. CI uses this same gate.
 
-Agreement here only tests this fixture with pinned tools. It establishes
+Agreement here only tests these fixtures with pinned tools. It establishes
 neither self-hosting nor compatibility with the rest of CUE.

@@ -1,10 +1,5 @@
 package bootstrap
 
-// A serialization fixture, not yet the compiler's intermediate representation.
-#IntegerLiteral: {
-	kind:  "integer"
-	value: int
+#Program & {
+	entry: #IntegerLiteral & {value: 42}
 }
-
-formatVersion: 1
-entry: #IntegerLiteral & {value: 42}
