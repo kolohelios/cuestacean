@@ -48,7 +48,7 @@
               ''
                 set -euo pipefail
                 export LC_ALL=C TZ=UTC
-                for fixture in literal addition; do
+                for fixture in literal addition evaluation; do
                   cue export ${../../bootstrap/schema.cue} ${../../bootstrap}/$fixture.cue --out json | jq -S . > first.json
                   cue export ${../../bootstrap/schema.cue} ${../../bootstrap}/$fixture.cue --out json | jq -S . > second.json
                   cmp first.json second.json
