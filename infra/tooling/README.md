@@ -23,5 +23,7 @@ does not yet expose packaged Shaka as a development-shell dependency. Its
 lockfile pins both FlakeHub inputs and upstream CUE through Nixpkgs.
 
 Within this directory, `just validate` checks Nix formatting, flake evaluation,
-and whitespace. Repo-wide `shaka preflight` also validates the CUE project schema
+whitespace, and the [bootstrap export](../../bootstrap/README.md). The flake's
+`bootstrap-export` check evaluates the CUE fixture twice and compares both
+exports with the committed JSON artifact. Repo-wide `shaka preflight` also validates the CUE project schema
 and rejects drift in generated files or unaccounted GitHub Actions workflows.
