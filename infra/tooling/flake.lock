@@ -104,12 +104,12 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1794694269,
-        "narHash": "sha256-K32nU382TPeDCJ8Lq1LHQiCtNWbLT35N4d2tOt89+yw=",
-        "rev": "9a66ae639f342f392b3ad5f23fe039ae98525b6e",
-        "revCount": 818,
+        "lastModified": 1794696755,
+        "narHash": "sha256-f81Vsiaw/K6Q04OWR+K7KXz0VNi4zmKBQteH3AQpfKs=",
+        "rev": "14ebb73963c77ff20a44c9fb5aeaa53f8bd09b5b",
+        "revCount": 822,
         "type": "tarball",
-        "url": "https://api.flakehub.com/f/pinned/kolohelios/shaka/0.1.818%2Brev-9a66ae639f342f392b3ad5f23fe039ae98525b6e/01a1dc20-5c3a-7341-9288-978fa263848f/source.tar.gz"
+        "url": "https://api.flakehub.com/f/pinned/kolohelios/shaka/0.1.822%2Brev-14ebb73963c77ff20a44c9fb5aeaa53f8bd09b5b/01a1dc46-ae80-78c3-ac5c-f7697682081b/source.tar.gz"
       },
       "original": {
         "type": "tarball",
