@@ -3,7 +3,15 @@
 These modules are generated from rule JSON by the handwritten Rust
 `bootstrap-codegen` binary. This lowers our three instruction primitives, not
 arbitrary CUE source. The interpreter remains the default executable and a
-reference for tests; generated evaluators currently run in the Rust test suite.
+reference for tests. The normal generated module also runs as a separate CLI:
+
+```sh
+nix run ./infra/tooling#generated -- bootstrap/addition.json
+```
+
+Run that command from the repository root; it prints `42`. The rules are baked
+in, so this CLI accepts only a program path. The alternate and escaping modules
+remain test-only.
 
 - `evaluation.rs` comes from the normal CUE-exported rules.
 - `evaluation-left-twice.rs` comes from the alternate CUE-exported rules.
@@ -29,6 +37,9 @@ for rules in evaluation.json tests/valid/evaluation-left-twice.json executor/tes
 done
 ```
 
-The pinned formatter defines the artifact's byte layout. Nix checks repeated
-generation and rejects drift; Rust tests compile all three modules. Neither
-the generator nor the shared runtime is self-hosted yet.
+The pinned formatter defines the artifact's byte layout. The generated CLI is
+built from the committed normal module; regeneration and export checks validate
+each artifact boundary rather than regenerating source during compilation.
+Nix rejects drift, Rust tests compile all three modules, and CLI tests compare
+results, errors, and exit statuses with the interpreter. Neither the generator
+nor the shared runtime is self-hosted yet.
