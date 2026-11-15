@@ -43,6 +43,36 @@ package bootstrap
 	entry:         #Expression
 }
 
+// Expression-parser control flow; native frame operations are explicit intrinsics.
+#PrattNumber: {op: "minimum"} | {op: "precedence"} | {op: "integer", value: uint & <=255} | {
+	op:    "add"
+	left:  #PrattNumber
+	right: #PrattNumber
+}
+#PrattCondition: {op: "hasOperator"} | {op: "leftAssociative"} | {op: "boolean", value: bool} | {
+	op:    "atLeast"
+	left:  #PrattNumber
+	right: #PrattNumber
+} | {
+	op:    "and"
+	left:  #PrattCondition
+	right: #PrattCondition
+}
+#PrattStatement: {op: "primary" | "afterOperand" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary"} | {
+	op:    "setBindingPower"
+	value: #PrattNumber
+} | {
+	op:        "while"
+	condition: #PrattCondition
+	body: [...#PrattStatement]
+} | {
+	op:        "if"
+	condition: #PrattCondition
+	then: [...#PrattStatement]
+	else: *[] | [...#PrattStatement]
+}
+#PrattProgram: {formatVersion: 1, body: [...#PrattStatement]}
+
 // Typed JSON construction expressions used by the parser's AST builders.
 #BuildParameter: {
 	name: string & !=""
@@ -96,8 +126,8 @@ package bootstrap
 	body: [...#ScanStatement]
 }
 
-// Pratt configuration: tokens and AST constructors come from data. Pratt
-// control flow remains native; scanning and lexical policies use #ScanProgram.
+// Pratt configuration: tokens and constructors come from data. #PrattProgram
+// owns expression control flow; primary dispatch and grammar lookup stay native.
 #InfixOperator: {
 	token:         string & =~"^[+*/&]$"
 	kind:          string & !=""

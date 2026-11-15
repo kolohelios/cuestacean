@@ -28,7 +28,7 @@ whitespace, and the [bootstrap export](../../bootstrap/README.md). The flake's
 `bootstrap-export` check builds the `exports` output: it exports each CUE
 fixture twice, compares the results, and requires malformed expression trees
 and evaluation-rule descriptions to fail export. JSON is not committed. The
-`bootstrap-executor` check builds handwritten evaluator/scanner/AST compiler seeds
+`bootstrap-executor` check builds handwritten evaluator/scanner/AST/Pratt compiler seeds
 without intermediate artifacts or the default `source` feature. It then uses
 the fresh exports to regenerate Rust before compiling the final package with
 the source frontend enabled. The final
@@ -37,7 +37,9 @@ compiled generated evaluators, interpreter/generated CLI parity, and integer
 boundary cases in the Nix sandbox. The [scanner DSL](../../bootstrap/scanner.md)
 adds interpreted/compiled control-flow comparisons and cursor/fuel guard tests.
 [AST builder](../../bootstrap/ast.md) checks cover typed expression lowering,
-argument ownership, escaped names, and parser tree parity.
+argument ownership, escaped names, and parser tree parity. [Pratt control](../../bootstrap/pratt.md)
+checks compare both execution modes over the source corpus and exercise alternate
+associativity, frame state, arithmetic and fuel guards.
 The `bootstrap-codegen` check verifies deterministic Rust generation and rejects
 committed-module drift. `nix build ./infra/tooling` from the
 repository root builds that same package without a separate publishing job.

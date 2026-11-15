@@ -1,0 +1,7 @@
+[
+  {"program":{"formatVersion":2,"body":[]}, "error":"formatVersion 1 required"},
+  {"program":{"formatVersion":1,"body":[{"op":"parsePratt"}]}, "error":"invalid Pratt control JSON"},
+  {"program":{"formatVersion":1,"body":[{"op":"while","body":[]}]}, "error":"invalid Pratt control JSON"},
+  {"program":{"formatVersion":1,"body":[{"op":"primary","extra":true}]}, "error":"invalid Pratt control JSON"},
+  {"program":{"formatVersion":1,"body":[{"op":"setBindingPower","value":{"op":"integer","value":256}}]}, "error":"invalid Pratt control JSON"}
+]

@@ -42,6 +42,14 @@
         "tests/valid/ast-duplicate"
       ];
       builderNames = builtins.concatStringsSep " " builderFixtures;
+      prattFixtures = [
+        "pratt"
+        "tests/valid/pratt-right"
+        "tests/valid/pratt-stalled"
+        "tests/valid/pratt-invalid-state"
+        "tests/valid/pratt-overflow"
+      ];
+      prattNames = builtins.concatStringsSep " " prattFixtures;
       exportFixtures = [
         "literal"
         "addition"
@@ -54,7 +62,8 @@
         "tests/valid/evaluation-left-twice"
       ]
       ++ scannerFixtures
-      ++ builderFixtures;
+      ++ builderFixtures
+      ++ prattFixtures;
       fixtureNames = builtins.concatStringsSep " " exportFixtures;
       jsonExports =
         pkgs:
@@ -141,6 +150,8 @@
             "bootstrap-scan-codegen"
             "--bin"
             "bootstrap-ast-codegen"
+            "--bin"
+            "bootstrap-pratt-codegen"
           ];
           postPatch = clearArtifacts;
           # The tests require generated modules. Break that bootstrap cycle here;
@@ -171,6 +182,10 @@
               for builder in ${builderNames}; do
                 name=$(basename "$builder")
                 bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$builder.json" | rustfmt --edition 2024 > "../generated/$name.rs"
+              done
+              for control in ${prattNames}; do
+                name=$(basename "$control")
+                bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" | rustfmt --edition 2024 > "../generated/$name.rs"
               done
             )
           '';
@@ -257,6 +272,13 @@
                   name=$(basename "$builder")
                   bootstrap-ast-codegen ${jsonExports pkgs}/"$builder.json" | rustfmt --edition 2024 > first.rs
                   bootstrap-ast-codegen ${jsonExports pkgs}/"$builder.json" | rustfmt --edition 2024 > second.rs
+                  cmp first.rs second.rs
+                  diff -u ${../../bootstrap/generated}/"$name.rs" first.rs
+                done
+                for control in ${prattNames}; do
+                  name=$(basename "$control")
+                  bootstrap-pratt-codegen ${jsonExports pkgs}/"$control.json" | rustfmt --edition 2024 > first.rs
+                  bootstrap-pratt-codegen ${jsonExports pkgs}/"$control.json" | rustfmt --edition 2024 > second.rs
                   cmp first.rs second.rs
                   diff -u ${../../bootstrap/generated}/"$name.rs" first.rs
                 done

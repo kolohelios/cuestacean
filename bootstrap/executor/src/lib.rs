@@ -11,6 +11,7 @@ pub mod ast;
 mod codegen;
 #[cfg(feature = "source")]
 pub mod parser;
+pub mod pratt;
 pub mod runtime;
 pub mod scanner;
 

@@ -77,6 +77,7 @@ fn supported_source_reaches_the_generated_evaluator() {
         ("group-spaced", 3),
         ("group-leading-newline", 3),
         ("symbol-bound", 3),
+        ("pratt-chain", 10),
     ] {
         let path = bootstrap().join(format!("source/valid/{name}.cue"));
         let program = parse(&read(&path), &grammar).expect(name);
