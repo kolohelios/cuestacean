@@ -26,6 +26,7 @@ fn supported_source_reaches_the_generated_evaluator() {
     for (name, expected) in [
         ("literal", 42),
         ("nested", 42),
+        ("comment", 1),
         ("signed", -5),
         ("minimum", i64::MIN),
         ("maximum", i64::MAX),

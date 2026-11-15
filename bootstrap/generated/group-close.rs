@@ -4,15 +4,54 @@ pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
     let mut cursor = Cursor::new(source, offset)?;
     while {
         cursor.step()?;
-        matches!(cursor.peek(), Some(9 | 10 | 13 | 32))
+        cursor.peek().is_some()
     } {
         cursor.step()?;
-        if matches!(cursor.peek(), Some(10 | 13)) {
+        if matches!(cursor.peek(), Some(9 | 10 | 13 | 32)) {
             cursor.step()?;
-            cursor.set_flag(true);
+            if matches!(cursor.peek(), Some(10 | 13)) {
+                cursor.step()?;
+                cursor.set_flag(true);
+            }
+            cursor.step()?;
+            cursor.advance()?;
+        } else {
+            cursor.step()?;
+            if matches!(cursor.peek(), Some(47)) {
+                cursor.step()?;
+                if matches!(cursor.peek_at(1), Some(47)) {
+                    cursor.step()?;
+                    cursor.advance()?;
+                    cursor.step()?;
+                    cursor.advance()?;
+                    while {
+                        cursor.step()?;
+                        cursor.peek().is_some()
+                    } {
+                        cursor.step()?;
+                        if matches!(cursor.peek(), Some(10)) {
+                            cursor.step()?;
+                            break;
+                        } else {
+                            cursor.step()?;
+                            if matches!(cursor.peek_char(), Some('\0' | '\u{feff}')) {
+                                cursor.step()?;
+                                cursor.reject("unsupported character in line comment")?;
+                            } else {
+                                cursor.step()?;
+                                cursor.advance_char()?;
+                            }
+                        }
+                    }
+                } else {
+                    cursor.step()?;
+                    break;
+                }
+            } else {
+                cursor.step()?;
+                break;
+            }
         }
-        cursor.step()?;
-        cursor.advance()?;
     }
     cursor.step()?;
     if matches!(cursor.peek(), Some(41)) {

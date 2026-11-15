@@ -445,6 +445,11 @@ impl Frame<'_, '_> {
             reason: "no current operator",
         })
     }
+    pub fn token_length(&self) -> Result<u8, Error> {
+        u8::try_from(self.operator()?.token.len()).map_err(|_| Error::ControlState {
+            reason: "operator token too long",
+        })
+    }
     pub fn precedence(&self) -> Result<u8, Error> {
         Ok(self.operator()?.precedence)
     }
@@ -725,6 +730,17 @@ impl Frame<'_, '_> {
         }
         self.parser.offset = self.token_end;
         self.consumed = true;
+        Ok(())
+    }
+    pub fn after_word_operator(&mut self) -> Result<(), Error> {
+        self.expression_phase()?;
+        if !self.consumed || self.right.is_some() {
+            return Err(Error::ControlState {
+                reason: "operator trivia out of order",
+            });
+        }
+        let scan = crate::scanner::after_word_operator(self.parser.source, self.parser.offset)?;
+        self.parser.offset = scan.offset;
         Ok(())
     }
     pub fn parse_right(&mut self) -> Result<(), Error> {

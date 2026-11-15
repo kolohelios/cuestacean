@@ -17,6 +17,7 @@
       scannerFixtures = [
         "whitespace"
         "after-operand"
+        "after-word-operator"
         "group-open"
         "group-close"
         "negation-prefix"
@@ -31,6 +32,7 @@
         "tests/valid/scanner-reject"
         "tests/valid/scanner-state"
         "tests/valid/scanner-lookahead"
+        "tests/valid/scanner-char-break"
       ];
       scannerNames = builtins.concatStringsSep " " scannerFixtures;
       builderFixtures = [

@@ -40,7 +40,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 
 - Signed decimal integers; `int`; inclusive literal bounds `>=` / `<=`;
   parentheses; `+`, `-`, `*`, `&`; unary expression negation;
-  `div`, `mod`, `quo`, `rem`.
+  `div`, `mod`, `quo`, `rem`; CUE-owned UTF-8 `//` comment trivia.
 - Binary operators are left-associative by default. `div/mod/quo/rem` share
   multiplication's precedence 20; addition/subtraction use 10, unification 5.
   Grammar data controls these choices. `/` is recognized for custom grammar
@@ -66,8 +66,10 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 - CUE may export integer zero as `-0`; native i64 output is canonical `0`.
   Differential checks normalize only that exact scalar spelling. Keep every
   nonzero integer byte-exact; do not use floating-point/jq normalization.
-- Newline-after-operand rejection remains conservative, not full CUE comma
-  insertion. Comments, declarations, references, structs/lists, strings, other
+- Newline-after-operand and newline-after-word-operator rejection remain
+  CUE-owned and conservative, not full CUE comma insertion. Only LF ends `//` comments; CR alone remains comment content.
+  NUL/BOM inside comments are rejected by CUE. Block comments, declarations,
+  references, structs/lists, strings, other
   scalar types, disjunctions/defaults and general constraint solving are absent.
 
 ### Resource and phase invariants
@@ -78,8 +80,9 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   groups, RHS expressions and unary recursion.
 - Primary state is private. Reject reentry, unfinished results, out-of-order
   stages and expression mutation while primary dispatch is active.
-- Scanner: checked initial UTF-8 boundary, ASCII-only advancement, checked
-  lookahead up to 64 bytes; fuel `128 * (remaining bytes + 1)` saturating.
+- Scanner: checked initial UTF-8 boundary, ASCII-only `advance`, explicit whole-
+  scalar `advanceChar`, scoped `break` and Unicode `charIn`, checked lookahead
+  up to 64 bytes; fuel `128 * (remaining bytes + 1)` saturating.
   Limits: 64 statements, 16 nesting levels, 128 predicate bytes.
 - AST builders: typed/scoped parameters and bounded expressions; repeated owned
   arguments clone only before their final use, which moves.
@@ -166,13 +169,13 @@ workspace's stale exports for changed specifications.
    source/tests. Inspect live workspace state rather than trusting old revisions.
 2. Fetch and start from `main@origin` after the latest maintainer merge. Use
    `jj workspace update-stale` when a shared operation has rewritten a worker.
-3. No next implementation was started after #53. Previous workers/panes and
-   additional workspaces were retired; only the default workspace remains.
+3. The original #54 restart point had no implementation in flight. Subsequent
+   work adds line-comment trivia and generic Unicode/break primitives; inspect
+   current history and live workers instead of relying on that old session state.
 4. Select a meaningful vertical slice and define interfaces before delegation.
-   A candidate is CUE-owned comment/trivia handling toward file syntax, with
-   explicit Unicode-cursor and newline-policy decisions. Structural values and
-   references need a design first: current `Value` is Copy and APIs return i64.
-   Do not assume another arithmetic feature is already selected.
+   Line-comment handling is now covered by the scanner contract. Structural
+   values and references need a design first: current `Value` is Copy and APIs
+   return i64. Do not assume another arithmetic feature is already selected.
 5. Use at most two isolated Herdr workers, clear file ownership and a coordinator
    for integration/fresh generation. Read back reviews, fix findings, validate
    locally, open with `--no-auto-merge`, watch CI and clean up created workers.

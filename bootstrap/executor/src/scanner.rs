@@ -19,6 +19,9 @@ mod generated_identifier;
 #[cfg(feature = "source")]
 #[path = "../../generated/after-operand.rs"]
 mod generated_after_operand;
+#[cfg(feature = "source")]
+#[path = "../../generated/after-word-operator.rs"]
+mod generated_after_word_operator;
 
 #[cfg(feature = "source")]
 #[path = "../../generated/group-open.rs"]
@@ -50,6 +53,8 @@ pub enum Error {
     Offset,
     #[snafu(display("scanner cannot advance at EOF or over a non-ASCII byte"))]
     Advance,
+    #[snafu(display("scanner cannot advance a character at EOF"))]
+    AdvanceChar,
     #[snafu(display("scanner execution budget exhausted"))]
     Budget,
     #[snafu(display("source byte {offset}: {reason}"))]
@@ -62,10 +67,10 @@ pub struct Scan {
     pub flag: bool,
 }
 
-/// Native boundary: validated cursor, ASCII-only advancement, one flag and fuel.
+/// Native boundary: validated cursor, checked advancement, one flag and fuel.
 /// Each emitted/interpreted statement or loop test consumes one step.
 pub struct Cursor<'a> {
-    source: &'a [u8],
+    source: &'a str,
     offset: usize,
     flag: bool,
     fuel: usize,
@@ -77,7 +82,7 @@ impl<'a> Cursor<'a> {
             return Err(Error::Offset);
         }
         Ok(Self {
-            source: source.as_bytes(),
+            source,
             offset,
             flag: false,
             fuel: (source.len() - offset)
@@ -91,7 +96,20 @@ impl<'a> Cursor<'a> {
     }
 
     pub fn peek_at(&self, ahead: usize) -> Option<u8> {
-        self.source.get(self.offset.checked_add(ahead)?).copied()
+        self.source
+            .as_bytes()
+            .get(self.offset.checked_add(ahead)?)
+            .copied()
+    }
+
+    pub fn peek_char(&self) -> Option<char> {
+        self.source[self.offset..].chars().next()
+    }
+
+    pub fn advance_char(&mut self) -> Result<(), Error> {
+        let character = self.peek_char().ok_or(Error::AdvanceChar)?;
+        self.offset += character.len_utf8();
+        Ok(())
     }
 
     pub fn step(&mut self) -> Result<(), Error> {
@@ -146,6 +164,8 @@ enum Predicate {
         #[serde(default)]
         ahead: usize,
     },
+    #[serde(rename = "charIn")]
+    CharIn { characters: Vec<char> },
     #[serde(rename = "flagIs")]
     FlagIs { value: bool },
     #[serde(rename = "hasByte")]
@@ -165,6 +185,12 @@ impl Predicate {
                 }
                 .fail()
             }
+            Self::CharIn { characters } if characters.is_empty() || characters.len() > 128 => {
+                ProgramSnafu {
+                    reason: "charIn requires 1..=128 characters",
+                }
+                .fail()
+            }
             Self::ByteIn { ahead, .. } if *ahead > 64 => ProgramSnafu {
                 reason: "byteIn lookahead exceeds 64 bytes",
             }
@@ -178,6 +204,9 @@ impl Predicate {
             Self::ByteIn { bytes, ahead } => cursor
                 .peek_at(*ahead)
                 .is_some_and(|byte| bytes.contains(&byte)),
+            Self::CharIn { characters } => cursor
+                .peek_char()
+                .is_some_and(|ch| characters.contains(&ch)),
             Self::FlagIs { value } => cursor.flag() == *value,
             Self::HasByte {} => cursor.peek().is_some(),
         }
@@ -185,7 +214,7 @@ impl Predicate {
 
     fn inverted_rust(&self) -> String {
         match self {
-            Self::ByteIn { .. } => format!("!{}", self.rust()),
+            Self::ByteIn { .. } | Self::CharIn { .. } => format!("!{}", self.rust()),
             Self::FlagIs { value } => Self::FlagIs { value: !value }.rust(),
             Self::HasByte {} => "cursor.peek().is_none()".into(),
         }
@@ -194,6 +223,17 @@ impl Predicate {
     fn rust(&self) -> String {
         let (bytes, ahead) = match self {
             Self::ByteIn { bytes, ahead } => (bytes, ahead),
+            Self::CharIn { characters } => {
+                let mut characters = characters.clone();
+                characters.sort_unstable();
+                characters.dedup();
+                let patterns = characters
+                    .iter()
+                    .map(|ch| format!("{ch:?}"))
+                    .collect::<Vec<_>>()
+                    .join(" | ");
+                return format!("matches!(cursor.peek_char(), Some({patterns}))");
+            }
             Self::FlagIs { value: true } => return "cursor.flag()".into(),
             Self::FlagIs { value: false } => return "!cursor.flag()".into(),
             Self::HasByte {} => return "cursor.peek().is_some()".into(),
@@ -237,13 +277,22 @@ enum Statement {
     },
     #[serde(rename = "advance")]
     Advance {},
+    #[serde(rename = "advanceChar")]
+    AdvanceChar {},
+    #[serde(rename = "break")]
+    Break {},
     #[serde(rename = "setFlag")]
     SetFlag { value: bool },
     #[serde(rename = "reject")]
     Reject { reason: String },
 }
 
-fn validate(body: &[Statement], depth: usize, nodes: &mut usize) -> Result<(), Error> {
+fn validate(
+    body: &[Statement],
+    depth: usize,
+    loops: usize,
+    nodes: &mut usize,
+) -> Result<(), Error> {
     if depth > 16 {
         return ProgramSnafu {
             reason: "exceeds 16 nesting levels",
@@ -261,7 +310,7 @@ fn validate(body: &[Statement], depth: usize, nodes: &mut usize) -> Result<(), E
         match statement {
             Statement::While { condition, body } => {
                 condition.validate()?;
-                validate(body, depth + 1, nodes)?;
+                validate(body, depth + 1, loops + 1, nodes)?;
             }
             Statement::If {
                 condition,
@@ -269,8 +318,8 @@ fn validate(body: &[Statement], depth: usize, nodes: &mut usize) -> Result<(), E
                 otherwise,
             } => {
                 condition.validate()?;
-                validate(then, depth + 1, nodes)?;
-                validate(otherwise, depth + 1, nodes)?;
+                validate(then, depth + 1, loops, nodes)?;
+                validate(otherwise, depth + 1, loops, nodes)?;
             }
             Statement::Reject { reason } if reason.is_empty() => {
                 return ProgramSnafu {
@@ -278,7 +327,17 @@ fn validate(body: &[Statement], depth: usize, nodes: &mut usize) -> Result<(), E
                 }
                 .fail();
             }
-            Statement::Advance {} | Statement::SetFlag { .. } | Statement::Reject { .. } => {}
+            Statement::Break {} if loops == 0 => {
+                return ProgramSnafu {
+                    reason: "break requires an enclosing loop",
+                }
+                .fail();
+            }
+            Statement::Advance {}
+            | Statement::AdvanceChar {}
+            | Statement::Break {}
+            | Statement::SetFlag { .. }
+            | Statement::Reject { .. } => {}
         }
     }
     Ok(())
@@ -292,11 +351,11 @@ fn parse(input: &str) -> Result<Program, Error> {
         }
         .fail();
     }
-    validate(&program.body, 0, &mut 0)?;
+    validate(&program.body, 0, 0, &mut 0)?;
     Ok(program)
 }
 
-fn execute(body: &[Statement], cursor: &mut Cursor<'_>) -> Result<(), Error> {
+fn execute(body: &[Statement], cursor: &mut Cursor<'_>) -> Result<bool, Error> {
     for statement in body {
         match statement {
             Statement::While { condition, body } => {
@@ -304,7 +363,9 @@ fn execute(body: &[Statement], cursor: &mut Cursor<'_>) -> Result<(), Error> {
                     cursor.step()?;
                     condition.test(cursor)
                 } {
-                    execute(body, cursor)?;
+                    if execute(body, cursor)? {
+                        break;
+                    }
                 }
             }
             Statement::If {
@@ -313,18 +374,28 @@ fn execute(body: &[Statement], cursor: &mut Cursor<'_>) -> Result<(), Error> {
                 otherwise,
             } => {
                 cursor.step()?;
-                execute(
+                if execute(
                     if condition.test(cursor) {
                         then
                     } else {
                         otherwise
                     },
                     cursor,
-                )?;
+                )? {
+                    return Ok(true);
+                }
             }
             Statement::Advance {} => {
                 cursor.step()?;
                 cursor.advance()?;
+            }
+            Statement::AdvanceChar {} => {
+                cursor.step()?;
+                cursor.advance_char()?;
+            }
+            Statement::Break {} => {
+                cursor.step()?;
+                return Ok(true);
             }
             Statement::SetFlag { value } => {
                 cursor.step()?;
@@ -336,7 +407,7 @@ fn execute(body: &[Statement], cursor: &mut Cursor<'_>) -> Result<(), Error> {
             }
         }
     }
-    Ok(())
+    Ok(false)
 }
 
 /// Reference execution of a validated JSON statement program.
@@ -347,16 +418,38 @@ pub fn interpret(input: &str, source: &str, offset: usize) -> Result<Scan, Error
     Ok(cursor.finish())
 }
 
-fn emit(body: &[Statement], output: &mut String) {
+// True only when every path reaching the end of this sequence instead breaks
+// the current loop. Nested loops consume their own breaks and may fall through.
+fn always_breaks(body: &[Statement]) -> bool {
+    body.iter().any(|statement| match statement {
+        Statement::Break {} => true,
+        Statement::If {
+            then, otherwise, ..
+        } => always_breaks(then) && always_breaks(otherwise),
+        _ => false,
+    })
+}
+
+fn emit(body: &[Statement], output: &mut String, depth: usize, break_label: Option<usize>) -> bool {
     for statement in body {
         match statement {
             Statement::While { condition, body } => {
-                output.push_str(&format!(
-                    "while {{ cursor.step()?; {} }} {{\n",
-                    condition.rust()
-                ));
-                emit(body, output);
-                output.push_str("}\n");
+                if always_breaks(body) {
+                    // A guaranteed break means there is exactly one condition test.
+                    output.push_str(&format!(
+                        "cursor.step()?;\nif {} {{\n'scan{depth}: {{\n",
+                        condition.rust()
+                    ));
+                    emit(body, output, depth + 1, Some(depth));
+                    output.push_str("}\n}\n");
+                } else {
+                    output.push_str(&format!(
+                        "while {{ cursor.step()?; {} }} {{\n",
+                        condition.rust()
+                    ));
+                    emit(body, output, depth + 1, None);
+                    output.push_str("}\n");
+                }
             }
             Statement::If {
                 condition,
@@ -364,24 +457,43 @@ fn emit(body: &[Statement], output: &mut String) {
                 otherwise,
             } => {
                 output.push_str("cursor.step()?;\n");
-                // Empty branches still consume fuel, but need no Rust no-op.
-                if then.is_empty() {
-                    if !otherwise.is_empty() {
-                        output.push_str(&format!("if {} {{\n", condition.inverted_rust()));
-                        emit(otherwise, output);
-                        output.push_str("}\n");
-                    }
+                let mut then_code = String::new();
+                let then_breaks = emit(then, &mut then_code, depth, break_label);
+                let mut else_code = String::new();
+                let else_breaks = emit(otherwise, &mut else_code, depth, break_label);
+                // Predicates are pure reads, so identical branches need no test.
+                if then_code == else_code {
+                    output.push_str(&then_code);
+                } else if then_code.is_empty() {
+                    output.push_str(&format!("if {} {{\n", condition.inverted_rust()));
+                    output.push_str(&else_code);
+                    output.push_str("}\n");
                 } else {
                     output.push_str(&format!("if {} {{\n", condition.rust()));
-                    emit(then, output);
-                    if !otherwise.is_empty() {
+                    output.push_str(&then_code);
+                    if !else_code.is_empty() {
                         output.push_str("} else {\n");
-                        emit(otherwise, output);
+                        output.push_str(&else_code);
                     }
                     output.push_str("}\n");
                 }
+                if then_breaks && else_breaks {
+                    return true;
+                }
             }
             Statement::Advance {} => output.push_str("cursor.step()?;\ncursor.advance()?;\n"),
+            Statement::AdvanceChar {} => {
+                output.push_str("cursor.step()?;\ncursor.advance_char()?;\n")
+            }
+            Statement::Break {} => {
+                output.push_str("cursor.step()?;\n");
+                if let Some(label) = break_label {
+                    output.push_str(&format!("break 'scan{label};\n"));
+                } else {
+                    output.push_str("break;\n");
+                }
+                return true;
+            }
             Statement::SetFlag { value } => {
                 output.push_str(&format!("cursor.step()?;\ncursor.set_flag({value});\n"))
             }
@@ -390,6 +502,7 @@ fn emit(body: &[Statement], output: &mut String) {
             }
         }
     }
+    false
 }
 
 /// Compile scanner control flow to Rust, using only the shared safe cursor.
@@ -406,9 +519,15 @@ pub fn generate(input: &str) -> Result<String, Error> {
         "mut cursor"
     };
     output.push_str(&format!("let {binding} = Cursor::new(source, offset)?;\n"));
-    emit(&program.body, &mut output);
+    emit(&program.body, &mut output, 0, None);
     output.push_str("Ok(cursor.finish())\n}\n");
     Ok(output)
+}
+
+/// CUE-owned trivia/newline policy selected for word operators by parser control.
+#[cfg(feature = "source")]
+pub fn after_word_operator(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_after_word_operator::scan(source, offset)
 }
 
 /// Production whitespace scanner, compiled from the CUE statement program.
@@ -470,7 +589,65 @@ pub fn identifier(source: &str, offset: usize) -> Result<Scan, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Predicate, Statement, validate};
+    use super::{Cursor, Error, Predicate, Statement, generate, interpret, validate};
+
+    #[test]
+    fn unicode_cursor_preserves_boundaries_and_ascii_contract() {
+        assert!(matches!(Cursor::new("λ", 1), Err(Error::Offset)));
+        let mut cursor = Cursor::new("λ😀a", 0).expect("boundary");
+        assert!(matches!(cursor.advance(), Err(Error::Advance)));
+        assert_eq!(cursor.peek_char(), Some('λ'));
+        cursor.advance_char().expect("lambda");
+        cursor.advance_char().expect("emoji");
+        assert_eq!(cursor.finish().offset, 6);
+        let mut eof = Cursor::new("", 0).expect("EOF boundary");
+        assert!(matches!(eof.advance_char(), Err(Error::AdvanceChar)));
+    }
+
+    #[test]
+    fn char_predicates_validate_and_escape() {
+        let program = r#"{"formatVersion":1,"body":[{"op":"if","condition":{"op":"charIn","characters":["λ","\n","'","λ"]},"then":[{"op":"advanceChar"}]}]}"#;
+        assert_eq!(interpret(program, "λ!", 0).expect("scan").offset, 2);
+        let code = generate(program).expect("generate");
+        assert!(code.contains("Some('\\n' | '\\'' | 'λ')"));
+        for values in [r#"[]"#, r#"[""]"#, r#"["ab"]"#] {
+            let invalid = format!(
+                r#"{{"formatVersion":1,"body":[{{"op":"if","condition":{{"op":"charIn","characters":{values}}},"then":[]}}]}}"#
+            );
+            assert!(generate(&invalid).is_err());
+        }
+        let values = vec!["x"; 129];
+        let invalid = format!(
+            r#"{{"formatVersion":1,"body":[{{"op":"if","condition":{{"op":"charIn","characters":{}}},"then":[]}}]}}"#,
+            serde_json::to_string(&values).expect("serialize")
+        );
+        assert!(generate(&invalid).is_err());
+    }
+
+    #[test]
+    fn break_is_scoped_and_unreachable_suffixes_are_not_emitted() {
+        let invalid = r#"{"formatVersion":1,"body":[{"op":"if","condition":{"op":"hasByte"},"then":[{"op":"break"}]}]}"#;
+        assert!(generate(invalid).is_err());
+        let program = r#"{"formatVersion":1,"body":[{"op":"while","condition":{"op":"hasByte"},"body":[{"op":"while","condition":{"op":"hasByte"},"body":[{"op":"break"},{"op":"advance"}]},{"op":"if","condition":{"op":"charIn","characters":["λ"]},"then":[{"op":"break"}],"else":[{"op":"break"}]},{"op":"advance"}]},{"op":"setFlag","value":true}]}"#;
+        let result = interpret(program, "λ", 0).expect("scan");
+        assert_eq!(result.offset, 0);
+        assert!(result.flag);
+        let code = generate(program).expect("generate");
+        assert!(!code.contains("cursor.advance()?"));
+        assert!(code.contains("cursor.set_flag(true)"));
+        assert!(!code.contains("while "));
+        assert!(code.contains("break 'scan0;"));
+        assert!(code.contains("break 'scan1;"));
+        assert!(!code.contains("cursor.peek_char()")); // identical branches
+        assert_eq!(code.matches("cursor.step()?").count(), 6);
+        let conditional = r#"{"formatVersion":1,"body":[{"op":"while","condition":{"op":"hasByte"},"body":[{"op":"if","condition":{"op":"flagIs","value":true},"then":[{"op":"break"}]},{"op":"advance"}]}]}"#;
+        let code = generate(conditional).expect("generate regular loop");
+        assert!(code.contains("while "));
+        assert!(code.contains("break;"));
+        let looping =
+            r#"{"formatVersion":1,"body":[{"op":"while","condition":{"op":"hasByte"},"body":[]}]}"#;
+        assert!(matches!(interpret(looping, "x", 0), Err(Error::Budget)));
+    }
 
     #[test]
     fn byte_sets_compact_contiguous_runs_without_changing_sparse_patterns() {
@@ -495,10 +672,10 @@ mod tests {
     #[test]
     fn statement_and_nesting_limits_are_checked_before_execution_or_emission() {
         let mut body: Vec<_> = (0..64).map(|_| Statement::Advance {}).collect();
-        validate(&body, 0, &mut 0).expect("64 statements allowed");
+        validate(&body, 0, 0, &mut 0).expect("64 statements allowed");
         body.push(Statement::Advance {});
         assert!(
-            validate(&body, 0, &mut 0)
+            validate(&body, 0, 0, &mut 0)
                 .expect_err("statement cap")
                 .to_string()
                 .contains("64 statements")
@@ -513,7 +690,7 @@ mod tests {
                 body,
             }];
         }
-        validate(&body, 0, &mut 0).expect("16 nesting levels allowed");
+        validate(&body, 0, 0, &mut 0).expect("16 nesting levels allowed");
         body = vec![Statement::While {
             condition: Predicate::ByteIn {
                 bytes: vec![32],
@@ -522,7 +699,7 @@ mod tests {
             body,
         }];
         assert!(
-            validate(&body, 0, &mut 0)
+            validate(&body, 0, 0, &mut 0)
                 .expect_err("nesting cap")
                 .to_string()
                 .contains("16 nesting levels")

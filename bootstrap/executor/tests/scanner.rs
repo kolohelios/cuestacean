@@ -7,6 +7,8 @@ use serde_json::Value;
 
 #[path = "../../generated/scanner-advance.rs"]
 mod advance;
+#[path = "../../generated/scanner-char-break.rs"]
+mod char_break;
 #[path = "../../generated/scanner-horizontal.rs"]
 mod horizontal;
 #[path = "../../generated/scanner-lookahead.rs"]
@@ -42,6 +44,36 @@ struct Case {
     flag: bool,
     horizontal_end: usize,
     horizontal_flag: bool,
+}
+
+#[test]
+fn compiled_character_and_nested_break_program_preserves_flow() {
+    let control = program("tests/valid/scanner-char-break");
+    for (text, offset, flag) in [
+        ("λ!", 2, true),
+        ("λx", 2, true),
+        ("λ", 2, true),
+        ("éλx", 4, true),
+        ("😀x", 4, true),
+        ("'x", 1, true),
+        ("\\x", 1, true),
+        ("\nx", 1, true),
+        ("é", 2, false),
+    ] {
+        let expected = Scan { offset, flag };
+        assert_eq!(
+            char_break::scan(text, 0).expect("compiled character flow"),
+            expected,
+            "{text:?}"
+        );
+        assert_eq!(
+            scanner::interpret(&control, text, 0).expect("reference character flow"),
+            expected,
+            "{text:?}"
+        );
+    }
+    let generated = scanner::generate(&control).expect("generate");
+    assert!(!generated.contains("unreachable after"));
 }
 
 #[test]
@@ -835,7 +867,11 @@ fn validation_is_shared_and_generation_is_repeatable() {
             .expect("no-op source")
             .contains("let cursor =")
     );
-    let mut reordered: Value = serde_json::from_str(&input).expect("scanner");
+    let mut reordered = serde_json::json!({"formatVersion":1,"body":[{
+        "op":"while", "condition":{"op":"byteIn","bytes":[32,9]},
+        "body":[{"op":"advance"}]
+    }]});
+    let byte_set_source = scanner::generate(&reordered.to_string()).expect("byte-set program");
     let bytes = reordered
         .pointer_mut("/body/0/condition/bytes")
         .expect("predicate")
@@ -844,7 +880,7 @@ fn validation_is_shared_and_generation_is_repeatable() {
     bytes.reverse();
     bytes.push(bytes[0].clone());
     assert_eq!(
-        first,
+        byte_set_source,
         scanner::generate(&serde_json::to_string(&reordered).expect("serialize"))
             .expect("duplicate byte set")
     );

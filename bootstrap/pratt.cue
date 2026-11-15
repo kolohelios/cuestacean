@@ -17,7 +17,11 @@ package bootstrap
 			then: [{op: "setBindingPower", value: {
 				op: "add", left: {op: "precedence"}, right: {op: "integer", value: 1}
 			}}]
-		}, {op: "advanceOperator"}, {op: "parseRight"}, {op: "buildBinary"},
+		}, {op: "advanceOperator"}, {
+			op: "if"
+			condition: {op: "atLeast", left: {op: "tokenLength"}, right: {op: "integer", value: 3}}
+			then: [{op: "afterWordOperator"}]
+		}, {op: "parseRight"}, {op: "buildBinary"},
 			{op: "afterOperand"}, {op: "lookupOperator"}]
 	}]
 }

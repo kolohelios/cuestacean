@@ -29,10 +29,12 @@ conditions in this same version-1 DSL.
 
 Conditions read `hasOperator`, `leftAssociative`, literal booleans, numeric
 `atLeast`, or short-circuit `and`. Numbers read the frame `minimum`, current
-operator `precedence`, a literal u8, or checked `add`. In the normal program,
+operator `precedence`/`tokenLength`, a literal u8, or checked `add`. In the normal program,
 left-associative operators recurse with precedence + 1; right-associative ones
 use precedence unchanged. Operator commitment occurs after the comparison,
-so a lower-precedence candidate remains available to the caller.
+so a lower-precedence candidate remains available to the caller. After commit,
+CUE checks token length and selects `afterWordOperator` for the current three-byte
+word operators, preserving pinned CUE's newline rejection before RHS parsing.
 
 Each expression frame owns its left/right values, pending operator, proposed
 binding power, and input minimum/depth. Native intrinsics reject invalid action

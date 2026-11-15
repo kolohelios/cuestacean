@@ -20,6 +20,7 @@ pub(crate) struct Program {
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum Number {
     Minimum {},
+    TokenLength {},
     Precedence {},
     Integer {
         value: u8,
@@ -55,6 +56,7 @@ enum Condition {
 enum Statement {
     Primary {},
     AfterOperand {},
+    AfterWordOperator {},
     LookupOperator {},
     AdvanceOperator {},
     ParseRight {},
@@ -131,6 +133,7 @@ impl Number {
     fn rust(&self) -> String {
         match self {
             Self::Minimum {} => "_frame.minimum()".into(),
+            Self::TokenLength {} => "_frame.token_length()?".into(),
             Self::Precedence {} => "_frame.precedence()?".into(),
             Self::Integer { value } => format!("{value}u8"),
             Self::Add { left, right } => {
@@ -142,6 +145,7 @@ impl Number {
     fn value(&self, frame: &crate::parser::Frame<'_, '_>) -> Result<u8, crate::parser::Error> {
         Ok(match self {
             Self::Minimum {} => frame.minimum(),
+            Self::TokenLength {} => frame.token_length()?,
             Self::Precedence {} => frame.precedence()?,
             Self::Integer { value } => *value,
             Self::Add { left, right } => {
@@ -199,6 +203,7 @@ fn execute(
                 match statement {
                     Statement::Primary {} => frame.primary()?,
                     Statement::AfterOperand {} => frame.after_operand()?,
+                    Statement::AfterWordOperator {} => frame.after_word_operator()?,
                     Statement::LookupOperator {} => frame.lookup_operator()?,
                     Statement::AdvanceOperator {} => frame.advance_operator()?,
                     Statement::ParseRight {} => frame.parse_right()?,
@@ -266,6 +271,7 @@ fn emit(body: &[Statement], output: &mut String) {
         match statement {
             Statement::Primary {} => output.push_str("_frame.primary()?;\n"),
             Statement::AfterOperand {} => output.push_str("_frame.after_operand()?;\n"),
+            Statement::AfterWordOperator {} => output.push_str("_frame.after_word_operator()?;\n"),
             Statement::LookupOperator {} => output.push_str("_frame.lookup_operator()?;\n"),
             Statement::AdvanceOperator {} => output.push_str("_frame.advance_operator()?;\n"),
             Statement::ParseRight {} => output.push_str("_frame.parse_right()?;\n"),

@@ -34,7 +34,7 @@ to typed Rust functions, rather than native JSON-map assembly.
 The default grammar accepts decimal signed integers, the `int` type atom,
 inclusive bounds (`>=`, `<=`), addition, subtraction, multiplication,
 integer division/remainder (`div`, `mod`, `quo`, `rem`), unification (`&`),
-and parentheses. Multiplication and integer division/remainder bind more tightly than
+parentheses and `//` line-comment trivia. Multiplication and integer division/remainder bind more tightly than
 addition/subtraction, which share a precedence and bind more tightly than `&`;
 binary operators are left-associative, and unary negation binds more tightly.
 These choices live in CUE grammar data, not in the parser algorithm.
@@ -49,6 +49,23 @@ follow an operand before another token. This avoids silently ignoring CUE's
 implicit comma insertion at line breaks. The check and its diagnostic now live
 in the CUE after-operand program. Trailing whitespace, including newlines at
 EOF, is allowed. This is still conservative rejection, not full comma insertion.
+
+### Line comments
+
+Shared CUE trivia skips `//` through LF or EOF, including Unicode comment text.
+Comments work before operands, after operators and at EOF. They do not join
+split tokens: `qu//...` followed by `o` is not the operator `quo`.
+Only LF ends the comment; CR alone stays inside it. The LF is processed by the
+outer whitespace loop, so an operand followed by a comment and another token
+on the next line still triggers conservative newline rejection. Trailing
+comment/newline at EOF remains valid. Pinned CUE rejects newline after a word
+operator (`8 quo//...` followed by LF and `2`); the CUE parser control now
+selects a word-operator trivia policy with its own rejection reason. Symbol
+operators may still be followed by comment/newline before the next operand.
+
+NUL and embedded BOM inside comments are rejected at their byte offsets by
+CUE-owned policy. Non-ASCII identifiers/whitespace and `/* ... */` block comments
+remain unsupported; pinned upstream CUE also rejects block-comment syntax.
 
 ### Checked subtraction
 
@@ -119,7 +136,7 @@ Exclusive bounds, fractional thresholds, and general bound operands such as
 Unification supports concrete integers, abstract `int`, and inclusive bounds,
 but no other types, general symbolic constraints, or first-class bottom values.
 Only scalar output requires concreteness. Arithmetic requires concrete operands,
-so `int + 1` cannot produce a result. Full declarations, packages, comments,
+so `int + 1` cannot produce a result. Full declarations, packages,
 references, other number spellings/operators, and other unary operators
 are unsupported. Concrete values, thresholds, and arithmetic results are bounded
 to i64, narrower than upstream CUE's concrete integer domain. The parser limits

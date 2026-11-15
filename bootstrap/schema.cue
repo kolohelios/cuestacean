@@ -95,7 +95,7 @@ package bootstrap
 #UnifyProgram: {formatVersion: 1, result: #UnifyExpression}
 
 // Expression-parser control flow; native frame operations are explicit intrinsics.
-#PrattNumber: {op: "minimum"} | {op: "precedence"} | {op: "integer", value: uint & <=255} | {
+#PrattNumber: {op: "minimum"} | {op: "precedence"} | {op: "tokenLength"} | {op: "integer", value: uint & <=255} | {
 	op:    "add"
 	left:  #PrattNumber
 	right: #PrattNumber
@@ -109,7 +109,7 @@ package bootstrap
 	left:  #PrattCondition
 	right: #PrattCondition
 }
-#PrattStatement: {op: "primary" | "afterOperand" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanNegation" | "advanceNegation" | "buildNegation"} | {
+#PrattStatement: {op: "primary" | "afterOperand" | "afterWordOperator" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanNegation" | "advanceNegation" | "buildNegation"} | {
 	op:      "parseGroup" | "parseNegation"
 	minimum: #PrattNumber
 } | {
@@ -151,16 +151,20 @@ package bootstrap
 
 // Executable scanner statements, separate from expression evaluation rules.
 // Control flow lives in these programs; cursor safety remains native.
-#ScanPredicate: #ScanByteIn | #ScanFlagIs | #ScanHasByte
+#ScanPredicate: #ScanByteIn | #ScanCharIn | #ScanFlagIs | #ScanHasByte
 #ScanByteIn: {
 	ahead?: uint & <=64
 	op:     "byteIn"
 	bytes: [uint & <=127, ...uint & <=127]
 }
+#ScanCharIn: {
+	op: "charIn"
+	characters: [string & =~"(?s)^.$", ...string & =~"(?s)^.$"]
+}
 #ScanFlagIs: {op: "flagIs", value: bool}
 #ScanHasByte: {op: "hasByte"}
 
-#ScanStatement: #ScanWhile | #ScanIf | #ScanAdvance | #ScanSetFlag | #ScanReject
+#ScanStatement: #ScanWhile | #ScanIf | #ScanAdvance | #ScanAdvanceChar | #ScanBreak | #ScanSetFlag | #ScanReject
 #ScanWhile: {
 	op:        "while"
 	condition: #ScanPredicate
@@ -173,6 +177,8 @@ package bootstrap
 	else: *[] | [...#ScanStatement]
 }
 #ScanAdvance: {op: "advance"}
+#ScanAdvanceChar: {op: "advanceChar"}
+#ScanBreak: {op: "break"}
 #ScanSetFlag: {op: "setFlag", value: bool}
 #ScanReject: {op: "reject", reason: string & !=""}
 #ScanProgram: {
