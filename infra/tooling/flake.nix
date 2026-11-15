@@ -13,13 +13,40 @@
       shaka,
       ...
     }:
+    let
+      executor =
+        pkgs:
+        pkgs.rustPlatform.buildRustPackage {
+          pname = "bootstrap-executor";
+          version = "0.1.0";
+          src = ../../bootstrap;
+          postUnpack = ''
+            sourceRoot="$sourceRoot/executor"
+          '';
+          cargoLock.lockFile = ../../bootstrap/executor/Cargo.lock;
+          nativeCheckInputs = [
+            pkgs.rustfmt
+            pkgs.clippy
+          ];
+          preCheck = ''
+            cargo fmt --check
+            cargo clippy --offline --all-targets -- -D warnings
+          '';
+        };
+    in
     {
+      packages = kolohelios-nix.lib.forEachSupportedSystem ({ pkgs, ... }: { default = executor pkgs; });
+
       devShells = kolohelios-nix.lib.forEachSupportedSystem (
         { system, pkgs, ... }:
         {
           default = pkgs.mkShell {
             packages = [
               pkgs.cue
+              pkgs.rustc
+              pkgs.cargo
+              pkgs.rustfmt
+              pkgs.clippy
               pkgs.actionlint
               pkgs.shellcheck
               pkgs.taplo
@@ -37,6 +64,7 @@
       checks = kolohelios-nix.lib.forEachSupportedSystem (
         { pkgs, ... }:
         {
+          bootstrap-executor = executor pkgs;
           bootstrap-export =
             pkgs.runCommand "cuestacean-bootstrap-export"
               {
@@ -48,7 +76,7 @@
               ''
                 set -euo pipefail
                 export LC_ALL=C TZ=UTC
-                for fixture in literal addition evaluation; do
+                for fixture in literal addition evaluation tests/valid/evaluation-left-twice; do
                   cue export ${../../bootstrap/schema.cue} ${../../bootstrap}/$fixture.cue --out json | jq -S . > first.json
                   cue export ${../../bootstrap/schema.cue} ${../../bootstrap}/$fixture.cue --out json | jq -S . > second.json
                   cmp first.json second.json

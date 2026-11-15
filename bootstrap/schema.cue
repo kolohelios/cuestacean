@@ -26,7 +26,7 @@ package bootstrap
 }
 
 // Rules are selected by the input node's kind. Their result instructions are
-// data for a future executor, not CUE expressions that compute an answer here.
+// data for the bootstrap executor, not CUE expressions that compute an answer here.
 #EvaluationRules: {
 	formatVersion: 1
 	rules: {
