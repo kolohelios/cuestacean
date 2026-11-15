@@ -1,0 +1,70 @@
+# CUE-hosted expression control flow
+
+[`pratt.cue`](pratt.cue) now owns the expression loop: parse a primary, inspect
+an infix candidate, compare its precedence with the frame minimum, adjust the
+right binding power for left associativity, commit the operator, recurse, and
+combine the operands. `bootstrap-pratt-codegen <control.json>` emits real Rust
+`while`/`if` control flow and checked frame calls. The production parser executes
+that generated function, not the reference interpreter or a native Pratt loop.
+
+This is a larger executable boundary, **not a fully self-hosted parser or
+compiler**. The backend still handles primary dispatch (including grouping),
+grammar validation/lookup, scanner/builder invocation, checked i64 conversion,
+and safe frame transitions. Group primaries reset the expression minimum to
+zero natively; right-hand recursion takes its binding power from the CUE program.
+All compilers and the reference interpreter remain handwritten. Go CUE still
+exports the specifications; supported source syntax is unchanged.
+
+## Control contract
+
+`#PrattProgram` contains version 1 and a statement `body`. Statements include
+`while`, `if`/`else`, `setBindingPower`, and explicit frame intrinsics:
+`primary`, `afterOperand`, `lookupOperator`, `advanceOperator`, `parseRight`,
+and `buildBinary`. There is deliberately no `parsePratt` instruction that hides
+the loop in Rust.
+
+Conditions read `hasOperator`, `leftAssociative`, literal booleans, numeric
+`atLeast`, or short-circuit `and`. Numbers read the frame `minimum`, current
+operator `precedence`, a literal u8, or checked `add`. In the normal program,
+left-associative operators recurse with precedence + 1; right-associative ones
+use precedence unchanged. Operator commitment occurs after the comparison,
+so a lower-precedence candidate remains available to the caller.
+
+Each expression frame owns its left/right values, pending operator, proposed
+binding power, and input minimum/depth. Native intrinsics reject invalid action
+ordering rather than exposing mutable fields. Group recursion and right-hand
+recursion select the same driver, including alternate compiled/interpreted
+programs. Binary construction calls the existing CUE-defined AST builder.
+
+## Safety and evidence
+
+Each action, `if` test, and `while` condition test consumes one of 4096 steps
+per expression frame. Existing native source limits remain 64 AST nodes and
+32 expression levels. Binding-power addition is checked u8 arithmetic, not
+wrapping. Control documents are limited to 512 JSON nodes and 32 JSON levels
+before typed decoding/emission. These are bootstrap limits, not production
+hardening or CUE language limits.
+
+Tests compare complete trees **and error strings** between generated and
+interpreted execution over every source fixture, including rejected inputs.
+Existing pinned-upstream comparisons exercise the production generated driver.
+Alternate CUE control omits the associativity increment, producing a right-nested
+chain and changing checked-intermediate-overflow behavior. Separate compiled
+programs verify fuel exhaustion, invalid state, and binding-power overflow.
+Runtime grammar mutations still control precedence, associativity, kinds and
+field names. Parser/CLI lexical diagnostics remain covered by their existing
+exact checks.
+
+`parse_with_driver` is a trusted native testing/embedding hook; arbitrary Rust
+drivers are not sandboxed. Fuel checks are guaranteed by the compiler and
+interpreter for this DSL, not by arbitrary caller-written Rust.
+
+Nix adds the handwritten control compiler to its artifact-free seeds and
+regenerates all drivers before the final default-feature build and full tests.
+JSON remains build-only; committed Rust remains a drift baseline. Local checks:
+
+```sh
+nix develop ./infra/tooling --command cargo test --manifest-path bootstrap/executor/Cargo.toml --test pratt
+```
+
+See [generated-module regeneration](generated/README.md) for the full commands.

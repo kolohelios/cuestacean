@@ -20,8 +20,7 @@ This is more than a byte-class table: CUE defines the loop and branch bodies,
 including when to advance, inspect state, update state, and reject input.
 These are small scanning algorithms and policies,
 **not a self-hosted parser or compiler**. Checked i64 conversion, grammar
-validation, grammar lookup, precedence/associativity,
-expression recursion and Pratt parsing,
+validation, grammar lookup, primary dispatch and frame safety,
 the statement compiler/interpreter,
 JSON loading, and safe cursor
 primitives remain handwritten. Upstream Go CUE still exports specifications.
@@ -113,7 +112,9 @@ The closing program skips shared whitespace, consumes `)`, or rejects with
 newlines, not recognition; failure is an error. Grouping is still fixed to
 parentheses by native grammar validation, not configurable to other delimiters.
 
-Expression recursion and the order of scanner calls remain native. Empty groups
+Primary dispatch and grouping recursion remain native; the separate
+[Pratt control DSL](pratt.md) owns the expression loop and right-hand recursion
+decisions. Empty groups
 still fail as missing operands, and a newline before `)` is rejected by the
 operand policy before the closing program runs. Direct closing scans can skip
 newlines; that does not expand the parser's conservative source subset.
@@ -130,8 +131,8 @@ It commits an infix span only after the binding-power check, so lookahead does
 not consume lower-precedence operators prematurely. Disabled bounds/operators,
 constructor names, fields, precedence and associativity still come from grammar
 data. These configuration tests are not assertions of alternate CUE semantics.
-The parser no longer directly peeks at source bytes; grammar lookup, AST
-construction and expression recursion remain native.
+The parser no longer directly peeks at source bytes. Grammar lookup remains
+native; AST construction and expression-loop policy use their separate CUE DSLs.
 
 ## Explicit native safety boundary
 
