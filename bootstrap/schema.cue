@@ -19,6 +19,27 @@ package bootstrap
 	entry:         #Expression
 }
 
+// Configuration for a bootstrap Pratt parser. The parsing algorithm itself
+// remains handwritten initially; tokens and AST construction come from data.
+#InfixOperator: {
+	token:         string & =~"^[+*/]$"
+	kind:          string & !=""
+	leftField:     string & !="" & !="kind"
+	rightField:    string & !="" & !="kind" & !=leftField
+	precedence:    int & >=1 & <=100
+	associativity: "left" | "right"
+}
+
+#Grammar: {
+	formatVersion: 1
+	integer: {
+		kind:       string & !=""
+		valueField: string & !="" & !="kind"
+	}
+	group: {open: "(", close: ")"}
+	operators: [#InfixOperator, ...#InfixOperator]
+}
+
 // An instruction to recursively evaluate a child of the current input node.
 #EvaluateChild: {
 	op:    "evaluate"

@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "group": {
+    "close": ")",
+    "open": "("
+  },
+  "integer": {
+    "kind": "integer",
+    "valueField": "value"
+  },
+  "operators": [
+    {
+      "associativity": "left",
+      "kind": "add",
+      "leftField": "left",
+      "precedence": 10,
+      "rightField": "right",
+      "token": "+"
+    }
+  ]
+}
