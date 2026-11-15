@@ -49,9 +49,11 @@ The handwritten executor now also includes a rule-to-Rust generator. Its
 with the interpreter for fixture results and error cases. The normal generated
 module also runs through `nix run ./infra/tooling#generated -- <program.json>`,
 with its rules compiled in. CLI tests compare it against the interpreter.
-This lowers the exported rule DSL to Rust; it does not compile CUE source or
-rebuild itself.
-The shared native runtime and the generator remain handwritten.
+The Nix build discards staged intermediate artifacts and regenerates JSON and
+Rust before compiling, using a handwritten generator seed. This lowers the
+exported rule DSL to Rust; it does not implement CUE evaluation or rebuild the
+generator from CUE. The shared native runtime and the generator remain
+handwritten.
 
 The syntax and rules remain experimental, not a settled intermediate
 representation. They exercise the source-to-artifact boundary that Cuestacean
