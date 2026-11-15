@@ -17,6 +17,8 @@
       scannerFixtures = [
         "whitespace"
         "after-operand"
+        "group-open"
+        "group-close"
         "decimal"
         "identifier"
         "tests/valid/scanner-horizontal"

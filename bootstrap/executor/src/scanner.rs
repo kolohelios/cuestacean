@@ -20,6 +20,14 @@ mod generated_identifier;
 #[path = "../../generated/after-operand.rs"]
 mod generated_after_operand;
 
+#[cfg(feature = "source")]
+#[path = "../../generated/group-open.rs"]
+mod generated_group_open;
+
+#[cfg(feature = "source")]
+#[path = "../../generated/group-close.rs"]
+mod generated_group_close;
+
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("invalid scanner JSON: {source}"))]
@@ -382,6 +390,19 @@ pub fn whitespace(source: &str, offset: usize) -> Result<Scan, Error> {
 #[cfg(feature = "source")]
 pub fn after_operand(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_after_operand::scan(source, offset)
+}
+
+/// Recognize and consume an opening parenthesis; the flag records a match.
+#[cfg(feature = "source")]
+pub fn group_open(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_group_open::scan(source, offset)
+}
+
+/// Skip whitespace, require a closing parenthesis and consume it.
+/// The result flag reports newlines in skipped whitespace, not token recognition.
+#[cfg(feature = "source")]
+pub fn group_close(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_group_close::scan(source, offset)
 }
 
 /// Validate decimal spelling (digits required, no leading zeroes), not magnitude.

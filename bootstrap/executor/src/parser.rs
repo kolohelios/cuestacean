@@ -1,5 +1,5 @@
 //! Narrow bootstrap Pratt parser. Whitespace, decimal and identifier scanning are
-//! CUE-generated, including decimal spelling and operand-newline checks.
+//! CUE-generated, including decimal spelling, operand-newline and delimiter checks.
 //! Conversion, grammar validation, lookup and Pratt parsing remain native.
 
 use std::collections::BTreeSet;
@@ -230,14 +230,12 @@ impl Parser<'_> {
             return self.error("expression exceeds 32 parsing levels");
         }
         self.whitespace()?;
-        let mut left = if self.peek() == Some(self.grammar.group.open.as_bytes()[0]) {
-            self.offset += 1;
+        let group = crate::scanner::group_open(self.source, self.offset)?;
+        let mut left = if group.flag {
+            self.offset = group.offset;
             let value = self.expression(0, depth + 1)?;
-            self.whitespace()?;
-            if self.peek() != Some(self.grammar.group.close.as_bytes()[0]) {
-                return self.error("expected closing parenthesis");
-            }
-            self.offset += 1;
+            let close = crate::scanner::group_close(self.source, self.offset)?;
+            self.offset = close.offset;
             value
         } else if let Some(bound) = self
             .grammar

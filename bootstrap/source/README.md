@@ -16,9 +16,10 @@ associativity, grouping, and AST constructors for a bootstrap Pratt parser.
 It exports to `grammar.json` in the Nix `exports` output and is compiled into
 the frontend. [Whitespace, decimal, and ASCII identifier scanning](../scanner.md)
 are CUE-authored statement programs compiled to Rust, including start-byte
-recognition, scanning loops, decimal lexical rejection, and operand-newline policy.
+recognition, scanning loops, decimal lexical rejection, operand-newline policy,
+and parenthesis-token consumption/validation.
 Checked i64 conversion, grammar validation, keyword lookup, AST construction,
-symbol dispatch, and Pratt parsing remain native;
+bound/infix dispatch, expression recursion, and Pratt parsing remain native;
 grammar configuration alone is not self-hosted parser machinery.
 
 ## Deliberately small subset

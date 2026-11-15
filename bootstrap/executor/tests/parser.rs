@@ -73,6 +73,9 @@ fn supported_source_reaches_the_generated_evaluator() {
         ("decimal-negative-zero", 0),
         ("decimal-bound-negative-zero", 0),
         ("operand-trailing-newline", 3),
+        ("group-nested", 21),
+        ("group-spaced", 3),
+        ("group-leading-newline", 3),
     ] {
         let path = bootstrap().join(format!("source/valid/{name}.cue"));
         let program = parse(&read(&path), &grammar).expect(name);
@@ -198,6 +201,11 @@ fn assert_source_diagnostics(fixture: &str) {
         assert!(output.stdout.is_empty());
         assert_eq!(output.stderr, format!("{expected}\n").as_bytes());
     }
+}
+
+#[test]
+fn cue_group_delimiters_preserve_diagnostics_and_error_precedence() {
+    assert_source_diagnostics("group-diagnostic-cases.json");
 }
 
 #[test]
@@ -387,6 +395,8 @@ fn runtime_grammar_validation_and_resource_limits_are_explicit() {
     let source = read(bootstrap().join("source/valid/literal.cue"));
     for (pointer, value) in [
         ("/formatVersion", 2.into()),
+        ("/group/open", "[".into()),
+        ("/group/close", "]".into()),
         ("/integer/valueField", "kind".into()),
         ("/atoms/0/token", "".into()),
         ("/atoms/0/token", "1int".into()),
