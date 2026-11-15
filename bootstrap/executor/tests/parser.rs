@@ -11,13 +11,17 @@ fn bootstrap() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
 }
 
+fn exports() -> PathBuf {
+    PathBuf::from(env!("CUESTACEAN_BOOTSTRAP_JSON"))
+}
+
 fn read(path: impl AsRef<Path>) -> String {
     std::fs::read_to_string(path).expect("read fixture")
 }
 
 #[test]
 fn supported_source_reaches_the_generated_evaluator() {
-    let grammar = read(bootstrap().join("grammar.json"));
+    let grammar = read(exports().join("grammar.json"));
     for (name, expected) in [
         ("literal", 42),
         ("nested", 42),
@@ -65,7 +69,7 @@ fn supported_source_reaches_the_generated_evaluator() {
         if name == "nested" {
             assert_eq!(
                 program,
-                serde_json::from_str::<Value>(&read(bootstrap().join("addition.json")))
+                serde_json::from_str::<Value>(&read(exports().join("addition.json")))
                     .expect("existing tree")
             );
         }
@@ -122,7 +126,7 @@ fn rejected_sources_and_cli_errors_fail_without_results() {
 
 #[test]
 fn grammar_data_controls_associativity_and_constructor_names() {
-    let grammar = read(bootstrap().join("grammar.json"));
+    let grammar = read(exports().join("grammar.json"));
     let source = read(bootstrap().join("source/valid/associativity.cue"));
     let left = parse(&source, &grammar).expect("left associative");
     assert_eq!(left["entry"]["left"]["kind"], "add");
@@ -153,13 +157,13 @@ fn grammar_data_controls_associativity_and_constructor_names() {
 #[test]
 fn precedence_comes_from_grammar_data() {
     let source = read(bootstrap().join("source/valid/precedence.cue"));
-    let grammar = read(bootstrap().join("grammar.json"));
+    let grammar = read(exports().join("grammar.json"));
     let normal = parse(&source, &grammar).expect("normal precedence");
     assert_eq!(normal["entry"]["kind"], "add");
     assert_eq!(normal["entry"]["right"]["kind"], "multiply");
     assert_eq!(
         normal,
-        serde_json::from_str::<Value>(&read(bootstrap().join("multiplication.json")))
+        serde_json::from_str::<Value>(&read(exports().join("multiplication.json")))
             .expect("mixed tree")
     );
     let mut changed: Value = serde_json::from_str(&grammar).expect("grammar");
@@ -185,7 +189,7 @@ fn precedence_comes_from_grammar_data() {
 
 #[test]
 fn atom_names_and_constructors_come_from_grammar_data() {
-    let grammar = read(bootstrap().join("grammar.json"));
+    let grammar = read(exports().join("grammar.json"));
     let source = read(bootstrap().join("source/rejected/atom-boundary.cue"));
     assert!(parse(&source, &grammar).is_err());
     let mut changed: Value = serde_json::from_str(&grammar).expect("grammar");
@@ -208,7 +212,7 @@ fn atom_names_and_constructors_come_from_grammar_data() {
 #[test]
 fn runtime_grammar_validation_and_resource_limits_are_explicit() {
     let original: Value =
-        serde_json::from_str(&read(bootstrap().join("grammar.json"))).expect("grammar");
+        serde_json::from_str(&read(exports().join("grammar.json"))).expect("grammar");
     let source = read(bootstrap().join("source/valid/literal.cue"));
     for (pointer, value) in [
         ("/formatVersion", 2.into()),

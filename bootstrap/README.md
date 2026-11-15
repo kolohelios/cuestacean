@@ -17,7 +17,8 @@ concrete, complete expression.
 `20 + (10 + 12)`, preserving its nested tree rather than evaluating it to `42`.
 `multiplication.cue` describes `1 + 2 * 3` as an addition with a multiplication
 child. `unification.cue` describes `(1 + 2) & 3`. The pinned upstream Go CUE
-tool exports these into matching JSON files. `int-constraint.cue` describes
+tool exports these into matching JSON files in a Nix build output, not version
+control. `int-constraint.cue` describes
 `int & 3`, introducing an abstract intermediate value.
 Definitions such as `#Expression` do not appear in the exported artifacts.
 
@@ -63,8 +64,8 @@ The handwritten executor now also includes a rule-to-Rust generator. Its
 with the interpreter for fixture results and error cases. The normal generated
 module also runs through `nix run ./infra/tooling#generated -- <program.json>`,
 with its rules compiled in. CLI tests compare it against the interpreter.
-The Nix build discards staged intermediate artifacts and regenerates JSON and
-Rust before compiling, using a handwritten generator seed. This lowers the
+The Nix build exports JSON from CUE into an immutable output and regenerates
+staged Rust before compiling, using a handwritten generator seed. This lowers the
 exported rule DSL to Rust; it does not implement CUE evaluation or rebuild the
 generator from CUE. The shared native runtime and the generator remain
 handwritten.
@@ -73,31 +74,33 @@ The syntax and rules remain experimental, not a settled intermediate
 representation. They exercise the source-to-artifact boundary that Cuestacean
 will eventually need to reproduce without upstream CUE.
 
-From the repository root, enter the pinned environment and regenerate:
+From the repository root, build and inspect the exports:
 
 ```sh
-nix develop ./infra/tooling
-cue export bootstrap/schema.cue bootstrap/literal.cue --out json | jq -S . > bootstrap/literal.json
-cue export bootstrap/schema.cue bootstrap/addition.cue --out json | jq -S . > bootstrap/addition.json
-cue export bootstrap/schema.cue bootstrap/multiplication.cue --out json | jq -S . > bootstrap/multiplication.json
-cue export bootstrap/schema.cue bootstrap/unification.cue --out json | jq -S . > bootstrap/unification.json
-cue export bootstrap/schema.cue bootstrap/int-constraint.cue --out json | jq -S . > bootstrap/int-constraint.json
-cue export bootstrap/schema.cue bootstrap/evaluation.cue --out json | jq -S . > bootstrap/evaluation.json
-cue export bootstrap/schema.cue bootstrap/tests/valid/evaluation-left-twice.cue --out json | jq -S . > bootstrap/tests/valid/evaluation-left-twice.json
+nix build ./infra/tooling#exports --out-link result-exports
+nix run ./infra/tooling -- result-exports/addition.json result-exports/evaluation.json
 ```
+
+The devshell supplies `CUESTACEAN_BOOTSTRAP_JSON`, pointing to this same Nix
+output. Cargo tests and the frontend's embedded grammar use that directory,
+not working-tree JSON. No manual regeneration is required on a clean checkout.
+Re-enter `nix develop ./infra/tooling` after editing CUE specifications to refresh
+the shell's export directory. Generated JSON paths are ignored; handwritten
+JSON cases under `executor/tests/fixtures/` remain version-controlled.
 
 The byte format here is JSON formatted by the pinned `jq -S .`: recursively
 sorted object keys, two-space indentation, and a trailing newline. This is a
 local output convention, not a claim of general JSON canonicalization.
 
 Run `shaka preflight` from the repository root to validate. Its export check runs
-two separate exports for each fixture, compares them byte-for-byte, and compares
-the results against the committed artifacts. It also requires every fixture in
+two separate exports for each fixture and compares them byte-for-byte. There
+is no committed JSON byte baseline; semantic expectations, interpreter/generated
+parity, and upstream comparisons check behavior. It also requires every fixture in
 `tests/invalid/` to fail export. Expression cases cover unknown node kinds,
 missing operands, nested non-integer values, and unexpected fields. Rule cases
 cover unknown operations and child fields, reading a child without evaluating
-it, and missing operand instructions. Differing exports, stale JSON, or
-accepting any invalid fixture fails the check. A second Nix check builds and
+it, and missing operand instructions. Differing repeated exports or accepting
+any invalid fixture fails the check. A second Nix check builds and
 tests the Rust executor and generated evaluators, including formatting and
 Clippy. A third check verifies repeated Rust generation and rejects drift in
 the committed modules. CI uses this same gate.

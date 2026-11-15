@@ -13,7 +13,7 @@ exit 2 without a result. No Go process is invoked at runtime.
 
 `../grammar.cue` describes named atoms, operator tokens, precedence, associativity, grouping,
 and AST constructor names for a bootstrap Pratt parser. It exports to
-`../grammar.json` and is compiled into the frontend. The lexer and Pratt
+`grammar.json` in the Nix `exports` output and is compiled into the frontend. The lexer and Pratt
 algorithm are handwritten Rust scaffolding; this is grammar configuration,
 not a claim that parser machinery is self-hosted.
 
@@ -60,12 +60,14 @@ also requires both upstream CUE and the bootstrap tool to reject `conflicts/`
 and `incomplete/` fixtures with no result. Conflict messages and exit-code numbers need not match.
 Existing interpreter, generated JSON CLI, and code-generation checks remain.
 
-Regenerate grammar data from the repository root in the devshell:
+Build grammar data from the repository root:
 
 ```sh
-cue export bootstrap/schema.cue bootstrap/grammar.cue --out json | jq -S . > bootstrap/grammar.json
+nix build ./infra/tooling#exports --out-link result-exports
 ```
 
-Fresh Nix builds regenerate this grammar before compiling the frontend. Source
+The grammar is `result-exports/grammar.json`, not a committed JSON file. Fresh
+Nix builds regenerate it before compiling the frontend. The devshell supplies
+its directory as `CUESTACEAN_BOOTSTRAP_JSON` for local Cargo builds too. Source
 fixtures must have an expression as their top-level value, not a field wrapper.
 This is a narrow source path, not general CUE compatibility or self-hosting.

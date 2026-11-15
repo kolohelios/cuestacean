@@ -8,8 +8,9 @@ code from a CUE-hosted implementation DSL.
 From the repository root:
 
 ```sh
-nix run ./infra/tooling -- bootstrap/literal.json bootstrap/evaluation.json
-nix run ./infra/tooling -- bootstrap/addition.json bootstrap/evaluation.json
+nix build ./infra/tooling#exports --out-link result-exports
+nix run ./infra/tooling -- result-exports/literal.json result-exports/evaluation.json
+nix run ./infra/tooling -- result-exports/addition.json result-exports/evaluation.json
 ```
 
 Both print `42`. The CLI takes exactly two paths: program JSON, then rule JSON.
@@ -19,14 +20,15 @@ status 2 and no result on stdout.
 The generated evaluator is a separate CLI:
 
 ```sh
-nix run ./infra/tooling#generated -- bootstrap/addition.json
+nix run ./infra/tooling#generated -- result-exports/addition.json
 ```
 
 It prints `42` and takes only a program path. The normal `evaluation.json` rules
 are compiled into it through `../generated/evaluation.rs`; it does not read or
-interpret a rule file at runtime. Nix regenerates the JSON and Rust in its build
-sandbox before compilation. After changing CUE rules, regenerate the committed
-artifacts too so the drift checks pass. The default Nix entry point remains the
+interpret a rule file at runtime. Nix builds JSON from CUE specifications and
+regenerates Rust in its build sandbox before compilation. JSON is build-only;
+after changing CUE rules, regenerate the committed Rust modules so their drift
+check passes. The default Nix entry point remains the
 interpreter.
 
 Both evaluators use the same output and evaluation-error conventions. Their
@@ -54,7 +56,7 @@ outer scalar-output boundary requires concreteness; bare `int` reports
 handwritten Rust and is not a general CUE value lattice.
 
 Rust implements these primitives, not special cases for the expression kinds.
-The CUE-exported `../tests/valid/evaluation-left-twice.json` changes addition to
+The CUE-exported `tests/valid/evaluation-left-twice.json` in the exports output changes addition to
 evaluate the left child twice. With the unchanged addition tree and executable,
 that rule file yields `40`, demonstrating that rule data controls behavior.
 
@@ -115,8 +117,11 @@ A separate Nix check verifies repeated Rust generation and committed-source
 drift. The Rust toolchain is pinned through the tooling flake's Nixpkgs lock;
 Rust dependencies are pinned by `Cargo.lock`. No additional workflow is needed.
 
-For a quick local iteration inside `nix develop ./infra/tooling`:
+For a quick local iteration with current CUE exports:
 
 ```sh
-cargo test --manifest-path bootstrap/executor/Cargo.toml
+nix develop ./infra/tooling --command cargo test --manifest-path bootstrap/executor/Cargo.toml
 ```
+
+The shell supplies `CUESTACEAN_BOOTSTRAP_JSON`; no working-tree JSON is needed.
+When keeping an interactive shell open, re-enter it after changing CUE sources.

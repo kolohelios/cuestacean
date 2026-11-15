@@ -2,3 +2,6 @@
 result
 result-*
 target/
+# CUE exports are build outputs; handwritten executor fixtures remain tracked.
+/bootstrap/*.json
+/bootstrap/tests/valid/*.json

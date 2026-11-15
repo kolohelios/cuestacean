@@ -25,19 +25,24 @@ lockfile pins both FlakeHub inputs and upstream CUE through Nixpkgs.
 
 Within this directory, `just validate` checks Nix formatting, flake evaluation,
 whitespace, and the [bootstrap export](../../bootstrap/README.md). The flake's
-`bootstrap-export` check exports each CUE fixture twice, compares both exports
-with its committed JSON artifact, and requires malformed expression trees and
-evaluation-rule descriptions to fail export. The `bootstrap-executor` check
-builds a handwritten code-generator seed without intermediate artifacts, then
-regenerates CUE exports and Rust before compiling the final package. The final
+`bootstrap-export` check builds the `exports` output: it exports each CUE
+fixture twice, compares the results, and requires malformed expression trees
+and evaluation-rule descriptions to fail export. JSON is not committed. The
+`bootstrap-executor` check builds a handwritten code-generator seed without
+intermediate artifacts, then uses the fresh exports to regenerate Rust before
+compiling the final package. The final
 stage runs formatting, Clippy, the complete library/CLI tests,
 compiled generated evaluators, interpreter/generated CLI parity, and integer
 boundary cases in the Nix sandbox.
 The `bootstrap-codegen` check verifies deterministic Rust generation and rejects
 committed-module drift. `nix build ./infra/tooling` from the
 repository root builds that same package without a separate publishing job.
-`nix run ./infra/tooling#generated -- bootstrap/addition.json` runs the generated
-evaluator; the default entry point still runs the interpreter.
+Build example JSON with `nix build ./infra/tooling#exports --out-link result-exports`.
+`nix run ./infra/tooling#generated -- result-exports/addition.json` runs the
+generated evaluator; the default entry point still runs the interpreter.
+The devshell supplies the same export output as `CUESTACEAN_BOOTSTRAP_JSON`
+for Cargo tests and the embedded grammar; a clean checkout needs no manual
+regeneration. Re-enter the shell after editing CUE specifications.
 `nix run ./infra/tooling#source -- bootstrap/source/valid/nested.cue` uses the
 small source frontend. Its `bootstrap-source` Nix check differentially compares
 all supported source fixtures against upstream CUE, requires both tools to

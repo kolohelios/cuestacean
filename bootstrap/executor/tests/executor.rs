@@ -11,8 +11,9 @@ mod generated_left_twice;
 use serde::Deserialize;
 use serde_json::Value;
 
+// Exported CUE fixtures live in the immutable Nix output, not the checkout.
 fn bootstrap() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
+    PathBuf::from(env!("CUESTACEAN_BOOTSTRAP_JSON"))
 }
 
 fn read(path: impl AsRef<Path>) -> String {
@@ -254,7 +255,7 @@ fn generated_cli_uses_baked_rules_and_reports_errors() {
         assert!(output.stdout.is_empty());
         assert!(!output.stderr.is_empty());
     }
-    for args in [vec![], vec!["../addition.json", "../evaluation.json"]] {
+    for args in [vec![], vec!["program.json", "rules.json"]] {
         let output = Command::new(env!("CARGO_BIN_EXE_bootstrap-generated"))
             .args(args)
             .output()

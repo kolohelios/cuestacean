@@ -14,6 +14,56 @@
       ...
     }:
     let
+      exportFixtures = [
+        "literal"
+        "addition"
+        "multiplication"
+        "unification"
+        "int-constraint"
+        "evaluation"
+        "grammar"
+        "tests/valid/evaluation-left-twice"
+      ];
+      fixtureNames = builtins.concatStringsSep " " exportFixtures;
+      jsonExports =
+        pkgs:
+        let
+          cueSources = pkgs.lib.fileset.toSource {
+            root = ../../bootstrap;
+            fileset = pkgs.lib.fileset.unions (
+              [
+                ../../bootstrap/schema.cue
+                ../../bootstrap/tests/invalid
+              ]
+              ++ map (fixture: ../../bootstrap + "/${fixture}.cue") exportFixtures
+            );
+          };
+        in
+        pkgs.runCommand "cuestacean-bootstrap-json"
+          {
+            nativeBuildInputs = [
+              pkgs.cue
+              pkgs.jq
+            ];
+          }
+          ''
+            set -euo pipefail
+            export LC_ALL=C TZ=UTC
+            for fixture in ${fixtureNames}; do
+              cue export ${cueSources}/schema.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > first.json
+              cue export ${cueSources}/schema.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > second.json
+              cmp first.json second.json
+              mkdir -p "$(dirname "$out/$fixture.json")"
+              cp first.json "$out/$fixture.json"
+            done
+            for fixture in ${cueSources}/tests/invalid/*.cue; do
+              if cue export ${cueSources}/schema.cue "$fixture" --out json > invalid.log 2>&1; then
+                echo "Expected rejection: $fixture" >&2
+                exit 1
+              fi
+            done
+          '';
+
       rustPackage =
         pkgs:
         pkgs.rustPlatform.buildRustPackage {
@@ -35,10 +85,10 @@
           '';
         };
 
-      # Delete only staged build copies, never the working tree. Both stages
-      # must succeed without the committed JSON/Rust intermediates.
+      # Delete only staged build copies, never the working tree. Neither stage
+      # may consume leftover working-tree JSON or committed Rust intermediates.
       clearArtifacts = ''
-        for fixture in literal addition multiplication unification int-constraint evaluation grammar tests/valid/evaluation-left-twice; do
+        for fixture in ${fixtureNames}; do
           rm -f "../$fixture.json"
         done
         rm -f ../generated/*.rs
@@ -65,29 +115,29 @@
         pkgs:
         (rustPackage pkgs).overrideAttrs (old: {
           nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
-            pkgs.cue
-            pkgs.jq
             pkgs.rustfmt
             (codegenSeed pkgs)
           ];
+          CUESTACEAN_BOOTSTRAP_JSON = jsonExports pkgs;
           postPatch = clearArtifacts + ''
             # Do not leak strict shell options into later stdenv hooks.
             (
               set -euo pipefail
-              export LC_ALL=C TZ=UTC
-              for fixture in literal addition multiplication unification int-constraint evaluation grammar tests/valid/evaluation-left-twice; do
-                cue export ../schema.cue "../$fixture.cue" --out json | jq -S . > "../$fixture.json"
-              done
-              for rules in evaluation.json tests/valid/evaluation-left-twice.json executor/tests/fixtures/codegen-escaped-rules.json; do
+              for rules in ${jsonExports pkgs}/evaluation.json ${jsonExports pkgs}/tests/valid/evaluation-left-twice.json tests/fixtures/codegen-escaped-rules.json; do
                 name=$(basename "$rules" .json)
-                bootstrap-codegen "../$rules" | rustfmt --edition 2024 > "../generated/$name.rs"
+                bootstrap-codegen "$rules" | rustfmt --edition 2024 > "../generated/$name.rs"
               done
             )
           '';
         });
     in
     {
-      packages = kolohelios-nix.lib.forEachSupportedSystem ({ pkgs, ... }: { default = executor pkgs; });
+      packages = kolohelios-nix.lib.forEachSupportedSystem (
+        { pkgs, ... }: {
+          default = executor pkgs;
+          exports = jsonExports pkgs;
+        }
+      );
 
       apps = kolohelios-nix.lib.forEachSupportedSystem (
         { pkgs, ... }:
@@ -109,6 +159,7 @@
         { system, pkgs, ... }:
         {
           default = pkgs.mkShell {
+            CUESTACEAN_BOOTSTRAP_JSON = jsonExports pkgs;
             packages = [
               pkgs.cue
               pkgs.rustc
@@ -143,10 +194,10 @@
               }
               ''
                 set -euo pipefail
-                for rules in evaluation.json tests/valid/evaluation-left-twice.json executor/tests/fixtures/codegen-escaped-rules.json; do
+                for rules in ${jsonExports pkgs}/evaluation.json ${jsonExports pkgs}/tests/valid/evaluation-left-twice.json ${../../bootstrap/executor/tests/fixtures}/codegen-escaped-rules.json; do
                   name=$(basename "$rules" .json)
-                  bootstrap-codegen ${../../bootstrap}/"$rules" | rustfmt --edition 2024 > first.rs
-                  bootstrap-codegen ${../../bootstrap}/"$rules" | rustfmt --edition 2024 > second.rs
+                  bootstrap-codegen "$rules" | rustfmt --edition 2024 > first.rs
+                  bootstrap-codegen "$rules" | rustfmt --edition 2024 > second.rs
                   cmp first.rs second.rs
                   diff -u ${../../bootstrap/generated}/"$name.rs" first.rs
                 done
@@ -191,31 +242,7 @@
                 done
                 touch "$out"
               '';
-          bootstrap-export =
-            pkgs.runCommand "cuestacean-bootstrap-export"
-              {
-                nativeBuildInputs = [
-                  pkgs.cue
-                  pkgs.jq
-                ];
-              }
-              ''
-                set -euo pipefail
-                export LC_ALL=C TZ=UTC
-                for fixture in literal addition multiplication unification int-constraint evaluation grammar tests/valid/evaluation-left-twice; do
-                  cue export ${../../bootstrap/schema.cue} ${../../bootstrap}/$fixture.cue --out json | jq -S . > first.json
-                  cue export ${../../bootstrap/schema.cue} ${../../bootstrap}/$fixture.cue --out json | jq -S . > second.json
-                  cmp first.json second.json
-                  diff -u ${../../bootstrap}/$fixture.json first.json
-                done
-                for fixture in ${../../bootstrap/tests/invalid}/*.cue; do
-                  if cue export ${../../bootstrap/schema.cue} "$fixture" --out json > invalid.log 2>&1; then
-                    echo "Expected rejection: $fixture" >&2
-                    exit 1
-                  fi
-                done
-                touch "$out"
-              '';
+          bootstrap-export = jsonExports pkgs;
         }
       );
 

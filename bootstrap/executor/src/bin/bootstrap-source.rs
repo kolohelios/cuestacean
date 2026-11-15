@@ -32,8 +32,11 @@ fn run() -> Result<i64, Error> {
         return UsageSnafu.fail();
     }
     let source = std::fs::read_to_string(&path).context(ReadSnafu { path })?;
-    let program = bootstrap_executor::parser::parse(&source, include_str!("../../../grammar.json"))
-        .context(ParseSnafu)?;
+    let program = bootstrap_executor::parser::parse(
+        &source,
+        include_str!(concat!(env!("CUESTACEAN_BOOTSTRAP_JSON"), "/grammar.json")),
+    )
+    .context(ParseSnafu)?;
     let program = serde_json::to_string(&program).context(SerializeSnafu)?;
     evaluator::execute(&program).context(ExecuteSnafu)
 }
