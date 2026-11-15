@@ -18,6 +18,7 @@
         pkgs:
         pkgs.rustPlatform.buildRustPackage {
           pname = "bootstrap-executor";
+          meta.mainProgram = "bootstrap-executor";
           version = "0.1.0";
           src = ../../bootstrap;
           postUnpack = ''
@@ -65,6 +66,25 @@
         { pkgs, ... }:
         {
           bootstrap-executor = executor pkgs;
+          bootstrap-codegen =
+            pkgs.runCommand "cuestacean-bootstrap-codegen"
+              {
+                nativeBuildInputs = [
+                  (executor pkgs)
+                  pkgs.rustfmt
+                ];
+              }
+              ''
+                set -euo pipefail
+                for rules in evaluation.json tests/valid/evaluation-left-twice.json executor/tests/fixtures/codegen-escaped-rules.json; do
+                  name=$(basename "$rules" .json)
+                  bootstrap-codegen ${../../bootstrap}/"$rules" | rustfmt --edition 2024 > first.rs
+                  bootstrap-codegen ${../../bootstrap}/"$rules" | rustfmt --edition 2024 > second.rs
+                  cmp first.rs second.rs
+                  diff -u ${../../bootstrap/generated}/"$name.rs" first.rs
+                done
+                touch "$out"
+              '';
           bootstrap-export =
             pkgs.runCommand "cuestacean-bootstrap-export"
               {

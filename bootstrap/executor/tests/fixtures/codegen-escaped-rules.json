@@ -1,0 +1,8 @@
+{
+  "formatVersion": 1,
+  "rules": {
+    "kind\"\\\nλ": {
+      "result": {"op": "field", "field": "payload\"\\\nλ"}
+    }
+  }
+}

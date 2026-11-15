@@ -28,8 +28,10 @@ whitespace, and the [bootstrap export](../../bootstrap/README.md). The flake's
 `bootstrap-export` check exports each CUE fixture twice, compares both exports
 with its committed JSON artifact, and requires malformed expression trees and
 evaluation-rule descriptions to fail export. The `bootstrap-executor` check
-builds the Rust package and runs formatting, Clippy, library/CLI tests, and
-integer boundary cases in the Nix sandbox. `nix build ./infra/tooling` from the
+builds the Rust package and runs formatting, Clippy, library/CLI tests,
+compiled generated evaluators, and integer boundary cases in the Nix sandbox.
+The `bootstrap-codegen` check verifies deterministic Rust generation and rejects
+committed-module drift. `nix build ./infra/tooling` from the
 repository root builds that same package without a separate publishing job.
 Repo-wide `shaka preflight` also validates the CUE project schema and rejects
 drift in generated files or unaccounted GitHub Actions workflows.
