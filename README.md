@@ -9,7 +9,7 @@ using CUE to configure a handwritten Rust compiler.
 
 There is no general CUE implementation yet. The [bootstrap fixtures](bootstrap/README.md)
 define integer, `int`-constraint, arithmetic and unification trees, plus evaluation
-rules, in CUE and export them to checked-in JSON using upstream CUE. A small
+rules, in CUE and export them to build-only JSON using upstream CUE. A small
 [bootstrap Rust executor](bootstrap/executor/README.md) interprets those rules.
 An initial [rule-to-Rust generator](bootstrap/generated/README.md) lowers the
 same rules to compiled evaluator modules. Nix builds a handwritten generator
@@ -75,7 +75,8 @@ with pinned upstream CUE.
 Run the generated evaluator with its compiled-in rules:
 
 ```sh
-nix run ./infra/tooling#generated -- bootstrap/addition.json
+nix build ./infra/tooling#exports --out-link result-exports
+nix run ./infra/tooling#generated -- result-exports/addition.json
 ```
 
 It prints `42`. The interpreter remains available through the default Nix entry

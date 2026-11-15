@@ -25,14 +25,15 @@ fn escaped_names_are_data_not_rust_source() {
 
 #[test]
 fn generation_is_deterministic_and_cli_reports_errors() {
-    let rules = read("../evaluation.json");
+    let rules_path = Path::new(env!("CUESTACEAN_BOOTSTRAP_JSON")).join("evaluation.json");
+    let rules = read(&rules_path);
     let source = generate(&rules).expect("generate source");
     assert_eq!(source, generate(&rules).expect("repeat generation"));
     let reordered = read("tests/fixtures/codegen-reordered-rules.json");
     assert_eq!(source, generate(&reordered).expect("reordered rules"));
     let binary = env!("CARGO_BIN_EXE_bootstrap-codegen");
     let output = Command::new(binary)
-        .arg("../evaluation.json")
+        .arg(&rules_path)
         .output()
         .expect("run generator");
     assert!(output.status.success(), "{output:?}");
