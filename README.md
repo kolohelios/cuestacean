@@ -18,9 +18,9 @@ tests the final executables. A [source frontend](bootstrap/source/README.md)
 now handles a tiny decimal-integer subset with arithmetic, the `int` constraint,
 inclusive bounds, unification, and parentheses without Go at runtime.
 The first [executable scanner DSL](bootstrap/scanner.md) now supplies the
-whitespace loop/newline branch and decimal sign/digit scanning as CUE-authored
-control flow lowered to Rust. Numeric validation/conversion, other lexing, and
-the Pratt parser remain native. Bootstrap specification
+whitespace, decimal, and ASCII identifier scanning as CUE-authored control flow
+lowered to Rust. Numeric validation/conversion, keyword lookup, AST construction,
+symbol dispatch, and the Pratt parser remain native. Bootstrap specification
 evaluation still relies on the upstream Go tool.
 
 ## CUE all the way down

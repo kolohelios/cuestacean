@@ -231,6 +231,116 @@ fn decimal_scanning_matches_the_original_ascii_token_boundary_contract() {
 }
 
 #[derive(Deserialize)]
+struct IdentifierCase {
+    source: String,
+    start: usize,
+    end: usize,
+    recognized: bool,
+}
+
+#[test]
+fn identifier_scanning_preserves_complete_ascii_spans() {
+    let cases: Vec<IdentifierCase> = serde_json::from_str(
+        &std::fs::read_to_string("tests/fixtures/identifier-scanner-cases.json").expect("cases"),
+    )
+    .expect("decode identifier cases");
+    let identifier = program("identifier");
+    for case in cases {
+        let expected = Scan {
+            offset: case.end,
+            flag: case.recognized,
+        };
+        assert_eq!(
+            scanner::interpret(&identifier, &case.source, case.start).expect("interpreted"),
+            expected,
+            "{:?}",
+            case.source
+        );
+        assert_eq!(
+            scanner::identifier(&case.source, case.start).expect("compiled"),
+            expected,
+            "{:?}",
+            case.source
+        );
+        assert!(case.source.is_char_boundary(expected.offset));
+    }
+    let text = format!("_{}λ", "aZ_09".repeat(4096));
+    let expected = Scan {
+        offset: text.len() - "λ".len(),
+        flag: true,
+    };
+    assert_eq!(
+        scanner::interpret(&identifier, &text, 0).expect("long interpreted"),
+        expected
+    );
+    assert_eq!(
+        scanner::identifier(&text, 0).expect("long compiled"),
+        expected
+    );
+    for (source, start) in [("", 1), ("λ", 1), ("abc", 4)] {
+        assert!(matches!(
+            scanner::interpret(&identifier, source, start),
+            Err(Error::Offset)
+        ));
+        assert!(matches!(
+            scanner::identifier(source, start),
+            Err(Error::Offset)
+        ));
+    }
+}
+
+#[test]
+fn identifier_start_and_continuation_match_the_original_ascii_contract() {
+    let identifier = program("identifier");
+    for byte in 0_u8..=127 {
+        let start = byte.is_ascii_alphabetic() || byte == b'_';
+        let continuation = byte.is_ascii_alphanumeric() || byte == b'_';
+        for (bytes, expected) in [
+            (
+                vec![byte],
+                Scan {
+                    offset: usize::from(start),
+                    flag: start,
+                },
+            ),
+            (
+                vec![b'a', byte],
+                Scan {
+                    offset: 1 + usize::from(continuation),
+                    flag: true,
+                },
+            ),
+            (
+                vec![b'_', byte],
+                Scan {
+                    offset: 1 + usize::from(continuation),
+                    flag: true,
+                },
+            ),
+            (
+                vec![b'0', byte],
+                Scan {
+                    offset: 0,
+                    flag: false,
+                },
+            ),
+        ] {
+            let source = String::from_utf8(bytes).expect("ASCII");
+            assert_eq!(
+                scanner::interpret(&identifier, &source, 0).expect("interpreted"),
+                expected,
+                "{source:?}"
+            );
+            assert_eq!(
+                scanner::identifier(&source, 0).expect("compiled"),
+                expected,
+                "{source:?}"
+            );
+        }
+    }
+}
+
+#[derive(Deserialize)]
 struct InvalidCase {
     program: Value,
     error: String,
