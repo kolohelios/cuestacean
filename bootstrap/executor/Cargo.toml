@@ -7,6 +7,15 @@ license = "Apache-2.0"
 publish = false
 default-run = "bootstrap-executor"
 
+[features]
+default = ["source"]
+source = []
+
+[[bin]]
+name = "bootstrap-source"
+path = "src/bin/bootstrap-source.rs"
+required-features = ["source"]
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

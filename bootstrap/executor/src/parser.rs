@@ -1,5 +1,5 @@
-//! Narrow bootstrap Pratt parser. Grammar configuration is data; the parsing
-//! algorithm is still native scaffolding, not a self-hosted CUE implementation.
+//! Narrow bootstrap Pratt parser. Whitespace control flow is CUE-generated;
+//! the Pratt algorithm and other lexing remain native bootstrap scaffolding.
 
 use std::collections::BTreeSet;
 
@@ -9,6 +9,8 @@ use snafu::{ResultExt, Snafu};
 
 #[derive(Debug, Snafu)]
 pub enum Error {
+    #[snafu(display("scanner failed: {source}"))]
+    Scanner { source: crate::scanner::Error },
     #[snafu(display("invalid grammar JSON: {source}"))]
     Json { source: serde_json::Error },
     #[snafu(display("invalid bootstrap grammar: {reason}"))]
@@ -163,7 +165,7 @@ pub fn parse(source: &str, grammar: &str) -> Result<Value, Error> {
         nodes: 0,
     };
     let entry = parser.expression(0, 0)?;
-    parser.whitespace();
+    parser.whitespace()?;
     if parser.offset != source.len() {
         return parser.error("unexpected or unsupported syntax");
     }
@@ -189,13 +191,10 @@ impl Parser<'_> {
         .fail()
     }
 
-    fn whitespace(&mut self) -> bool {
-        let mut newline = false;
-        while matches!(self.peek(), Some(b' ' | b'\t' | b'\n' | b'\r')) {
-            newline |= matches!(self.peek(), Some(b'\n' | b'\r'));
-            self.offset += 1;
-        }
-        newline
+    fn whitespace(&mut self) -> Result<bool, Error> {
+        let scan = crate::scanner::whitespace(self.source, self.offset).context(ScannerSnafu)?;
+        self.offset = scan.offset;
+        Ok(scan.flag)
     }
 
     fn peek(&self) -> Option<u8> {
@@ -214,11 +213,11 @@ impl Parser<'_> {
         if depth > 32 {
             return self.error("expression exceeds 32 parsing levels");
         }
-        self.whitespace();
+        self.whitespace()?;
         let mut left = if self.peek() == Some(self.grammar.group.open.as_bytes()[0]) {
             self.offset += 1;
             let value = self.expression(0, depth + 1)?;
-            self.whitespace();
+            self.whitespace()?;
             if self.peek() != Some(self.grammar.group.close.as_bytes()[0]) {
                 return self.error("expected closing parenthesis");
             }
@@ -232,7 +231,7 @@ impl Parser<'_> {
             .cloned()
         {
             self.offset += bound.token.len();
-            self.whitespace();
+            self.whitespace()?;
             let value = self.decimal()?;
             self.node()?;
             Value::Object(Map::from_iter([
@@ -250,7 +249,7 @@ impl Parser<'_> {
         loop {
             // CUE inserts a comma after an operand at a line break. Do not
             // silently turn separate CUE declarations into one expression.
-            if self.whitespace() && self.peek().is_some() {
+            if self.whitespace()? && self.peek().is_some() {
                 return self.error("line break after operand is unsupported");
             }
             let op = self

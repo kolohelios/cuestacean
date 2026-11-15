@@ -1,6 +1,6 @@
 # First Rust generation boundary
 
-These modules are generated from rule JSON by the handwritten Rust
+The evaluator modules are generated from rule JSON by the handwritten Rust
 `bootstrap-codegen` binary. This lowers our eight instruction primitives, not
 arbitrary CUE source. The interpreter remains the default executable and a
 reference for tests. The normal generated module also runs as a separate CLI:
@@ -20,7 +20,12 @@ remain test-only.
   escaping names containing quotes, backslashes, a newline, and Unicode. This
   fixture exercises the emitter, not the narrower CUE schema.
 
-Generated code contains node-kind dispatch and lowered rule expressions. It
+`whitespace.rs` is generated from a different, executable [scanner DSL](../scanner.md):
+its loop and newline branch come from `whitespace.cue`. The `scanner-horizontal`,
+`scanner-stalled`, and `scanner-advance` modules are test-only algorithms that
+exercise alternate branches, non-progress, and native cursor guards.
+
+Generated evaluator code contains node-kind dispatch and lowered rule expressions. It
 shares the handwritten `bootstrap_executor::runtime` primitives for JSON
 validation, field access, integer/type values, inclusive bounds, unification,
 and checked integer arithmetic. Intermediate values may be abstract `int` or
@@ -33,13 +38,19 @@ Regenerate from the repository root in `nix develop ./infra/tooling`. Re-enter
 the shell after editing CUE rules so its export directory reflects those edits:
 
 ```sh
-cargo build --manifest-path bootstrap/executor/Cargo.toml --bin bootstrap-codegen
+cargo build --manifest-path bootstrap/executor/Cargo.toml --no-default-features \
+  --bin bootstrap-codegen --bin bootstrap-scan-codegen
 set -o pipefail
 for rules in "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/evaluation-left-twice.json" \
   bootstrap/executor/tests/fixtures/codegen-escaped-rules.json; do
   name=$(basename "$rules" .json)
   bootstrap/executor/target/debug/bootstrap-codegen "$rules" \
+    | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
+done
+for machine in whitespace tests/valid/scanner-horizontal tests/valid/scanner-stalled tests/valid/scanner-advance; do
+  name=$(basename "$machine")
+  bootstrap/executor/target/debug/bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$machine.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
 ```
@@ -51,16 +62,17 @@ stages, clearing leftover JSON and generated Rust from each staged source copy
 first. This never deletes files in the working tree. CUE JSON exports are an
 independent Nix output built only from CUE sources, not committed artifacts.
 
-1. Compile only the handwritten `bootstrap-codegen` seed. Its tests need
-   generated modules, so they run in the final stage rather than creating a
-   bootstrap dependency cycle.
-2. Use the fresh JSON output and the seed to regenerate Rust. Compile all
-   binaries and run the complete formatting, Clippy, and test suite against
-   these fresh artifacts.
+1. Compile only the handwritten `bootstrap-codegen` and `bootstrap-scan-codegen`
+   seeds with `--no-default-features`. This excludes the `source` feature's
+   parser/generated-scanner dependency. Seed tests need generated modules,
+   so they run in the final stage rather than creating a bootstrap cycle.
+2. Use the fresh JSON output and the seeds to regenerate evaluator and scanner
+   Rust. Compile all binaries with the default `source` feature enabled and
+   run the complete formatting, Clippy, and test suite against fresh artifacts.
 
 Committed Rust modules remain reviewable golden files: the Rust generation
 check still rejects drift. JSON has repeatability and schema checks, not a
 committed byte baseline. CLI tests compare results, errors, and
 exit statuses with the interpreter. Neither the generator nor the shared
-runtime is self-hosted yet; the seed is handwritten Rust and CUE exports still
+runtime is self-hosted yet; the seeds are handwritten Rust and CUE exports still
 require the upstream Go implementation.
