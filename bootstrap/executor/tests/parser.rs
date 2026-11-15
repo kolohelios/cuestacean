@@ -247,6 +247,39 @@ fn atom_names_and_constructors_come_from_grammar_data() {
 }
 
 #[test]
+fn identifier_spans_are_looked_up_as_complete_configurable_atom_names() {
+    let original = read(exports().join("grammar.json"));
+    for (file, token) in [
+        ("atom-prefix-digit", "int9"),
+        ("atom-prefix-underscore", "int_1"),
+        ("atom-leading-underscore", "_int"),
+        ("atom-uppercase", "INT"),
+        ("atom-custom", "Foo_9"),
+    ] {
+        let source = read(bootstrap().join(format!("source/rejected/{file}.cue")));
+        assert!(
+            parse(&source, &original)
+                .expect_err("unknown complete atom")
+                .to_string()
+                .contains("unknown atom")
+        );
+        let mut grammar: Value = serde_json::from_str(&original).expect("grammar");
+        grammar["atoms"][0]["token"] = token.into();
+        let program = parse(
+            &source,
+            &serde_json::to_string(&grammar).expect("custom grammar"),
+        )
+        .expect("configured atom");
+        assert_eq!(program["entry"]["left"]["kind"], "intType");
+        assert_eq!(
+            generated::execute(&serde_json::to_string(&program).expect("program"))
+                .expect("execute"),
+            3
+        );
+    }
+}
+
+#[test]
 fn bound_tokens_and_constructors_come_from_grammar_data() {
     let source = read(bootstrap().join("source/valid/bounds-refine-lower.cue"));
     let original: Value =

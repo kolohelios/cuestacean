@@ -2,16 +2,19 @@
 
 [`whitespace.cue`](whitespace.cue) owns the whitespace loop and newline branch.
 [`decimal.cue`](decimal.cue) reuses the same DSL for the optional-minus branch
-and digit loop, without new instructions. The handwritten
+and digit loop. [`identifier.cue`](identifier.cue) supplies ASCII identifier
+start/continuation scanning. Both reuse the existing instructions. The handwritten
 `bootstrap-scan-codegen <program.json>` compiler lowers these programs into
 Rust control flow. The parser calls the generated [whitespace](generated/whitespace.rs)
-and [decimal](generated/decimal.rs) scanners, not the statement interpreter.
+[decimal](generated/decimal.rs), and [identifier](generated/identifier.rs)
+scanners, not the statement interpreter.
 No Go process runs during source evaluation.
 
 This is more than a byte-class table: CUE defines the loop and branch bodies,
-including when to advance and update state. These are two small algorithms,
-**not a self-hosted parser or compiler**. Numeric validation/conversion, other
-lexing, prefix parsing, the Pratt algorithm, the statement compiler/interpreter,
+including when to advance and update state. These are three small algorithms,
+**not a self-hosted parser or compiler**. Numeric validation/conversion,
+keyword lookup, AST construction, symbol dispatch, prefix/Pratt parsing,
+the statement compiler/interpreter,
 JSON loading, and safe cursor
 primitives remain handwritten. Upstream Go CUE still exports specifications.
 
@@ -51,6 +54,19 @@ still rejects missing digits and leading zeroes, then uses Rust's checked i64
 conversion. Large digit runs can be scanned even when their numeric value is
 out of range. These checks and conversion remain native, not CUE-defined.
 
+## Identifier boundaries, not keyword lookup
+
+The identifier program requires an ASCII letter or underscore first, followed
+by ASCII letters, digits, or underscores. Its flag indicates recognition. An
+invalid start (including a digit) leaves the offset unchanged and flag false.
+The parser dispatches on this generated flag rather than a native byte-class
+test, then looks up the complete span in the grammar's atom table.
+
+Thus `int9` and `int_1` are complete identifiers, not `int` followed by a suffix.
+They are unknown atoms with the default grammar, but work if configured as atom
+names. Case is preserved; this adds neither reference resolution nor Unicode
+identifiers. Keyword lookup and AST construction remain native.
+
 ## Explicit native safety boundary
 
 The shared `scanner::Cursor` validates the initial UTF-8 character boundary,
@@ -76,7 +92,8 @@ nix develop ./infra/tooling --command cargo test --manifest-path bootstrap/execu
 
 Tests compare the interpreter, compiled normal/alternate programs, and known
 expectations, including all 128 ASCII bytes, decimal sign/digit boundaries,
-long whitespace/digit runs, CRLF, Unicode boundaries, EOF and invalid offsets. Separate compiled programs exercise
+identifier start/continuation rules, long runs, CRLF, Unicode boundaries, EOF
+and invalid offsets. Atom tests verify complete-token lookup and custom names. Separate compiled programs exercise
 non-progressing loops and unsafe advancement. Invalid statement documents must
 fail before source is emitted. Existing parser tests and upstream source
 comparisons continue to check comma-insertion conservatism and all supported

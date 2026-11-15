@@ -12,6 +12,10 @@ mod generated;
 #[path = "../../generated/decimal.rs"]
 mod generated_decimal;
 
+#[cfg(feature = "source")]
+#[path = "../../generated/identifier.rs"]
+mod generated_identifier;
+
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("invalid scanner JSON: {source}"))]
@@ -322,6 +326,13 @@ pub fn whitespace(source: &str, offset: usize) -> Result<Scan, Error> {
 #[cfg(feature = "source")]
 pub fn decimal(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_decimal::scan(source, offset)
+}
+
+/// Recognize an ASCII identifier; the flag indicates a valid first byte.
+/// An invalid start leaves the cursor unchanged and the flag false.
+#[cfg(feature = "source")]
+pub fn identifier(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_identifier::scan(source, offset)
 }
 
 #[cfg(test)]

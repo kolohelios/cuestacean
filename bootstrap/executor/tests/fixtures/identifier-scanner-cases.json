@@ -1,0 +1,23 @@
+[
+  {"source":"", "start":0, "end":0, "recognized":false},
+  {"source":"abc", "start":3, "end":3, "recognized":false},
+  {"source":"int", "start":0, "end":3, "recognized":true},
+  {"source":"integer & 3", "start":0, "end":7, "recognized":true},
+  {"source":"int_1", "start":0, "end":5, "recognized":true},
+  {"source":"int9", "start":0, "end":4, "recognized":true},
+  {"source":"INT", "start":0, "end":3, "recognized":true},
+  {"source":"_", "start":0, "end":1, "recognized":true},
+  {"source":"_int", "start":0, "end":4, "recognized":true},
+  {"source":"Foo_9 & 3", "start":0, "end":5, "recognized":true},
+  {"source":"0int", "start":0, "end":0, "recognized":false},
+  {"source":"9_a", "start":0, "end":0, "recognized":false},
+  {"source":"-int", "start":0, "end":0, "recognized":false},
+  {"source":" int", "start":0, "end":0, "recognized":false},
+  {"source":"int.foo", "start":0, "end":3, "recognized":true},
+  {"source":"int\n", "start":0, "end":3, "recognized":true},
+  {"source":"λint", "start":2, "end":5, "recognized":true},
+  {"source":"intλ", "start":0, "end":3, "recognized":true},
+  {"source":"λint", "start":0, "end":0, "recognized":false},
+  {"source":"\u00e9x", "start":0, "end":0, "recognized":false},
+  {"source":"\u0661abc", "start":0, "end":0, "recognized":false}
+]

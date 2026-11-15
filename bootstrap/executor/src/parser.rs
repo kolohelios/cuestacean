@@ -1,5 +1,5 @@
-//! Narrow bootstrap Pratt parser. Whitespace and decimal scanning are CUE-generated;
-//! validation, conversion, other lexing and Pratt parsing remain native scaffolding.
+//! Narrow bootstrap Pratt parser. Whitespace, decimal and identifier scanning are
+//! CUE-generated; validation, conversion, lookup and Pratt parsing remain native.
 
 use std::collections::BTreeSet;
 
@@ -238,13 +238,14 @@ impl Parser<'_> {
                 ("kind".into(), bound.kind.into()),
                 (bound.value_field, value.into()),
             ]))
-        } else if self
-            .peek()
-            .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
-        {
-            self.atom()?
         } else {
-            self.integer()?
+            let identifier =
+                crate::scanner::identifier(self.source, self.offset).context(ScannerSnafu)?;
+            if identifier.flag {
+                self.atom(identifier.offset)?
+            } else {
+                self.integer()?
+            }
         };
         loop {
             // CUE inserts a comma after an operand at a line break. Do not
@@ -280,14 +281,9 @@ impl Parser<'_> {
         Ok(left)
     }
 
-    fn atom(&mut self) -> Result<Value, Error> {
+    fn atom(&mut self, end: usize) -> Result<Value, Error> {
         let start = self.offset;
-        while self
-            .peek()
-            .is_some_and(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
-        {
-            self.offset += 1;
-        }
+        self.offset = end;
         let token = &self.source[start..self.offset];
         let kind = self
             .grammar
