@@ -14,6 +14,13 @@
       ...
     }:
     let
+      scannerFixtures = [
+        "whitespace"
+        "tests/valid/scanner-horizontal"
+        "tests/valid/scanner-stalled"
+        "tests/valid/scanner-advance"
+      ];
+      scannerNames = builtins.concatStringsSep " " scannerFixtures;
       exportFixtures = [
         "literal"
         "addition"
@@ -24,7 +31,8 @@
         "evaluation"
         "grammar"
         "tests/valid/evaluation-left-twice"
-      ];
+      ]
+      ++ scannerFixtures;
       fixtureNames = builtins.concatStringsSep " " exportFixtures;
       jsonExports =
         pkgs:
@@ -103,8 +111,11 @@
             mainProgram = "bootstrap-codegen";
           };
           cargoBuildFlags = [
+            "--no-default-features"
             "--bin"
             "bootstrap-codegen"
+            "--bin"
+            "bootstrap-scan-codegen"
           ];
           postPatch = clearArtifacts;
           # The tests require generated modules. Break that bootstrap cycle here;
@@ -127,6 +138,10 @@
               for rules in ${jsonExports pkgs}/evaluation.json ${jsonExports pkgs}/tests/valid/evaluation-left-twice.json tests/fixtures/codegen-escaped-rules.json; do
                 name=$(basename "$rules" .json)
                 bootstrap-codegen "$rules" | rustfmt --edition 2024 > "../generated/$name.rs"
+              done
+              for machine in ${scannerNames}; do
+                name=$(basename "$machine")
+                bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$machine.json" | rustfmt --edition 2024 > "../generated/$name.rs"
               done
             )
           '';
@@ -199,6 +214,13 @@
                   name=$(basename "$rules" .json)
                   bootstrap-codegen "$rules" | rustfmt --edition 2024 > first.rs
                   bootstrap-codegen "$rules" | rustfmt --edition 2024 > second.rs
+                  cmp first.rs second.rs
+                  diff -u ${../../bootstrap/generated}/"$name.rs" first.rs
+                done
+                for machine in ${scannerNames}; do
+                  name=$(basename "$machine")
+                  bootstrap-scan-codegen ${jsonExports pkgs}/"$machine.json" | rustfmt --edition 2024 > first.rs
+                  bootstrap-scan-codegen ${jsonExports pkgs}/"$machine.json" | rustfmt --edition 2024 > second.rs
                   cmp first.rs second.rs
                   diff -u ${../../bootstrap/generated}/"$name.rs" first.rs
                 done

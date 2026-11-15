@@ -87,8 +87,10 @@ alternate behavior. `bootstrap-generated` runs the normal generated module;
 `bootstrap-source <expression.cue>` parses the [documented source subset](../source/README.md)
 using compiled-in CUE grammar data, then invokes the generated evaluator. From
 the repository root, `nix run ./infra/tooling#source -- bootstrap/source/valid/nested.cue`
-prints `42`. It does not invoke Go at runtime; the lexer and Pratt algorithm are
-still handwritten scaffolding. Existing JSON interfaces remain unchanged.
+prints `42`. It does not invoke Go at runtime. The whitespace loop and newline
+branch are compiled from the [scanner DSL](../scanner.md); other lexing and the
+Pratt algorithm remain native. Existing JSON interfaces remain unchanged.
+`bootstrap-scan-codegen <program.json>` is the separate scanner-to-Rust compiler.
 
 ## Deliberate limits
 
@@ -115,12 +117,12 @@ still handwritten scaffolding. Existing JSON interfaces remain unchanged.
 
 ## Checks
 
-`shaka preflight` builds the package through `nix flake check`. A handwritten
-code-generator seed enables a [fresh two-stage build](../generated/README.md),
+`shaka preflight` builds the package through `nix flake check`. Handwritten
+code-generator seeds enable a [fresh two-stage build](../generated/README.md),
 then the final package runs Rust formatting, Clippy, and all tests in the
 sandbox. Tests use the real exported
-fixtures, the changed-rule export, integer boundary/error cases, all four
-CLIs, the source parser, and the compiled generated evaluators. The interpreter and generated CLIs
+fixtures, the changed-rule export, integer boundary/error cases, all five
+CLIs, the source parser, the scanner DSL, and compiled generated modules. The interpreter and generated CLIs
 must agree byte-for-byte on stdout and stderr, and on exit status, for both
 exported expressions, the complete program-case corpus, malformed JSON, and
 missing program files. Argument errors are checked against each CLI's usage.

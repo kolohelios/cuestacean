@@ -8,8 +8,10 @@ use serde_json::Value;
 use snafu::{ResultExt, Snafu};
 
 mod codegen;
+#[cfg(feature = "source")]
 pub mod parser;
 pub mod runtime;
+pub mod scanner;
 
 pub use codegen::generate;
 

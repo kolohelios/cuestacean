@@ -71,10 +71,15 @@ with the interpreter for fixture results and error cases. The normal generated
 module also runs through `nix run ./infra/tooling#generated -- <program.json>`,
 with its rules compiled in. CLI tests compare it against the interpreter.
 The Nix build exports JSON from CUE into an immutable output and regenerates
-staged Rust before compiling, using a handwritten generator seed. This lowers the
+staged Rust before compiling, using handwritten generator seeds. This lowers the
 exported rule DSL to Rust; it does not implement CUE evaluation or rebuild the
 generator from CUE. The shared native runtime and the generator remain
 handwritten.
+
+The first [executable scanner DSL](scanner.md) separately expresses the
+whitespace loop, newline branch, and cursor/flag updates in CUE. Its compiler
+emits Rust control flow rather than calling a native whitespace algorithm.
+Other parsing and the scanner compiler/runtime remain handwritten.
 
 The syntax and rules remain experimental, not a settled intermediate
 representation. They exercise the source-to-artifact boundary that Cuestacean

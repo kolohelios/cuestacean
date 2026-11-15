@@ -12,12 +12,15 @@ define integer, `int`-constraint, inclusive-bound, arithmetic and unification tr
 rules, in CUE and export them to build-only JSON using upstream CUE. A small
 [bootstrap Rust executor](bootstrap/executor/README.md) interprets those rules.
 An initial [rule-to-Rust generator](bootstrap/generated/README.md) lowers the
-same rules to compiled evaluator modules. Nix builds a handwritten generator
-seed, regenerates JSON and Rust from the CUE specifications, then compiles and
+same rules to compiled evaluator modules. Nix builds handwritten generator
+seeds, regenerates JSON and Rust from the CUE specifications, then compiles and
 tests the final executables. A [source frontend](bootstrap/source/README.md)
 now handles a tiny decimal-integer subset with arithmetic, the `int` constraint,
 inclusive bounds, unification, and parentheses without Go at runtime.
-Bootstrap specification evaluation still relies on the upstream Go tool.
+The first [executable scanner DSL](bootstrap/scanner.md) now supplies the
+whitespace loop and newline branch as CUE-authored control flow lowered to Rust.
+Other lexing and the Pratt parser remain native. Bootstrap specification
+evaluation still relies on the upstream Go tool.
 
 ## CUE all the way down
 

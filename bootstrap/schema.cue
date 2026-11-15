@@ -43,8 +43,34 @@ package bootstrap
 	entry:         #Expression
 }
 
-// Configuration for a bootstrap Pratt parser. The parsing algorithm itself
-// remains handwritten initially; tokens and AST construction come from data.
+// Executable scanner statements, separate from expression evaluation rules.
+// Control flow lives in these programs; cursor safety remains native.
+#ScanPredicate: {
+	op: "byteIn"
+	bytes: [uint & <=127, ...uint & <=127]
+}
+
+#ScanStatement: #ScanWhile | #ScanIf | #ScanAdvance | #ScanSetFlag
+#ScanWhile: {
+	op:        "while"
+	condition: #ScanPredicate
+	body: [...#ScanStatement]
+}
+#ScanIf: {
+	op:        "if"
+	condition: #ScanPredicate
+	then: [...#ScanStatement]
+	else: *[] | [...#ScanStatement]
+}
+#ScanAdvance: {op: "advance"}
+#ScanSetFlag: {op: "setFlag", value: bool}
+#ScanProgram: {
+	formatVersion: 1
+	body: [...#ScanStatement]
+}
+
+// Pratt configuration: tokens and AST constructors come from data. Pratt
+// control flow remains native; whitespace uses a separate #ScanProgram.
 #InfixOperator: {
 	token:         string & =~"^[+*/&]$"
 	kind:          string & !=""
