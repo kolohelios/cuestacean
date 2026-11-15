@@ -1,6 +1,6 @@
 //! Narrow bootstrap Pratt parser. Whitespace, decimal and identifier scanning are
-//! CUE-generated, including decimal spelling checks; conversion, grammar validation,
-//! lookup and Pratt parsing remain native.
+//! CUE-generated, including decimal spelling and operand-newline checks.
+//! Conversion, grammar validation, lookup and Pratt parsing remain native.
 
 use std::collections::BTreeSet;
 
@@ -201,10 +201,16 @@ impl Parser<'_> {
         .fail()
     }
 
-    fn whitespace(&mut self) -> Result<bool, Error> {
+    fn whitespace(&mut self) -> Result<(), Error> {
         let scan = crate::scanner::whitespace(self.source, self.offset)?;
         self.offset = scan.offset;
-        Ok(scan.flag)
+        Ok(())
+    }
+
+    fn after_operand(&mut self) -> Result<(), Error> {
+        let scan = crate::scanner::after_operand(self.source, self.offset)?;
+        self.offset = scan.offset;
+        Ok(())
     }
 
     fn peek(&self) -> Option<u8> {
@@ -257,11 +263,7 @@ impl Parser<'_> {
             }
         };
         loop {
-            // CUE inserts a comma after an operand at a line break. Do not
-            // silently turn separate CUE declarations into one expression.
-            if self.whitespace()? && self.peek().is_some() {
-                return self.error("line break after operand is unsupported");
-            }
+            self.after_operand()?;
             let op = self
                 .grammar
                 .operators

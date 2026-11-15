@@ -16,6 +16,10 @@ mod generated_decimal;
 #[path = "../../generated/identifier.rs"]
 mod generated_identifier;
 
+#[cfg(feature = "source")]
+#[path = "../../generated/after-operand.rs"]
+mod generated_after_operand;
+
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("invalid scanner JSON: {source}"))]
@@ -79,6 +83,10 @@ impl<'a> Cursor<'a> {
         Ok(())
     }
 
+    pub fn flag(&self) -> bool {
+        self.flag
+    }
+
     pub fn set_flag(&mut self, value: bool) {
         self.flag = value;
     }
@@ -110,27 +118,52 @@ struct Program {
 enum Predicate {
     #[serde(rename = "byteIn")]
     ByteIn { bytes: Vec<u8> },
+    #[serde(rename = "flagIs")]
+    FlagIs { value: bool },
+    #[serde(rename = "hasByte")]
+    HasByte {},
 }
 
 impl Predicate {
     fn validate(&self) -> Result<(), Error> {
-        let Self::ByteIn { bytes } = self;
-        if bytes.is_empty() || bytes.len() > 128 || bytes.iter().any(|byte| !byte.is_ascii()) {
-            return ProgramSnafu {
-                reason: "byteIn requires 1..=128 ASCII bytes",
+        match self {
+            Self::ByteIn { bytes }
+                if bytes.is_empty()
+                    || bytes.len() > 128
+                    || bytes.iter().any(|byte| !byte.is_ascii()) =>
+            {
+                ProgramSnafu {
+                    reason: "byteIn requires 1..=128 ASCII bytes",
+                }
+                .fail()
             }
-            .fail();
+            _ => Ok(()),
         }
-        Ok(())
     }
 
     fn test(&self, cursor: &Cursor<'_>) -> bool {
-        let Self::ByteIn { bytes } = self;
-        cursor.peek().is_some_and(|byte| bytes.contains(&byte))
+        match self {
+            Self::ByteIn { bytes } => cursor.peek().is_some_and(|byte| bytes.contains(&byte)),
+            Self::FlagIs { value } => cursor.flag() == *value,
+            Self::HasByte {} => cursor.peek().is_some(),
+        }
+    }
+
+    fn inverted_rust(&self) -> String {
+        match self {
+            Self::ByteIn { .. } => format!("!{}", self.rust()),
+            Self::FlagIs { value } => Self::FlagIs { value: !value }.rust(),
+            Self::HasByte {} => "cursor.peek().is_none()".into(),
+        }
     }
 
     fn rust(&self) -> String {
-        let Self::ByteIn { bytes } = self;
+        let bytes = match self {
+            Self::ByteIn { bytes } => bytes,
+            Self::FlagIs { value: true } => return "cursor.flag()".into(),
+            Self::FlagIs { value: false } => return "!cursor.flag()".into(),
+            Self::HasByte {} => return "cursor.peek().is_some()".into(),
+        };
         let mut bytes = bytes.clone();
         bytes.sort_unstable();
         bytes.dedup();
@@ -295,7 +328,7 @@ fn emit(body: &[Statement], output: &mut String) {
                 // Empty branches still consume fuel, but need no Rust no-op.
                 if then.is_empty() {
                     if !otherwise.is_empty() {
-                        output.push_str(&format!("if !{} {{\n", condition.rust()));
+                        output.push_str(&format!("if {} {{\n", condition.inverted_rust()));
                         emit(otherwise, output);
                         output.push_str("}\n");
                     }
@@ -343,6 +376,12 @@ pub fn generate(input: &str) -> Result<String, Error> {
 #[cfg(feature = "source")]
 pub fn whitespace(source: &str, offset: usize) -> Result<Scan, Error> {
     generated::scan(source, offset)
+}
+
+/// Skip whitespace after an operand, rejecting a newline followed by more input.
+#[cfg(feature = "source")]
+pub fn after_operand(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_after_operand::scan(source, offset)
 }
 
 /// Validate decimal spelling (digits required, no leading zeroes), not magnitude.

@@ -21,14 +21,17 @@ remain test-only.
   fixture exercises the emitter, not the narrower CUE schema.
 
 `whitespace.rs` is generated from a different, executable [scanner DSL](../scanner.md):
-its loop and newline branch come from `whitespace.cue`. `decimal.rs` uses the
+its loop and newline branch come from shared CUE statements in
+`scanner-fragments.cue`. `after-operand.rs` composes those statements with
+state/EOF checks and rejection policy. `decimal.rs` uses the
 same DSL for optional-minus/digit scanning and lexical rejection; `identifier.rs`
 supplies ASCII identifier start/continuation scanning. Checked i64 conversion,
 grammar validation, keyword lookup, and AST construction remain native. The `scanner-horizontal`,
 `scanner-stalled`, and `scanner-advance` modules are test-only algorithms that
 exercise alternate branches, non-progress, and native cursor guards.
 `scanner-decimal-permissive.rs` demonstrates alternate lexical policy;
-`scanner-reject.rs` checks escaped reasons and rejection short-circuiting.
+`scanner-reject.rs` checks escaped reasons and rejection short-circuiting;
+`scanner-state.rs` tests flag reads, stateful loops, and byte-presence checks.
 
 Generated evaluator code contains node-kind dispatch and lowered rule expressions. It
 shares the handwritten `bootstrap_executor::runtime` primitives for JSON
@@ -53,9 +56,9 @@ for rules in "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   bootstrap/executor/target/debug/bootstrap-codegen "$rules" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
-for machine in whitespace decimal identifier tests/valid/scanner-horizontal \
+for machine in whitespace after-operand decimal identifier tests/valid/scanner-horizontal \
   tests/valid/scanner-stalled tests/valid/scanner-advance \
-  tests/valid/scanner-decimal-permissive tests/valid/scanner-reject; do
+  tests/valid/scanner-decimal-permissive tests/valid/scanner-reject tests/valid/scanner-state; do
   name=$(basename "$machine")
   bootstrap/executor/target/debug/bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$machine.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"

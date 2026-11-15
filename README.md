@@ -19,8 +19,8 @@ now handles a tiny decimal-integer subset with arithmetic, the `int` constraint,
 inclusive bounds, unification, and parentheses without Go at runtime.
 The first [executable scanner DSL](bootstrap/scanner.md) now supplies the
 whitespace, decimal, and ASCII identifier scanning as CUE-authored control flow
-lowered to Rust. Decimal lexical validation and rejection reasons also live in
-CUE. Checked i64 conversion, grammar validation, keyword lookup, AST construction,
+lowered to Rust. Decimal lexical validation, the conservative newline-after-operand
+rule, and their rejection reasons also live in CUE. Checked i64 conversion, grammar validation, keyword lookup, AST construction,
 symbol dispatch, and the Pratt parser remain native. Bootstrap specification
 evaluation still relies on the upstream Go tool.
 

@@ -45,10 +45,13 @@ package bootstrap
 
 // Executable scanner statements, separate from expression evaluation rules.
 // Control flow lives in these programs; cursor safety remains native.
-#ScanPredicate: {
+#ScanPredicate: #ScanByteIn | #ScanFlagIs | #ScanHasByte
+#ScanByteIn: {
 	op: "byteIn"
 	bytes: [uint & <=127, ...uint & <=127]
 }
+#ScanFlagIs: {op: "flagIs", value: bool}
+#ScanHasByte: {op: "hasByte"}
 
 #ScanStatement: #ScanWhile | #ScanIf | #ScanAdvance | #ScanSetFlag | #ScanReject
 #ScanWhile: {
@@ -71,7 +74,7 @@ package bootstrap
 }
 
 // Pratt configuration: tokens and AST constructors come from data. Pratt
-// control flow remains native; whitespace/decimal/identifier scans use #ScanProgram.
+// control flow remains native; scanning and lexical policies use #ScanProgram.
 #InfixOperator: {
 	token:         string & =~"^[+*/&]$"
 	kind:          string & !=""

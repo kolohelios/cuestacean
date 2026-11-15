@@ -72,6 +72,7 @@ fn supported_source_reaches_the_generated_evaluator() {
         ("bounds-whitespace", -1),
         ("decimal-negative-zero", 0),
         ("decimal-bound-negative-zero", 0),
+        ("operand-trailing-newline", 3),
     ] {
         let path = bootstrap().join(format!("source/valid/{name}.cue"));
         let program = parse(&read(&path), &grammar).expect(name);
@@ -163,22 +164,23 @@ fn rejected_sources_and_cli_errors_fail_without_results() {
 }
 
 #[derive(Deserialize)]
-struct DecimalDiagnostic {
+struct SourceDiagnostic {
     file: String,
     offset: usize,
     reason: String,
 }
 
-#[test]
-fn cue_decimal_rejections_preserve_parser_and_cli_diagnostics() {
+fn assert_source_diagnostics(fixture: &str) {
     let grammar = read(exports().join("grammar.json"));
-    let cases: Vec<DecimalDiagnostic> = serde_json::from_str(&read(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/decimal-diagnostic-cases.json"),
+    let cases: Vec<SourceDiagnostic> = serde_json::from_str(&read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures")
+            .join(fixture),
     ))
     .expect("diagnostics");
     for case in cases {
         let path = bootstrap().join(format!("source/rejected/{}.cue", case.file));
-        let error = parse(&read(&path), &grammar).expect_err("decimal spelling");
+        let error = parse(&read(&path), &grammar).expect_err("source policy");
         match &error {
             bootstrap_executor::parser::Error::Source { offset, reason } => {
                 assert_eq!(*offset, case.offset, "{}", case.file);
@@ -196,6 +198,17 @@ fn cue_decimal_rejections_preserve_parser_and_cli_diagnostics() {
         assert!(output.stdout.is_empty());
         assert_eq!(output.stderr, format!("{expected}\n").as_bytes());
     }
+}
+
+#[test]
+fn cue_operand_newline_policy_preserves_parser_and_cli_diagnostics() {
+    assert_source_diagnostics("operand-diagnostic-cases.json");
+}
+
+#[test]
+fn cue_decimal_rejections_preserve_parser_and_cli_diagnostics() {
+    assert_source_diagnostics("decimal-diagnostic-cases.json");
+    let grammar = read(exports().join("grammar.json"));
     assert!(matches!(
         parse(
             &read(bootstrap().join("source/rejected/range.cue")),

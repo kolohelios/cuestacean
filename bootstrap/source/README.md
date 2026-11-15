@@ -16,7 +16,7 @@ associativity, grouping, and AST constructors for a bootstrap Pratt parser.
 It exports to `grammar.json` in the Nix `exports` output and is compiled into
 the frontend. [Whitespace, decimal, and ASCII identifier scanning](../scanner.md)
 are CUE-authored statement programs compiled to Rust, including start-byte
-recognition, scanning loops, and decimal missing-digit/leading-zero rejection.
+recognition, scanning loops, decimal lexical rejection, and operand-newline policy.
 Checked i64 conversion, grammar validation, keyword lookup, AST construction,
 symbol dispatch, and Pratt parsing remain native;
 grammar configuration alone is not self-hosted parser machinery.
@@ -34,7 +34,9 @@ These choices live in CUE grammar data, not in the parser algorithm.
 A negative sign must touch its digits. Spaces and tabs are allowed;
 line breaks can precede operands or follow an opening parenthesis, but cannot
 follow an operand before another token. This avoids silently ignoring CUE's
-implicit comma insertion at line breaks. Trailing whitespace is allowed.
+implicit comma insertion at line breaks. The check and its diagnostic now live
+in the CUE after-operand program. Trailing whitespace, including newlines at
+EOF, is allowed. This is still conservative rejection, not full comma insertion.
 
 ### Inclusive bounds
 

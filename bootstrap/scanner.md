@@ -1,18 +1,21 @@
 # First executable parser control flow
 
-[`whitespace.cue`](whitespace.cue) owns the whitespace loop and newline branch.
+[`scanner-fragments.cue`](scanner-fragments.cue) defines shared whitespace loop
+statements used by [`whitespace.cue`](whitespace.cue) and
+[`after-operand.cue`](after-operand.cue). The latter owns the conservative
+newline-after-operand rule.
 [`decimal.cue`](decimal.cue) supplies optional-minus/digit scanning and lexical
 validation, using a generic `reject` instruction for diagnostics.
 [`identifier.cue`](identifier.cue) supplies ASCII identifier start/continuation
 scanning. The handwritten
 `bootstrap-scan-codegen <program.json>` compiler lowers these programs into
-Rust control flow. The parser calls the generated [whitespace](generated/whitespace.rs)
-[decimal](generated/decimal.rs), and [identifier](generated/identifier.rs)
-scanners, not the statement interpreter.
+Rust control flow. The parser calls generated whitespace, after-operand,
+decimal, and identifier scanners, not the statement interpreter.
 No Go process runs during source evaluation.
 
 This is more than a byte-class table: CUE defines the loop and branch bodies,
-including when to advance and update state. These are three small algorithms,
+including when to advance, inspect state, update state, and reject input.
+These are small scanning algorithms and policies,
 **not a self-hosted parser or compiler**. Checked i64 conversion, grammar
 validation, keyword lookup, AST construction, symbol dispatch, prefix/Pratt parsing,
 the statement compiler/interpreter,
@@ -34,14 +37,31 @@ primitives remain handwritten. Upstream Go CUE still exports specifications.
 The predicate `byteIn` tests the current byte against a nonempty ASCII byte
 list. EOF never matches. Duplicate entries have set semantics; generation
 sorts/deduplicates them and compacts contiguous runs into Rust range patterns.
-There are no arbitrary Rust expressions, calls,
-variables, AST construction, backtracking, or general-purpose computation yet.
+`flagIs` compares the current flag to its literal boolean `value`; `hasByte`
+tests for any remaining byte, including non-ASCII bytes. These predicates are
+pure reads; each surrounding `if`/`while` test consumes one execution step.
+There are no arbitrary Rust expressions, calls, named variables, AST
+construction, or backtracking yet.
 
 Both execution paths start at a caller-supplied byte offset, with the flag
 false, and return `{offset, flag}`. The whitespace program skips space, tab, LF,
 and CR and remembers whether it encountered LF/CR. An alternate CUE program
 skips only spaces/tabs and reports whether the last consumed byte was a space;
 its compiled branch includes an `else` that clears the flag.
+
+## Operand newline policy, not full comma insertion
+
+After scanning whitespace, the operand policy tests the newline flag and
+whether any byte remains. It rejects a newline followed by more input, including
+Unicode or a closing parenthesis, but accepts trailing newlines at EOF. The
+parser no longer tests this condition or owns the rejection text.
+
+This preserves the existing deliberately conservative source subset; it does
+not implement full CUE comma insertion or add multiline expression forms.
+Whitespace before operands or after an operator still uses the permissive
+program. Tests compare both programs on the same input to keep that distinction
+explicit. Nix exports load the schema, shared fragment definitions, and selected
+program; fragment definitions are not separate JSON artifacts.
 
 ## Decimal lexical validation, not conversion
 
@@ -85,7 +105,8 @@ whitespace scanning stops before Unicode; this does not add Unicode lexing.
 
 Each action, `if` test, and `while` condition test consumes one execution step.
 The budget is `128 * (remaining source bytes + 1)`, with saturating arithmetic.
-A loop that fails to advance terminates with a budget error, not a hang.
+A nonterminating loop exhausts its budget rather than hanging. A stateful loop
+may legitimately finish without advancing by changing its flag.
 Program validation caps statements at 64, nesting at 16, and predicate lists
 at 128 ASCII bytes. These are bootstrap limits, not CUE language limits or a
 production-hardening claim. Fuel checks are emitted into generated loops as
@@ -102,7 +123,9 @@ nix develop ./infra/tooling --command cargo test --manifest-path bootstrap/execu
 Tests compare the interpreter, compiled normal/alternate programs, and known
 expectations, including all 128 ASCII bytes, decimal sign/digit boundaries,
 identifier start/continuation rules, long runs, CRLF, Unicode boundaries, EOF
-and invalid offsets. Atom tests verify complete-token lookup and custom names.
+and invalid offsets. Operand tests cover ASCII suffix bytes, CRLF, EOF, Unicode,
+flag updates, and exact parser/CLI newline diagnostics. Atom tests verify
+complete-token lookup and custom names.
 Separate compiled programs exercise non-progressing loops, unsafe advancement,
 escaped rejection text, short-circuiting, and alternate decimal policy. Parser
 and CLI tests assert exact lexical diagnostic offsets and messages. Invalid statement documents must
