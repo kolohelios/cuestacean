@@ -1,7 +1,7 @@
 # First Rust generation boundary
 
 The evaluator modules are generated from rule JSON by the handwritten Rust
-`bootstrap-codegen` binary. This lowers our fourteen instruction primitives, not
+`bootstrap-codegen` binary. This lowers our sixteen instruction primitives, not
 arbitrary CUE source. The interpreter remains the default executable and a
 reference for tests. The normal generated module also runs as a separate CLI:
 
@@ -18,7 +18,8 @@ remain test-only.
 - `evaluation-left-twice.rs` comes from the alternate CUE-exported rules.
 - `codegen-escaped-rules.rs` comes from an adversarial JSON fixture that tests
   escaping names containing quotes, backslashes, a newline, and Unicode. This
-  fixture exercises the emitter, not the narrower CUE schema.
+  fixture exercises the emitter, not the narrower CUE schema. It also changes
+  the `true` rule to emit false, checking compiled boolean rule-data control.
 
 `whitespace.rs` is generated from a different, executable [scanner DSL](../scanner.md):
 its loop and newline branch come from shared CUE statements in
@@ -59,9 +60,10 @@ shares the handwritten `bootstrap_executor::runtime` primitives for JSON
 validation, field access, integer/type values, inclusive bounds, unification,
 and checked integer arithmetic, including `difference`/subtraction. Unification delegates to `unify.rs`, generated
 from the [unification DSL](../unify.md); `unify-right` and `unify-scoped` are
-test-only policies. Intermediate values may be abstract `int` or
-bounds; the generated public
-entry point requires a concrete i64 only at the output boundary. Tests compare values
+test-only policies. Intermediate values may be abstract `bool`, `int` or
+bounds. Public `execute_json` requires an exact concrete JSON integer/boolean;
+legacy `execute` remains integer-only. The normal module is exposed as
+`bootstrap_executor::generated` under `semantics`; both compiled CLIs reuse it. Tests compare values
 and errors against the interpreter and known expectations. Sharing primitives
 means this is not an independent test of their correctness or of CUE conformance.
 

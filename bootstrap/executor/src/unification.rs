@@ -28,6 +28,8 @@ pub enum Kind {
     Integer,
     Int,
     Bounds,
+    Boolean,
+    Bool,
 }
 #[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -72,6 +74,8 @@ enum Expr {
 pub enum Failure {
     Integers,
     Bounds,
+    Booleans,
+    Types,
 }
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
@@ -94,6 +98,11 @@ enum End {
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum Condition {
+    Same {},
+    Or {
+        left: Box<Condition>,
+        right: Box<Condition>,
+    },
     KindIs {
         input: Side,
         kind: Kind,
@@ -200,13 +209,13 @@ impl End {
 impl Condition {
     fn validate(&self, bound: bool) -> Result<(), Error> {
         match self {
-            Self::KindIs { .. } => Ok(()),
+            Self::KindIs { .. } | Self::Same {} => Ok(()),
             Self::HasEndpoint { value } => value.validate(bound),
             Self::Compare { left, right, .. } => {
                 left.validate(bound)?;
                 right.validate(bound)
             }
-            Self::And { left, right } => {
+            Self::And { left, right } | Self::Or { left, right } => {
                 left.validate(bound)?;
                 right.validate(bound)
             }
@@ -217,7 +226,7 @@ impl Condition {
 pub fn endpoint(value: Value, end: Endpoint) -> Option<i64> {
     match value {
         Value::Integer(n) => Some(n),
-        Value::Int => None,
+        Value::Int | Value::Bool | Value::Boolean(_) => None,
         Value::Bounds { lower, upper } => match end {
             Endpoint::Lower => lower,
             Endpoint::Upper => upper,
@@ -230,6 +239,8 @@ pub fn kind_is(value: Value, kind: Kind) -> bool {
         (Value::Integer(_), Kind::Integer)
             | (Value::Int, Kind::Int)
             | (Value::Bounds { .. }, Kind::Bounds)
+            | (Value::Boolean(_), Kind::Boolean)
+            | (Value::Bool, Kind::Bool)
     )
 }
 pub fn compare(
@@ -251,6 +262,15 @@ pub fn compare(
 pub fn fail(reason: Failure, left: Value, right: Value) -> Result<Value, crate::Error> {
     match reason {
         Failure::Bounds => Err(crate::Error::BoundsConflict),
+        Failure::Types => Err(crate::Error::TypeConflict),
+        Failure::Booleans => match (left, right) {
+            (Value::Boolean(left), Value::Boolean(right)) => {
+                Err(crate::Error::BooleanConflict { left, right })
+            }
+            _ => Err(crate::Error::UnificationState {
+                reason: "boolean conflict requires booleans",
+            }),
+        },
         Failure::Integers => match (left, right) {
             (Value::Integer(left), Value::Integer(right)) => {
                 Err(crate::Error::Conflict { left, right })
@@ -301,6 +321,8 @@ impl Kind {
             Self::Integer => "Integer",
             Self::Int => "Int",
             Self::Bounds => "Bounds",
+            Self::Boolean => "Boolean",
+            Self::Bool => "Bool",
         }
     }
 }
@@ -318,6 +340,8 @@ impl Failure {
         match self {
             Self::Integers => "Integers",
             Self::Bounds => "Bounds",
+            Self::Booleans => "Booleans",
+            Self::Types => "Types",
         }
     }
 }
@@ -370,6 +394,10 @@ impl End {
 impl Condition {
     fn rust(&self) -> String {
         match self {
+            Self::Same {} => "Ok::<_, Error>(_left == _right)".into(),
+            Self::Or { left, right } => {
+                format!("Ok::<_, Error>(({})? || ({})?)", left.rust(), right.rust())
+            }
             Self::KindIs { input, kind } => format!(
                 "Ok::<_, Error>(crate::unification::kind_is({}, crate::unification::Kind::{}))",
                 input.rust(),
@@ -398,6 +426,8 @@ impl Condition {
         locals: (Option<i64>, Option<i64>),
     ) -> Result<bool, crate::Error> {
         Ok(match self {
+            Self::Same {} => l == r,
+            Self::Or { left, right } => left.eval(l, r, locals)? || right.eval(l, r, locals)?,
             Self::KindIs { input, kind } => kind_is(input.value(l, r), *kind),
             Self::HasEndpoint { value } => value.eval(l, r, locals)?.is_some(),
             Self::Compare {

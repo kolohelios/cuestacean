@@ -75,6 +75,7 @@
         "unification"
         "int-constraint"
         "bounds"
+        "booleans"
         "evaluation"
         "grammar"
         "tests/valid/evaluation-left-twice"

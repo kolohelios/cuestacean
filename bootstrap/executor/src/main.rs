@@ -16,7 +16,7 @@ enum Error {
     Execute { source: bootstrap_executor::Error },
 }
 
-fn run() -> Result<i64, Error> {
+fn run() -> Result<serde_json::Value, Error> {
     let mut args = std::env::args_os().skip(1);
     let program = PathBuf::from(args.next().ok_or(Error::Usage)?);
     let rules = PathBuf::from(args.next().ok_or(Error::Usage)?);
@@ -25,7 +25,7 @@ fn run() -> Result<i64, Error> {
     }
     let program = std::fs::read_to_string(&program).context(ReadSnafu { path: program })?;
     let rules = std::fs::read_to_string(&rules).context(ReadSnafu { path: rules })?;
-    bootstrap_executor::execute(&program, &rules).context(ExecuteSnafu)
+    bootstrap_executor::execute_json(&program, &rules).context(ExecuteSnafu)
 }
 
 fn main() -> ExitCode {

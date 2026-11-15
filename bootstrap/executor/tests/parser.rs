@@ -5,8 +5,7 @@ use bootstrap_executor::parser::parse;
 use serde::Deserialize;
 use serde_json::Value;
 
-#[path = "../../generated/evaluation.rs"]
-mod generated;
+use bootstrap_executor::generated;
 
 fn bootstrap() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
@@ -87,6 +86,10 @@ fn supported_source_reaches_the_generated_evaluator() {
         let program = parse(&read(&path), &grammar).expect(name);
         let json = serde_json::to_string(&program).expect("serialize tree");
         assert_eq!(generated::execute(&json).expect(name), expected);
+        assert_eq!(
+            generated::execute_json(&json).expect(name),
+            Value::from(expected)
+        );
         let output = Command::new(env!("CARGO_BIN_EXE_bootstrap-source"))
             .arg(path)
             .output()
@@ -138,6 +141,12 @@ fn rejected_sources_and_cli_errors_fail_without_results() {
             match path.file_stem().and_then(|name| name.to_str()) {
                 Some("division-zero" | "mod-zero" | "quo-zero" | "rem-zero") => {
                     assert_eq!(stderr, "integer division by zero\n", "{path:?}");
+                }
+                Some("booleans-opposite") => {
+                    assert_eq!(stderr, "conflicting boolean values true and false\n")
+                }
+                Some("booleans-type" | "booleans-bounds") => {
+                    assert_eq!(stderr, "conflicting value types\n")
                 }
                 _ => assert!(
                     stderr.contains("conflicting integer"),

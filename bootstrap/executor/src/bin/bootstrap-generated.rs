@@ -3,8 +3,7 @@ use std::process::ExitCode;
 
 use snafu::{ResultExt, Snafu};
 
-#[path = "../../../generated/evaluation.rs"]
-mod evaluator;
+use bootstrap_executor::generated as evaluator;
 
 #[derive(Debug, Snafu)]
 enum Error {
@@ -19,14 +18,14 @@ enum Error {
     Execute { source: bootstrap_executor::Error },
 }
 
-fn run() -> Result<i64, Error> {
+fn run() -> Result<serde_json::Value, Error> {
     let mut args = std::env::args_os().skip(1);
     let path = PathBuf::from(args.next().ok_or(Error::Usage)?);
     if args.next().is_some() {
         return UsageSnafu.fail();
     }
     let program = std::fs::read_to_string(&path).context(ReadSnafu { path })?;
-    evaluator::execute(&program).context(ExecuteSnafu)
+    evaluator::execute_json(&program).context(ExecuteSnafu)
 }
 
 fn main() -> ExitCode {

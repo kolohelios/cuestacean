@@ -10,7 +10,7 @@ Cuestacean targets Rust with executable parser, semantics, solver and generator
 machinery progressively expressed in a CUE-hosted DSL. Merely using CUE to
 configure a permanently handwritten implementation is not the end goal.
 
-Current implementation: a deliberately small, checked i64 expression subset,
+Current implementation: a deliberately small boolean/checked-i64 expression subset,
 not full CUE or bootstrap closure. Go CUE still exports specifications. All five
 DSL compilers and reference interpreters remain handwritten Rust. Performance
 advantages remain a hypothesis, not a measured result.
@@ -24,7 +24,7 @@ advantages remain a hypothesis, not a measured result.
 | AST construction | `bootstrap/ast-*.cue`, [builder contract](../bootstrap/ast.md) | `src/ast.rs`; typed builders, no native parser JSON-map assembly |
 | Pratt expression loop | `bootstrap/pratt.cue`, [control contract](../bootstrap/pratt.md) | `src/pratt.rs`, checked native frame callbacks in `src/parser.rs` |
 | Primary dispatch | `bootstrap/primary.cue`, [primary contract](../bootstrap/primary.md) | Same control compiler; groups, negation, bounds, atoms, integers |
-| Integer/bounds unification | `bootstrap/unify.cue`, [unification contract](../bootstrap/unify.md) | `src/unification.rs`; native `runtime::unify` delegates generated policy |
+| Scalar unification | `bootstrap/unify.cue`, [unification contract](../bootstrap/unify.md) | `src/unification.rs`; native `runtime::unify` delegates generated policy |
 
 Paths beginning `src/` above are under `bootstrap/executor/`.
 Generated Rust goldens are under `bootstrap/generated/`.
@@ -38,7 +38,7 @@ Do not describe the full parser/compiler/solver as self-hosted.
 
 See the [source profile](../bootstrap/source/README.md) for exact limits.
 
-- Signed decimal integers; `int`; inclusive literal bounds `>=` / `<=`;
+- Signed decimal integers; `true`/`false`; `bool`/`int`; inclusive literal bounds `>=` / `<=`;
   parentheses; `+`, `-`, `*`, `&`; unary expression negation;
   `div`, `mod`, `quo`, `rem`; CUE-owned UTF-8 `//` comment trivia.
 - Binary operators are left-associative by default. `div/mod/quo/rem` share
@@ -60,7 +60,10 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 - Arithmetic requires concrete operands and checks intermediates, with no
   backward constraint propagation. Evaluate children left-first before primitive
   operand/zero checks. Child errors propagate before enclosing arithmetic.
-- `int` and bounds may survive intermediate evaluation, but scalar output must
+- Boolean identity/equality and mixed-domain rejection live in CUE unification
+  control, before numeric identity. Never let `int & true` return `true`.
+  Native `same` is structural equality, not source-level CUE `==` support.
+- `bool`, `int` and bounds may survive intermediate evaluation, but scalar output must
   be concrete. Singleton bounds remain incomplete until given a candidate.
   Missing endpoints are infinite, not clipped to i64 extrema.
 - CUE may export integer zero as `-0`; native i64 output is canonical `0`.
@@ -69,8 +72,12 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 - Newline-after-operand and newline-after-word-operator rejection remain
   CUE-owned and conservative, not full CUE comma insertion. Only LF ends `//` comments; CR alone remains comment content.
   NUL/BOM inside comments are rejected by CUE. Block comments, declarations,
-  references, structs/lists, strings, other
-  scalar types, disjunctions/defaults and general constraint solving are absent.
+  references, structs/lists, strings, further scalar types, disjunctions/defaults
+  and general constraint solving are absent.
+- JSON scalar APIs (`execute_json`, `generated::execute_json`) preserve bools
+  and exact i64s. Legacy `execute` returns i64 and rejects concrete booleans.
+  The public default generated evaluator is gated by `semantics`; fresh seeds
+  omit it, with no stubs. Copy scalar values still need redesign for structures.
 
 ### Resource and phase invariants
 
@@ -101,6 +108,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#49](https://github.com/kolohelios/cuestacean/pull/49) | Checked subtraction end to end |
 | [#51](https://github.com/kolohelios/cuestacean/pull/51) | CUE-controlled unary negation |
 | [#53](https://github.com/kolohelios/cuestacean/pull/53) | Integer division/remainder and word operators |
+| [#56](https://github.com/kolohelios/cuestacean/pull/56) | CUE-owned Unicode line comments and word-newline policy |
 
 ## Build and validation runbook
 
@@ -151,7 +159,7 @@ workspace's stale exports for changed specifications.
   `incomplete/` require both tools to fail; `rejected/` may be valid upstream
   outside the admitted subset. Keep these meanings explicit.
 - Conflict CLI tests retain integer-conflict assertions and explicitly map the
-  four zero-divisor fixtures to exact division-zero diagnostics. Extend expected
+  four zero-divisor fixtures and boolean/type conflicts to their diagnostics. Extend expected
   errors deliberately when adding other supported semantic failures.
 - When expanding rule maps, update the handwritten reordered-rule fixture so
   its order-invariance test still compares equivalent maps.
@@ -170,12 +178,12 @@ workspace's stale exports for changed specifications.
 2. Fetch and start from `main@origin` after the latest maintainer merge. Use
    `jj workspace update-stale` when a shared operation has rewritten a worker.
 3. The original #54 restart point had no implementation in flight. Subsequent
-   work adds line-comment trivia and generic Unicode/break primitives; inspect
+   work adds line-comment trivia, Unicode/break primitives and boolean scalars; inspect
    current history and live workers instead of relying on that old session state.
 4. Select a meaningful vertical slice and define interfaces before delegation.
    Line-comment handling is now covered by the scanner contract. Structural
-   values and references need a design first: current `Value` is Copy and APIs
-   return i64. Do not assume another arithmetic feature is already selected.
+   values and references need a design first: current `Value` is Copy; JSON
+   scalar APIs now exist alongside legacy integer APIs. Do not assume another arithmetic feature is already selected.
 5. Use at most two isolated Herdr workers, clear file ownership and a coordinator
    for integration/fresh generation. Read back reviews, fix findings, validate
    locally, open with `--no-auto-merge`, watch CI and clean up created workers.

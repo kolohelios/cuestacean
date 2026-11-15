@@ -1,7 +1,7 @@
 package bootstrap
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #IntegerLiteral | #IntegerType | #LowerBound | #UpperBound | #Addition | #Subtraction | #Multiplication | #Division | #Modulo | #Quotient | #Remainder | #Unification | #Negation
+#Expression: #IntegerLiteral | #IntegerType | #BooleanAtom | #LowerBound | #UpperBound | #Addition | #Subtraction | #Multiplication | #Division | #Modulo | #Quotient | #Remainder | #Unification | #Negation
 
 #IntegerLiteral: {
 	kind:  "integer"
@@ -9,6 +9,7 @@ package bootstrap
 }
 
 #IntegerType: {kind: "intType"}
+#BooleanAtom: {kind: "true" | "false" | "boolType"}
 
 #LowerBound: {
 	kind:  "lowerBound"
@@ -84,14 +85,14 @@ package bootstrap
 #UnifyEndpoint: {op: "input", input: #UnifySide, endpoint: #UnifyEndpointName} | {op: "local", endpoint: #UnifyEndpointName} | {op: "empty"} | {
 	op: "choose", condition: #UnifyCondition, then: #UnifyEndpoint, else: #UnifyEndpoint
 }
-#UnifyCondition: {op: "kindIs", input: #UnifySide, kind: "integer" | "int" | "bounds"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
+#UnifyCondition: {op: "kindIs", input: #UnifySide, kind: "integer" | "int" | "bounds" | "boolean" | "bool"} | {op: "same"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
 	op: "compare", left: #UnifyEndpoint, right: #UnifyEndpoint, relation: "equal" | "less" | "greater"
-} | {op: "and", left: #UnifyCondition, right: #UnifyCondition}
+} | {op: "and" | "or", left: #UnifyCondition, right: #UnifyCondition}
 #UnifyExpression: {op: "input", input: #UnifySide} | {
 	op: "if", condition: #UnifyCondition, then: #UnifyExpression, else: #UnifyExpression
 } | {
 	op: "letBounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint, result: #UnifyExpression
-} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: "integers" | "bounds"}
+} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: "integers" | "bounds" | "booleans" | "types"}
 #UnifyProgram: {formatVersion: 1, result: #UnifyExpression}
 
 // Expression-parser control flow; native frame operations are explicit intrinsics.
@@ -238,6 +239,9 @@ package bootstrap
 	formatVersion: 1
 	rules: {
 		intType: result: {op: "int"}
+		boolType: result: {op: "bool"}
+		"true": result: {op: "boolean", value: bool}
+		"false": result: {op: "boolean", value: bool}
 		lowerBound: result: {op: "lowerBound", value: {op: "field", field: "value"}}
 		upperBound: result: {op: "upperBound", value: {op: "field", field: "value"}}
 		negate: result: {op: "negate", value: {op: "evaluate", field: "operand"}}

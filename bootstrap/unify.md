@@ -1,25 +1,30 @@
-# CUE-hosted integer unification
+# CUE-hosted scalar unification
 
 [`unify.cue`](unify.cue) owns the current value-unification algorithm: abstract
-`int` identity, concrete equality/conflict, interval intersection, infinity
-handling, empty-range rejection and concrete-candidate selection. Production
+`bool` and `int` identity, concrete equality/conflict, mixed-domain rejection,
+interval intersection, infinity handling, empty-range rejection and concrete
+candidate selection. Production
 `runtime::unify` calls generated Rust, not a native intersection fallback.
 Both rule-interpreted and rule-generated evaluators use this same policy.
 
 This is an executable solver boundary, **not full CUE unification or bootstrap
-closure**. Values remain the native `Integer(i64)`, `Int`, and inclusive `Bounds`
-scaffold. Projection, tag tests, finite i64 comparisons, error construction,
-checked arithmetic, concrete output, compilers and interpreters remain Rust.
-Go CUE still exports specifications. Accepted source syntax is unchanged.
+closure**. Values remain the native `Boolean(bool)`, `Bool`, `Integer(i64)`,
+`Int`, and inclusive `Bounds` scaffold. Projection, tag tests, finite i64
+comparisons, error construction, checked arithmetic, concrete output, compilers
+and interpreters remain Rust. Go CUE still exports specifications. This policy
+does not define accepted source syntax.
 
 ## Finite typed control
 
 `#UnifyProgram` version 1 contains a `result` expression. Value expressions
 select an input, branch with `if`, bind endpoints with `letBounds`, construct
-bounds, or fail with the existing integer/bounds conflict errors. Endpoint
+bounds, or fail with boolean, type, integer or bounds conflict errors. Endpoint
 expressions project an input endpoint, read a lexical local, produce `empty`,
 or `choose` conditionally. Conditions test kinds, endpoint presence, finite
-comparisons, or short-circuit `and`.
+comparisons, same-value equality, or short-circuit `and` / `or`. Boolean
+identity and equality and all mixed-domain rejection precede numeric identity.
+Projecting an endpoint from a boolean yields no endpoint; that absence does not
+mean the value is accepted as numeric.
 
 There is no native optional-endpoint maximum/minimum operation: CUE explicitly
 chooses present endpoints and supplies their negative/positive infinity policy.

@@ -10,12 +10,14 @@ use crate::{Error, JsonSnafu, Program, VersionSnafu};
 #[path = "../../generated/unify.rs"]
 mod generated_unification;
 
-/// Initial native value scaffold. `Int` is abstract, not a conflicting value.
+/// Copy scalar scaffold: `Int`/`Bool` are abstract, not conflicting values.
 /// Concrete integers are still restricted to the bootstrap i64 domain.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Value {
     Integer(i64),
     Int,
+    Boolean(bool),
+    Bool,
     // Missing endpoints are infinite, not i64::MIN / i64::MAX. Even equal
     // endpoints remain abstract until unified with a concrete candidate.
     Bounds {
@@ -59,12 +61,22 @@ pub fn integer(node: &JsonValue, name: &str) -> Result<Value, Error> {
         })
 }
 
-/// Scalar JSON output requires concreteness only at the outer boundary.
+/// Legacy integer output; general scalar consumers should use `concrete_json`.
 pub fn concrete(value: Value) -> Result<i64, Error> {
     match value {
         Value::Integer(value) => Ok(value),
         Value::Int => Err(Error::Incomplete),
+        Value::Boolean(_) => Err(Error::IntegerOutput),
+        Value::Bool => Err(Error::IncompleteBool),
         Value::Bounds { .. } => Err(Error::IncompleteBounds),
+    }
+}
+
+/// Preserve exact integer/boolean JSON scalars; reject incomplete values.
+pub fn concrete_json(value: Value) -> Result<JsonValue, Error> {
+    match value {
+        Value::Boolean(value) => Ok(JsonValue::Bool(value)),
+        value => concrete(value).map(JsonValue::from),
     }
 }
 

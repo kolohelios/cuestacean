@@ -14,7 +14,7 @@ nix run ./infra/tooling -- result-exports/addition.json result-exports/evaluatio
 ```
 
 Both print `42`. The CLI takes exactly two paths: program JSON, then rule JSON.
-Success prints a decimal integer and newline; errors go to stderr with exit
+Success prints an exact JSON integer or boolean and newline; errors go to stderr with exit
 status 2 and no result on stdout.
 
 The generated evaluator is a separate CLI:
@@ -34,12 +34,19 @@ interpreter.
 Both evaluators use the same output and evaluation-error conventions. Their
 usage messages differ because their argument lists differ.
 
+Library `execute_json(program, rules)` and `generated::execute_json(program)`
+return concrete JSON scalars. Legacy `execute` entry points still return i64:
+booleans report `integer output requires an integer value`, never `0`/`1`.
+The normal generated module is a public, `semantics`-gated library API reused by
+both compiled CLIs; compiler-only seeds omit it entirely.
+
 ## Instruction meanings
 
 The executor looks up a node's string `kind` in the supplied rule map, then
 interprets that rule's result instruction against the current node:
 
-- `int` constructs an abstract integer-type value.
+- `int` / `bool` construct abstract type values.
+- `boolean` constructs its literal `value` from rule data, not a node-kind case.
 - `lowerBound` / `upperBound` execute their `value` instruction, require a
   concrete integer threshold, and construct an inclusive one-sided bound.
 - `field` reads the named field as a concrete integer value.
@@ -62,8 +69,11 @@ interprets that rule's result instruction against the current node:
   `conflicting integer values`. Empty ranges and rejected candidates report
   `conflicting integer bounds`.
 
-The native value scaffold has three variants: a concrete i64, abstract `int`,
-and inclusive bounds with optional lower/upper endpoints.
+The native Copy value scaffold has five variants: concrete i64/boolean,
+abstract `int`/`bool`, and inclusive bounds with optional lower/upper endpoints.
+`bool & true` is concrete; `bool & bool` reports `non-concrete bool value`.
+Different concrete booleans report `conflicting boolean values`; boolean/numeric
+mixes report `conflicting value types` before numeric identity can apply.
 Intermediate abstract values are valid: `int & int & 3` produces `3`. Only the
 outer scalar-output boundary requires concreteness; bare `int` reports
 `non-concrete int value`, not a conflict. Bounds report
@@ -112,17 +122,17 @@ by the parser; `bootstrap-ast-codegen <builder.json>` is its native compiler.
 
 ## Deliberate limits
 
-- Unification supports concrete i64 values, abstract `int`, and inclusive
-  integer-threshold bounds only. Conflicts are errors, not first-class bottom
+- Unification supports concrete i64/booleans, abstract `int`/`bool`, and inclusive
+  integer-threshold bounds. Conflicts are errors, not first-class bottom
   values. Other types, structs, exclusive bounds, disjunctions, defaults,
   references, and full CUE unification remain unsupported.
   Runtime diagnostics are not upstream CUE diagnostics.
 - Arithmetic requires concrete operands: `(int & 3) + 1` works, but `int + 1`
   cannot produce a concrete result. There is no backward symbolic propagation.
 - Both documents require `formatVersion: 1`.
-- Concrete values, bound thresholds, and arithmetic results are signed 64-bit
-  integers. Out-of-range
-  values, non-integer JSON values, overflow, and underflow are errors. No
+- Concrete numeric values, bound thresholds, and arithmetic results are signed
+  64-bit integers. Out-of-range values, non-integer numeric fields, overflow,
+  and underflow are errors. Boolean arithmetic is rejected. No
   wrapping, saturation, or floating-point arithmetic. This is narrower than
   CUE's integer domain and is only a bootstrap limitation. Multiplying `i64::MIN`
   by `-1` is also an overflow error; a later multiplication by zero does not erase

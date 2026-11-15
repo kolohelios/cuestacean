@@ -6,16 +6,22 @@ pub fn execute(input: &str) -> Result<i64, Error> {
     runtime::concrete(evaluate(&runtime::program(input)?)?)
 }
 
+pub fn execute_json(input: &str) -> Result<Value, Error> {
+    runtime::concrete_json(evaluate(&runtime::program(input)?)?)
+}
+
 fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
     match runtime::kind(node)? {
         "add" => runtime::sum(
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "boolType" => Ok::<_, Error>(runtime::Value::Bool),
         "divide" => runtime::divide(
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "false" => Ok::<_, Error>(runtime::Value::Boolean(false)),
         "intType" => Ok::<_, Error>(runtime::Value::Int),
         "integer" => runtime::integer(node, "value"),
         "lowerBound" => runtime::lower_bound((runtime::integer(node, "value"))?),
@@ -40,6 +46,7 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "true" => Ok::<_, Error>(runtime::Value::Boolean(true)),
         "unify" => runtime::unify(
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
