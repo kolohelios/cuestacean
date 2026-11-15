@@ -87,9 +87,9 @@ alternate behavior. `bootstrap-generated` runs the normal generated module;
 `bootstrap-source <expression.cue>` parses the [documented source subset](../source/README.md)
 using compiled-in CUE grammar data, then invokes the generated evaluator. From
 the repository root, `nix run ./infra/tooling#source -- bootstrap/source/valid/nested.cue`
-prints `42`. It does not invoke Go at runtime. The whitespace loop and newline
-branch are compiled from the [scanner DSL](../scanner.md); other lexing and the
-Pratt algorithm remain native. Existing JSON interfaces remain unchanged.
+prints `42`. It does not invoke Go at runtime. Whitespace control flow and
+decimal sign/digit scanning are compiled from the [scanner DSL](../scanner.md).
+Numeric validation/conversion, other lexing, and the Pratt algorithm remain native. Existing JSON interfaces remain unchanged.
 `bootstrap-scan-codegen <program.json>` is the separate scanner-to-Rust compiler.
 
 ## Deliberate limits

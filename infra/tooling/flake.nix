@@ -16,6 +16,7 @@
     let
       scannerFixtures = [
         "whitespace"
+        "decimal"
         "tests/valid/scanner-horizontal"
         "tests/valid/scanner-stalled"
         "tests/valid/scanner-advance"

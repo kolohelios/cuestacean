@@ -69,6 +69,8 @@ fn supported_source_reaches_the_generated_evaluator() {
         ("bounds-maximum", i64::MAX),
         ("bounds-minimum", i64::MIN),
         ("bounds-whitespace", -1),
+        ("decimal-negative-zero", 0),
+        ("decimal-bound-negative-zero", 0),
     ] {
         let path = bootstrap().join(format!("source/valid/{name}.cue"));
         let program = parse(&read(&path), &grammar).expect(name);

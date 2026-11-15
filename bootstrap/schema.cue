@@ -70,7 +70,7 @@ package bootstrap
 }
 
 // Pratt configuration: tokens and AST constructors come from data. Pratt
-// control flow remains native; whitespace uses a separate #ScanProgram.
+// control flow remains native; whitespace/decimal scanning use #ScanProgram.
 #InfixOperator: {
 	token:         string & =~"^[+*/&]$"
 	kind:          string & !=""

@@ -1,5 +1,5 @@
-//! Narrow bootstrap Pratt parser. Whitespace control flow is CUE-generated;
-//! the Pratt algorithm and other lexing remain native bootstrap scaffolding.
+//! Narrow bootstrap Pratt parser. Whitespace and decimal scanning are CUE-generated;
+//! validation, conversion, other lexing and Pratt parsing remain native scaffolding.
 
 use std::collections::BTreeSet;
 
@@ -308,14 +308,10 @@ impl Parser<'_> {
 
     fn decimal(&mut self) -> Result<i64, Error> {
         let start = self.offset;
-        if self.peek() == Some(b'-') {
-            self.offset += 1;
-        }
-        let digits = self.offset;
-        while self.peek().is_some_and(|byte| byte.is_ascii_digit()) {
-            self.offset += 1;
-        }
-        if self.offset == digits {
+        let scan = crate::scanner::decimal(self.source, start).context(ScannerSnafu)?;
+        self.offset = scan.offset;
+        let digits = start + usize::from(scan.flag);
+        if self.offset <= digits {
             return self.error("expected signed decimal integer");
         }
         if self.offset - digits > 1 && self.source.as_bytes()[digits] == b'0' {

@@ -8,6 +8,10 @@ use snafu::{ResultExt, Snafu};
 #[path = "../../generated/whitespace.rs"]
 mod generated;
 
+#[cfg(feature = "source")]
+#[path = "../../generated/decimal.rs"]
+mod generated_decimal;
+
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("invalid scanner JSON: {source}"))]
@@ -117,11 +121,16 @@ impl Predicate {
         let mut bytes = bytes.clone();
         bytes.sort_unstable();
         bytes.dedup();
-        let pattern = bytes
-            .iter()
-            .map(u8::to_string)
-            .collect::<Vec<_>>()
-            .join(" | ");
+        // Keep arbitrary byte sets, but compact runs to warning-free Rust ranges.
+        let mut patterns = Vec::new();
+        for run in bytes.chunk_by(|left, right| left.checked_add(1) == Some(*right)) {
+            if run.len() >= 3 {
+                patterns.push(format!("{}..={}", run[0], run[run.len() - 1]));
+            } else {
+                patterns.extend(run.iter().map(u8::to_string));
+            }
+        }
+        let pattern = patterns.join(" | ");
         format!("matches!(cursor.peek(), Some({pattern}))")
     }
 }
@@ -308,9 +317,34 @@ pub fn whitespace(source: &str, offset: usize) -> Result<Scan, Error> {
     generated::scan(source, offset)
 }
 
+/// Scan an optional minus and ASCII digit run, without validating the token.
+/// The result flag records whether the optional minus was consumed.
+#[cfg(feature = "source")]
+pub fn decimal(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_decimal::scan(source, offset)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Predicate, Statement, validate};
+
+    #[test]
+    fn byte_sets_compact_contiguous_runs_without_changing_sparse_patterns() {
+        assert_eq!(
+            Predicate::ByteIn {
+                bytes: vec![13, 0, 1, 2, 4, 5, 10, 11, 12, 13]
+            }
+            .rust(),
+            "matches!(cursor.peek(), Some(0..=2 | 4 | 5 | 10..=13))"
+        );
+        assert_eq!(
+            Predicate::ByteIn {
+                bytes: vec![32, 9, 10, 13]
+            }
+            .rust(),
+            "matches!(cursor.peek(), Some(9 | 10 | 13 | 32))"
+        );
+    }
 
     #[test]
     fn statement_and_nesting_limits_are_checked_before_execution_or_emission() {
