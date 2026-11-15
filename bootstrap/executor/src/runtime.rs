@@ -39,3 +39,7 @@ pub fn integer(node: &Value, name: &str) -> Result<i64, Error> {
 pub fn sum(left: i64, right: i64) -> Result<i64, Error> {
     left.checked_add(right).ok_or(Error::Overflow)
 }
+
+pub fn product(left: i64, right: i64) -> Result<i64, Error> {
+    left.checked_mul(right).ok_or(Error::ProductOverflow)
+}

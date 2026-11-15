@@ -36,5 +36,10 @@ fn instruction(op: &Instruction) -> String {
             instruction(left),
             instruction(right)
         ),
+        Instruction::Product { left, right } => format!(
+            "runtime::product(({})?, ({})?)",
+            instruction(left),
+            instruction(right)
+        ),
     }
 }

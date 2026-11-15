@@ -41,8 +41,10 @@ interprets that rule's result instruction against the current node:
 - `evaluate` selects the named child and recursively dispatches its rule.
 - `sum` executes its left instruction, then its right instruction, against the
   same current node and adds their integer results.
+- `product` executes its left and right instructions in the same order and
+  multiplies their integer results using checked arithmetic.
 
-Rust implements these primitives, not a special case for `integer` or `add`.
+Rust implements these primitives, not special cases for the expression kinds.
 The CUE-exported `../tests/valid/evaluation-left-twice.json` changes addition to
 evaluate the left child twice. With the unchanged addition tree and executable,
 that rule file yields `40`, demonstrating that rule data controls behavior.
@@ -74,7 +76,9 @@ still handwritten scaffolding. Existing JSON interfaces remain unchanged.
 - Values and intermediate results are signed 64-bit integers. Out-of-range
   values, non-integer JSON values, overflow, and underflow are errors. No
   wrapping, saturation, or floating-point arithmetic. This is narrower than
-  CUE's integer domain and is only a bootstrap limitation.
+  CUE's integer domain and is only a bootstrap limitation. Multiplying `i64::MIN`
+  by `-1` is also an overflow error; a later multiplication by zero does not erase
+  an earlier intermediate overflow.
 - Unknown operations, unknown instruction fields, missing accessed fields, and
   missing rules are errors. The executor does not validate the complete AST
   against the CUE schema; it checks only fields that the chosen rule accesses.

@@ -8,5 +8,10 @@ package bootstrap
 			left: {op: "evaluate", field: "left"}
 			right: {op: "evaluate", field: "right"}
 		}
+		multiply: result: {
+			op: "product"
+			left: {op: "evaluate", field: "left"}
+			right: {op: "evaluate", field: "right"}
+		}
 	}
 }

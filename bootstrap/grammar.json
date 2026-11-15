@@ -16,6 +16,14 @@
       "precedence": 10,
       "rightField": "right",
       "token": "+"
+    },
+    {
+      "associativity": "left",
+      "kind": "multiply",
+      "leftField": "left",
+      "precedence": 20,
+      "rightField": "right",
+      "token": "*"
     }
   ]
 }

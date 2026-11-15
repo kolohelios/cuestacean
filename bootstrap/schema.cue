@@ -1,7 +1,7 @@
 package bootstrap
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #IntegerLiteral | #Addition
+#Expression: #IntegerLiteral | #Addition | #Multiplication
 
 #IntegerLiteral: {
 	kind:  "integer"
@@ -10,6 +10,12 @@ package bootstrap
 
 #Addition: {
 	kind:  "add"
+	left:  #Expression
+	right: #Expression
+}
+
+#Multiplication: {
+	kind:  "multiply"
 	left:  #Expression
 	right: #Expression
 }
@@ -57,6 +63,11 @@ package bootstrap
 		}
 		add: result: {
 			op:    "sum"
+			left:  #EvaluateChild
+			right: #EvaluateChild
+		}
+		multiply: result: {
+			op:    "product"
 			left:  #EvaluateChild
 			right: #EvaluateChild
 		}

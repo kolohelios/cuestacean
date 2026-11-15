@@ -38,7 +38,7 @@
       # Delete only staged build copies, never the working tree. Both stages
       # must succeed without the committed JSON/Rust intermediates.
       clearArtifacts = ''
-        for fixture in literal addition evaluation grammar tests/valid/evaluation-left-twice; do
+        for fixture in literal addition multiplication evaluation grammar tests/valid/evaluation-left-twice; do
           rm -f "../$fixture.json"
         done
         rm -f ../generated/*.rs
@@ -75,7 +75,7 @@
             (
               set -euo pipefail
               export LC_ALL=C TZ=UTC
-              for fixture in literal addition evaluation grammar tests/valid/evaluation-left-twice; do
+              for fixture in literal addition multiplication evaluation grammar tests/valid/evaluation-left-twice; do
                 cue export ../schema.cue "../$fixture.cue" --out json | jq -S . > "../$fixture.json"
               done
               for rules in evaluation.json tests/valid/evaluation-left-twice.json executor/tests/fixtures/codegen-escaped-rules.json; do
@@ -188,7 +188,7 @@
               ''
                 set -euo pipefail
                 export LC_ALL=C TZ=UTC
-                for fixture in literal addition evaluation grammar tests/valid/evaluation-left-twice; do
+                for fixture in literal addition multiplication evaluation grammar tests/valid/evaluation-left-twice; do
                   cue export ${../../bootstrap/schema.cue} ${../../bootstrap}/$fixture.cue --out json | jq -S . > first.json
                   cue export ${../../bootstrap/schema.cue} ${../../bootstrap}/$fixture.cue --out json | jq -S . > second.json
                   cmp first.json second.json

@@ -44,6 +44,17 @@ fn exported_programs_and_rule_change() {
         generated_left_twice::execute(&program).expect("changed generated evaluator"),
         40
     );
+    let mixed = read(bootstrap().join("multiplication.json"));
+    assert_eq!(execute(&mixed, &rules).expect("mixed interpreted"), 7);
+    assert_eq!(generated::execute(&mixed).expect("mixed generated"), 7);
+    assert_eq!(
+        execute(&mixed, &changed).expect("changed mixed interpreted"),
+        2
+    );
+    assert_eq!(
+        generated_left_twice::execute(&mixed).expect("changed mixed generated"),
+        2
+    );
 }
 
 // Reuse the real JSON case corpus through both file-based CLIs without adding
