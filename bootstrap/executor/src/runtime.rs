@@ -1,10 +1,14 @@
-//! Native primitives shared by interpreted and generated evaluators.
-//! No expression kinds or evaluation rules are defined here.
+//! Value primitives shared by interpreted and generated evaluators.
+//! Unification dispatches CUE-generated control; other primitives remain native.
 
 use serde_json::Value as JsonValue;
 use snafu::ResultExt;
 
 use crate::{Error, JsonSnafu, Program, VersionSnafu};
+
+#[cfg(feature = "semantics")]
+#[path = "../../generated/unify.rs"]
+mod generated_unification;
 
 /// Initial native value scaffold. `Int` is abstract, not a conflicting value.
 /// Concrete integers are still restricted to the bootstrap i64 domain.
@@ -105,35 +109,8 @@ pub fn upper_bound(value: Value) -> Result<Value, Error> {
     })
 }
 
-fn endpoints(value: Value) -> (Option<i64>, Option<i64>) {
-    match value {
-        Value::Integer(value) => (Some(value), Some(value)),
-        Value::Int => (None, None),
-        Value::Bounds { lower, upper } => (lower, upper),
-    }
-}
-
+/// Unify using the generated CUE policy; compiler-only seeds exclude this API.
+#[cfg(feature = "semantics")]
 pub fn unify(left: Value, right: Value) -> Result<Value, Error> {
-    match (left, right) {
-        (Value::Int, value) | (value, Value::Int) => Ok(value),
-        (Value::Integer(left), Value::Integer(right)) if left == right => Ok(Value::Integer(left)),
-        (Value::Integer(left), Value::Integer(right)) => Err(Error::Conflict { left, right }),
-        (left, right) => {
-            let (left_lower, left_upper) = endpoints(left);
-            let (right_lower, right_upper) = endpoints(right);
-            let lower = left_lower.max(right_lower);
-            let upper = match (left_upper, right_upper) {
-                (Some(left), Some(right)) => Some(left.min(right)),
-                (left, right) => left.or(right),
-            };
-            if matches!((lower, upper), (Some(lower), Some(upper)) if lower > upper) {
-                return Err(Error::BoundsConflict);
-            }
-            // Bounds alone do not materialize a singleton in upstream CUE.
-            match (left, right) {
-                (value @ Value::Integer(_), _) | (_, value @ Value::Integer(_)) => Ok(value),
-                _ => Ok(Value::Bounds { lower, upper }),
-            }
-        }
-    }
+    generated_unification::unify(left, right)
 }

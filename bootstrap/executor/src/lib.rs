@@ -14,6 +14,7 @@ pub mod parser;
 pub mod pratt;
 pub mod runtime;
 pub mod scanner;
+pub mod unification;
 
 pub use codegen::generate;
 
@@ -53,6 +54,10 @@ pub enum Error {
     BoundThreshold,
     #[snafu(display("arithmetic requires concrete integer operands"))]
     Arithmetic,
+    #[snafu(display("{source}"))]
+    UnificationProgram { source: unification::Error },
+    #[snafu(display("invalid unification control state: {reason}"))]
+    UnificationState { reason: &'static str },
 }
 
 #[derive(Deserialize)]
@@ -109,6 +114,7 @@ enum Instruction {
 
 /// Execute version-1 JSON documents using checked signed 64-bit arithmetic.
 /// This executes accessed fields; it does not validate the complete CUE AST.
+#[cfg(feature = "semantics")]
 pub fn execute(program: &str, rules: &str) -> Result<i64, Error> {
     let program = runtime::program(program)?;
     let rules = parse_rules(rules)?;
@@ -127,6 +133,7 @@ fn parse_rules(input: &str) -> Result<Rules, Error> {
     Ok(rules)
 }
 
+#[cfg(feature = "semantics")]
 fn evaluate(node: &Value, rules: &BTreeMap<String, Rule>) -> Result<runtime::Value, Error> {
     let kind = runtime::kind(node)?;
     let rule = rules.get(kind).ok_or_else(|| Error::MissingRule {
@@ -135,6 +142,7 @@ fn evaluate(node: &Value, rules: &BTreeMap<String, Rule>) -> Result<runtime::Val
     instruction(&rule.result, node, rules)
 }
 
+#[cfg(feature = "semantics")]
 fn instruction(
     op: &Instruction,
     node: &Value,

@@ -26,7 +26,9 @@ and frame safety remain native. The [Pratt expression loop](bootstrap/pratt.md)
 and [primary dispatch](bootstrap/primary.md) now run from CUE control statements,
 including binding-power, associativity and grouping-minimum decisions. Bootstrap specification evaluation still relies on the upstream Go tool. [AST construction](bootstrap/ast.md)
 now uses separate CUE-defined builder expressions compiled to typed Rust functions;
-the native parser no longer assembles JSON maps.
+the native parser no longer assembles JSON maps. [Integer unification](bootstrap/unify.md)
+now also executes CUE-defined identity, interval-intersection and conflict policy;
+value representation and low-level comparisons remain native.
 
 ## CUE all the way down
 
