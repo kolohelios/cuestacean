@@ -251,7 +251,6 @@ fn malformed_source_and_failed_cli_never_emit_partial_output() {
     let grammar = export("grammar");
     for (text, expected) in [
         ("1 - 02", "source byte 6: leading zeroes are unsupported"),
-        ("-(1+2)", "source byte 1: expected signed decimal integer"),
         (
             "1\n-2",
             "source byte 2: line break after operand is unsupported",

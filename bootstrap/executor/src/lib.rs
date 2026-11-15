@@ -44,6 +44,8 @@ pub enum Error {
     DifferenceOverflow,
     #[snafu(display("signed 64-bit integer multiplication overflow"))]
     ProductOverflow,
+    #[snafu(display("signed 64-bit integer negation overflow"))]
+    NegationOverflow,
     #[snafu(display("conflicting integer values {left} and {right}"))]
     Conflict { left: i64, right: i64 },
     #[snafu(display("non-concrete int value"))]
@@ -99,6 +101,9 @@ enum Instruction {
     },
     Evaluate {
         field: String,
+    },
+    Negate {
+        value: Box<Instruction>,
     },
     Sum {
         left: Box<Instruction>,
@@ -160,6 +165,7 @@ fn instruction(
         Instruction::UpperBound { value } => runtime::upper_bound(instruction(value, node, rules)?),
         Instruction::Field { field: name } => runtime::integer(node, name),
         Instruction::Evaluate { field: name } => evaluate(runtime::field(node, name)?, rules),
+        Instruction::Negate { value } => runtime::negate(instruction(value, node, rules)?),
         Instruction::Sum { left, right } => {
             let left = instruction(left, node, rules)?;
             let right = instruction(right, node, rules)?;

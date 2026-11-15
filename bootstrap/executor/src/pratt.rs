@@ -37,6 +37,7 @@ enum Condition {
     GroupOpen {},
     HasBound {},
     HasIdentifier {},
+    HasNegation {},
     Boolean {
         value: bool,
     },
@@ -69,6 +70,12 @@ enum Statement {
     ParseAtom {},
     ParseInteger {},
     ParseGroup {
+        minimum: Number,
+    },
+    ScanNegation {},
+    AdvanceNegation {},
+    BuildNegation {},
+    ParseNegation {
         minimum: Number,
     },
     SetBindingPower {
@@ -151,6 +158,7 @@ impl Condition {
             Self::GroupOpen {} => "_frame.group_open()?".into(),
             Self::HasBound {} => "_frame.has_bound()?".into(),
             Self::HasIdentifier {} => "_frame.has_identifier()?".into(),
+            Self::HasNegation {} => "_frame.has_negation()?".into(),
             Self::Boolean { value } => value.to_string(),
             Self::AtLeast { left, right } => format!("{} >= {}", left.rust(), right.rust()),
             Self::And { left, right } => format!("{} && {}", left.rust(), right.rust()),
@@ -164,6 +172,7 @@ impl Condition {
             Self::GroupOpen {} => frame.group_open()?,
             Self::HasBound {} => frame.has_bound()?,
             Self::HasIdentifier {} => frame.has_identifier()?,
+            Self::HasNegation {} => frame.has_negation()?,
             Self::Boolean { value } => *value,
             Self::AtLeast { left, right } => left.value(frame)? >= right.value(frame)?,
             Self::And { left, right } => left.test(frame)? && right.test(frame)?,
@@ -196,6 +205,12 @@ fn execute(
                     Statement::BuildBinary {} => frame.build_binary()?,
                     Statement::Whitespace {} => frame.whitespace()?,
                     Statement::ScanGroup {} => frame.scan_group()?,
+                    Statement::ScanNegation {} => frame.scan_negation()?,
+                    Statement::AdvanceNegation {} => frame.advance_negation()?,
+                    Statement::BuildNegation {} => frame.build_negation()?,
+                    Statement::ParseNegation { minimum } => {
+                        frame.parse_negation(minimum.value(frame)?)?
+                    }
                     Statement::AdvanceGroup {} => frame.advance_group()?,
                     Statement::CloseGroup {} => frame.close_group()?,
                     Statement::ScanBound {} => frame.scan_bound()?,
@@ -257,6 +272,12 @@ fn emit(body: &[Statement], output: &mut String) {
             Statement::BuildBinary {} => output.push_str("_frame.build_binary()?;\n"),
             Statement::Whitespace {} => output.push_str("_frame.whitespace()?;\n"),
             Statement::ScanGroup {} => output.push_str("_frame.scan_group()?;\n"),
+            Statement::ScanNegation {} => output.push_str("_frame.scan_negation()?;\n"),
+            Statement::AdvanceNegation {} => output.push_str("_frame.advance_negation()?;\n"),
+            Statement::BuildNegation {} => output.push_str("_frame.build_negation()?;\n"),
+            Statement::ParseNegation { minimum } => {
+                output.push_str(&format!("_frame.parse_negation({})?;\n", minimum.rust()))
+            }
             Statement::AdvanceGroup {} => output.push_str("_frame.advance_group()?;\n"),
             Statement::CloseGroup {} => output.push_str("_frame.close_group()?;\n"),
             Statement::ScanBound {} => output.push_str("_frame.scan_bound()?;\n"),

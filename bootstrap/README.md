@@ -1,6 +1,6 @@
 # Bootstrap expression fixtures
 
-`schema.cue` defines a recursive expression tree with eight node kinds:
+`schema.cue` defines a recursive expression tree with nine node kinds:
 
 - `integer`: an integer `value`.
 - `intType`: the abstract `int` constraint, with no payload.
@@ -9,6 +9,7 @@
 - `add`: ordered `left` and `right` expression children.
 - `multiply`: ordered `left` and `right` expression children.
 - `subtract`: ordered children, subtracting right from left.
+- `negate`: an `operand` expression, negated with checked i64 arithmetic.
 - `unify`: ordered children whose integers, `int`, or bounds must agree.
 
 `#Program` wraps an expression with `formatVersion: 1`. Node definitions reject
@@ -20,6 +21,7 @@ concrete, complete expression.
 `20 + (10 + 12)`, preserving its nested tree rather than evaluating it to `42`.
 `multiplication.cue` describes `1 + 2 * 3` as an addition with a multiplication
 child. `subtraction.cue` describes `50 - 8`, producing `42`.
+`negation.cue` describes `-(1 + 2)`, preserving its unary node.
 `unification.cue` describes `(1 + 2) & 3`. The pinned upstream Go CUE
 tool exports these into matching JSON files in a Nix build output, not version
 control. `int-constraint.cue` describes
@@ -43,6 +45,7 @@ produce its `result`:
   multiplication.
 - `subtract`: `difference` subtracts the evaluated right child from the left
   using checked i64 subtraction, not addition of a negated operand.
+- `negate`: evaluates its `operand` and applies checked integer negation.
 - `unify`: intersect bounds, refine `int`, and check concrete candidates.
   Conflicts fail; abstract results remain incomplete, not conflicting.
   Even equal endpoints stay abstract until given a concrete candidate.
@@ -57,7 +60,7 @@ evaluate the addition tree. The [bootstrap Rust executor](executor/README.md)
 interprets the exported rules in a separate step: the original fixtures produce
 `42`, the mixed multiplication fixture produces `7`, and unification produces
 `3`. The schema constrains
-these eight rule shapes and their
+these nine rule shapes and their
 field names, not a general-purpose rule language. Validation alone does not
 establish correct evaluation behavior.
 

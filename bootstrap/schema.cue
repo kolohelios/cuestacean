@@ -1,7 +1,7 @@
 package bootstrap
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #IntegerLiteral | #IntegerType | #LowerBound | #UpperBound | #Addition | #Subtraction | #Multiplication | #Unification
+#Expression: #IntegerLiteral | #IntegerType | #LowerBound | #UpperBound | #Addition | #Subtraction | #Multiplication | #Unification | #Negation
 
 #IntegerLiteral: {
 	kind:  "integer"
@@ -18,6 +18,11 @@ package bootstrap
 #UpperBound: {
 	kind:  "upperBound"
 	value: int
+}
+
+#Negation: {
+	kind:    "negate"
+	operand: #Expression
 }
 
 #Addition: {
@@ -71,7 +76,7 @@ package bootstrap
 	left:  #PrattNumber
 	right: #PrattNumber
 }
-#PrattCondition: {op: "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier"} | {op: "boolean", value: bool} | {
+#PrattCondition: {op: "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier" | "hasNegation"} | {op: "boolean", value: bool} | {
 	op:    "atLeast"
 	left:  #PrattNumber
 	right: #PrattNumber
@@ -80,8 +85,8 @@ package bootstrap
 	left:  #PrattCondition
 	right: #PrattCondition
 }
-#PrattStatement: {op: "primary" | "afterOperand" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger"} | {
-	op:      "parseGroup"
+#PrattStatement: {op: "primary" | "afterOperand" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanNegation" | "advanceNegation" | "buildNegation"} | {
+	op:      "parseGroup" | "parseNegation"
 	minimum: #PrattNumber
 } | {
 	op:    "setBindingPower"
@@ -182,6 +187,11 @@ package bootstrap
 	}
 	atoms: *[] | [...#Atom]
 	bounds: *[] | [...#BoundPrefix]
+	negation?: {
+		token: "-"
+		kind: string & !=""
+		operandField: string & !="" & !="kind"
+	}
 	group: {open: "(", close: ")"}
 	operators: [#InfixOperator, ...#InfixOperator]
 }
@@ -200,6 +210,7 @@ package bootstrap
 		intType: result: {op: "int"}
 		lowerBound: result: {op: "lowerBound", value: {op: "field", field: "value"}}
 		upperBound: result: {op: "upperBound", value: {op: "field", field: "value"}}
+		negate: result: {op: "negate", value: {op: "evaluate", field: "operand"}}
 		integer: result: {
 			op:    "field"
 			field: "value"

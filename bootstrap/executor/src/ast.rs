@@ -19,6 +19,9 @@ mod integer_builder;
 #[cfg(feature = "source")]
 #[path = "../../generated/ast-program.rs"]
 mod program_builder;
+#[cfg(feature = "source")]
+#[path = "../../generated/ast-unary.rs"]
+mod unary_builder;
 
 #[derive(Debug, Snafu)]
 pub enum Error {
@@ -296,6 +299,10 @@ pub fn atom(kind: String) -> Value {
 #[cfg(feature = "source")]
 pub fn integer(kind: String, value_field: String, value: i64) -> Value {
     integer_builder::build(kind, value_field, value)
+}
+#[cfg(feature = "source")]
+pub fn unary(kind: String, operand_field: String, operand: Value) -> Value {
+    unary_builder::build(kind, operand_field, operand)
 }
 #[cfg(feature = "source")]
 pub fn binary(

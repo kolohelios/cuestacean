@@ -7,6 +7,7 @@ package bootstrap
 		lowerBound: result: {op: "lowerBound", value: {op: "field", field: "value"}}
 		upperBound: result: {op: "upperBound", value: {op: "field", field: "value"}}
 		integer: result: {op: "field", field: "value"}
+		negate: result: {op: "negate", value: {op: "evaluate", field: "operand"}}
 		add: result: {
 			op: "sum"
 			left: {op: "evaluate", field: "left"}

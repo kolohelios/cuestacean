@@ -1,6 +1,6 @@
 # CUE-hosted primary dispatch
 
-[`primary.cue`](primary.cue) chooses groups, bound prefixes, identifiers and
+[`primary.cue`](primary.cue) chooses groups, negation prefixes, bounds, identifiers and
 integers using the same [control DSL](pratt.md) as the expression loop. The
 existing `bootstrap-pratt-codegen` compiler emits its branches and frame calls;
 there is no second compiler or native primary-dispatch fallback.
@@ -11,7 +11,9 @@ the selection algorithm in Rust. The primary program explicitly sequences:
 
 - `whitespace`, `scanGroup`, and a `groupOpen` condition;
 - `advanceGroup`, `parseGroup` with a CUE-supplied `minimum`, then `closeGroup`;
-- otherwise `scanBound` and `hasBound`, then `advanceBound`, whitespace and
+- otherwise `scanNegation` and `hasNegation`, then `advanceNegation`,
+  `parseNegation` with CUE minimum 101, and `buildNegation`, or bound handling;
+- `scanBound` and `hasBound`, then `advanceBound`, whitespace and
   `parseBound`, or identifier handling;
 - `scanIdentifier` and `hasIdentifier`, then `parseAtom` or `parseInteger`.
 
@@ -33,12 +35,12 @@ requires forward progress and a valid in-bounds UTF-8 boundary.
 Primary actions use the expression frame's existing 4096-step budget, not a
 fresh budget. Recursive expressions still have the existing 32-level and
 64-node limits. Every group and RHS call propagates **both** selected control
-programs. `parse_interpreted` interprets both production programs; the trusted
+programs, including unary recursion. `parse_interpreted` interprets both production programs; the trusted
 `parse_with_drivers` and `parse_interpreted_with_primary` hooks allow independent
 expression/primary selection. Arbitrary Rust drivers are not sandboxed.
 
-This does **not** expand the accepted source subset, close the Go bootstrap,
-or make the parser/compiler fully self-hosted. Grammar validation, lookup,
+Unary expression negation expands the subset, but does **not** close the Go
+bootstrap or make the parser/compiler fully self-hosted. Grammar validation, lookup,
 conversion, primitive implementations, top-level input completion, resource
 checks, interpreters and compilers remain handwritten. Go CUE still exports
 specifications and JSON remains a build-only artifact.
@@ -49,17 +51,18 @@ Tests assert independent complete trees and exact diagnostics, alongside
 compiled/interpreted parity over the full source corpus. Runtime grammar tests
 change atom spelling, constructor kinds, bound fields and binary fields.
 
-Two alternate CUE programs demonstrate executable policy rather than tables:
+Alternate CUE programs demonstrate executable policy rather than tables:
 `primary-no-atoms` routes identifiers to decimal parsing and rejects `int`;
 `primary-high-minimum` sets grouping's recursive minimum to 100, so `(1 + 2)`
 fails at the closing-token check. Both policies propagate into nested groups
-and RHS expressions. The deliberately invalid `primary-cross-phase` program checks both completed
+and RHS expressions. `primary-low-negation` sets unary minimum to zero,
+changing `-(1)+2` from `1` to `-3` in both compiled/reference execution. The deliberately invalid `primary-cross-phase` program checks both completed
 atoms and parsed-but-unclosed groups against expression operations. Other tests
 cover reentry, unfinished groups, inactive primary operations, invalid stage
 ordering, shared compiled/interpreted fuel, and unchanged source resource limits.
 Existing exact CLI diagnostics and pinned-upstream comparisons remain in force.
 
-Nix regenerates all four primary drivers with the existing handwritten seed
+Nix regenerates all five primary drivers with the existing handwritten seed
 before compiling/testing the final frontend, and checks committed Rust drift.
 See [regeneration instructions](generated/README.md). Focused local test:
 

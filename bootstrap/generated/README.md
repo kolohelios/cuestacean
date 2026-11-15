@@ -1,7 +1,7 @@
 # First Rust generation boundary
 
 The evaluator modules are generated from rule JSON by the handwritten Rust
-`bootstrap-codegen` binary. This lowers our nine instruction primitives, not
+`bootstrap-codegen` binary. This lowers our ten instruction primitives, not
 arbitrary CUE source. The interpreter remains the default executable and a
 reference for tests. The normal generated module also runs as a separate CLI:
 
@@ -37,7 +37,7 @@ exercise alternate branches, non-progress, and native cursor guards.
 `scanner-state.rs` tests flag reads, stateful loops, and byte-presence checks;
 `scanner-lookahead.rs` checks maximum lookahead and EOF handling.
 
-The `ast-program`, `ast-atom`, `ast-integer`, and `ast-binary` modules come from
+The `ast-program`, `ast-atom`, `ast-integer`, `ast-binary`, and `ast-unary` modules come from
 the separate [AST construction DSL](../ast.md). They replace native parser map
 assembly. `ast-program-v2`, `ast-escaped`, and `ast-duplicate` are test-only
 programs for changed policy, escaping, and repeated owned arguments.
@@ -48,7 +48,9 @@ the operator loop, binding-power condition and associativity branch. The
 are test-only programs. Frame operations remain native. `primary.rs` uses the
 same compiler for [primary dispatch](../primary.md), group commitment, recursive
 minimum and closing order. `primary-no-atoms` and `primary-high-minimum` are
-test-only policies, not production fallbacks. `primary-cross-phase` deliberately
+test-only policies, not production fallbacks. `primary-low-negation` weakens
+the CUE-supplied unary binding power. `negation-prefix` is a generated scanner
+that distinguishes signed decimal literals from expression negation. `primary-cross-phase` deliberately
 attempts expression operations inside primary dispatch to exercise state guards.
 
 Generated evaluator code contains node-kind dispatch and lowered rule expressions. It
@@ -77,7 +79,7 @@ for rules in "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   bootstrap/executor/target/debug/bootstrap-codegen "$rules" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
-for machine in whitespace after-operand group-open group-close bound-prefix infix decimal identifier \
+for machine in whitespace after-operand group-open group-close negation-prefix bound-prefix infix decimal identifier \
   tests/valid/scanner-horizontal \
   tests/valid/scanner-stalled tests/valid/scanner-advance \
   tests/valid/scanner-decimal-permissive tests/valid/scanner-reject tests/valid/scanner-state \
@@ -86,14 +88,14 @@ for machine in whitespace after-operand group-open group-close bound-prefix infi
   bootstrap/executor/target/debug/bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$machine.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
-for builder in ast-program ast-atom ast-integer ast-binary tests/valid/ast-program-v2 \
+for builder in ast-program ast-atom ast-integer ast-binary ast-unary tests/valid/ast-program-v2 \
   tests/valid/ast-escaped tests/valid/ast-duplicate; do
   name=$(basename "$builder")
   bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$builder.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
 for control in primary tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
-  tests/valid/primary-cross-phase \
+  tests/valid/primary-cross-phase tests/valid/primary-low-negation \
   pratt tests/valid/pratt-right tests/valid/pratt-stalled \
   tests/valid/pratt-invalid-state tests/valid/pratt-overflow; do
   name=$(basename "$control")

@@ -14,7 +14,8 @@ invocation, checked i64 conversion, and safe frame transitions. The separate
 including the group minimum. Right-hand recursion takes its binding power from
 the expression program.
 All compilers and the reference interpreter remain handwritten. Go CUE still
-exports the specifications; supported source syntax is unchanged.
+exports the specifications; see the [source profile](source/README.md) for
+supported syntax.
 
 ## Control contract
 
