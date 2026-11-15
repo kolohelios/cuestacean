@@ -1,0 +1,8 @@
+[
+  {"file":"operand-newline-symbol", "offset":3, "reason":"line break after operand is unsupported"},
+  {"file":"operand-newline-unicode", "offset":2, "reason":"line break after operand is unsupported"},
+  {"file":"operand-newline-group", "offset":3, "reason":"line break after operand is unsupported"},
+  {"file":"operand-newline-atom", "offset":4, "reason":"line break after operand is unsupported"},
+  {"file":"operand-newline-group-close", "offset":4, "reason":"line break after operand is unsupported"},
+  {"file":"operand-newline-multiple", "offset":4, "reason":"line break after operand is unsupported"}
+]

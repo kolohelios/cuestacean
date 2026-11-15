@@ -16,6 +16,7 @@
     let
       scannerFixtures = [
         "whitespace"
+        "after-operand"
         "decimal"
         "identifier"
         "tests/valid/scanner-horizontal"
@@ -23,6 +24,7 @@
         "tests/valid/scanner-advance"
         "tests/valid/scanner-decimal-permissive"
         "tests/valid/scanner-reject"
+        "tests/valid/scanner-state"
       ];
       scannerNames = builtins.concatStringsSep " " scannerFixtures;
       exportFixtures = [
@@ -46,6 +48,7 @@
             fileset = pkgs.lib.fileset.unions (
               [
                 ../../bootstrap/schema.cue
+                ../../bootstrap/scanner-fragments.cue
                 ../../bootstrap/tests/invalid
               ]
               ++ map (fixture: ../../bootstrap + "/${fixture}.cue") exportFixtures
@@ -63,14 +66,14 @@
             set -euo pipefail
             export LC_ALL=C TZ=UTC
             for fixture in ${fixtureNames}; do
-              cue export ${cueSources}/schema.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > first.json
-              cue export ${cueSources}/schema.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > second.json
+              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > first.json
+              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > second.json
               cmp first.json second.json
               mkdir -p "$(dirname "$out/$fixture.json")"
               cp first.json "$out/$fixture.json"
             done
             for fixture in ${cueSources}/tests/invalid/*.cue; do
-              if cue export ${cueSources}/schema.cue "$fixture" --out json > invalid.log 2>&1; then
+              if cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue "$fixture" --out json > invalid.log 2>&1; then
                 echo "Expected rejection: $fixture" >&2
                 exit 1
               fi

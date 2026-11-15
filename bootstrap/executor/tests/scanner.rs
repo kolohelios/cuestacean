@@ -15,6 +15,8 @@ mod permissive;
 mod rejecting;
 #[path = "../../generated/scanner-stalled.rs"]
 mod stalled;
+#[path = "../../generated/scanner-state.rs"]
+mod state;
 
 fn outcome(result: Result<Scan, Error>) -> Result<Scan, (usize, String)> {
     result.map_err(|error| match error {
@@ -394,6 +396,123 @@ fn identifier_start_and_continuation_match_the_original_ascii_contract() {
             );
         }
     }
+}
+
+#[derive(Deserialize)]
+struct OperandCase {
+    source: String,
+    start: usize,
+    end: usize,
+    flag: bool,
+    error: Option<String>,
+}
+
+#[test]
+fn operand_whitespace_policy_reads_state_and_allows_only_trailing_newlines() {
+    let cases: Vec<OperandCase> = serde_json::from_str(
+        &std::fs::read_to_string("tests/fixtures/operand-whitespace-cases.json").expect("cases"),
+    )
+    .expect("operand cases");
+    let policy = program("after-operand");
+    for case in cases {
+        let expected = match case.error {
+            Some(reason) => Err((case.end, reason)),
+            None => Ok(Scan {
+                offset: case.end,
+                flag: case.flag,
+            }),
+        };
+        assert_eq!(
+            outcome(scanner::interpret(&policy, &case.source, case.start)),
+            expected,
+            "{:?}",
+            case.source
+        );
+        assert_eq!(
+            outcome(scanner::after_operand(&case.source, case.start)),
+            expected,
+            "{:?}",
+            case.source
+        );
+    }
+    for (source, start) in [("", 1), ("λ", 1)] {
+        assert!(matches!(
+            scanner::after_operand(source, start),
+            Err(Error::Offset)
+        ));
+        assert!(matches!(
+            scanner::interpret(&policy, source, start),
+            Err(Error::Offset)
+        ));
+    }
+    let whitespace = program("whitespace");
+    let expected = Scan {
+        offset: 1,
+        flag: true,
+    };
+    assert_eq!(
+        scanner::interpret(&whitespace, "\n+", 0).expect("permissive program"),
+        expected
+    );
+    assert_eq!(
+        scanner::whitespace("\n+", 0).expect("permissive compiled"),
+        expected
+    );
+    assert!(matches!(
+        scanner::after_operand("\n+", 0),
+        Err(Error::Rejected { .. })
+    ));
+}
+
+#[test]
+fn operand_policy_matches_the_original_ascii_condition() {
+    let policy = program("after-operand");
+    for byte in 0_u8..=127 {
+        let whitespace = matches!(byte, b' ' | b'\t' | b'\r' | b'\n');
+        for prefix in [b' ', b'\n'] {
+            let source = String::from_utf8(vec![prefix, byte]).expect("ASCII");
+            let expected = if prefix == b'\n' && !whitespace {
+                Err((1, "line break after operand is unsupported".to_owned()))
+            } else {
+                Ok(Scan {
+                    offset: 1 + usize::from(whitespace),
+                    flag: prefix == b'\n' || matches!(byte, b'\n' | b'\r'),
+                })
+            };
+            assert_eq!(
+                outcome(scanner::interpret(&policy, &source, 0)),
+                expected,
+                "{source:?}"
+            );
+            assert_eq!(
+                outcome(scanner::after_operand(&source, 0)),
+                expected,
+                "{source:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn generic_predicates_read_updated_state_and_detect_non_ascii_bytes() {
+    let program = program("tests/valid/scanner-state");
+    for source in ["x", "λ"] {
+        let expected = Scan {
+            offset: 0,
+            flag: false,
+        };
+        assert_eq!(
+            scanner::interpret(&program, source, 0).expect("interpreted state loop"),
+            expected
+        );
+        assert_eq!(
+            state::scan(source, 0).expect("compiled state loop"),
+            expected
+        );
+    }
+    let expected = Err((0, "expected byte".to_owned()));
+    assert_eq!(outcome(scanner::interpret(&program, "", 0)), expected);
+    assert_eq!(outcome(state::scan("", 0)), expected);
 }
 
 #[derive(Deserialize)]
