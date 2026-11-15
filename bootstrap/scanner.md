@@ -1,9 +1,10 @@
 # First executable parser control flow
 
 [`whitespace.cue`](whitespace.cue) owns the whitespace loop and newline branch.
-[`decimal.cue`](decimal.cue) reuses the same DSL for the optional-minus branch
-and digit loop. [`identifier.cue`](identifier.cue) supplies ASCII identifier
-start/continuation scanning. Both reuse the existing instructions. The handwritten
+[`decimal.cue`](decimal.cue) supplies optional-minus/digit scanning and lexical
+validation, using a generic `reject` instruction for diagnostics.
+[`identifier.cue`](identifier.cue) supplies ASCII identifier start/continuation
+scanning. The handwritten
 `bootstrap-scan-codegen <program.json>` compiler lowers these programs into
 Rust control flow. The parser calls the generated [whitespace](generated/whitespace.rs)
 [decimal](generated/decimal.rs), and [identifier](generated/identifier.rs)
@@ -12,8 +13,8 @@ No Go process runs during source evaluation.
 
 This is more than a byte-class table: CUE defines the loop and branch bodies,
 including when to advance and update state. These are three small algorithms,
-**not a self-hosted parser or compiler**. Numeric validation/conversion,
-keyword lookup, AST construction, symbol dispatch, prefix/Pratt parsing,
+**not a self-hosted parser or compiler**. Checked i64 conversion, grammar
+validation, keyword lookup, AST construction, symbol dispatch, prefix/Pratt parsing,
 the statement compiler/interpreter,
 JSON loading, and safe cursor
 primitives remain handwritten. Upstream Go CUE still exports specifications.
@@ -28,6 +29,7 @@ primitives remain handwritten. Upstream Go CUE still exports specifications.
 | `if` | Test `condition`; execute `then` or the optional `else` list. |
 | `advance` | Advance the cursor by one ASCII byte. |
 | `setFlag` | Write the literal boolean `value` to the result register. |
+| `reject` | Stop with the current byte offset and a nonempty `reason` string. |
 
 The predicate `byteIn` tests the current byte against a nonempty ASCII byte
 list. EOF never matches. Duplicate entries have set semantics; generation
@@ -41,18 +43,25 @@ and CR and remembers whether it encountered LF/CR. An alternate CUE program
 skips only spaces/tabs and reports whether the last consumed byte was a space;
 its compiled branch includes an `else` that clears the flag.
 
-## Decimal token boundaries, not validation
+## Decimal lexical validation, not conversion
 
 The decimal program consumes an optional ASCII `-` followed by ASCII digits.
 Its flag records whether a minus was consumed. Both integer literals and bound
-thresholds call this generated scanner. It does not accept `+`, Unicode digits,
-or other numeric spellings.
+thresholds call this generated scanner. CUE branches reject missing digits and
+leading zeroes; the parser no longer implements those decisions. This does not
+add `+`, Unicode digits, or other numeric spellings.
 
-Scanning deliberately accepts incomplete or invalid numeric spans: `-` returns
-an end offset of 1 with the flag true; `01` consumes both digits. The parser
-still rejects missing digits and leading zeroes, then uses Rust's checked i64
-conversion. Large digit runs can be scanned even when their numeric value is
-out of range. These checks and conversion remain native, not CUE-defined.
+A missing digit is reported at the current cursor (after the minus, if any).
+A leading-zero run is consumed fully before rejection, preserving the previous
+end-of-run byte offset. Reasons come from CUE data, not native numeric error
+cases. The parser maps scanner rejection into its ordinary source diagnostic,
+without a `scanner failed` prefix. Other cursor/validation/fuel failures retain
+the scanner-error context.
+
+Large validly spelled digit runs still scan successfully even when their value
+exceeds i64. Checked conversion remains Rust's `parse::<i64>`. A separate
+permissive CUE program accepts `01` and `-`, demonstrating that lexical policy
+is in the statement program rather than the shared native cursor.
 
 ## Identifier boundaries, not keyword lookup
 
@@ -93,8 +102,10 @@ nix develop ./infra/tooling --command cargo test --manifest-path bootstrap/execu
 Tests compare the interpreter, compiled normal/alternate programs, and known
 expectations, including all 128 ASCII bytes, decimal sign/digit boundaries,
 identifier start/continuation rules, long runs, CRLF, Unicode boundaries, EOF
-and invalid offsets. Atom tests verify complete-token lookup and custom names. Separate compiled programs exercise
-non-progressing loops and unsafe advancement. Invalid statement documents must
+and invalid offsets. Atom tests verify complete-token lookup and custom names.
+Separate compiled programs exercise non-progressing loops, unsafe advancement,
+escaped rejection text, short-circuiting, and alternate decimal policy. Parser
+and CLI tests assert exact lexical diagnostic offsets and messages. Invalid statement documents must
 fail before source is emitted. Existing parser tests and upstream source
 comparisons continue to check comma-insertion conservatism and all supported
 expressions.

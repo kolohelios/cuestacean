@@ -78,8 +78,9 @@ handwritten.
 
 The first [executable scanner DSL](scanner.md) separately expresses the
 whitespace, decimal, and ASCII identifier scanning in CUE. Its compiler emits
-Rust control flow rather than calling native scanning algorithms. Numeric
-validation/conversion, keyword lookup, AST construction, other parsing, and the
+Rust control flow rather than calling native scanning algorithms. Decimal
+missing-digit/leading-zero rejection is also CUE-defined. Checked i64 conversion,
+grammar validation, keyword lookup, AST construction, other parsing, and the
 scanner compiler/runtime
 remain handwritten.
 

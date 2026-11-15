@@ -1,4 +1,7 @@
 [
+  {"program":{"formatVersion":1,"body":[{"op":"reject"}]}, "error":"invalid scanner JSON"},
+  {"program":{"formatVersion":1,"body":[{"op":"reject","reason":""}]}, "error":"nonempty reason"},
+  {"program":{"formatVersion":1,"body":[{"op":"reject","reason":"invalid","offset":0}]}, "error":"invalid scanner JSON"},
   {"program":{"formatVersion":2,"body":[]}, "error":"formatVersion 1 required"},
   {"program":{"formatVersion":1,"body":[{"op":"skipWhitespace"}]}, "error":"invalid scanner JSON"},
   {"program":{"formatVersion":1,"body":[{"op":"advance","extra":true}]}, "error":"invalid scanner JSON"},

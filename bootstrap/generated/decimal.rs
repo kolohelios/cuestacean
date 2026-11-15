@@ -9,12 +9,36 @@ pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
         cursor.step()?;
         cursor.advance()?;
     }
-    while {
-        cursor.step()?;
-        matches!(cursor.peek(), Some(48..=57))
-    } {
+    cursor.step()?;
+    if matches!(cursor.peek(), Some(48)) {
         cursor.step()?;
         cursor.advance()?;
+        cursor.step()?;
+        if matches!(cursor.peek(), Some(48..=57)) {
+            while {
+                cursor.step()?;
+                matches!(cursor.peek(), Some(48..=57))
+            } {
+                cursor.step()?;
+                cursor.advance()?;
+            }
+            cursor.step()?;
+            cursor.reject("leading zeroes are unsupported")?;
+        }
+    } else {
+        cursor.step()?;
+        if matches!(cursor.peek(), Some(49..=57)) {
+            while {
+                cursor.step()?;
+                matches!(cursor.peek(), Some(48..=57))
+            } {
+                cursor.step()?;
+                cursor.advance()?;
+            }
+        } else {
+            cursor.step()?;
+            cursor.reject("expected signed decimal integer")?;
+        }
     }
     Ok(cursor.finish())
 }

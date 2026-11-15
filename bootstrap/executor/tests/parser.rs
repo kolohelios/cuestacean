@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use bootstrap_executor::parser::parse;
+use serde::Deserialize;
 use serde_json::Value;
 
 #[path = "../../generated/evaluation.rs"]
@@ -159,6 +160,49 @@ fn rejected_sources_and_cli_errors_fail_without_results() {
         assert!(output.stdout.is_empty());
         assert!(!output.stderr.is_empty());
     }
+}
+
+#[derive(Deserialize)]
+struct DecimalDiagnostic {
+    file: String,
+    offset: usize,
+    reason: String,
+}
+
+#[test]
+fn cue_decimal_rejections_preserve_parser_and_cli_diagnostics() {
+    let grammar = read(exports().join("grammar.json"));
+    let cases: Vec<DecimalDiagnostic> = serde_json::from_str(&read(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/decimal-diagnostic-cases.json"),
+    ))
+    .expect("diagnostics");
+    for case in cases {
+        let path = bootstrap().join(format!("source/rejected/{}.cue", case.file));
+        let error = parse(&read(&path), &grammar).expect_err("decimal spelling");
+        match &error {
+            bootstrap_executor::parser::Error::Source { offset, reason } => {
+                assert_eq!(*offset, case.offset, "{}", case.file);
+                assert_eq!(reason, &case.reason, "{}", case.file);
+            }
+            other => panic!("expected source rejection, got {other:?}"),
+        }
+        let expected = format!("source byte {}: {}", case.offset, case.reason);
+        assert_eq!(error.to_string(), expected);
+        let output = Command::new(env!("CARGO_BIN_EXE_bootstrap-source"))
+            .arg(path)
+            .output()
+            .expect("source CLI");
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert_eq!(output.stderr, format!("{expected}\n").as_bytes());
+    }
+    assert!(matches!(
+        parse(
+            &read(bootstrap().join("source/rejected/range.cue")),
+            &grammar
+        ),
+        Err(bootstrap_executor::parser::Error::Integer { offset: 0, .. })
+    ));
 }
 
 #[test]

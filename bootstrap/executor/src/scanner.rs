@@ -28,6 +28,8 @@ pub enum Error {
     Advance,
     #[snafu(display("scanner execution budget exhausted"))]
     Budget,
+    #[snafu(display("source byte {offset}: {reason}"))]
+    Rejected { offset: usize, reason: String },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -79,6 +81,13 @@ impl<'a> Cursor<'a> {
 
     pub fn set_flag(&mut self, value: bool) {
         self.flag = value;
+    }
+
+    pub fn reject(&self, reason: &str) -> Result<(), Error> {
+        Err(Error::Rejected {
+            offset: self.offset,
+            reason: reason.to_owned(),
+        })
     }
 
     pub fn finish(self) -> Scan {
@@ -158,6 +167,8 @@ enum Statement {
     Advance {},
     #[serde(rename = "setFlag")]
     SetFlag { value: bool },
+    #[serde(rename = "reject")]
+    Reject { reason: String },
 }
 
 fn validate(body: &[Statement], depth: usize, nodes: &mut usize) -> Result<(), Error> {
@@ -189,7 +200,13 @@ fn validate(body: &[Statement], depth: usize, nodes: &mut usize) -> Result<(), E
                 validate(then, depth + 1, nodes)?;
                 validate(otherwise, depth + 1, nodes)?;
             }
-            Statement::Advance {} | Statement::SetFlag { .. } => {}
+            Statement::Reject { reason } if reason.is_empty() => {
+                return ProgramSnafu {
+                    reason: "reject requires a nonempty reason",
+                }
+                .fail();
+            }
+            Statement::Advance {} | Statement::SetFlag { .. } | Statement::Reject { .. } => {}
         }
     }
     Ok(())
@@ -240,6 +257,10 @@ fn execute(body: &[Statement], cursor: &mut Cursor<'_>) -> Result<(), Error> {
             Statement::SetFlag { value } => {
                 cursor.step()?;
                 cursor.set_flag(*value);
+            }
+            Statement::Reject { reason } => {
+                cursor.step()?;
+                cursor.reject(reason)?;
             }
         }
     }
@@ -292,6 +313,9 @@ fn emit(body: &[Statement], output: &mut String) {
             Statement::SetFlag { value } => {
                 output.push_str(&format!("cursor.step()?;\ncursor.set_flag({value});\n"))
             }
+            Statement::Reject { reason } => {
+                output.push_str(&format!("cursor.step()?;\ncursor.reject({reason:?})?;\n"))
+            }
         }
     }
 }
@@ -321,7 +345,7 @@ pub fn whitespace(source: &str, offset: usize) -> Result<Scan, Error> {
     generated::scan(source, offset)
 }
 
-/// Scan an optional minus and ASCII digit run, without validating the token.
+/// Validate decimal spelling (digits required, no leading zeroes), not magnitude.
 /// The result flag records whether the optional minus was consumed.
 #[cfg(feature = "source")]
 pub fn decimal(source: &str, offset: usize) -> Result<Scan, Error> {
