@@ -1,5 +1,6 @@
 {
   "rules": {
+    "intType": {"result": {"op": "int"}},
     "unify": {
       "result": {
         "op": "unify",

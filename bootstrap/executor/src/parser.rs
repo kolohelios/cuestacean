@@ -27,6 +27,8 @@ pub enum Error {
 struct Grammar {
     format_version: u32,
     integer: Integer,
+    #[serde(default)]
+    atoms: Vec<Atom>,
     group: Group,
     operators: Vec<Operator>,
 }
@@ -36,6 +38,13 @@ struct Grammar {
 struct Integer {
     kind: String,
     value_field: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Atom {
+    token: String,
+    kind: String,
 }
 
 #[derive(Deserialize)]
@@ -80,6 +89,24 @@ impl Grammar {
                 reason: "integer constructor and operators required",
             }
             .fail();
+        }
+        let mut atoms = BTreeSet::new();
+        for atom in &self.atoms {
+            let identifier = !atom.token.is_empty()
+                && atom.token.bytes().enumerate().all(|(index, byte)| {
+                    byte == b'_'
+                        || if index == 0 {
+                            byte.is_ascii_alphabetic()
+                        } else {
+                            byte.is_ascii_alphanumeric()
+                        }
+                });
+            if !identifier || atom.kind.is_empty() || !atoms.insert(&atom.token) {
+                return GrammarSnafu {
+                    reason: "invalid or ambiguous atom configuration",
+                }
+                .fail();
+            }
         }
         let mut tokens = BTreeSet::new();
         for op in &self.operators {
@@ -174,6 +201,11 @@ impl Parser<'_> {
             }
             self.offset += 1;
             value
+        } else if self
+            .peek()
+            .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
+        {
+            self.atom()?
         } else {
             self.integer()?
         };
@@ -209,6 +241,32 @@ impl Parser<'_> {
             ]));
         }
         Ok(left)
+    }
+
+    fn atom(&mut self) -> Result<Value, Error> {
+        let start = self.offset;
+        while self
+            .peek()
+            .is_some_and(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        {
+            self.offset += 1;
+        }
+        let token = &self.source[start..self.offset];
+        let kind = self
+            .grammar
+            .atoms
+            .iter()
+            .find(|atom| atom.token == token)
+            .map(|atom| atom.kind.clone())
+            .ok_or(Error::Source {
+                offset: start,
+                reason: "unknown atom",
+            })?;
+        self.node()?;
+        Ok(Value::Object(Map::from_iter([(
+            "kind".into(),
+            kind.into(),
+        )])))
     }
 
     fn integer(&mut self) -> Result<Value, Error> {

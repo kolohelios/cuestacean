@@ -3,12 +3,15 @@ use bootstrap_executor::{Error, runtime};
 use serde_json::Value;
 
 pub fn execute(input: &str) -> Result<i64, Error> {
-    evaluate(&runtime::program(input)?)
+    runtime::concrete(evaluate(&runtime::program(input)?)?)
 }
 
-fn evaluate(node: &Value) -> Result<i64, Error> {
+fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
     match runtime::kind(node)? {
-        "kind\"\\\nλ" => runtime::integer(node, "payload\"\\\nλ"),
+        "kind\"\\\nλ" => runtime::unify(
+            (Ok::<_, Error>(runtime::Value::Int))?,
+            (runtime::integer(node, "payload\"\\\nλ"))?,
+        ),
         kind => Err(Error::MissingRule {
             kind: kind.to_string(),
         }),

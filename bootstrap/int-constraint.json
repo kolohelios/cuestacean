@@ -1,0 +1,13 @@
+{
+  "entry": {
+    "kind": "unify",
+    "left": {
+      "kind": "intType"
+    },
+    "right": {
+      "kind": "integer",
+      "value": 3
+    }
+  },
+  "formatVersion": 1
+}

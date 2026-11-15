@@ -2,6 +2,7 @@ package bootstrap
 
 #EvaluationRules & {
 	rules: {
+		intType: result: {op: "int"}
 		integer: result: {op: "field", field: "value"}
 		add: result: {
 			op: "sum"

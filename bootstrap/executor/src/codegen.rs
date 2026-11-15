@@ -9,9 +9,9 @@ pub fn generate(input: &str) -> Result<String, Error> {
          use bootstrap_executor::{Error, runtime};\n\
          use serde_json::Value;\n\n\
          pub fn execute(input: &str) -> Result<i64, Error> {\n\
-             evaluate(&runtime::program(input)?)\n\
+             runtime::concrete(evaluate(&runtime::program(input)?)?)\n\
          }\n\n\
-         fn evaluate(node: &Value) -> Result<i64, Error> {\n\
+         fn evaluate(node: &Value) -> Result<runtime::Value, Error> {\n\
              match runtime::kind(node)? {\n",
     );
     // BTreeMap iteration makes dispatch order independent of JSON key order.
@@ -28,6 +28,7 @@ pub fn generate(input: &str) -> Result<String, Error> {
 
 fn instruction(op: &Instruction) -> String {
     match op {
+        Instruction::Int {} => "Ok::<_, Error>(runtime::Value::Int)".to_string(),
         // Debug formatting emits escaped Rust string literals, not raw code.
         Instruction::Field { field } => format!("runtime::integer(node, {field:?})"),
         Instruction::Evaluate { field } => format!("evaluate(runtime::field(node, {field:?})?)"),

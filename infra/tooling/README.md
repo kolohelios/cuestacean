@@ -41,7 +41,7 @@ evaluator; the default entry point still runs the interpreter.
 `nix run ./infra/tooling#source -- bootstrap/source/valid/nested.cue` uses the
 small source frontend. Its `bootstrap-source` Nix check differentially compares
 all supported source fixtures against upstream CUE, requires both tools to
-reject concrete-unification conflicts, and checks unsupported-input cases.
+reject conflicts and incomplete exports, and checks unsupported-input cases.
 Repo-wide `shaka preflight` also validates the CUE project schema and rejects
 drift in generated files or unaccounted GitHub Actions workflows. `taplo.toml`
 excludes direnv and Cargo caches from formatting, not project TOML sources.

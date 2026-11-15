@@ -2,6 +2,7 @@ package bootstrap
 
 #Grammar & {
 	integer: {kind: "integer", valueField: "value"}
+	atoms: [{token: "int", kind: "intType"}]
 	group: {open: "(", close: ")"}
 	operators: [{
 		token:         "+"

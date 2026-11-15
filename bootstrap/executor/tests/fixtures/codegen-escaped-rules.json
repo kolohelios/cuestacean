@@ -2,7 +2,11 @@
   "formatVersion": 1,
   "rules": {
     "kind\"\\\nλ": {
-      "result": {"op": "field", "field": "payload\"\\\nλ"}
+      "result": {
+        "op": "unify",
+        "left": {"op": "int"},
+        "right": {"op": "field", "field": "payload\"\\\nλ"}
+      }
     }
   }
 }

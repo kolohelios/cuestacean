@@ -1,12 +1,14 @@
 package bootstrap
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #IntegerLiteral | #Addition | #Multiplication | #Unification
+#Expression: #IntegerLiteral | #IntegerType | #Addition | #Multiplication | #Unification
 
 #IntegerLiteral: {
 	kind:  "integer"
 	value: int
 }
+
+#IntegerType: {kind: "intType"}
 
 #Addition: {
 	kind:  "add"
@@ -42,12 +44,18 @@ package bootstrap
 	associativity: "left" | "right"
 }
 
+#Atom: {
+	token: string & =~"^[a-zA-Z_][a-zA-Z0-9_]*$"
+	kind:  string & !=""
+}
+
 #Grammar: {
 	formatVersion: 1
 	integer: {
 		kind:       string & !=""
 		valueField: string & !="" & !="kind"
 	}
+	atoms: *[] | [...#Atom]
 	group: {open: "(", close: ")"}
 	operators: [#InfixOperator, ...#InfixOperator]
 }
@@ -63,6 +71,7 @@ package bootstrap
 #EvaluationRules: {
 	formatVersion: 1
 	rules: {
+		intType: result: {op: "int"}
 		integer: result: {
 			op:    "field"
 			field: "value"
