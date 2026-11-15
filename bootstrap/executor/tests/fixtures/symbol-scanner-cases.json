@@ -20,5 +20,13 @@
   {"source":"/", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":1, "infixFlag":true},
   {"source":"+=", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":1, "infixFlag":true},
   {"source":" \t+", "start":2, "boundEnd":2, "boundFlag":false, "infixEnd":3, "infixFlag":true},
+  {"source":"div", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":3, "infixFlag":true},
+  {"source":"mod-2", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":3, "infixFlag":true},
+  {"source":"quo+2", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":3, "infixFlag":true},
+  {"source":"rem ", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":3, "infixFlag":true},
+  {"source":"qu", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":0, "infixFlag":false},
+  {"source":"quo2", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":0, "infixFlag":false},
+  {"source":"div_foo", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":0, "infixFlag":false},
+  {"source":"remX", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":0, "infixFlag":false},
   {"source":"abc", "start":3, "boundEnd":3, "boundFlag":false, "infixEnd":3, "infixFlag":false}
 ]

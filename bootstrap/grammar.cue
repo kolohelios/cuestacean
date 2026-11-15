@@ -37,5 +37,33 @@ package bootstrap
 		rightField:    "right"
 		precedence:    10
 		associativity: "left"
+	}, {
+		token:         "div"
+		kind:          "divide"
+		leftField:     "left"
+		rightField:    "right"
+		precedence:    20
+		associativity: "left"
+	}, {
+		token:         "mod"
+		kind:          "modulo"
+		leftField:     "left"
+		rightField:    "right"
+		precedence:    20
+		associativity: "left"
+	}, {
+		token:         "quo"
+		kind:          "quotient"
+		leftField:     "left"
+		rightField:    "right"
+		precedence:    20
+		associativity: "left"
+	}, {
+		token:         "rem"
+		kind:          "remainder"
+		leftField:     "left"
+		rightField:    "right"
+		precedence:    20
+		associativity: "left"
 	}]
 }

@@ -8,6 +8,87 @@ pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
         cursor.advance()?;
         cursor.step()?;
         cursor.set_flag(true);
+    } else {
+        cursor.step()?;
+        if matches!(cursor.peek(), Some(100)) {
+            cursor.step()?;
+            if matches!(cursor.peek_at(1), Some(105)) {
+                cursor.step()?;
+                if matches!(cursor.peek_at(2), Some(118)) {
+                    cursor.step()?;
+                    if !matches!(cursor.peek_at(3), Some(48..=57 | 65..=90 | 95 | 97..=122)) {
+                        cursor.step()?;
+                        cursor.advance()?;
+                        cursor.step()?;
+                        cursor.advance()?;
+                        cursor.step()?;
+                        cursor.advance()?;
+                        cursor.step()?;
+                        cursor.set_flag(true);
+                    }
+                }
+            }
+        }
+        cursor.step()?;
+        if matches!(cursor.peek(), Some(109)) {
+            cursor.step()?;
+            if matches!(cursor.peek_at(1), Some(111)) {
+                cursor.step()?;
+                if matches!(cursor.peek_at(2), Some(100)) {
+                    cursor.step()?;
+                    if !matches!(cursor.peek_at(3), Some(48..=57 | 65..=90 | 95 | 97..=122)) {
+                        cursor.step()?;
+                        cursor.advance()?;
+                        cursor.step()?;
+                        cursor.advance()?;
+                        cursor.step()?;
+                        cursor.advance()?;
+                        cursor.step()?;
+                        cursor.set_flag(true);
+                    }
+                }
+            }
+        }
+        cursor.step()?;
+        if matches!(cursor.peek(), Some(113)) {
+            cursor.step()?;
+            if matches!(cursor.peek_at(1), Some(117)) {
+                cursor.step()?;
+                if matches!(cursor.peek_at(2), Some(111)) {
+                    cursor.step()?;
+                    if !matches!(cursor.peek_at(3), Some(48..=57 | 65..=90 | 95 | 97..=122)) {
+                        cursor.step()?;
+                        cursor.advance()?;
+                        cursor.step()?;
+                        cursor.advance()?;
+                        cursor.step()?;
+                        cursor.advance()?;
+                        cursor.step()?;
+                        cursor.set_flag(true);
+                    }
+                }
+            }
+        }
+        cursor.step()?;
+        if matches!(cursor.peek(), Some(114)) {
+            cursor.step()?;
+            if matches!(cursor.peek_at(1), Some(101)) {
+                cursor.step()?;
+                if matches!(cursor.peek_at(2), Some(109)) {
+                    cursor.step()?;
+                    if !matches!(cursor.peek_at(3), Some(48..=57 | 65..=90 | 95 | 97..=122)) {
+                        cursor.step()?;
+                        cursor.advance()?;
+                        cursor.step()?;
+                        cursor.advance()?;
+                        cursor.step()?;
+                        cursor.advance()?;
+                        cursor.step()?;
+                        cursor.set_flag(true);
+                    }
+                }
+            }
+        }
     }
     Ok(cursor.finish())
 }

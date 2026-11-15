@@ -69,6 +69,7 @@
         "subtraction"
         "negation"
         "multiplication"
+        "division"
         "unification"
         "int-constraint"
         "bounds"
@@ -327,6 +328,10 @@
                 set -euo pipefail
                 for source in ${../../bootstrap/source}/valid/*.cue; do
                   cue export "$source" --out json > expected
+                  # CUE can spell integer zero as -0; i64 output is canonical 0.
+                  # Normalize only that spelling, without rounding any integers.
+                  IFS= read -r scalar < expected
+                  if [ "$scalar" = "-0" ]; then printf '0\n' > expected; fi
                   bootstrap-source "$source" > actual
                   diff -u expected actual
                 done

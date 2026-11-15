@@ -688,7 +688,36 @@ fn symbol_scanners_preserve_spans_without_consuming_partial_matches() {
 }
 
 #[test]
-fn symbol_recognition_matches_the_supported_ascii_alphabet() {
+fn word_infixes_require_complete_non_consuming_keyword_matches() {
+    let control = program("infix");
+    for word in ["div", "mod", "quo", "rem"] {
+        for length in 0..word.len() {
+            let result = scanner::infix(&word[..length], 0).expect("partial keyword");
+            assert_eq!(result.offset, 0);
+            assert!(!result.flag);
+        }
+        let result = scanner::infix(word, 0).expect("keyword at EOF");
+        assert_eq!(result.offset, 3);
+        assert!(result.flag);
+        for byte in 0..=127u8 {
+            let text = format!("{word}{}", char::from(byte));
+            let matched = !(byte.is_ascii_alphanumeric() || byte == b'_');
+            let result = scanner::infix(&text, 0).expect("keyword suffix");
+            assert_eq!(result.flag, matched, "{text:?}");
+            assert_eq!(result.offset, if matched { 3 } else { 0 }, "{text:?}");
+            assert_eq!(
+                result,
+                scanner::interpret(&control, &text, 0).expect("reference keyword")
+            );
+        }
+    }
+    let result = scanner::infix("λquo-2", 2).expect("UTF-8 boundary");
+    assert_eq!(result.offset, 5);
+    assert!(result.flag);
+}
+
+#[test]
+fn single_byte_symbols_match_the_supported_ascii_alphabet() {
     let bound = program("bound-prefix");
     let infix = program("infix");
     for byte in 0_u8..=127 {

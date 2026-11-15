@@ -133,10 +133,16 @@ fn rejected_sources_and_cli_errors_fail_without_results() {
             .expect("fixture directory")
             .ends_with("conflicts")
         {
-            assert!(
-                String::from_utf8_lossy(&output.stderr).contains("conflicting integer"),
-                "{path:?}: {output:?}"
-            );
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            match path.file_stem().and_then(|name| name.to_str()) {
+                Some("division-zero" | "mod-zero" | "quo-zero" | "rem-zero") => {
+                    assert_eq!(stderr, "integer division by zero\n", "{path:?}");
+                }
+                _ => assert!(
+                    stderr.contains("conflicting integer"),
+                    "{path:?}: {output:?}"
+                ),
+            }
         }
     }
     for file in [

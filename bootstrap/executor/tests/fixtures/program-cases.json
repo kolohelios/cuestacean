@@ -53,7 +53,7 @@
   {"name":"missing child","program":{"formatVersion":1,"entry":{"kind":"add","left":{"kind":"integer","value":1}}},"error":"missing field"},
   {"name":"invalid child","program":{"formatVersion":1,"entry":{"kind":"add","left":1,"right":{"kind":"integer","value":2}}},"error":"string kind"},
   {"name":"missing kind","program":{"formatVersion":1,"entry":{"value":1}},"error":"string kind"},
-  {"name":"unknown kind","program":{"formatVersion":1,"entry":{"kind":"divide"}},"error":"no rule"},
+  {"name":"unknown kind","program":{"formatVersion":1,"entry":{"kind":"unknownTestKind"}},"error":"no rule"},
   {"name":"version","program":{"formatVersion":2,"entry":{"kind":"integer","value":1}},"error":"unsupported program formatVersion"},
   {"name":"extra wrapper field","program":{"formatVersion":1,"entry":{"kind":"integer","value":1},"extra":true},"error":"invalid program JSON"}
 ]
