@@ -128,6 +128,109 @@ fn cursor_guards_and_fuel_apply_to_interpreted_and_emitted_control_flow() {
 }
 
 #[derive(Deserialize)]
+struct DecimalCase {
+    source: String,
+    start: usize,
+    end: usize,
+    minus: bool,
+}
+
+#[test]
+fn decimal_scanning_preserves_spans_without_doing_numeric_validation() {
+    let cases: Vec<DecimalCase> = serde_json::from_str(
+        &std::fs::read_to_string("tests/fixtures/decimal-scanner-cases.json").expect("cases"),
+    )
+    .expect("decode decimal cases");
+    let decimal = program("decimal");
+    for case in cases {
+        let expected = Scan {
+            offset: case.end,
+            flag: case.minus,
+        };
+        assert_eq!(
+            scanner::interpret(&decimal, &case.source, case.start).expect("interpreted"),
+            expected,
+            "{:?}",
+            case.source
+        );
+        assert_eq!(
+            scanner::decimal(&case.source, case.start).expect("compiled"),
+            expected,
+            "{:?}",
+            case.source
+        );
+        assert!(case.source.is_char_boundary(expected.offset));
+    }
+    let digits = "1234567890".repeat(4096);
+    let source = format!("-{digits}λ");
+    let expected = Scan {
+        offset: digits.len() + 1,
+        flag: true,
+    };
+    assert_eq!(
+        scanner::interpret(&decimal, &source, 0).expect("long interpreted"),
+        expected
+    );
+    assert_eq!(
+        scanner::decimal(&source, 0).expect("long compiled"),
+        expected
+    );
+    for (source, start) in [("", 1), ("λ", 1), ("abc", 4)] {
+        assert!(matches!(
+            scanner::interpret(&decimal, source, start),
+            Err(Error::Offset)
+        ));
+        assert!(matches!(
+            scanner::decimal(source, start),
+            Err(Error::Offset)
+        ));
+    }
+}
+
+#[test]
+fn decimal_scanning_matches_the_original_ascii_token_boundary_contract() {
+    let decimal = program("decimal");
+    for byte in 0_u8..=127 {
+        let digit = usize::from(byte.is_ascii_digit());
+        for (bytes, expected) in [
+            (
+                vec![byte],
+                Scan {
+                    offset: if byte == b'-' { 1 } else { digit },
+                    flag: byte == b'-',
+                },
+            ),
+            (
+                vec![b'-', byte],
+                Scan {
+                    offset: 1 + digit,
+                    flag: true,
+                },
+            ),
+            (
+                vec![b'1', b'2', byte],
+                Scan {
+                    offset: 2 + digit,
+                    flag: false,
+                },
+            ),
+        ] {
+            let source = String::from_utf8(bytes).expect("ASCII");
+            assert_eq!(
+                scanner::interpret(&decimal, &source, 0).expect("interpreted"),
+                expected,
+                "{source:?}"
+            );
+            assert_eq!(
+                scanner::decimal(&source, 0).expect("compiled"),
+                expected,
+                "{source:?}"
+            );
+        }
+    }
+}
+
+#[derive(Deserialize)]
 struct InvalidCase {
     program: Value,
     error: String,

@@ -77,9 +77,10 @@ generator from CUE. The shared native runtime and the generator remain
 handwritten.
 
 The first [executable scanner DSL](scanner.md) separately expresses the
-whitespace loop, newline branch, and cursor/flag updates in CUE. Its compiler
-emits Rust control flow rather than calling a native whitespace algorithm.
-Other parsing and the scanner compiler/runtime remain handwritten.
+whitespace loop/newline branch and decimal sign/digit scanning in CUE. Its
+compiler emits Rust control flow rather than calling native scanning algorithms.
+Numeric validation/conversion, other parsing, and the scanner compiler/runtime
+remain handwritten.
 
 The syntax and rules remain experimental, not a settled intermediate
 representation. They exercise the source-to-artifact boundary that Cuestacean

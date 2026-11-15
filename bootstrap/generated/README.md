@@ -21,7 +21,9 @@ remain test-only.
   fixture exercises the emitter, not the narrower CUE schema.
 
 `whitespace.rs` is generated from a different, executable [scanner DSL](../scanner.md):
-its loop and newline branch come from `whitespace.cue`. The `scanner-horizontal`,
+its loop and newline branch come from `whitespace.cue`. `decimal.rs` uses the
+same DSL for optional-minus and digit scanning; numeric validation/conversion
+remain native. The `scanner-horizontal`,
 `scanner-stalled`, and `scanner-advance` modules are test-only algorithms that
 exercise alternate branches, non-progress, and native cursor guards.
 
@@ -48,7 +50,7 @@ for rules in "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   bootstrap/executor/target/debug/bootstrap-codegen "$rules" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
-for machine in whitespace tests/valid/scanner-horizontal tests/valid/scanner-stalled tests/valid/scanner-advance; do
+for machine in whitespace decimal tests/valid/scanner-horizontal tests/valid/scanner-stalled tests/valid/scanner-advance; do
   name=$(basename "$machine")
   bootstrap/executor/target/debug/bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$machine.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"

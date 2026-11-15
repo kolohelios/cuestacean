@@ -1,15 +1,18 @@
 # First executable parser control flow
 
-[`whitespace.cue`](whitespace.cue) owns the whitespace loop, newline branch,
-and flag updates. The handwritten `bootstrap-scan-codegen <program.json>`
-compiler lowers this statement program into Rust `while` and `if`/`else` control
-flow. The parser calls the [generated scanner](generated/whitespace.rs), not
-the statement interpreter. No Go process runs during source evaluation.
+[`whitespace.cue`](whitespace.cue) owns the whitespace loop and newline branch.
+[`decimal.cue`](decimal.cue) reuses the same DSL for the optional-minus branch
+and digit loop, without new instructions. The handwritten
+`bootstrap-scan-codegen <program.json>` compiler lowers these programs into
+Rust control flow. The parser calls the generated [whitespace](generated/whitespace.rs)
+and [decimal](generated/decimal.rs) scanners, not the statement interpreter.
+No Go process runs during source evaluation.
 
 This is more than a byte-class table: CUE defines the loop and branch bodies,
-including when to advance and update state. It is one small algorithm, **not a
-self-hosted parser or compiler**. Other lexing, prefix parsing, the Pratt
-algorithm, the statement compiler/interpreter, JSON loading, and safe cursor
+including when to advance and update state. These are two small algorithms,
+**not a self-hosted parser or compiler**. Numeric validation/conversion, other
+lexing, prefix parsing, the Pratt algorithm, the statement compiler/interpreter,
+JSON loading, and safe cursor
 primitives remain handwritten. Upstream Go CUE still exports specifications.
 
 ## Statement contract
@@ -25,14 +28,28 @@ primitives remain handwritten. Upstream Go CUE still exports specifications.
 
 The predicate `byteIn` tests the current byte against a nonempty ASCII byte
 list. EOF never matches. Duplicate entries have set semantics; generation
-sorts and deduplicates them. There are no arbitrary Rust expressions, calls,
+sorts/deduplicates them and compacts contiguous runs into Rust range patterns.
+There are no arbitrary Rust expressions, calls,
 variables, AST construction, backtracking, or general-purpose computation yet.
 
 Both execution paths start at a caller-supplied byte offset, with the flag
-false, and return `{offset, flag}`. The normal program skips space, tab, LF,
+false, and return `{offset, flag}`. The whitespace program skips space, tab, LF,
 and CR and remembers whether it encountered LF/CR. An alternate CUE program
 skips only spaces/tabs and reports whether the last consumed byte was a space;
 its compiled branch includes an `else` that clears the flag.
+
+## Decimal token boundaries, not validation
+
+The decimal program consumes an optional ASCII `-` followed by ASCII digits.
+Its flag records whether a minus was consumed. Both integer literals and bound
+thresholds call this generated scanner. It does not accept `+`, Unicode digits,
+or other numeric spellings.
+
+Scanning deliberately accepts incomplete or invalid numeric spans: `-` returns
+an end offset of 1 with the flag true; `01` consumes both digits. The parser
+still rejects missing digits and leading zeroes, then uses Rust's checked i64
+conversion. Large digit runs can be scanned even when their numeric value is
+out of range. These checks and conversion remain native, not CUE-defined.
 
 ## Explicit native safety boundary
 
@@ -58,8 +75,8 @@ nix develop ./infra/tooling --command cargo test --manifest-path bootstrap/execu
 ```
 
 Tests compare the interpreter, compiled normal/alternate programs, and known
-expectations, including all 128 ASCII bytes, long whitespace runs, CRLF, Unicode
-boundaries, EOF and invalid offsets. Separate compiled programs exercise
+expectations, including all 128 ASCII bytes, decimal sign/digit boundaries,
+long whitespace/digit runs, CRLF, Unicode boundaries, EOF and invalid offsets. Separate compiled programs exercise
 non-progressing loops and unsafe advancement. Invalid statement documents must
 fail before source is emitted. Existing parser tests and upstream source
 comparisons continue to check comma-insertion conservatism and all supported

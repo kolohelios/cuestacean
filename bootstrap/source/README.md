@@ -14,9 +14,10 @@ exit 2 without a result. No Go process is invoked at runtime.
 `../grammar.cue` describes atoms, bound prefixes, infix operators, precedence,
 associativity, grouping, and AST constructors for a bootstrap Pratt parser.
 It exports to `grammar.json` in the Nix `exports` output and is compiled into
-the frontend. The [whitespace algorithm](../scanner.md) is now a CUE-authored
-statement program compiled to Rust, including its loop and newline branch.
-Other lexing, prefix parsing, and the Pratt algorithm remain handwritten;
+the frontend. [Whitespace and decimal scanning](../scanner.md) are CUE-authored
+statement programs compiled to Rust, including newline and optional-sign branches
+and byte-scanning loops. Missing-digit/leading-zero checks, i64 conversion,
+other lexing, prefix parsing, and the Pratt algorithm remain handwritten;
 grammar configuration alone is not self-hosted parser machinery.
 
 ## Deliberately small subset
