@@ -54,7 +54,9 @@ attempts expression operations inside primary dispatch to exercise state guards.
 Generated evaluator code contains node-kind dispatch and lowered rule expressions. It
 shares the handwritten `bootstrap_executor::runtime` primitives for JSON
 validation, field access, integer/type values, inclusive bounds, unification,
-and checked integer arithmetic. Intermediate values may be abstract `int` or
+and checked integer arithmetic. Unification delegates to `unify.rs`, generated
+from the [unification DSL](../unify.md); `unify-right` and `unify-scoped` are
+test-only policies. Intermediate values may be abstract `int` or
 bounds; the generated public
 entry point requires a concrete i64 only at the output boundary. Tests compare values
 and errors against the interpreter and known expectations. Sharing primitives
@@ -66,7 +68,7 @@ the shell after editing CUE rules so its export directory reflects those edits:
 ```sh
 cargo build --manifest-path bootstrap/executor/Cargo.toml --no-default-features \
   --bin bootstrap-codegen --bin bootstrap-scan-codegen \
-  --bin bootstrap-ast-codegen --bin bootstrap-pratt-codegen
+  --bin bootstrap-ast-codegen --bin bootstrap-pratt-codegen --bin bootstrap-unify-codegen
 set -o pipefail
 for rules in "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/evaluation-left-twice.json" \
@@ -98,6 +100,11 @@ for control in primary tests/valid/primary-no-atoms tests/valid/primary-high-min
   bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
+for control in unify tests/valid/unify-right tests/valid/unify-scoped; do
+  name=$(basename "$control")
+  bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
+    | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
+done
 ```
 
 ## Fresh Nix builds
@@ -107,12 +114,12 @@ stages, clearing leftover JSON and generated Rust from each staged source copy
 first. This never deletes files in the working tree. CUE JSON exports are an
 independent Nix output built only from CUE sources, not committed artifacts.
 
-1. Compile the handwritten evaluator, scanner, AST and Pratt-control compiler
-   seeds with `--no-default-features`. This excludes the `source` feature's
-   generated frontend dependencies. Seed tests need generated modules,
+1. Compile the handwritten evaluator, scanner, AST, Pratt and unification compiler
+   seeds with `--no-default-features`. This excludes generated frontend and
+   semantic dependencies; `source` normally enables `semantics`. Seed tests need generated modules,
    so they run in the final stage rather than creating a bootstrap cycle.
 2. Use the fresh JSON output and the seeds to regenerate evaluator, scanner,
-   AST-builder, and Pratt-control Rust. Compile all binaries with the default `source` feature enabled and
+   AST-builder, Pratt-control and unification Rust. Compile all binaries with the default `source` feature enabled and
    run the complete formatting, Clippy, and test suite against fresh artifacts.
 
 Committed Rust modules remain reviewable golden files: the Rust generation

@@ -62,9 +62,10 @@ outer scalar-output boundary requires concreteness; bare `int` reports
 `int & >=3 & <=3`. Missing
 endpoints are infinite: `int & >=9223372036854775807` remains incomplete rather
 than being clipped into a singleton at i64::MAX. The value representation and
-intersection are still handwritten Rust, not a general CUE value lattice.
+projections remain native; [CUE-defined unification control](../unify.md) now owns
+intersection and identity/conflict policy. This is not a general CUE value lattice.
 
-Rust implements these primitives, not special cases for the expression kinds.
+Other primitives remain native, without special cases for expression kinds.
 The CUE-exported `tests/valid/evaluation-left-twice.json` in the exports output changes addition to
 evaluate the left child twice. With the unchanged addition tree and executable,
 that rule file yields `40`, demonstrating that rule data controls behavior.
@@ -129,7 +130,7 @@ by the parser; `bootstrap-ast-codegen <builder.json>` is its native compiler.
 code-generator seeds enable a [fresh two-stage build](../generated/README.md),
 then the final package runs Rust formatting, Clippy, and all tests in the
 sandbox. Tests use the real exported
-fixtures, the changed-rule export, integer boundary/error cases, all seven
+fixtures, the changed-rule export, integer boundary/error cases, all eight
 CLIs, the source parser, the scanner DSL, and compiled generated modules. The interpreter and generated CLIs
 must agree byte-for-byte on stdout and stderr, and on exit status, for both
 exported expressions, the complete program-case corpus, malformed JSON, and

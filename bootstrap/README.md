@@ -73,8 +73,9 @@ with its rules compiled in. CLI tests compare it against the interpreter.
 The Nix build exports JSON from CUE into an immutable output and regenerates
 staged Rust before compiling, using handwritten generator seeds. This lowers the
 exported rule DSL to Rust; it does not implement CUE evaluation or rebuild the
-generator from CUE. The shared native runtime and the generator remain
-handwritten.
+generator from CUE. The value scaffold and generators remain handwritten. The separate
+[unification control program](unify.md) now lowers identity, intersection and
+conflict decisions from CUE into the shared runtime's production unification.
 
 The first [executable scanner DSL](scanner.md) separately expresses the
 whitespace, decimal, and ASCII identifier scanning in CUE. Its compiler emits

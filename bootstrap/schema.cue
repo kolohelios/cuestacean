@@ -43,6 +43,22 @@ package bootstrap
 	entry:         #Expression
 }
 
+// Pure finite unification control. Local endpoints are scoped by letBounds.
+#UnifySide:         "left" | "right"
+#UnifyEndpointName: "lower" | "upper"
+#UnifyEndpoint: {op: "input", input: #UnifySide, endpoint: #UnifyEndpointName} | {op: "local", endpoint: #UnifyEndpointName} | {op: "empty"} | {
+	op: "choose", condition: #UnifyCondition, then: #UnifyEndpoint, else: #UnifyEndpoint
+}
+#UnifyCondition: {op: "kindIs", input: #UnifySide, kind: "integer" | "int" | "bounds"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
+	op: "compare", left: #UnifyEndpoint, right: #UnifyEndpoint, relation: "equal" | "less" | "greater"
+} | {op: "and", left: #UnifyCondition, right: #UnifyCondition}
+#UnifyExpression: {op: "input", input: #UnifySide} | {
+	op: "if", condition: #UnifyCondition, then: #UnifyExpression, else: #UnifyExpression
+} | {
+	op: "letBounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint, result: #UnifyExpression
+} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: "integers" | "bounds"}
+#UnifyProgram: {formatVersion: 1, result: #UnifyExpression}
+
 // Expression-parser control flow; native frame operations are explicit intrinsics.
 #PrattNumber: {op: "minimum"} | {op: "precedence"} | {op: "integer", value: uint & <=255} | {
 	op:    "add"

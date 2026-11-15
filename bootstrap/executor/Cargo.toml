@@ -9,7 +9,18 @@ default-run = "bootstrap-executor"
 
 [features]
 default = ["source"]
-source = []
+source = ["semantics"]
+semantics = []
+
+[[bin]]
+name = "bootstrap-executor"
+path = "src/main.rs"
+required-features = ["semantics"]
+
+[[bin]]
+name = "bootstrap-generated"
+path = "src/bin/bootstrap-generated.rs"
+required-features = ["semantics"]
 
 [[bin]]
 name = "bootstrap-source"
