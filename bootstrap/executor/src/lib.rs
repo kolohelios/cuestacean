@@ -35,6 +35,8 @@ pub enum Error {
     Integer { field: String },
     #[snafu(display("signed 64-bit integer addition overflow"))]
     Overflow,
+    #[snafu(display("signed 64-bit integer multiplication overflow"))]
+    ProductOverflow,
 }
 
 #[derive(Deserialize)]
@@ -67,6 +69,10 @@ enum Instruction {
         field: String,
     },
     Sum {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
+    Product {
         left: Box<Instruction>,
         right: Box<Instruction>,
     },
@@ -112,6 +118,11 @@ fn instruction(
             let left = instruction(left, node, rules)?;
             let right = instruction(right, node, rules)?;
             runtime::sum(left, right)
+        }
+        Instruction::Product { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::product(left, right)
         }
     }
 }

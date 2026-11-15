@@ -1,4 +1,12 @@
 [
+  {"name":"product","program":{"formatVersion":1,"entry":{"kind":"multiply","left":{"kind":"integer","value":6},"right":{"kind":"integer","value":7}}},"expected":42},
+  {"name":"signed product","program":{"formatVersion":1,"entry":{"kind":"multiply","left":{"kind":"integer","value":-7},"right":{"kind":"integer","value":2}}},"expected":-14},
+  {"name":"zero product","program":{"formatVersion":1,"entry":{"kind":"multiply","left":{"kind":"integer","value":0},"right":{"kind":"integer","value":9223372036854775807}}},"expected":0},
+  {"name":"maximum product","program":{"formatVersion":1,"entry":{"kind":"multiply","left":{"kind":"integer","value":9223372036854775807},"right":{"kind":"integer","value":1}}},"expected":9223372036854775807},
+  {"name":"minimum product","program":{"formatVersion":1,"entry":{"kind":"multiply","left":{"kind":"integer","value":-9223372036854775808},"right":{"kind":"integer","value":1}}},"expected":-9223372036854775808},
+  {"name":"product overflow","program":{"formatVersion":1,"entry":{"kind":"multiply","left":{"kind":"integer","value":9223372036854775807},"right":{"kind":"integer","value":2}}},"error":"multiplication overflow"},
+  {"name":"product underflow","program":{"formatVersion":1,"entry":{"kind":"multiply","left":{"kind":"integer","value":-9223372036854775808},"right":{"kind":"integer","value":2}}},"error":"multiplication overflow"},
+  {"name":"minimum times negative one","program":{"formatVersion":1,"entry":{"kind":"multiply","left":{"kind":"integer","value":-9223372036854775808},"right":{"kind":"integer","value":-1}}},"error":"multiplication overflow"},
   {"name":"zero","program":{"formatVersion":1,"entry":{"kind":"integer","value":0}},"expected":0},
   {"name":"negative","program":{"formatVersion":1,"entry":{"kind":"integer","value":-7}},"expected":-7},
   {"name":"maximum","program":{"formatVersion":1,"entry":{"kind":"integer","value":9223372036854775807}},"expected":9223372036854775807},
@@ -13,7 +21,7 @@
   {"name":"missing child","program":{"formatVersion":1,"entry":{"kind":"add","left":{"kind":"integer","value":1}}},"error":"missing field"},
   {"name":"invalid child","program":{"formatVersion":1,"entry":{"kind":"add","left":1,"right":{"kind":"integer","value":2}}},"error":"string kind"},
   {"name":"missing kind","program":{"formatVersion":1,"entry":{"value":1}},"error":"string kind"},
-  {"name":"unknown kind","program":{"formatVersion":1,"entry":{"kind":"multiply"}},"error":"no rule"},
+  {"name":"unknown kind","program":{"formatVersion":1,"entry":{"kind":"divide"}},"error":"no rule"},
   {"name":"version","program":{"formatVersion":2,"entry":{"kind":"integer","value":1}},"error":"unsupported program formatVersion"},
   {"name":"extra wrapper field","program":{"formatVersion":1,"entry":{"kind":"integer","value":1},"extra":true},"error":"invalid program JSON"}
 ]

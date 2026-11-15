@@ -26,6 +26,14 @@ fn supported_source_reaches_the_generated_evaluator() {
         ("maximum", i64::MAX),
         ("associativity", 6),
         ("whitespace", 0),
+        ("product", 42),
+        ("precedence", 7),
+        ("grouped-product", 9),
+        ("product-chain", 24),
+        ("signed-product", -14),
+        ("minimum-product", i64::MIN),
+        ("zero-product", 0),
+        ("double-negative", 14),
     ] {
         let path = bootstrap().join(format!("source/valid/{name}.cue"));
         let program = parse(&read(&path), &grammar).expect(name);
@@ -97,13 +105,46 @@ fn grammar_data_controls_associativity_and_constructor_names() {
     assert_eq!(right["entry"]["first"]["kind"], "integer");
     assert_eq!(right["entry"]["second"]["kind"], "alternate");
     // These trees test parser configuration, not the default evaluator's kinds.
-    alternate["operators"][0]["token"] = "*".into();
+    alternate["operators"][0]["token"] = "/".into();
     assert!(
         parse(
             &source,
             &serde_json::to_string(&alternate).expect("changed token")
         )
         .is_err()
+    );
+}
+
+#[test]
+fn precedence_comes_from_grammar_data() {
+    let source = read(bootstrap().join("source/valid/precedence.cue"));
+    let grammar = read(bootstrap().join("grammar.json"));
+    let normal = parse(&source, &grammar).expect("normal precedence");
+    assert_eq!(normal["entry"]["kind"], "add");
+    assert_eq!(normal["entry"]["right"]["kind"], "multiply");
+    assert_eq!(
+        normal,
+        serde_json::from_str::<Value>(&read(bootstrap().join("multiplication.json")))
+            .expect("mixed tree")
+    );
+    let mut changed: Value = serde_json::from_str(&grammar).expect("grammar");
+    changed["operators"][1]["precedence"] = 5.into();
+    let changed = parse(
+        &source,
+        &serde_json::to_string(&changed).expect("changed grammar"),
+    )
+    .expect("changed precedence");
+    assert_eq!(changed["entry"]["kind"], "multiply");
+    assert_eq!(changed["entry"]["left"]["kind"], "add");
+    assert_eq!(
+        generated::execute(&serde_json::to_string(&normal).expect("program"))
+            .expect("normal result"),
+        7
+    );
+    assert_eq!(
+        generated::execute(&serde_json::to_string(&changed).expect("program"))
+            .expect("changed result"),
+        9
     );
 }
 

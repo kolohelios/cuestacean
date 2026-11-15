@@ -1,5 +1,12 @@
 {
   "rules": {
+    "multiply": {
+      "result": {
+        "op": "product",
+        "right": {"op": "evaluate", "field": "right"},
+        "left": {"op": "evaluate", "field": "left"}
+      }
+    },
     "integer": {"result": {"op": "field", "field": "value"}},
     "add": {
       "result": {

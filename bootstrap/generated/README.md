@@ -1,7 +1,7 @@
 # First Rust generation boundary
 
 These modules are generated from rule JSON by the handwritten Rust
-`bootstrap-codegen` binary. This lowers our three instruction primitives, not
+`bootstrap-codegen` binary. This lowers our four instruction primitives, not
 arbitrary CUE source. The interpreter remains the default executable and a
 reference for tests. The normal generated module also runs as a separate CLI:
 

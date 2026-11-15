@@ -13,6 +13,10 @@ fn evaluate(node: &Value) -> Result<i64, Error> {
             (evaluate(runtime::field(node, "left")?))?,
         ),
         "integer" => runtime::integer(node, "value"),
+        "multiply" => runtime::product(
+            (evaluate(runtime::field(node, "left")?))?,
+            (evaluate(runtime::field(node, "right")?))?,
+        ),
         kind => Err(Error::MissingRule {
             kind: kind.to_string(),
         }),

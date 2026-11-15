@@ -10,5 +10,12 @@ package bootstrap
 		rightField:    "right"
 		precedence:    10
 		associativity: "left"
+	}, {
+		token:         "*"
+		kind:          "multiply"
+		leftField:     "left"
+		rightField:    "right"
+		precedence:    20
+		associativity: "left"
 	}]
 }

@@ -19,8 +19,11 @@ not a claim that parser machinery is self-hosted.
 
 ## Deliberately small subset
 
-The default grammar accepts decimal signed integers, binary addition, and
-parentheses. A negative sign must touch its digits. Spaces and tabs are allowed;
+The default grammar accepts decimal signed integers, binary addition and
+multiplication, and parentheses. Multiplication has higher precedence than
+addition; both operators are left-associative. These choices live in CUE grammar
+data, not in the parser algorithm. `1 + 2 * 3` produces `7`, while `(1 + 2) * 3`
+produces `9`. A negative sign must touch its digits. Spaces and tabs are allowed;
 line breaks can precede operands or follow an opening parenthesis, but cannot
 follow an operand before another token. This avoids silently ignoring CUE's
 implicit comma insertion at line breaks. Trailing whitespace is allowed.
@@ -38,8 +41,8 @@ upstream CUE should reject the same inputs.
 ## Checks and regeneration
 
 Rust tests cover source execution, the existing nested AST, grammar-controlled
-associativity and constructors, grammar validation, resource limits, and CLI
-failures. The Nix `bootstrap-source` check compares every `valid/*.cue` result
+associativity, precedence and constructors, grammar validation, resource limits,
+and CLI failures. The Nix `bootstrap-source` check compares every `valid/*.cue` result
 byte-for-byte against the pinned upstream `cue export`, using exact decimal
 output without passing integers through a floating-point JSON formatter.
 Existing interpreter, generated JSON CLI, and code-generation checks remain.
