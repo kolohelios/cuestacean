@@ -12,6 +12,12 @@ use crate::{Error, JsonSnafu, Program, VersionSnafu};
 pub enum Value {
     Integer(i64),
     Int,
+    // Missing endpoints are infinite, not i64::MIN / i64::MAX. Even equal
+    // endpoints remain abstract until unified with a concrete candidate.
+    Bounds {
+        lower: Option<i64>,
+        upper: Option<i64>,
+    },
 }
 
 pub fn program(input: &str) -> Result<JsonValue, Error> {
@@ -54,6 +60,7 @@ pub fn concrete(value: Value) -> Result<i64, Error> {
     match value {
         Value::Integer(value) => Ok(value),
         Value::Int => Err(Error::Incomplete),
+        Value::Bounds { .. } => Err(Error::IncompleteBounds),
     }
 }
 
@@ -78,10 +85,55 @@ pub fn product(left: Value, right: Value) -> Result<Value, Error> {
         .ok_or(Error::ProductOverflow)
 }
 
+pub fn lower_bound(value: Value) -> Result<Value, Error> {
+    let Value::Integer(value) = value else {
+        return Err(Error::BoundThreshold);
+    };
+    Ok(Value::Bounds {
+        lower: Some(value),
+        upper: None,
+    })
+}
+
+pub fn upper_bound(value: Value) -> Result<Value, Error> {
+    let Value::Integer(value) = value else {
+        return Err(Error::BoundThreshold);
+    };
+    Ok(Value::Bounds {
+        lower: None,
+        upper: Some(value),
+    })
+}
+
+fn endpoints(value: Value) -> (Option<i64>, Option<i64>) {
+    match value {
+        Value::Integer(value) => (Some(value), Some(value)),
+        Value::Int => (None, None),
+        Value::Bounds { lower, upper } => (lower, upper),
+    }
+}
+
 pub fn unify(left: Value, right: Value) -> Result<Value, Error> {
     match (left, right) {
         (Value::Int, value) | (value, Value::Int) => Ok(value),
         (Value::Integer(left), Value::Integer(right)) if left == right => Ok(Value::Integer(left)),
         (Value::Integer(left), Value::Integer(right)) => Err(Error::Conflict { left, right }),
+        (left, right) => {
+            let (left_lower, left_upper) = endpoints(left);
+            let (right_lower, right_upper) = endpoints(right);
+            let lower = left_lower.max(right_lower);
+            let upper = match (left_upper, right_upper) {
+                (Some(left), Some(right)) => Some(left.min(right)),
+                (left, right) => left.or(right),
+            };
+            if matches!((lower, upper), (Some(lower), Some(upper)) if lower > upper) {
+                return Err(Error::BoundsConflict);
+            }
+            // Bounds alone do not materialize a singleton in upstream CUE.
+            match (left, right) {
+                (value @ Value::Integer(_), _) | (_, value @ Value::Integer(_)) => Ok(value),
+                _ => Ok(Value::Bounds { lower, upper }),
+            }
+        }
     }
 }

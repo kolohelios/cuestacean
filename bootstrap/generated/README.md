@@ -1,7 +1,7 @@
 # First Rust generation boundary
 
 These modules are generated from rule JSON by the handwritten Rust
-`bootstrap-codegen` binary. This lowers our six instruction primitives, not
+`bootstrap-codegen` binary. This lowers our eight instruction primitives, not
 arbitrary CUE source. The interpreter remains the default executable and a
 reference for tests. The normal generated module also runs as a separate CLI:
 
@@ -22,8 +22,9 @@ remain test-only.
 
 Generated code contains node-kind dispatch and lowered rule expressions. It
 shares the handwritten `bootstrap_executor::runtime` primitives for JSON
-validation, field access, integer/type values, unification, and checked integer
-arithmetic. Intermediate values may be abstract `int`; the generated public
+validation, field access, integer/type values, inclusive bounds, unification,
+and checked integer arithmetic. Intermediate values may be abstract `int` or
+bounds; the generated public
 entry point requires a concrete i64 only at the output boundary. Tests compare values
 and errors against the interpreter and known expectations. Sharing primitives
 means this is not an independent test of their correctness or of CUE conformance.

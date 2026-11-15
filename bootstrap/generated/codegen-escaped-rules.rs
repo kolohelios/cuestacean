@@ -9,7 +9,7 @@ pub fn execute(input: &str) -> Result<i64, Error> {
 fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
     match runtime::kind(node)? {
         "kind\"\\\nλ" => runtime::unify(
-            (Ok::<_, Error>(runtime::Value::Int))?,
+            (runtime::lower_bound((runtime::integer(node, "payload\"\\\nλ"))?))?,
             (runtime::integer(node, "payload\"\\\nλ"))?,
         ),
         kind => Err(Error::MissingRule {

@@ -4,6 +4,8 @@ package bootstrap
 #EvaluationRules & {
 	rules: {
 		intType: result: {op: "int"}
+		lowerBound: result: {op: "lowerBound", value: {op: "field", field: "value"}}
+		upperBound: result: {op: "upperBound", value: {op: "field", field: "value"}}
 		integer: result: {op: "field", field: "value"}
 		add: result: {
 			op: "sum"

@@ -40,20 +40,29 @@ The executor looks up a node's string `kind` in the supplied rule map, then
 interprets that rule's result instruction against the current node:
 
 - `int` constructs an abstract integer-type value.
+- `lowerBound` / `upperBound` execute their `value` instruction, require a
+  concrete integer threshold, and construct an inclusive one-sided bound.
 - `field` reads the named field as a concrete integer value.
 - `evaluate` selects the named child and recursively dispatches its rule.
 - `sum` executes its left instruction, then its right instruction, against the
   same current node and adds their integer results.
 - `product` executes its left and right instructions in the same order and
   multiplies their integer results using checked arithmetic.
-- `unify` refines the abstract `int` value with either operand. Equal concrete
-  integers agree; differing integers report `conflicting integer values`.
+- `unify` refines `int`, intersects bounds, and checks concrete candidates.
+  Equal concrete integers agree; differing ones report
+  `conflicting integer values`. Empty ranges and rejected candidates report
+  `conflicting integer bounds`.
 
-The native value scaffold has two variants: a concrete i64 and abstract `int`.
+The native value scaffold has three variants: a concrete i64, abstract `int`,
+and inclusive bounds with optional lower/upper endpoints.
 Intermediate abstract values are valid: `int & int & 3` produces `3`. Only the
 outer scalar-output boundary requires concreteness; bare `int` reports
-`non-concrete int value`, not a conflict. The value representation is still
-handwritten Rust and is not a general CUE value lattice.
+`non-concrete int value`, not a conflict. Bounds report
+`non-concrete integer bounds` until given a concrete candidate, even for
+`int & >=3 & <=3`. Missing
+endpoints are infinite: `int & >=9223372036854775807` remains incomplete rather
+than being clipped into a singleton at i64::MAX. The value representation and
+intersection are still handwritten Rust, not a general CUE value lattice.
 
 Rust implements these primitives, not special cases for the expression kinds.
 The CUE-exported `tests/valid/evaluation-left-twice.json` in the exports output changes addition to
@@ -83,14 +92,16 @@ still handwritten scaffolding. Existing JSON interfaces remain unchanged.
 
 ## Deliberate limits
 
-- Unification supports concrete i64 values and abstract `int` only. Conflicts
-  are errors, not first-class bottom values. Other types, structs, bounds,
-  disjunctions, defaults, references, and full CUE unification remain unsupported.
+- Unification supports concrete i64 values, abstract `int`, and inclusive
+  integer-threshold bounds only. Conflicts are errors, not first-class bottom
+  values. Other types, structs, exclusive bounds, disjunctions, defaults,
+  references, and full CUE unification remain unsupported.
   Runtime diagnostics are not upstream CUE diagnostics.
 - Arithmetic requires concrete operands: `(int & 3) + 1` works, but `int + 1`
   cannot produce a concrete result. There is no backward symbolic propagation.
 - Both documents require `formatVersion: 1`.
-- Concrete values and arithmetic results are signed 64-bit integers. Out-of-range
+- Concrete values, bound thresholds, and arithmetic results are signed 64-bit
+  integers. Out-of-range
   values, non-integer JSON values, overflow, and underflow are errors. No
   wrapping, saturation, or floating-point arithmetic. This is narrower than
   CUE's integer domain and is only a bootstrap limitation. Multiplying `i64::MIN`
