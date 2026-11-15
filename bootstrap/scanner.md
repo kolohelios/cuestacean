@@ -1,6 +1,6 @@
 # First executable parser control flow
 
-[`scanner-fragments.cue`](scanner-fragments.cue) defines shared whitespace loop
+[`scanner-fragments.cue`](scanner-fragments.cue) defines shared whitespace/comment
 statements used by [`whitespace.cue`](whitespace.cue),
 [`group-close.cue`](group-close.cue), and [`after-operand.cue`](after-operand.cue).
 The latter owns the conservative
@@ -34,6 +34,8 @@ primitives remain handwritten. Upstream Go CUE still exports specifications.
 | `while` | Test `condition` before every iteration; execute `body` while true. |
 | `if` | Test `condition`; execute `then` or the optional `else` list. |
 | `advance` | Advance the cursor by one ASCII byte. |
+| `advanceChar` | Advance one complete UTF-8 scalar; fail at EOF. |
+| `break` | Exit the nearest enclosing `while`; invalid outside loops. |
 | `setFlag` | Write the literal boolean `value` to the result register. |
 | `reject` | Stop with the current byte offset and a nonempty `reason` string. |
 
@@ -44,6 +46,9 @@ sorts/deduplicates them and compacts contiguous runs into Rust range patterns.
 `flagIs` compares the current flag to its literal boolean `value`; `hasByte`
 tests for any remaining byte, including non-ASCII bytes. These predicates are
 pure reads; each surrounding `if`/`while` test consumes one execution step.
+`charIn` tests the current Unicode scalar against 1..=128 single-character
+strings; duplicate/order differences have set semantics. Generated character
+literals are safely escaped. This is scalar matching, not grapheme matching.
 There are no arbitrary Rust expressions, calls, named variables, AST
 construction, or backtracking yet.
 
@@ -53,9 +58,28 @@ and CR and remembers whether it encountered LF/CR. An alternate CUE program
 skips only spaces/tabs and reports whether the last consumed byte was a space;
 its compiled branch includes an `else` that clears the flag.
 
+## CUE-owned line-comment trivia
+
+Shared trivia recognizes `//` before stopping at a non-whitespace token. The
+comment loop advances complete UTF-8 scalars until LF or EOF. CR alone remains
+comment content; LF is left to the outer whitespace loop, which records the
+newline flag. Unicode text is allowed inside comments, not in identifiers or
+ordinary whitespace. CUE rejects NUL and embedded BOM with byte offsets and
+`unsupported character in line comment`; those decisions are not cursor code.
+
+Leading/trailing and operator-before-operand comments are supported. A comment
+separates tokens rather than joining identifiers/word operators across lines.
+Pinned CUE rejects `/* ... */`; block comments are not introduced here.
+
+`break` propagates through `if` but stops at its nearest loop. The compiler omits
+unreachable suffixes, merges identical pure branches after charging the `if`
+step, and lowers provably once-only loops to a condition plus a labeled block.
+This preserves flow/fuel without unreachable-code or never-loop lint suppression.
+A compiled alternate program tests Unicode escaping and nested break targets.
+
 ## Operand newline policy, not full comma insertion
 
-After scanning whitespace, the operand policy tests the newline flag and
+After scanning trivia, the operand policy tests the newline flag and
 whether any byte remains. It rejects a newline followed by more input, including
 Unicode or a closing parenthesis, but accepts trailing newlines at EOF. The
 parser no longer tests this condition or owns the rejection text.
@@ -64,7 +88,11 @@ This preserves the existing deliberately conservative source subset; it does
 not implement full CUE comma insertion or add multiline expression forms.
 Whitespace before operands or after an operator still uses the permissive
 program. Tests compare both programs on the same input to keep that distinction
-explicit. Nix exports load the schema, shared fragment definitions, and selected
+explicit. Pinned CUE also rejects a newline after a word operator. CUE Pratt
+control selects `after-word-operator.cue` using the operator token length (all
+current word operators are three bytes); the native frame only exposes that
+metadata and runs the selected scanner. This covers comments before the LF too.
+Nix exports load the schema, shared fragment definitions, and selected
 program; fragment definitions are not separate JSON artifacts.
 
 ## Decimal lexical validation, not conversion
@@ -141,9 +169,10 @@ native; AST construction and expression-loop policy use their separate CUE DSLs.
 ## Explicit native safety boundary
 
 The shared `scanner::Cursor` validates the initial UTF-8 character boundary,
-checks EOF, and refuses to advance over non-ASCII bytes. Thus even an incorrect
-program cannot split a UTF-8 character or index outside the source. Normal
-whitespace scanning stops before Unicode; this does not add Unicode lexing.
+checks EOF, and keeps `advance` ASCII-only. The explicit `advanceChar` primitive
+consumes a whole scalar instead; neither can split UTF-8 or index outside the
+source. Current default programs use scalar advancement only inside comments.
+Ordinary whitespace/identifier recognition remains ASCII.
 `peek_at` uses checked offset addition and bounds-checked byte access, returning
 no byte past EOF or on overflow. It may inspect bytes inside UTF-8, but does
 not advance the cursor or create a string slice.
@@ -153,7 +182,7 @@ The budget is `128 * (remaining source bytes + 1)`, with saturating arithmetic.
 A nonterminating loop exhausts its budget rather than hanging. A stateful loop
 may legitimately finish without advancing by changing its flag.
 Program validation caps statements at 64, nesting at 16, and predicate lists
-at 128 ASCII bytes. These are bootstrap limits, not CUE language limits or a
+at 128 ASCII bytes or 128 Unicode characters. These are bootstrap limits, not CUE language limits or a
 production-hardening claim. Fuel checks are emitted into generated loops as
 well as applied by the interpreter.
 

@@ -225,6 +225,7 @@ fn primary_scope_rejects_expression_actions_and_invalid_transitions() {
     }
     for op in [
         "afterOperand",
+        "afterWordOperator",
         "lookupOperator",
         "advanceOperator",
         "parseRight",
@@ -285,7 +286,7 @@ fn primary_and_expression_share_the_same_finite_step_budget() {
         .expect("loop")["body"]
         .as_array_mut()
         .expect("loop body");
-    body.extend((0..122).map(|_| json!({"op":"afterOperand"})));
+    body.extend((0..121).map(|_| json!({"op":"afterOperand"})));
     let mut primary: Value = serde_json::from_str(&export("primary")).expect("primary");
     primary["body"]
         .as_array_mut()

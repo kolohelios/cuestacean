@@ -21,6 +21,11 @@ pub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {
         _frame.step()?;
         _frame.advance_operator()?;
         _frame.step()?;
+        if _frame.token_length()? >= 3u8 {
+            _frame.step()?;
+            _frame.after_word_operator()?;
+        }
+        _frame.step()?;
         _frame.parse_right()?;
         _frame.step()?;
         _frame.build_binary()?;
