@@ -26,7 +26,7 @@ its loop and newline branch come from shared CUE statements in
 state/EOF checks and rejection policy. `group-open.rs` recognizes the opener;
 `group-close.rs` composes whitespace scanning with closing-token validation,
 consumption, and diagnostics. `bound-prefix.rs` and `infix.rs` recognize symbol
-spans; grammar lookup and primary dispatch remain native. `decimal.rs` uses the
+spans; grammar lookup remains native. `decimal.rs` uses the
 same DSL for optional-minus/digit scanning and lexical rejection; `identifier.rs`
 supplies ASCII identifier start/continuation scanning. Checked i64 conversion,
 grammar validation and keyword lookup remain native. The `scanner-horizontal`,
@@ -45,7 +45,11 @@ programs for changed policy, escaping, and repeated owned arguments.
 `pratt.rs` is the generated [expression control program](../pratt.md), containing
 the operator loop, binding-power condition and associativity branch. The
 `pratt-right`, `pratt-stalled`, `pratt-invalid-state`, and `pratt-overflow` drivers
-are test-only programs. Frame operations and primary dispatch remain native.
+are test-only programs. Frame operations remain native. `primary.rs` uses the
+same compiler for [primary dispatch](../primary.md), group commitment, recursive
+minimum and closing order. `primary-no-atoms` and `primary-high-minimum` are
+test-only policies, not production fallbacks. `primary-cross-phase` deliberately
+attempts expression operations inside primary dispatch to exercise state guards.
 
 Generated evaluator code contains node-kind dispatch and lowered rule expressions. It
 shares the handwritten `bootstrap_executor::runtime` primitives for JSON
@@ -86,7 +90,9 @@ for builder in ast-program ast-atom ast-integer ast-binary tests/valid/ast-progr
   bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$builder.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
-for control in pratt tests/valid/pratt-right tests/valid/pratt-stalled \
+for control in primary tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
+  tests/valid/primary-cross-phase \
+  pratt tests/valid/pratt-right tests/valid/pratt-stalled \
   tests/valid/pratt-invalid-state tests/valid/pratt-overflow; do
   name=$(basename "$control")
   bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \

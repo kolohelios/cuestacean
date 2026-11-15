@@ -1,12 +1,18 @@
 //! Narrow bootstrap Pratt parser. Token scanning and lexical policies are
 //! CUE-generated, as are AST construction and the Pratt expression loop.
-//! Primary dispatch, grammar lookup, conversion and frame safety remain native.
+//! Primary dispatch and grouping policy also come from CUE. Grammar lookup,
+//! conversion, scanner/builder calls and frame safety remain native.
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
 #[path = "../../generated/pratt.rs"]
 mod generated;
+#[path = "../../generated/primary.rs"]
+mod generated_primary;
+
+const PRIMARY_PROGRAM: &str =
+    include_str!(concat!(env!("CUESTACEAN_BOOTSTRAP_JSON"), "/primary.json"));
 
 use serde::Deserialize;
 use serde_json::Value;
@@ -180,7 +186,12 @@ impl Grammar {
 /// Parse the documented decimal-integer subset into a version-1 expression tree.
 /// Limits: at most 64 AST nodes and 32 recursive parsing levels.
 pub fn parse(source: &str, grammar: &str) -> Result<Value, Error> {
-    parse_with_driver(source, grammar, generated::execute)
+    parse_with_drivers(
+        source,
+        grammar,
+        generated::execute,
+        generated_primary::execute,
+    )
 }
 
 /// Trusted native driver hook for comparing compiled CUE control programs.
@@ -193,15 +204,50 @@ enum Engine {
 }
 
 pub fn parse_with_driver(source: &str, grammar: &str, driver: Driver) -> Result<Value, Error> {
-    parse_engine(source, grammar, Engine::Compiled(driver))
+    parse_with_drivers(source, grammar, driver, generated_primary::execute)
+}
+
+/// Trusted native hooks for expression and primary control programs.
+pub fn parse_with_drivers(
+    source: &str,
+    grammar: &str,
+    expression: Driver,
+    primary: Driver,
+) -> Result<Value, Error> {
+    parse_engine(
+        source,
+        grammar,
+        Engine::Compiled(expression),
+        Engine::Compiled(primary),
+    )
 }
 
 pub fn parse_interpreted(source: &str, grammar: &str, program: &str) -> Result<Value, Error> {
-    let program = crate::pratt::parse(program).context(ControlSnafu)?;
-    parse_engine(source, grammar, Engine::Interpreted(Arc::new(program)))
+    parse_interpreted_with_primary(source, grammar, program, PRIMARY_PROGRAM)
 }
 
-fn parse_engine(source: &str, grammar: &str, engine: Engine) -> Result<Value, Error> {
+pub fn parse_interpreted_with_primary(
+    source: &str,
+    grammar: &str,
+    expression: &str,
+    primary: &str,
+) -> Result<Value, Error> {
+    let expression = crate::pratt::parse(expression).context(ControlSnafu)?;
+    let primary = crate::pratt::parse(primary).context(ControlSnafu)?;
+    parse_engine(
+        source,
+        grammar,
+        Engine::Interpreted(Arc::new(expression)),
+        Engine::Interpreted(Arc::new(primary)),
+    )
+}
+
+fn parse_engine(
+    source: &str,
+    grammar: &str,
+    engine: Engine,
+    primary_engine: Engine,
+) -> Result<Value, Error> {
     let grammar: Grammar = serde_json::from_str(grammar).context(JsonSnafu)?;
     grammar.validate()?;
     let mut parser = Parser {
@@ -210,6 +256,7 @@ fn parse_engine(source: &str, grammar: &str, engine: Engine) -> Result<Value, Er
         offset: 0,
         nodes: 0,
         engine,
+        primary_engine,
     };
     let entry = parser.expression(0, 0)?;
     parser.whitespace()?;
@@ -225,6 +272,7 @@ struct Parser<'a> {
     offset: usize,
     nodes: usize,
     engine: Engine,
+    primary_engine: Engine,
 }
 
 impl Parser<'_> {
@@ -272,6 +320,8 @@ impl Parser<'_> {
             consumed: false,
             binding: None,
             fuel: 4096,
+            primary_state: None,
+            in_primary: false,
         };
         match engine {
             Engine::Compiled(driver) => driver(&mut frame)?,
@@ -285,42 +335,6 @@ impl Parser<'_> {
         frame.left.ok_or(Error::ControlState {
             reason: "missing expression result",
         })
-    }
-
-    fn primary(&mut self, depth: usize) -> Result<Value, Error> {
-        self.whitespace()?;
-        let group = crate::scanner::group_open(self.source, self.offset)?;
-        let value = if group.flag {
-            self.offset = group.offset;
-            let value = self.expression(0, depth + 1)?;
-            let close = crate::scanner::group_close(self.source, self.offset)?;
-            self.offset = close.offset;
-            value
-        } else {
-            let prefix = crate::scanner::bound_prefix(self.source, self.offset)?;
-            let spelling = &self.source[self.offset..prefix.offset];
-            let bound = self
-                .grammar
-                .bounds
-                .iter()
-                .find(|bound| prefix.flag && bound.token == spelling)
-                .cloned();
-            if let Some(bound) = bound {
-                self.offset = prefix.offset;
-                self.whitespace()?;
-                let value = self.decimal()?;
-                self.node()?;
-                ast::integer(bound.kind, bound.value_field, value)
-            } else {
-                let identifier = crate::scanner::identifier(self.source, self.offset)?;
-                if identifier.flag {
-                    self.atom(identifier.offset)?
-                } else {
-                    self.integer()?
-                }
-            }
-        };
-        Ok(value)
     }
 
     fn atom(&mut self, end: usize) -> Result<Value, Error> {
@@ -361,6 +375,18 @@ impl Parser<'_> {
     }
 }
 
+#[derive(Clone, Copy)]
+enum PrimaryState {
+    Start,
+    GroupScanned(Option<usize>),
+    GroupAdvanced,
+    GroupParsed,
+    BoundScanned(Option<(usize, usize)>),
+    BoundAdvanced(usize),
+    IdentifierScanned(Option<usize>),
+    Done,
+}
+
 /// Native intrinsics for generated/interpreted control programs, not a Pratt loop.
 /// Fields are private: control code can only use checked state transitions.
 pub struct Frame<'p, 's> {
@@ -374,6 +400,8 @@ pub struct Frame<'p, 's> {
     consumed: bool,
     binding: Option<u8>,
     fuel: usize,
+    primary_state: Option<PrimaryState>,
+    in_primary: bool,
 }
 
 impl Frame<'_, '_> {
@@ -404,19 +432,178 @@ impl Frame<'_, '_> {
     pub fn binding_add(&self, left: u8, right: u8) -> Result<u8, Error> {
         left.checked_add(right).ok_or(Error::BindingPower)
     }
-    pub fn set_binding_power(&mut self, value: u8) {
-        self.binding = Some(value);
-    }
-    pub fn primary(&mut self) -> Result<(), Error> {
-        if self.left.is_some() {
+    fn expression_phase(&self) -> Result<(), Error> {
+        if self.in_primary {
             return Err(Error::ControlState {
-                reason: "primary already parsed",
+                reason: "expression operation during primary dispatch",
             });
         }
-        self.left = Some(self.parser.primary(self.depth)?);
+        Ok(())
+    }
+    pub fn set_binding_power(&mut self, value: u8) -> Result<(), Error> {
+        self.expression_phase()?;
+        self.binding = Some(value);
+        Ok(())
+    }
+    pub fn primary(&mut self) -> Result<(), Error> {
+        if self.left.is_some() || self.primary_state.is_some() {
+            return Err(Error::ControlState {
+                reason: "primary already started or parsed",
+            });
+        }
+        self.primary_state = Some(PrimaryState::Start);
+        self.in_primary = true;
+        let result = match self.parser.primary_engine.clone() {
+            Engine::Compiled(driver) => driver(self),
+            Engine::Interpreted(program) => crate::pratt::interpret(&program, self),
+        };
+        self.in_primary = false;
+        result?;
+        if !matches!(self.primary_state, Some(PrimaryState::Done)) || self.left.is_none() {
+            return Err(Error::ControlState {
+                reason: "unfinished primary at return",
+            });
+        }
+        Ok(())
+    }
+    fn primary_state_error<T>(&self) -> Result<T, Error> {
+        Err(Error::ControlState {
+            reason: "invalid primary stage",
+        })
+    }
+    fn advance_primary(&mut self, end: usize) -> Result<(), Error> {
+        if end <= self.parser.offset
+            || end > self.parser.source.len()
+            || !self.parser.source.is_char_boundary(end)
+        {
+            return self.primary_state_error();
+        }
+        self.parser.offset = end;
+        Ok(())
+    }
+    pub fn whitespace(&mut self) -> Result<(), Error> {
+        if !matches!(
+            self.primary_state,
+            Some(PrimaryState::Start | PrimaryState::BoundAdvanced(_))
+        ) {
+            return self.primary_state_error();
+        }
+        self.parser.whitespace()
+    }
+    pub fn scan_group(&mut self) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::Start)) {
+            return self.primary_state_error();
+        }
+        let scan = crate::scanner::group_open(self.parser.source, self.parser.offset)?;
+        self.primary_state = Some(PrimaryState::GroupScanned(scan.flag.then_some(scan.offset)));
+        Ok(())
+    }
+    pub fn group_open(&self) -> Result<bool, Error> {
+        match self.primary_state {
+            Some(PrimaryState::GroupScanned(end)) => Ok(end.is_some()),
+            _ => self.primary_state_error(),
+        }
+    }
+    pub fn advance_group(&mut self) -> Result<(), Error> {
+        let Some(PrimaryState::GroupScanned(Some(end))) = self.primary_state else {
+            return self.primary_state_error();
+        };
+        self.advance_primary(end)?;
+        self.primary_state = Some(PrimaryState::GroupAdvanced);
+        Ok(())
+    }
+    pub fn parse_group(&mut self, minimum: u8) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::GroupAdvanced)) {
+            return self.primary_state_error();
+        }
+        self.left = Some(self.parser.expression(minimum, self.depth + 1)?);
+        self.primary_state = Some(PrimaryState::GroupParsed);
+        Ok(())
+    }
+    pub fn close_group(&mut self) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::GroupParsed)) {
+            return self.primary_state_error();
+        }
+        let scan = crate::scanner::group_close(self.parser.source, self.parser.offset)?;
+        self.parser.offset = scan.offset;
+        self.primary_state = Some(PrimaryState::Done);
+        Ok(())
+    }
+    pub fn scan_bound(&mut self) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::GroupScanned(_))) {
+            return self.primary_state_error();
+        }
+        let scan = crate::scanner::bound_prefix(self.parser.source, self.parser.offset)?;
+        let spelling = &self.parser.source[self.parser.offset..scan.offset];
+        let candidate = self
+            .parser
+            .grammar
+            .bounds
+            .iter()
+            .position(|bound| scan.flag && bound.token == spelling)
+            .map(|index| (index, scan.offset));
+        self.primary_state = Some(PrimaryState::BoundScanned(candidate));
+        Ok(())
+    }
+    pub fn has_bound(&self) -> Result<bool, Error> {
+        match self.primary_state {
+            Some(PrimaryState::BoundScanned(candidate)) => Ok(candidate.is_some()),
+            _ => self.primary_state_error(),
+        }
+    }
+    pub fn advance_bound(&mut self) -> Result<(), Error> {
+        let Some(PrimaryState::BoundScanned(Some((index, end)))) = self.primary_state else {
+            return self.primary_state_error();
+        };
+        self.advance_primary(end)?;
+        self.primary_state = Some(PrimaryState::BoundAdvanced(index));
+        Ok(())
+    }
+    pub fn parse_bound(&mut self) -> Result<(), Error> {
+        let Some(PrimaryState::BoundAdvanced(index)) = self.primary_state else {
+            return self.primary_state_error();
+        };
+        let bound = self.parser.grammar.bounds[index].clone();
+        let value = self.parser.decimal()?;
+        self.parser.node()?;
+        self.left = Some(ast::integer(bound.kind, bound.value_field, value));
+        self.primary_state = Some(PrimaryState::Done);
+        Ok(())
+    }
+    pub fn scan_identifier(&mut self) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::BoundScanned(_))) {
+            return self.primary_state_error();
+        }
+        let scan = crate::scanner::identifier(self.parser.source, self.parser.offset)?;
+        self.primary_state = Some(PrimaryState::IdentifierScanned(
+            scan.flag.then_some(scan.offset),
+        ));
+        Ok(())
+    }
+    pub fn has_identifier(&self) -> Result<bool, Error> {
+        match self.primary_state {
+            Some(PrimaryState::IdentifierScanned(end)) => Ok(end.is_some()),
+            _ => self.primary_state_error(),
+        }
+    }
+    pub fn parse_atom(&mut self) -> Result<(), Error> {
+        let Some(PrimaryState::IdentifierScanned(Some(end))) = self.primary_state else {
+            return self.primary_state_error();
+        };
+        self.left = Some(self.parser.atom(end)?);
+        self.primary_state = Some(PrimaryState::Done);
+        Ok(())
+    }
+    pub fn parse_integer(&mut self) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::IdentifierScanned(_))) {
+            return self.primary_state_error();
+        }
+        self.left = Some(self.parser.integer()?);
+        self.primary_state = Some(PrimaryState::Done);
         Ok(())
     }
     pub fn after_operand(&mut self) -> Result<(), Error> {
+        self.expression_phase()?;
         if self.left.is_none() {
             return Err(Error::ControlState {
                 reason: "operand not parsed",
@@ -425,6 +612,7 @@ impl Frame<'_, '_> {
         self.parser.after_operand()
     }
     pub fn lookup_operator(&mut self) -> Result<(), Error> {
+        self.expression_phase()?;
         if self.left.is_none() || self.consumed {
             return Err(Error::ControlState {
                 reason: "operator lookup out of order",
@@ -444,6 +632,7 @@ impl Frame<'_, '_> {
         Ok(())
     }
     pub fn advance_operator(&mut self) -> Result<(), Error> {
+        self.expression_phase()?;
         self.operator()?;
         if self.consumed || self.token_end <= self.parser.offset {
             return Err(Error::ControlState {
@@ -455,6 +644,7 @@ impl Frame<'_, '_> {
         Ok(())
     }
     pub fn parse_right(&mut self) -> Result<(), Error> {
+        self.expression_phase()?;
         if !self.consumed || self.right.is_some() {
             return Err(Error::ControlState {
                 reason: "right parse out of order",
@@ -467,6 +657,7 @@ impl Frame<'_, '_> {
         Ok(())
     }
     pub fn build_binary(&mut self) -> Result<(), Error> {
+        self.expression_phase()?;
         let op = self.operator.take().ok_or(Error::ControlState {
             reason: "no current operator",
         })?;

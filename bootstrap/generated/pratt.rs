@@ -12,11 +12,11 @@ pub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {
         _frame.has_operator() && _frame.precedence()? >= _frame.minimum()
     } {
         _frame.step()?;
-        _frame.set_binding_power(_frame.precedence()?);
+        _frame.set_binding_power(_frame.precedence()?)?;
         _frame.step()?;
         if _frame.left_associative()? {
             _frame.step()?;
-            _frame.set_binding_power(_frame.binding_add(_frame.precedence()?, 1u8)?);
+            _frame.set_binding_power(_frame.binding_add(_frame.precedence()?, 1u8)?)?;
         }
         _frame.step()?;
         _frame.advance_operator()?;

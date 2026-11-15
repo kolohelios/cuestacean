@@ -12,7 +12,7 @@ pub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {
         _frame.has_operator() && _frame.precedence()? >= _frame.minimum()
     } {
         _frame.step()?;
-        _frame.set_binding_power(_frame.precedence()?);
+        _frame.set_binding_power(_frame.precedence()?)?;
         _frame.step()?;
         _frame.advance_operator()?;
         _frame.step()?;

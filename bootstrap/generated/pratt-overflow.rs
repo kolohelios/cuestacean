@@ -2,6 +2,6 @@
 use crate::parser::{Error, Frame};
 pub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {
     _frame.step()?;
-    _frame.set_binding_power(_frame.binding_add(255u8, 1u8)?);
+    _frame.set_binding_power(_frame.binding_add(255u8, 1u8)?)?;
     Ok(())
 }

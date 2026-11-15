@@ -92,8 +92,9 @@ identifier scanning are compiled from the [scanner DSL](../scanner.md).
 Decimal lexical validation, operand-newline policy, and diagnostic reasons
 are also CUE-defined, along with parenthesis and bound/infix token recognition.
 Checked i64 conversion, grammar validation/lookup,
-primary dispatch and frame safety remain native. The [Pratt control DSL](../pratt.md)
-now owns the expression loop and associativity/binding-power decisions. Existing JSON interfaces remain unchanged.
+and frame safety remain native. The [Pratt control DSL](../pratt.md) owns the
+expression loop and associativity/binding-power decisions; its separate
+[primary program](../primary.md) owns dispatch and grouping control. Existing JSON interfaces remain unchanged.
 `bootstrap-scan-codegen <program.json>` is the separate scanner-to-Rust compiler.
 The [AST builder DSL](../ast.md) generates typed construction functions used
 by the parser; `bootstrap-ast-codegen <builder.json>` is its native compiler.

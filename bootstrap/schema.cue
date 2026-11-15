@@ -49,7 +49,7 @@ package bootstrap
 	left:  #PrattNumber
 	right: #PrattNumber
 }
-#PrattCondition: {op: "hasOperator"} | {op: "leftAssociative"} | {op: "boolean", value: bool} | {
+#PrattCondition: {op: "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier"} | {op: "boolean", value: bool} | {
 	op:    "atLeast"
 	left:  #PrattNumber
 	right: #PrattNumber
@@ -58,7 +58,10 @@ package bootstrap
 	left:  #PrattCondition
 	right: #PrattCondition
 }
-#PrattStatement: {op: "primary" | "afterOperand" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary"} | {
+#PrattStatement: {op: "primary" | "afterOperand" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger"} | {
+	op:      "parseGroup"
+	minimum: #PrattNumber
+} | {
 	op:    "setBindingPower"
 	value: #PrattNumber
 } | {
@@ -127,7 +130,7 @@ package bootstrap
 }
 
 // Pratt configuration: tokens and constructors come from data. #PrattProgram
-// owns expression control flow; primary dispatch and grammar lookup stay native.
+// owns expression and primary control flow; grammar lookup stays native.
 #InfixOperator: {
 	token:         string & =~"^[+*/&]$"
 	kind:          string & !=""

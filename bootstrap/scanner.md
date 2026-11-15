@@ -20,7 +20,7 @@ This is more than a byte-class table: CUE defines the loop and branch bodies,
 including when to advance, inspect state, update state, and reject input.
 These are small scanning algorithms and policies,
 **not a self-hosted parser or compiler**. Checked i64 conversion, grammar
-validation, grammar lookup, primary dispatch and frame safety,
+validation, grammar lookup and frame safety,
 the statement compiler/interpreter,
 JSON loading, and safe cursor
 primitives remain handwritten. Upstream Go CUE still exports specifications.
@@ -112,9 +112,9 @@ The closing program skips shared whitespace, consumes `)`, or rejects with
 newlines, not recognition; failure is an error. Grouping is still fixed to
 parentheses by native grammar validation, not configurable to other delimiters.
 
-Primary dispatch and grouping recursion remain native; the separate
-[Pratt control DSL](pratt.md) owns the expression loop and right-hand recursion
-decisions. Empty groups
+The separate [Pratt control DSL](pratt.md) owns the expression loop and
+right-hand recursion decisions. Its [primary program](primary.md) also owns
+primary dispatch, grouping minimum and closing order. Empty groups
 still fail as missing operands, and a newline before `)` is rejected by the
 operand policy before the closing program runs. Direct closing scans can skip
 newlines; that does not expand the parser's conservative source subset.
