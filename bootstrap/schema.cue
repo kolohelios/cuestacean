@@ -50,7 +50,7 @@ package bootstrap
 	bytes: [uint & <=127, ...uint & <=127]
 }
 
-#ScanStatement: #ScanWhile | #ScanIf | #ScanAdvance | #ScanSetFlag
+#ScanStatement: #ScanWhile | #ScanIf | #ScanAdvance | #ScanSetFlag | #ScanReject
 #ScanWhile: {
 	op:        "while"
 	condition: #ScanPredicate
@@ -64,6 +64,7 @@ package bootstrap
 }
 #ScanAdvance: {op: "advance"}
 #ScanSetFlag: {op: "setFlag", value: bool}
+#ScanReject: {op: "reject", reason: string & !=""}
 #ScanProgram: {
 	formatVersion: 1
 	body: [...#ScanStatement]

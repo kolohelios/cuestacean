@@ -89,8 +89,9 @@ using compiled-in CUE grammar data, then invokes the generated evaluator. From
 the repository root, `nix run ./infra/tooling#source -- bootstrap/source/valid/nested.cue`
 prints `42`. It does not invoke Go at runtime. Whitespace, decimal, and ASCII
 identifier scanning are compiled from the [scanner DSL](../scanner.md).
-Numeric validation/conversion, keyword lookup, AST construction, symbol dispatch,
-and the Pratt algorithm remain native. Existing JSON interfaces remain unchanged.
+Decimal lexical validation and diagnostic reasons are also CUE-defined. Checked
+i64 conversion, grammar validation, keyword lookup, AST construction, symbol
+dispatch, and the Pratt algorithm remain native. Existing JSON interfaces remain unchanged.
 `bootstrap-scan-codegen <program.json>` is the separate scanner-to-Rust compiler.
 
 ## Deliberate limits

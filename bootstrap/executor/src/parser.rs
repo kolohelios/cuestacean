@@ -1,5 +1,6 @@
 //! Narrow bootstrap Pratt parser. Whitespace, decimal and identifier scanning are
-//! CUE-generated; validation, conversion, lookup and Pratt parsing remain native.
+//! CUE-generated, including decimal spelling checks; conversion, grammar validation,
+//! lookup and Pratt parsing remain native.
 
 use std::collections::BTreeSet;
 
@@ -16,12 +17,21 @@ pub enum Error {
     #[snafu(display("invalid bootstrap grammar: {reason}"))]
     Grammar { reason: &'static str },
     #[snafu(display("source byte {offset}: {reason}"))]
-    Source { offset: usize, reason: &'static str },
+    Source { offset: usize, reason: String },
     #[snafu(display("source byte {offset}: signed 64-bit integer required: {source}"))]
     Integer {
         offset: usize,
         source: std::num::ParseIntError,
     },
+}
+
+impl From<crate::scanner::Error> for Error {
+    fn from(source: crate::scanner::Error) -> Self {
+        match source {
+            crate::scanner::Error::Rejected { offset, reason } => Self::Source { offset, reason },
+            source => Self::Scanner { source },
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -192,7 +202,7 @@ impl Parser<'_> {
     }
 
     fn whitespace(&mut self) -> Result<bool, Error> {
-        let scan = crate::scanner::whitespace(self.source, self.offset).context(ScannerSnafu)?;
+        let scan = crate::scanner::whitespace(self.source, self.offset)?;
         self.offset = scan.offset;
         Ok(scan.flag)
     }
@@ -239,8 +249,7 @@ impl Parser<'_> {
                 (bound.value_field, value.into()),
             ]))
         } else {
-            let identifier =
-                crate::scanner::identifier(self.source, self.offset).context(ScannerSnafu)?;
+            let identifier = crate::scanner::identifier(self.source, self.offset)?;
             if identifier.flag {
                 self.atom(identifier.offset)?
             } else {
@@ -291,9 +300,9 @@ impl Parser<'_> {
             .iter()
             .find(|atom| atom.token == token)
             .map(|atom| atom.kind.clone())
-            .ok_or(Error::Source {
+            .ok_or_else(|| Error::Source {
                 offset: start,
-                reason: "unknown atom",
+                reason: "unknown atom".into(),
             })?;
         self.node()?;
         Ok(Value::Object(Map::from_iter([(
@@ -304,15 +313,8 @@ impl Parser<'_> {
 
     fn decimal(&mut self) -> Result<i64, Error> {
         let start = self.offset;
-        let scan = crate::scanner::decimal(self.source, start).context(ScannerSnafu)?;
+        let scan = crate::scanner::decimal(self.source, start)?;
         self.offset = scan.offset;
-        let digits = start + usize::from(scan.flag);
-        if self.offset <= digits {
-            return self.error("expected signed decimal integer");
-        }
-        if self.offset - digits > 1 && self.source.as_bytes()[digits] == b'0' {
-            return self.error("leading zeroes are unsupported");
-        }
         self.source[start..self.offset]
             .parse::<i64>()
             .context(IntegerSnafu { offset: start })

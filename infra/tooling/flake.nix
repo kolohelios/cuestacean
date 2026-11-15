@@ -21,6 +21,8 @@
         "tests/valid/scanner-horizontal"
         "tests/valid/scanner-stalled"
         "tests/valid/scanner-advance"
+        "tests/valid/scanner-decimal-permissive"
+        "tests/valid/scanner-reject"
       ];
       scannerNames = builtins.concatStringsSep " " scannerFixtures;
       exportFixtures = [

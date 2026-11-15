@@ -9,9 +9,19 @@ use serde_json::Value;
 mod advance;
 #[path = "../../generated/scanner-horizontal.rs"]
 mod horizontal;
+#[path = "../../generated/scanner-decimal-permissive.rs"]
+mod permissive;
+#[path = "../../generated/scanner-reject.rs"]
+mod rejecting;
 #[path = "../../generated/scanner-stalled.rs"]
 mod stalled;
 
+fn outcome(result: Result<Scan, Error>) -> Result<Scan, (usize, String)> {
+    result.map_err(|error| match error {
+        Error::Rejected { offset, reason } => (offset, reason),
+        other => panic!("unexpected scanner failure: {other}"),
+    })
+}
 fn program(name: &str) -> String {
     std::fs::read_to_string(
         Path::new(env!("CUESTACEAN_BOOTSTRAP_JSON")).join(format!("{name}.json")),
@@ -133,33 +143,37 @@ struct DecimalCase {
     start: usize,
     end: usize,
     minus: bool,
+    error: Option<String>,
 }
 
 #[test]
-fn decimal_scanning_preserves_spans_without_doing_numeric_validation() {
+fn decimal_spelling_is_validated_without_doing_i64_conversion() {
     let cases: Vec<DecimalCase> = serde_json::from_str(
         &std::fs::read_to_string("tests/fixtures/decimal-scanner-cases.json").expect("cases"),
     )
     .expect("decode decimal cases");
     let decimal = program("decimal");
     for case in cases {
-        let expected = Scan {
-            offset: case.end,
-            flag: case.minus,
+        let expected = match case.error {
+            Some(reason) => Err((case.end, reason)),
+            None => Ok(Scan {
+                offset: case.end,
+                flag: case.minus,
+            }),
         };
         assert_eq!(
-            scanner::interpret(&decimal, &case.source, case.start).expect("interpreted"),
+            outcome(scanner::interpret(&decimal, &case.source, case.start)),
             expected,
             "{:?}",
             case.source
         );
         assert_eq!(
-            scanner::decimal(&case.source, case.start).expect("compiled"),
+            outcome(scanner::decimal(&case.source, case.start)),
             expected,
             "{:?}",
             case.source
         );
-        assert!(case.source.is_char_boundary(expected.offset));
+        assert!(case.source.is_char_boundary(case.end));
     }
     let digits = "1234567890".repeat(4096);
     let source = format!("-{digits}λ");
@@ -188,46 +202,88 @@ fn decimal_scanning_preserves_spans_without_doing_numeric_validation() {
 }
 
 #[test]
-fn decimal_scanning_matches_the_original_ascii_token_boundary_contract() {
+fn decimal_spelling_and_rejection_match_the_original_ascii_parser_contract() {
     let decimal = program("decimal");
+    let valid = |offset, flag| Ok(Scan { offset, flag });
+    let missing = |offset| Err((offset, "expected signed decimal integer".to_owned()));
+    let leading = |offset| Err((offset, "leading zeroes are unsupported".to_owned()));
     for byte in 0_u8..=127 {
         let digit = usize::from(byte.is_ascii_digit());
         for (bytes, expected) in [
             (
                 vec![byte],
-                Scan {
-                    offset: if byte == b'-' { 1 } else { digit },
-                    flag: byte == b'-',
+                if digit == 1 {
+                    valid(1, false)
+                } else {
+                    missing(usize::from(byte == b'-'))
                 },
             ),
             (
                 vec![b'-', byte],
-                Scan {
-                    offset: 1 + digit,
-                    flag: true,
+                if digit == 1 {
+                    valid(2, true)
+                } else {
+                    missing(1)
+                },
+            ),
+            (vec![b'1', b'2', byte], valid(2 + digit, false)),
+            (
+                vec![b'0', byte],
+                if digit == 1 {
+                    leading(2)
+                } else {
+                    valid(1, false)
                 },
             ),
             (
-                vec![b'1', b'2', byte],
-                Scan {
-                    offset: 2 + digit,
-                    flag: false,
+                vec![b'-', b'0', byte],
+                if digit == 1 {
+                    leading(3)
+                } else {
+                    valid(2, true)
                 },
             ),
         ] {
             let source = String::from_utf8(bytes).expect("ASCII");
             assert_eq!(
-                scanner::interpret(&decimal, &source, 0).expect("interpreted"),
+                outcome(scanner::interpret(&decimal, &source, 0)),
                 expected,
                 "{source:?}"
             );
             assert_eq!(
-                scanner::decimal(&source, 0).expect("compiled"),
+                outcome(scanner::decimal(&source, 0)),
                 expected,
                 "{source:?}"
             );
         }
     }
+}
+
+#[test]
+fn rejection_is_data_driven_escaped_and_stops_execution() {
+    let alternate = program("tests/valid/scanner-decimal-permissive");
+    for (source, end, minus) in [("0123", 4, false), ("-", 1, true)] {
+        let expected = Scan {
+            offset: end,
+            flag: minus,
+        };
+        assert!(matches!(
+            scanner::decimal(source, 0),
+            Err(Error::Rejected { .. })
+        ));
+        assert_eq!(
+            scanner::interpret(&alternate, source, 0).expect("permissive interpreter"),
+            expected
+        );
+        assert_eq!(
+            permissive::scan(source, 0).expect("permissive compiled"),
+            expected
+        );
+    }
+    let reject = program("tests/valid/scanner-reject");
+    let expected = Err((1, "bad \"token\"\\\nλ {value}".to_owned()));
+    assert_eq!(outcome(scanner::interpret(&reject, "x", 0)), expected);
+    assert_eq!(outcome(rejecting::scan("x", 0)), expected);
 }
 
 #[derive(Deserialize)]
