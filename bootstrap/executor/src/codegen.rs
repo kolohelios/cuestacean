@@ -41,5 +41,10 @@ fn instruction(op: &Instruction) -> String {
             instruction(left),
             instruction(right)
         ),
+        Instruction::Unify { left, right } => format!(
+            "runtime::unify(({})?, ({})?)",
+            instruction(left),
+            instruction(right)
+        ),
     }
 }

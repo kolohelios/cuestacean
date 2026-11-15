@@ -9,6 +9,11 @@ package bootstrap
 			left: {op: "evaluate", field: "left"}
 			right: {op: "evaluate", field: "left"}
 		}
+		unify: result: {
+			op: "unify"
+			left: {op: "evaluate", field: "left"}
+			right: {op: "evaluate", field: "right"}
+		}
 		multiply: result: {
 			op: "product"
 			left: {op: "evaluate", field: "left"}

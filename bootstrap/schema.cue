@@ -1,7 +1,7 @@
 package bootstrap
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #IntegerLiteral | #Addition | #Multiplication
+#Expression: #IntegerLiteral | #Addition | #Multiplication | #Unification
 
 #IntegerLiteral: {
 	kind:  "integer"
@@ -20,6 +20,12 @@ package bootstrap
 	right: #Expression
 }
 
+#Unification: {
+	kind:  "unify"
+	left:  #Expression
+	right: #Expression
+}
+
 #Program: {
 	formatVersion: 1
 	entry:         #Expression
@@ -28,7 +34,7 @@ package bootstrap
 // Configuration for a bootstrap Pratt parser. The parsing algorithm itself
 // remains handwritten initially; tokens and AST construction come from data.
 #InfixOperator: {
-	token:         string & =~"^[+*/]$"
+	token:         string & =~"^[+*/&]$"
 	kind:          string & !=""
 	leftField:     string & !="" & !="kind"
 	rightField:    string & !="" & !="kind" & !=leftField
@@ -68,6 +74,11 @@ package bootstrap
 		}
 		multiply: result: {
 			op:    "product"
+			left:  #EvaluateChild
+			right: #EvaluateChild
+		}
+		unify: result: {
+			op:    "unify"
 			left:  #EvaluateChild
 			right: #EvaluateChild
 		}

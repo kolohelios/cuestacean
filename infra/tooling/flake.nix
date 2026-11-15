@@ -38,7 +38,7 @@
       # Delete only staged build copies, never the working tree. Both stages
       # must succeed without the committed JSON/Rust intermediates.
       clearArtifacts = ''
-        for fixture in literal addition multiplication evaluation grammar tests/valid/evaluation-left-twice; do
+        for fixture in literal addition multiplication unification evaluation grammar tests/valid/evaluation-left-twice; do
           rm -f "../$fixture.json"
         done
         rm -f ../generated/*.rs
@@ -75,7 +75,7 @@
             (
               set -euo pipefail
               export LC_ALL=C TZ=UTC
-              for fixture in literal addition multiplication evaluation grammar tests/valid/evaluation-left-twice; do
+              for fixture in literal addition multiplication unification evaluation grammar tests/valid/evaluation-left-twice; do
                 cue export ../schema.cue "../$fixture.cue" --out json | jq -S . > "../$fixture.json"
               done
               for rules in evaluation.json tests/valid/evaluation-left-twice.json executor/tests/fixtures/codegen-escaped-rules.json; do
@@ -167,6 +167,20 @@
                   bootstrap-source "$source" > actual
                   diff -u expected actual
                 done
+                for source in ${../../bootstrap/source}/conflicts/*.cue; do
+                  if cue export "$source" --out json > expected 2> cue-error; then
+                    echo "Expected upstream unification conflict: $source" >&2
+                    exit 1
+                  fi
+                  if bootstrap-source "$source" > actual 2> error; then
+                    echo "Expected bootstrap unification conflict: $source" >&2
+                    exit 1
+                  fi
+                  test ! -s expected
+                  test -s cue-error
+                  test ! -s actual
+                  test -s error
+                done
                 for source in ${../../bootstrap/source}/rejected/*.cue; do
                   if bootstrap-source "$source" > actual 2> error; then
                     echo "Expected rejection: $source" >&2
@@ -188,7 +202,7 @@
               ''
                 set -euo pipefail
                 export LC_ALL=C TZ=UTC
-                for fixture in literal addition multiplication evaluation grammar tests/valid/evaluation-left-twice; do
+                for fixture in literal addition multiplication unification evaluation grammar tests/valid/evaluation-left-twice; do
                   cue export ${../../bootstrap/schema.cue} ${../../bootstrap}/$fixture.cue --out json | jq -S . > first.json
                   cue export ${../../bootstrap/schema.cue} ${../../bootstrap}/$fixture.cue --out json | jq -S . > second.json
                   cmp first.json second.json

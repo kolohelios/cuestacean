@@ -43,3 +43,11 @@ pub fn sum(left: i64, right: i64) -> Result<i64, Error> {
 pub fn product(left: i64, right: i64) -> Result<i64, Error> {
     left.checked_mul(right).ok_or(Error::ProductOverflow)
 }
+
+pub fn unify(left: i64, right: i64) -> Result<i64, Error> {
+    if left == right {
+        Ok(left)
+    } else {
+        Err(Error::Conflict { left, right })
+    }
+}

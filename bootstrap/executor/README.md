@@ -43,6 +43,8 @@ interprets that rule's result instruction against the current node:
   same current node and adds their integer results.
 - `product` executes its left and right instructions in the same order and
   multiplies their integer results using checked arithmetic.
+- `unify` evaluates both instructions and returns their shared integer, or
+  reports `conflicting integer values` if they differ.
 
 Rust implements these primitives, not special cases for the expression kinds.
 The CUE-exported `../tests/valid/evaluation-left-twice.json` changes addition to
@@ -72,6 +74,10 @@ still handwritten scaffolding. Existing JSON interfaces remain unchanged.
 
 ## Deliberate limits
 
+- Unification is only equality of two concrete i64 results. A conflict exits
+  without a result; it is not a first-class bottom value. Symbolic constraints,
+  types, structs, disjunctions, defaults, references, and full CUE unification
+  remain unsupported. Runtime diagnostics are not upstream CUE diagnostics.
 - Both documents require `formatVersion: 1`.
 - Values and intermediate results are signed 64-bit integers. Out-of-range
   values, non-integer JSON values, overflow, and underflow are errors. No

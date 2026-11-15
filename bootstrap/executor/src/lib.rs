@@ -37,6 +37,8 @@ pub enum Error {
     Overflow,
     #[snafu(display("signed 64-bit integer multiplication overflow"))]
     ProductOverflow,
+    #[snafu(display("conflicting integer values {left} and {right}"))]
+    Conflict { left: i64, right: i64 },
 }
 
 #[derive(Deserialize)]
@@ -73,6 +75,10 @@ enum Instruction {
         right: Box<Instruction>,
     },
     Product {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
+    Unify {
         left: Box<Instruction>,
         right: Box<Instruction>,
     },
@@ -123,6 +129,11 @@ fn instruction(
             let left = instruction(left, node, rules)?;
             let right = instruction(right, node, rules)?;
             runtime::product(left, right)
+        }
+        Instruction::Unify { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::unify(left, right)
         }
     }
 }

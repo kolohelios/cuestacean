@@ -17,6 +17,10 @@ fn evaluate(node: &Value) -> Result<i64, Error> {
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "unify" => runtime::unify(
+            (evaluate(runtime::field(node, "left")?))?,
+            (evaluate(runtime::field(node, "right")?))?,
+        ),
         kind => Err(Error::MissingRule {
             kind: kind.to_string(),
         }),

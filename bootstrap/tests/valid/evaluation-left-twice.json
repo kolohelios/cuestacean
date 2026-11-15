@@ -32,6 +32,19 @@
           "op": "evaluate"
         }
       }
+    },
+    "unify": {
+      "result": {
+        "left": {
+          "field": "left",
+          "op": "evaluate"
+        },
+        "op": "unify",
+        "right": {
+          "field": "right",
+          "op": "evaluate"
+        }
+      }
     }
   }
 }

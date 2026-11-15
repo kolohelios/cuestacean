@@ -55,6 +55,20 @@ fn exported_programs_and_rule_change() {
         generated_left_twice::execute(&mixed).expect("changed mixed generated"),
         2
     );
+    let unified = read(bootstrap().join("unification.json"));
+    assert_eq!(execute(&unified, &rules).expect("unified interpreted"), 3);
+    assert_eq!(generated::execute(&unified).expect("unified generated"), 3);
+    for result in [
+        execute(&unified, &changed),
+        generated_left_twice::execute(&unified),
+    ] {
+        assert!(
+            result
+                .expect_err("changed rule conflicts")
+                .to_string()
+                .contains("conflicting integer values 2 and 3")
+        );
+    }
 }
 
 // Reuse the real JSON case corpus through both file-based CLIs without adding

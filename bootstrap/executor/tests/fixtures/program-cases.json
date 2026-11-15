@@ -1,4 +1,12 @@
 [
+  {"name":"unify equal","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"integer","value":3},"right":{"kind":"integer","value":3}}},"expected":3},
+  {"name":"unify zero","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"integer","value":0},"right":{"kind":"integer","value":0}}},"expected":0},
+  {"name":"unify negative","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"integer","value":-7},"right":{"kind":"integer","value":-7}}},"expected":-7},
+  {"name":"unify minimum","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"integer","value":-9223372036854775808},"right":{"kind":"integer","value":-9223372036854775808}}},"expected":-9223372036854775808},
+  {"name":"unify maximum","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"integer","value":9223372036854775807},"right":{"kind":"integer","value":9223372036854775807}}},"expected":9223372036854775807},
+  {"name":"unify conflict","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"integer","value":3},"right":{"kind":"integer","value":4}}},"error":"conflicting integer values 3 and 4"},
+  {"name":"unify boundary conflict","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"integer","value":-9223372036854775808},"right":{"kind":"integer","value":9223372036854775807}}},"error":"conflicting integer values"},
+  {"name":"unify child conflict","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"unify","left":{"kind":"integer","value":3},"right":{"kind":"integer","value":4}},"right":{"kind":"integer","value":3}}},"error":"conflicting integer values 3 and 4"},
   {"name":"product","program":{"formatVersion":1,"entry":{"kind":"multiply","left":{"kind":"integer","value":6},"right":{"kind":"integer","value":7}}},"expected":42},
   {"name":"signed product","program":{"formatVersion":1,"entry":{"kind":"multiply","left":{"kind":"integer","value":-7},"right":{"kind":"integer","value":2}}},"expected":-14},
   {"name":"zero product","program":{"formatVersion":1,"entry":{"kind":"multiply","left":{"kind":"integer","value":0},"right":{"kind":"integer","value":9223372036854775807}}},"expected":0},

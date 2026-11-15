@@ -19,16 +19,19 @@ not a claim that parser machinery is self-hosted.
 
 ## Deliberately small subset
 
-The default grammar accepts decimal signed integers, binary addition and
-multiplication, and parentheses. Multiplication has higher precedence than
-addition; both operators are left-associative. These choices live in CUE grammar
-data, not in the parser algorithm. `1 + 2 * 3` produces `7`, while `(1 + 2) * 3`
-produces `9`. A negative sign must touch its digits. Spaces and tabs are allowed;
+The default grammar accepts decimal signed integers, addition, multiplication,
+concrete integer unification (`&`), and parentheses. Multiplication binds more
+tightly than addition, which binds more tightly than `&`; all are left-associative.
+These choices live in CUE grammar data, not in the parser algorithm.
+`1 + 2 * 3` produces `7`, while `(1 + 2) * 3` produces `9`.
+`1 + 2 & 3` produces `3`; `3 & 4` fails without printing a result. A negative sign must touch its digits. Spaces and tabs are allowed;
 line breaks can precede operands or follow an opening parenthesis, but cannot
 follow an operand before another token. This avoids silently ignoring CUE's
 implicit comma insertion at line breaks. Trailing whitespace is allowed.
 
-Full declarations, packages, comments, references, constraints, other number
+Unification only compares concrete i64 results; it does not solve symbolic
+constraints or represent bottom as a value. Full declarations, packages,
+comments, references, type constraints, other number
 spellings, other operators, and general unary expressions are unsupported.
 Integers and results remain checked i64 values. The parser limits a source to
 64 AST nodes and 32 recursive parsing levels; these are bootstrap limits, not
@@ -36,7 +39,8 @@ CUE limits. It rejects trailing input rather than accepting a partial parse.
 
 The `rejected/` examples include both invalid CUE and valid CUE outside this
 subset, plus resource and arithmetic limits. They are not assertions that
-upstream CUE should reject the same inputs.
+upstream CUE should reject the same inputs. In contrast, every `conflicts/`
+fixture is in the supported subset and must fail in both implementations.
 
 ## Checks and regeneration
 
@@ -44,7 +48,9 @@ Rust tests cover source execution, the existing nested AST, grammar-controlled
 associativity, precedence and constructors, grammar validation, resource limits,
 and CLI failures. The Nix `bootstrap-source` check compares every `valid/*.cue` result
 byte-for-byte against the pinned upstream `cue export`, using exact decimal
-output without passing integers through a floating-point JSON formatter.
+output without passing integers through a floating-point JSON formatter. It
+also requires both upstream CUE and the bootstrap tool to reject `conflicts/`
+fixtures with no result. Conflict messages and exit-code numbers need not match.
 Existing interpreter, generated JSON CLI, and code-generation checks remain.
 
 Regenerate grammar data from the repository root in the devshell:

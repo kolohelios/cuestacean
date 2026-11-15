@@ -1,10 +1,11 @@
 # Bootstrap expression fixtures
 
-`schema.cue` defines a recursive expression tree with three node kinds:
+`schema.cue` defines a recursive expression tree with four node kinds:
 
 - `integer`: an integer `value`.
 - `add`: ordered `left` and `right` expression children.
 - `multiply`: ordered `left` and `right` expression children.
+- `unify`: ordered children whose concrete integer results must agree.
 
 `#Program` wraps an expression with `formatVersion: 1`. Node definitions reject
 unexpected fields. Missing fields with a single allowed value (such as the
@@ -14,7 +15,8 @@ concrete, complete expression.
 `literal.cue` instantiates the original integer literal. `addition.cue` describes
 `20 + (10 + 12)`, preserving its nested tree rather than evaluating it to `42`.
 `multiplication.cue` describes `1 + 2 * 3` as an addition with a multiplication
-child. The pinned upstream Go CUE tool exports these into matching JSON files.
+child. `unification.cue` describes `(1 + 2) & 3`. The pinned upstream Go CUE
+tool exports these into matching JSON files.
 Definitions such as `#Expression` do not appear in the exported artifacts.
 
 ## Evaluation rules as data
@@ -28,6 +30,8 @@ produce its `result`:
   targeting the current node's `left` and `right` children.
 - `multiply`: `product` combines the evaluated children using checked integer
   multiplication.
+- `unify`: return the integer if the evaluated children agree; otherwise fail
+  with a concrete-integer conflict. This is not a general constraint solver.
 
 Child evaluation means selecting and applying a rule recursively to that child,
 not reading the child tree as an integer. The two operand instructions in a sum
@@ -36,8 +40,9 @@ both refer to the current input node, not to each other's results.
 Upstream CUE validates and exports these instructions as data; export does not
 evaluate the addition tree. The [bootstrap Rust executor](executor/README.md)
 interprets the exported rules in a separate step: the original fixtures produce
-`42`, while the mixed multiplication fixture produces `7`. The schema constrains
-these three rule shapes and their
+`42`, the mixed multiplication fixture produces `7`, and unification produces
+`3`. The schema constrains
+these four rule shapes and their
 field names, not a general-purpose rule language. Validation alone does not
 establish correct evaluation behavior.
 
@@ -71,6 +76,7 @@ nix develop ./infra/tooling
 cue export bootstrap/schema.cue bootstrap/literal.cue --out json | jq -S . > bootstrap/literal.json
 cue export bootstrap/schema.cue bootstrap/addition.cue --out json | jq -S . > bootstrap/addition.json
 cue export bootstrap/schema.cue bootstrap/multiplication.cue --out json | jq -S . > bootstrap/multiplication.json
+cue export bootstrap/schema.cue bootstrap/unification.cue --out json | jq -S . > bootstrap/unification.json
 cue export bootstrap/schema.cue bootstrap/evaluation.cue --out json | jq -S . > bootstrap/evaluation.json
 cue export bootstrap/schema.cue bootstrap/tests/valid/evaluation-left-twice.cue --out json | jq -S . > bootstrap/tests/valid/evaluation-left-twice.json
 ```
