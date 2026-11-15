@@ -1,0 +1,11 @@
+[
+  {"builder":"ast-program", "arguments":[{"kind":"integer","value":42}], "expected":{"formatVersion":1,"entry":{"kind":"integer","value":42}}},
+  {"builder":"ast-atom", "arguments":["intType"], "expected":{"kind":"intType"}},
+  {"builder":"ast-integer", "arguments":["integer","value",9223372036854775807], "expected":{"kind":"integer","value":9223372036854775807}},
+  {"builder":"ast-integer", "arguments":["integer","value",-9223372036854775808], "expected":{"kind":"integer","value":-9223372036854775808}},
+  {"builder":"ast-integer", "arguments":["lowerBound","threshold",0], "expected":{"kind":"lowerBound","threshold":0}},
+  {"builder":"ast-binary", "arguments":["alternate","first","second",{"kind":"integer","value":1},{"kind":"intType"}], "expected":{"kind":"alternate","first":{"kind":"integer","value":1},"second":{"kind":"intType"}}},
+  {"builder":"tests/valid/ast-program-v2", "arguments":[{"kind":"intType"}], "expected":{"formatVersion":2,"entry":{"kind":"intType"}}},
+  {"builder":"tests/valid/ast-escaped", "arguments":["a\n\"b"], "expected":{"payload\"\\\nλ":"a\n\"b","second":"a\n\"b"}},
+  {"builder":"tests/valid/ast-duplicate", "arguments":[{"kind":"integer","value":7}], "expected":{"first":{"kind":"integer","value":7},"second":{"kind":"integer","value":7}}}
+]

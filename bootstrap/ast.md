@@ -1,0 +1,70 @@
+# CUE-defined AST construction
+
+The parser's JSON-object assembly now comes from four CUE builder programs:
+
+- `ast-program.cue`: the versioned program wrapper.
+- `ast-atom.cue`: a payload-free node with a grammar-supplied kind.
+- `ast-integer.cue`: integer and bound leaves with a dynamic payload field.
+- `ast-binary.cue`: nodes with grammar-supplied kind and child field names.
+
+`bootstrap-ast-codegen <builder.json>` compiles these pure construction
+expressions into typed Rust functions. The parser calls the generated builders,
+not the interpreter; it no longer assembles JSON maps itself. No Go process or
+builder JSON file is needed during source execution.
+
+This moves record-construction semantics into CUE, **not parser control flow**.
+Grammar validation/lookup, checked i64 conversion, binding power, recursion,
+and the builder compiler/interpreter remain handwritten. Specification export
+still uses upstream Go CUE. Neither the full parser nor its compiler is
+self-hosted yet.
+
+## Expression contract
+
+`#BuildProgram` in `schema.cue` contains `formatVersion: 1`, ordered `parameters`,
+and a `result` expression. Parameters have unique nonempty names and one type:
+`string`, `integer` (i64), or `json` (any JSON value, not a validated AST).
+
+| Expression | Meaning |
+| --- | --- |
+| `argument` | Read the parameter named by `name`. |
+| `string` | Construct a literal string from `value`. |
+| `integer` | Construct a literal i64 from `value`. |
+| `object` | Evaluate ordered `fields`, each with `key` and `value` expressions. |
+
+Keys must be statically string-valued. Object values may nest expressions;
+repeated keys use last-field-wins semantics, matching the former native maps.
+There are no loops, calls, dynamic argument lookup in generated code, or
+literal array/bool/null expressions. Arbitrary JSON can pass through a `json`
+parameter. This is a small experimental construction language, not general
+CUE evaluation or complete JSON-language support.
+
+The compiler validates argument references, key types, at most 16 parameters,
+64 expression nodes and 16 nesting levels before emitting source. Generated
+functions accept owned `String`, `i64`, and `serde_json::Value` arguments in
+parameter order and return a JSON value. A reference interpreter checks
+positional JSON arguments dynamically.
+
+Metadata names never become Rust identifiers: emitted parameters use positional
+names such as `_arg0`. Literal strings/keys are escaped as Rust strings. Owned
+arguments are cloned only when reused, then moved on their final use. Normal
+parser builders use every argument once, avoiding subtree copies.
+
+## Checks and bootstrap
+
+Tests compare compiled builders, the interpreter and handwritten JSON
+expectations, including customized field names, i64 extrema, escaped metadata
+names/keys, and repeated arguments. A version-2 wrapper program demonstrates
+that construction policy is data rather than a native format-version constant.
+Existing parser tests also compare full trees against CUE-schema exports and
+retain upstream source comparisons and exact error checks.
+
+```sh
+nix develop ./infra/tooling --command cargo test --manifest-path bootstrap/executor/Cargo.toml --test ast
+```
+
+Nix exports builder JSON as build-only data and adds the handwritten AST
+compiler to the bootstrap seeds. With the default `source` feature disabled,
+seeds require no generated builders or scanners. The final stage regenerates
+all Rust, enables the source frontend, and runs the complete suite. Committed
+Rust modules remain drift-check goldens. See [regeneration](generated/README.md)
+for local commands; no generated JSON is committed.

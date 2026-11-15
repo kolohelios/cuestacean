@@ -83,9 +83,13 @@ missing-digit/leading-zero rejection and the conservative operand-newline rule
 are also CUE-defined, as are parenthesis recognition/consumption and missing-close
 diagnostics. Bound/infix symbol recognition also uses the scanner DSL. The native
 parser only looks up complete spans; expression recursion remains native. Checked i64 conversion,
-grammar validation, keyword lookup, AST construction, other parsing, and the
-scanner compiler/runtime
+grammar validation, keyword lookup, other parsing, and the scanner compiler/runtime
 remain handwritten.
+
+[AST builders](ast.md) separately define program wrappers, atoms, integer/bound
+leaves, and binary records as CUE construction expressions. Generated typed
+functions replace the parser's native JSON-map assembly while keeping dynamic
+grammar field names. Their compiler/interpreter remain handwritten.
 
 The syntax and rules remain experimental, not a settled intermediate
 representation. They exercise the source-to-artifact boundary that Cuestacean

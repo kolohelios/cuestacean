@@ -1,11 +1,13 @@
 //! Narrow bootstrap Pratt parser. Token scanning and lexical policies are
-//! CUE-generated; conversion, grammar validation, lookup, AST construction and
-//! Pratt parsing remain native.
+//! CUE-generated, as is AST construction. Conversion, grammar validation, lookup
+//! and Pratt parsing remain native.
 
 use std::collections::BTreeSet;
 
 use serde::Deserialize;
-use serde_json::{Map, Value};
+use serde_json::Value;
+
+use crate::ast;
 use snafu::{ResultExt, Snafu};
 
 #[derive(Debug, Snafu)]
@@ -179,10 +181,7 @@ pub fn parse(source: &str, grammar: &str) -> Result<Value, Error> {
     if parser.offset != source.len() {
         return parser.error("unexpected or unsupported syntax");
     }
-    Ok(Value::Object(Map::from_iter([
-        ("formatVersion".into(), 1.into()),
-        ("entry".into(), entry),
-    ])))
+    Ok(ast::program(entry))
 }
 
 struct Parser<'a> {
@@ -247,10 +246,7 @@ impl Parser<'_> {
                 self.whitespace()?;
                 let value = self.decimal()?;
                 self.node()?;
-                Value::Object(Map::from_iter([
-                    ("kind".into(), bound.kind.into()),
-                    (bound.value_field, value.into()),
-                ]))
+                ast::integer(bound.kind, bound.value_field, value)
             } else {
                 let identifier = crate::scanner::identifier(self.source, self.offset)?;
                 if identifier.flag {
@@ -283,11 +279,7 @@ impl Parser<'_> {
             };
             let right = self.expression(next, depth + 1)?;
             self.node()?;
-            left = Value::Object(Map::from_iter([
-                ("kind".into(), op.kind.into()),
-                (op.left_field, left),
-                (op.right_field, right),
-            ]));
+            left = ast::binary(op.kind, op.left_field, op.right_field, left, right);
         }
         Ok(left)
     }
@@ -307,10 +299,7 @@ impl Parser<'_> {
                 reason: "unknown atom".into(),
             })?;
         self.node()?;
-        Ok(Value::Object(Map::from_iter([(
-            "kind".into(),
-            kind.into(),
-        )])))
+        Ok(ast::atom(kind))
     }
 
     fn decimal(&mut self) -> Result<i64, Error> {
@@ -325,9 +314,10 @@ impl Parser<'_> {
     fn integer(&mut self) -> Result<Value, Error> {
         let value = self.decimal()?;
         self.node()?;
-        Ok(Value::Object(Map::from_iter([
-            ("kind".into(), self.grammar.integer.kind.clone().into()),
-            (self.grammar.integer.value_field.clone(), value.into()),
-        ])))
+        Ok(ast::integer(
+            self.grammar.integer.kind.clone(),
+            self.grammar.integer.value_field.clone(),
+            value,
+        ))
     }
 }

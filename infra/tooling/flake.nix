@@ -32,6 +32,16 @@
         "tests/valid/scanner-lookahead"
       ];
       scannerNames = builtins.concatStringsSep " " scannerFixtures;
+      builderFixtures = [
+        "ast-program"
+        "ast-atom"
+        "ast-integer"
+        "ast-binary"
+        "tests/valid/ast-program-v2"
+        "tests/valid/ast-escaped"
+        "tests/valid/ast-duplicate"
+      ];
+      builderNames = builtins.concatStringsSep " " builderFixtures;
       exportFixtures = [
         "literal"
         "addition"
@@ -43,7 +53,8 @@
         "grammar"
         "tests/valid/evaluation-left-twice"
       ]
-      ++ scannerFixtures;
+      ++ scannerFixtures
+      ++ builderFixtures;
       fixtureNames = builtins.concatStringsSep " " exportFixtures;
       jsonExports =
         pkgs:
@@ -128,6 +139,8 @@
             "bootstrap-codegen"
             "--bin"
             "bootstrap-scan-codegen"
+            "--bin"
+            "bootstrap-ast-codegen"
           ];
           postPatch = clearArtifacts;
           # The tests require generated modules. Break that bootstrap cycle here;
@@ -154,6 +167,10 @@
               for machine in ${scannerNames}; do
                 name=$(basename "$machine")
                 bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$machine.json" | rustfmt --edition 2024 > "../generated/$name.rs"
+              done
+              for builder in ${builderNames}; do
+                name=$(basename "$builder")
+                bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$builder.json" | rustfmt --edition 2024 > "../generated/$name.rs"
               done
             )
           '';
@@ -233,6 +250,13 @@
                   name=$(basename "$machine")
                   bootstrap-scan-codegen ${jsonExports pkgs}/"$machine.json" | rustfmt --edition 2024 > first.rs
                   bootstrap-scan-codegen ${jsonExports pkgs}/"$machine.json" | rustfmt --edition 2024 > second.rs
+                  cmp first.rs second.rs
+                  diff -u ${../../bootstrap/generated}/"$name.rs" first.rs
+                done
+                for builder in ${builderNames}; do
+                  name=$(basename "$builder")
+                  bootstrap-ast-codegen ${jsonExports pkgs}/"$builder.json" | rustfmt --edition 2024 > first.rs
+                  bootstrap-ast-codegen ${jsonExports pkgs}/"$builder.json" | rustfmt --edition 2024 > second.rs
                   cmp first.rs second.rs
                   diff -u ${../../bootstrap/generated}/"$name.rs" first.rs
                 done
