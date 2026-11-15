@@ -7,15 +7,16 @@ Cuestacean is an experimental project to reimplement
 and Rust as the execution target. The ambition is full self-hosting, not merely
 using CUE to configure a handwritten Rust compiler.
 
-There is no CUE compiler implementation yet. The [bootstrap fixtures](bootstrap/README.md)
+There is no general CUE implementation yet. The [bootstrap fixtures](bootstrap/README.md)
 define integer-literal and addition trees, plus proposed evaluation rules, in
 CUE and export them to checked-in JSON using upstream CUE. A small
 [bootstrap Rust executor](bootstrap/executor/README.md) interprets those rules.
 An initial [rule-to-Rust generator](bootstrap/generated/README.md) lowers the
 same rules to compiled evaluator modules. Nix builds a handwritten generator
 seed, regenerates JSON and Rust from the CUE specifications, then compiles and
-tests the final executables. The generated evaluator is runnable; CUE evaluation
-still relies on the upstream Go tool.
+tests the final executables. A [source frontend](bootstrap/source/README.md)
+now handles a tiny decimal-integer expression subset without Go at runtime.
+Bootstrap specification evaluation still relies on the upstream Go tool.
 
 ## CUE all the way down
 
@@ -63,11 +64,12 @@ shaka preflight
 
 With direnv, `direnv allow` enters this environment from the repository root.
 See [development tooling](infra/tooling/README.md) for regeneration commands.
-There is no CUE compiler build yet. CI builds and tests the bootstrap executor,
+CI builds and tests the bootstrap executor and small source frontend,
 checks the tooling environment and project declarations, compiles generated
 evaluators, rejects generated-file drift, verifies reproducible bootstrap
 exports, compares interpreted and generated CLI behavior, and rejects malformed
-expression trees and rule descriptions.
+expression trees and rule descriptions. Supported source fixtures are compared
+with pinned upstream CUE.
 
 Run the generated evaluator with its compiled-in rules:
 
@@ -76,7 +78,13 @@ nix run ./infra/tooling#generated -- bootstrap/addition.json
 ```
 
 It prints `42`. The interpreter remains available through the default Nix entry
-point for comparison.
+point for comparison. To evaluate the supported source subset:
+
+```sh
+nix run ./infra/tooling#source -- bootstrap/source/valid/nested.cue
+```
+
+This also prints `42`; see the [explicit subset limits](bootstrap/source/README.md).
 
 - Nix pins the development environment and upstream CUE bootstrap tool.
 - [Shaka](https://github.com/kolohelios/kolohelios/tree/main/tools/shaka)

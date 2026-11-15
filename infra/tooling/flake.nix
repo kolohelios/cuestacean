@@ -97,6 +97,11 @@
             program = "${executor pkgs}/bin/bootstrap-generated";
             meta.description = "Evaluate JSON with the CUE-defined rules compiled into Rust";
           };
+          source = {
+            type = "app";
+            program = "${executor pkgs}/bin/bootstrap-source";
+            meta.description = "Evaluate the bootstrap decimal integer expression subset";
+          };
         }
       );
 
@@ -144,6 +149,31 @@
                   bootstrap-codegen ${../../bootstrap}/"$rules" | rustfmt --edition 2024 > second.rs
                   cmp first.rs second.rs
                   diff -u ${../../bootstrap/generated}/"$name.rs" first.rs
+                done
+                touch "$out"
+              '';
+          bootstrap-source =
+            pkgs.runCommand "cuestacean-bootstrap-source"
+              {
+                nativeBuildInputs = [
+                  (executor pkgs)
+                  pkgs.cue
+                ];
+              }
+              ''
+                set -euo pipefail
+                for source in ${../../bootstrap/source}/valid/*.cue; do
+                  cue export "$source" --out json > expected
+                  bootstrap-source "$source" > actual
+                  diff -u expected actual
+                done
+                for source in ${../../bootstrap/source}/rejected/*.cue; do
+                  if bootstrap-source "$source" > actual 2> error; then
+                    echo "Expected rejection: $source" >&2
+                    exit 1
+                  fi
+                  test ! -s actual
+                  test -s error
                 done
                 touch "$out"
               '';

@@ -60,6 +60,14 @@ errors against the interpreter, and verify that alternate rule data generates
 alternate behavior. `bootstrap-generated` runs the normal generated module;
 `bootstrap-executor` remains available for runtime rule changes and comparison.
 
+## Source frontend
+
+`bootstrap-source <expression.cue>` parses the [documented source subset](../source/README.md)
+using compiled-in CUE grammar data, then invokes the generated evaluator. From
+the repository root, `nix run ./infra/tooling#source -- bootstrap/source/valid/nested.cue`
+prints `42`. It does not invoke Go at runtime; the lexer and Pratt algorithm are
+still handwritten scaffolding. Existing JSON interfaces remain unchanged.
+
 ## Deliberate limits
 
 - Both documents require `formatVersion: 1`.
@@ -79,8 +87,8 @@ alternate behavior. `bootstrap-generated` runs the normal generated module;
 code-generator seed enables a [fresh two-stage build](../generated/README.md),
 then the final package runs Rust formatting, Clippy, and all tests in the
 sandbox. Tests use the real exported
-fixtures, the changed-rule export, integer boundary/error cases, all three
-CLIs, and the compiled generated evaluators. The interpreter and generated CLIs
+fixtures, the changed-rule export, integer boundary/error cases, all four
+CLIs, the source parser, and the compiled generated evaluators. The interpreter and generated CLIs
 must agree byte-for-byte on stdout and stderr, and on exit status, for both
 exported expressions, the complete program-case corpus, malformed JSON, and
 missing program files. Argument errors are checked against each CLI's usage.
