@@ -29,6 +29,12 @@ pub fn generate(input: &str) -> Result<String, Error> {
 fn instruction(op: &Instruction) -> String {
     match op {
         Instruction::Int {} => "Ok::<_, Error>(runtime::Value::Int)".to_string(),
+        Instruction::LowerBound { value } => {
+            format!("runtime::lower_bound(({})?)", instruction(value))
+        }
+        Instruction::UpperBound { value } => {
+            format!("runtime::upper_bound(({})?)", instruction(value))
+        }
         // Debug formatting emits escaped Rust string literals, not raw code.
         Instruction::Field { field } => format!("runtime::integer(node, {field:?})"),
         Instruction::Evaluate { field } => format!("evaluate(runtime::field(node, {field:?})?)"),

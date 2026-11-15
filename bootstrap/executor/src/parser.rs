@@ -29,6 +29,8 @@ struct Grammar {
     integer: Integer,
     #[serde(default)]
     atoms: Vec<Atom>,
+    #[serde(default)]
+    bounds: Vec<BoundPrefix>,
     group: Group,
     operators: Vec<Operator>,
 }
@@ -45,6 +47,14 @@ struct Integer {
 struct Atom {
     token: String,
     kind: String,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct BoundPrefix {
+    token: String,
+    kind: String,
+    value_field: String,
 }
 
 #[derive(Deserialize)]
@@ -104,6 +114,19 @@ impl Grammar {
             if !identifier || atom.kind.is_empty() || !atoms.insert(&atom.token) {
                 return GrammarSnafu {
                     reason: "invalid or ambiguous atom configuration",
+                }
+                .fail();
+            }
+        }
+        let mut bounds = BTreeSet::new();
+        for bound in &self.bounds {
+            if !matches!(bound.token.as_str(), ">=" | "<=")
+                || !bounds.insert(&bound.token)
+                || bound.kind.is_empty()
+                || !field(&bound.value_field)
+            {
+                return GrammarSnafu {
+                    reason: "invalid or ambiguous bound configuration",
                 }
                 .fail();
             }
@@ -201,6 +224,21 @@ impl Parser<'_> {
             }
             self.offset += 1;
             value
+        } else if let Some(bound) = self
+            .grammar
+            .bounds
+            .iter()
+            .find(|bound| self.source[self.offset..].starts_with(&bound.token))
+            .cloned()
+        {
+            self.offset += bound.token.len();
+            self.whitespace();
+            let value = self.decimal()?;
+            self.node()?;
+            Value::Object(Map::from_iter([
+                ("kind".into(), bound.kind.into()),
+                (bound.value_field, value.into()),
+            ]))
         } else if self
             .peek()
             .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
@@ -269,7 +307,7 @@ impl Parser<'_> {
         )])))
     }
 
-    fn integer(&mut self) -> Result<Value, Error> {
+    fn decimal(&mut self) -> Result<i64, Error> {
         let start = self.offset;
         if self.peek() == Some(b'-') {
             self.offset += 1;
@@ -279,14 +317,18 @@ impl Parser<'_> {
             self.offset += 1;
         }
         if self.offset == digits {
-            return self.error("expected decimal integer or parenthesis");
+            return self.error("expected signed decimal integer");
         }
         if self.offset - digits > 1 && self.source.as_bytes()[digits] == b'0' {
             return self.error("leading zeroes are unsupported");
         }
-        let value = self.source[start..self.offset]
+        self.source[start..self.offset]
             .parse::<i64>()
-            .context(IntegerSnafu { offset: start })?;
+            .context(IntegerSnafu { offset: start })
+    }
+
+    fn integer(&mut self) -> Result<Value, Error> {
+        let value = self.decimal()?;
         self.node()?;
         Ok(Value::Object(Map::from_iter([
             ("kind".into(), self.grammar.integer.kind.clone().into()),

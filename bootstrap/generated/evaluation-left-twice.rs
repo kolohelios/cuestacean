@@ -14,6 +14,7 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
         ),
         "intType" => Ok::<_, Error>(runtime::Value::Int),
         "integer" => runtime::integer(node, "value"),
+        "lowerBound" => runtime::lower_bound((runtime::integer(node, "value"))?),
         "multiply" => runtime::product(
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
@@ -22,6 +23,7 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "upperBound" => runtime::upper_bound((runtime::integer(node, "value"))?),
         kind => Err(Error::MissingRule {
             kind: kind.to_string(),
         }),

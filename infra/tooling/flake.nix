@@ -20,6 +20,7 @@
         "multiplication"
         "unification"
         "int-constraint"
+        "bounds"
         "evaluation"
         "grammar"
         "tests/valid/evaluation-left-twice"

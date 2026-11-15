@@ -72,6 +72,27 @@ fn exported_programs_and_rule_change() {
     }
 }
 
+#[test]
+fn exported_constraints_preserve_abstract_intermediates() {
+    let rules = read(bootstrap().join("evaluation.json"));
+    let changed = read(bootstrap().join("tests/valid/evaluation-left-twice.json"));
+    for name in ["int-constraint", "bounds"] {
+        let program = read(bootstrap().join(format!("{name}.json")));
+        for result in [
+            execute(&program, &rules),
+            generated::execute(&program),
+            execute(&program, &changed),
+            generated_left_twice::execute(&program),
+        ] {
+            assert_eq!(result.expect(name), 3);
+        }
+        let output = cli_parity(&bootstrap().join(format!("{name}.json")));
+        assert!(output.status.success());
+        assert_eq!(output.stdout, b"3\n");
+        assert!(output.stderr.is_empty());
+    }
+}
+
 // Reuse the real JSON case corpus through both file-based CLIs without adding
 // a second copy of those fixtures. create_new prevents overwriting any file.
 struct ProgramFile(PathBuf);

@@ -11,16 +11,17 @@ the existing version-1 expression tree, then invokes the compiled generated
 evaluator. Success prints an integer and newline; errors print to stderr and
 exit 2 without a result. No Go process is invoked at runtime.
 
-`../grammar.cue` describes named atoms, operator tokens, precedence, associativity, grouping,
-and AST constructor names for a bootstrap Pratt parser. It exports to
-`grammar.json` in the Nix `exports` output and is compiled into the frontend. The lexer and Pratt
-algorithm are handwritten Rust scaffolding; this is grammar configuration,
-not a claim that parser machinery is self-hosted.
+`../grammar.cue` describes atoms, bound prefixes, infix operators, precedence,
+associativity, grouping, and AST constructors for a bootstrap Pratt parser.
+It exports to `grammar.json` in the Nix `exports` output and is compiled into
+the frontend. Lexing, prefix parsing, and the Pratt algorithm are handwritten
+Rust scaffolding; grammar configuration is not self-hosted parser machinery.
 
 ## Deliberately small subset
 
 The default grammar accepts decimal signed integers, the `int` type atom,
-addition, multiplication, integer/type unification (`&`), and parentheses. Multiplication binds more
+inclusive bounds (`>=`, `<=`), addition, multiplication, unification (`&`),
+and parentheses. Multiplication binds more
 tightly than addition, which binds more tightly than `&`; all are left-associative.
 These choices live in CUE grammar data, not in the parser algorithm.
 `1 + 2 * 3` produces `7`, while `(1 + 2) * 3` produces `9`.
@@ -31,16 +32,31 @@ line breaks can precede operands or follow an opening parenthesis, but cannot
 follow an operand before another token. This avoids silently ignoring CUE's
 implicit comma insertion at line breaks. Trailing whitespace is allowed.
 
-Unification supports concrete integers and abstract `int`, but no other types,
-bounds, general symbolic constraints, or first-class bottom values. Abstract
-intermediate values are valid: `int & int & 3` produces `3`. Only scalar output
-requires concreteness. Arithmetic requires concrete operands, so `int + 1`
-cannot produce a result. Full declarations, packages, comments, references,
-other number spellings/operators, and general unary expressions are unsupported.
-Concrete integers and arithmetic results remain bounded to i64. The bootstrap
-`int` domain is therefore narrower than upstream CUE's unbounded integer domain. The parser limits a source to
-64 AST nodes and 32 recursive parsing levels; these are bootstrap limits, not
-CUE limits. It rejects trailing input rather than accepting a partial parse.
+### Inclusive bounds
+
+`int & >=0 & <=10 & 3` produces `3`; replacing `3` with `11` conflicts.
+Ranges can be intersected and retained as abstract intermediates. Empty
+intersections conflict without a concrete candidate. Nonempty ranges are
+incomplete, even `int & >=3 & <=3`: like upstream CUE, the evaluator does not
+materialize a singleton from bounds alone. Adding `& 3` makes it concrete.
+Missing endpoints are infinite, not clipped to i64: `int & >=9223372036854775807`
+is still incomplete.
+
+Bound operands are signed decimal i64 literals only. Spaces/newlines may
+separate a prefix from its literal. Bounds bind before binary operators;
+`>=1 + 2` tries arithmetic on an abstract bound and cannot produce a result.
+Exclusive bounds, fractional thresholds, and general bound operands such as
+`>=(1 + 2)` are outside this source subset.
+
+Unification supports concrete integers, abstract `int`, and inclusive bounds,
+but no other types, general symbolic constraints, or first-class bottom values.
+Only scalar output requires concreteness. Arithmetic requires concrete operands,
+so `int + 1` cannot produce a result. Full declarations, packages, comments,
+references, other number spellings/operators, and general unary expressions
+are unsupported. Concrete values, thresholds, and arithmetic results are bounded
+to i64, narrower than upstream CUE's concrete integer domain. The parser limits
+a source to 64 AST nodes and 32 recursive parsing levels; these are bootstrap
+limits, not CUE limits. It rejects trailing input rather than a partial parse.
 
 The `rejected/` examples include both invalid CUE and valid CUE outside this
 subset, plus resource and arithmetic limits. They are not assertions that

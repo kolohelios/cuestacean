@@ -3,6 +3,10 @@ package bootstrap
 #Grammar & {
 	integer: {kind: "integer", valueField: "value"}
 	atoms: [{token: "int", kind: "intType"}]
+	bounds: [
+		{token: ">=", kind: "lowerBound", valueField: "value"},
+		{token: "<=", kind: "upperBound", valueField: "value"},
+	]
 	group: {open: "(", close: ")"}
 	operators: [{
 		token:         "+"

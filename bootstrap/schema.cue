@@ -1,7 +1,7 @@
 package bootstrap
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #IntegerLiteral | #IntegerType | #Addition | #Multiplication | #Unification
+#Expression: #IntegerLiteral | #IntegerType | #LowerBound | #UpperBound | #Addition | #Multiplication | #Unification
 
 #IntegerLiteral: {
 	kind:  "integer"
@@ -9,6 +9,16 @@ package bootstrap
 }
 
 #IntegerType: {kind: "intType"}
+
+#LowerBound: {
+	kind:  "lowerBound"
+	value: int
+}
+
+#UpperBound: {
+	kind:  "upperBound"
+	value: int
+}
 
 #Addition: {
 	kind:  "add"
@@ -49,6 +59,13 @@ package bootstrap
 	kind:  string & !=""
 }
 
+// Prefix bounds currently accept only signed decimal literal operands.
+#BoundPrefix: {
+	token:      ">=" | "<="
+	kind:       string & !=""
+	valueField: string & !="" & !="kind"
+}
+
 #Grammar: {
 	formatVersion: 1
 	integer: {
@@ -56,6 +73,7 @@ package bootstrap
 		valueField: string & !="" & !="kind"
 	}
 	atoms: *[] | [...#Atom]
+	bounds: *[] | [...#BoundPrefix]
 	group: {open: "(", close: ")"}
 	operators: [#InfixOperator, ...#InfixOperator]
 }
@@ -72,6 +90,8 @@ package bootstrap
 	formatVersion: 1
 	rules: {
 		intType: result: {op: "int"}
+		lowerBound: result: {op: "lowerBound", value: {op: "field", field: "value"}}
+		upperBound: result: {op: "upperBound", value: {op: "field", field: "value"}}
 		integer: result: {
 			op:    "field"
 			field: "value"

@@ -41,6 +41,12 @@ pub enum Error {
     Conflict { left: i64, right: i64 },
     #[snafu(display("non-concrete int value"))]
     Incomplete,
+    #[snafu(display("conflicting integer bounds"))]
+    BoundsConflict,
+    #[snafu(display("non-concrete integer bounds"))]
+    IncompleteBounds,
+    #[snafu(display("bound threshold requires a concrete integer"))]
+    BoundThreshold,
     #[snafu(display("arithmetic requires concrete integer operands"))]
     Arithmetic,
 }
@@ -69,6 +75,14 @@ struct Rule {
 #[serde(tag = "op", rename_all = "lowercase", deny_unknown_fields)]
 enum Instruction {
     Int {},
+    #[serde(rename = "lowerBound")]
+    LowerBound {
+        value: Box<Instruction>,
+    },
+    #[serde(rename = "upperBound")]
+    UpperBound {
+        value: Box<Instruction>,
+    },
     Field {
         field: String,
     },
@@ -124,6 +138,8 @@ fn instruction(
 ) -> Result<runtime::Value, Error> {
     match op {
         Instruction::Int {} => Ok(runtime::Value::Int),
+        Instruction::LowerBound { value } => runtime::lower_bound(instruction(value, node, rules)?),
+        Instruction::UpperBound { value } => runtime::upper_bound(instruction(value, node, rules)?),
         Instruction::Field { field: name } => runtime::integer(node, name),
         Instruction::Evaluate { field: name } => evaluate(runtime::field(node, name)?, rules),
         Instruction::Sum { left, right } => {

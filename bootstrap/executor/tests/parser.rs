@@ -54,6 +54,21 @@ fn supported_source_reaches_the_generated_evaluator() {
         ("int-minimum", i64::MIN),
         ("int-maximum", i64::MAX),
         ("int-repeated", 3),
+        ("bounds", 3),
+        ("bounds-reverse", 3),
+        ("bounds-lower-edge", 0),
+        ("bounds-upper-edge", 10),
+        ("bounds-negative", -7),
+        ("bounds-grouped", 4),
+        ("bounds-product", 6),
+        ("bounds-precedence", 7),
+        ("bounds-intersection", 3),
+        ("bounds-refine-lower", 3),
+        ("bounds-refine-upper", 3),
+        ("bounds-singleton", 3),
+        ("bounds-maximum", i64::MAX),
+        ("bounds-minimum", i64::MIN),
+        ("bounds-whitespace", -1),
     ] {
         let path = bootstrap().join(format!("source/valid/{name}.cue"));
         let program = parse(&read(&path), &grammar).expect(name);
@@ -71,6 +86,12 @@ fn supported_source_reaches_the_generated_evaluator() {
                 program,
                 serde_json::from_str::<Value>(&read(exports().join("addition.json")))
                     .expect("existing tree")
+            );
+        } else if name == "bounds" {
+            assert_eq!(
+                program,
+                serde_json::from_str::<Value>(&read(exports().join("bounds.json")))
+                    .expect("bounds tree")
             );
         }
     }
@@ -101,12 +122,26 @@ fn rejected_sources_and_cli_errors_fail_without_results() {
             .ends_with("conflicts")
         {
             assert!(
-                String::from_utf8_lossy(&output.stderr).contains("conflicting integer values"),
+                String::from_utf8_lossy(&output.stderr).contains("conflicting integer"),
                 "{path:?}: {output:?}"
             );
         }
     }
-    for file in ["int", "int-pair", "int-addition", "int-product"] {
+    for file in [
+        "int",
+        "int-pair",
+        "int-addition",
+        "int-product",
+        "bounds",
+        "bounds-lower",
+        "bounds-upper",
+        "bounds-singleton",
+        "bounds-maximum",
+        "bounds-minimum",
+        "bounds-addition",
+        "bounds-product",
+        "bounds-precedence",
+    ] {
         let output = Command::new(env!("CARGO_BIN_EXE_bootstrap-source"))
             .arg(bootstrap().join(format!("source/incomplete/{file}.cue")))
             .output()
@@ -210,6 +245,50 @@ fn atom_names_and_constructors_come_from_grammar_data() {
 }
 
 #[test]
+fn bound_tokens_and_constructors_come_from_grammar_data() {
+    let source = read(bootstrap().join("source/valid/bounds-refine-lower.cue"));
+    let original: Value =
+        serde_json::from_str(&read(exports().join("grammar.json"))).expect("grammar");
+    let mut changed = original.clone();
+    changed["bounds"][0]["kind"] = "floor".into();
+    changed["bounds"][0]["valueField"] = "threshold".into();
+    let program =
+        parse(&source, &serde_json::to_string(&changed).expect("grammar")).expect("bound");
+    assert_eq!(program["entry"]["left"]["left"]["kind"], "floor");
+    assert_eq!(program["entry"]["left"]["right"]["threshold"], 2);
+
+    changed["bounds"]
+        .as_array_mut()
+        .expect("bounds")
+        .truncate(1);
+    changed["bounds"][0]["token"] = "<=".into();
+    let grammar = serde_json::to_string(&changed).expect("grammar");
+    assert!(parse(&source, &grammar).is_err());
+    let source = read(bootstrap().join("source/valid/bounds-refine-upper.cue"));
+    let program = parse(&source, &grammar).expect("changed token");
+    assert_eq!(program["entry"]["left"]["left"]["kind"], "floor");
+    assert_eq!(program["entry"]["left"]["left"]["threshold"], 10);
+    let duplicate = changed["bounds"][0].clone();
+    changed["bounds"]
+        .as_array_mut()
+        .expect("bounds")
+        .push(duplicate);
+    assert!(parse(&source, &serde_json::to_string(&changed).expect("grammar")).is_err());
+
+    let mut legacy = original;
+    legacy.as_object_mut().expect("grammar").remove("bounds");
+    let grammar = serde_json::to_string(&legacy).expect("legacy grammar");
+    assert!(
+        parse(
+            &read(bootstrap().join("source/valid/literal.cue")),
+            &grammar
+        )
+        .is_ok()
+    );
+    assert!(parse(&source, &grammar).is_err());
+}
+
+#[test]
 fn runtime_grammar_validation_and_resource_limits_are_explicit() {
     let original: Value =
         serde_json::from_str(&read(exports().join("grammar.json"))).expect("grammar");
@@ -220,6 +299,9 @@ fn runtime_grammar_validation_and_resource_limits_are_explicit() {
         ("/atoms/0/token", "".into()),
         ("/atoms/0/token", "1int".into()),
         ("/atoms/0/kind", "".into()),
+        ("/bounds/0/token", ">".into()),
+        ("/bounds/0/kind", "".into()),
+        ("/bounds/0/valueField", "kind".into()),
         ("/operators/0/token", "++".into()),
         ("/operators/0/precedence", 0.into()),
         ("/operators/0/associativity", "center".into()),

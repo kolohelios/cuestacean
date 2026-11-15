@@ -1,4 +1,6 @@
 [
+  {"name":"missing bound threshold instruction","rules":{"formatVersion":1,"rules":{"integer":{"result":{"op":"lowerBound"}}}},"error":"invalid rules JSON"},
+  {"name":"unknown bound instruction field","rules":{"formatVersion":1,"rules":{"integer":{"result":{"op":"upperBound","value":{"op":"field","field":"value"},"inclusive":true}}}},"error":"invalid rules JSON"},
   {"name":"unexpected int instruction field","rules":{"formatVersion":1,"rules":{"integer":{"result":{"op":"int","extra":true}}}},"error":"invalid rules JSON"},
   {"name":"missing unification operand","rules":{"formatVersion":1,"rules":{"integer":{"result":{"op":"unify","left":{"op":"field","field":"value"}}}}},"error":"invalid rules JSON"},
   {"name":"version","rules":{"formatVersion":2,"rules":{}},"error":"unsupported rules formatVersion"},
