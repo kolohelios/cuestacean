@@ -20,7 +20,7 @@ This is more than a byte-class table: CUE defines the loop and branch bodies,
 including when to advance, inspect state, update state, and reject input.
 These are small scanning algorithms and policies,
 **not a self-hosted parser or compiler**. Checked i64 conversion, grammar
-validation, grammar lookup, AST construction, precedence/associativity,
+validation, grammar lookup, precedence/associativity,
 expression recursion and Pratt parsing,
 the statement compiler/interpreter,
 JSON loading, and safe cursor
@@ -99,7 +99,8 @@ test, then looks up the complete span in the grammar's atom table.
 Thus `int9` and `int_1` are complete identifiers, not `int` followed by a suffix.
 They are unknown atoms with the default grammar, but work if configured as atom
 names. Case is preserved; this adds neither reference resolution nor Unicode
-identifiers. Keyword lookup and AST construction remain native.
+identifiers. Keyword lookup remains native; [AST construction](ast.md) uses a
+separate CUE-defined expression DSL, not scanner instructions.
 
 ## Parenthesis tokens, not expression recursion
 

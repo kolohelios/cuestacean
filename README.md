@@ -22,8 +22,10 @@ whitespace, decimal, and ASCII identifier scanning as CUE-authored control flow
 lowered to Rust. Parenthesis token handling, decimal lexical validation, the
 conservative newline-after-operand rule, bound/infix token recognition, and their
 diagnostics also live in CUE. Checked i64 conversion, grammar validation/lookup,
-AST construction, precedence, expression recursion, and Pratt parsing remain native. Bootstrap specification
-evaluation still relies on the upstream Go tool.
+precedence, expression recursion, and Pratt parsing remain native. Bootstrap specification
+evaluation still relies on the upstream Go tool. [AST construction](bootstrap/ast.md)
+now uses separate CUE-defined builder expressions compiled to typed Rust functions;
+the native parser no longer assembles JSON maps.
 
 ## CUE all the way down
 

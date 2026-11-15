@@ -29,13 +29,18 @@ consumption, and diagnostics. `bound-prefix.rs` and `infix.rs` recognize symbol
 spans; grammar lookup, precedence and expression recursion remain native. `decimal.rs` uses the
 same DSL for optional-minus/digit scanning and lexical rejection; `identifier.rs`
 supplies ASCII identifier start/continuation scanning. Checked i64 conversion,
-grammar validation, keyword lookup, and AST construction remain native. The `scanner-horizontal`,
+grammar validation and keyword lookup remain native. The `scanner-horizontal`,
 `scanner-stalled`, and `scanner-advance` modules are test-only algorithms that
 exercise alternate branches, non-progress, and native cursor guards.
 `scanner-decimal-permissive.rs` demonstrates alternate lexical policy;
 `scanner-reject.rs` checks escaped reasons and rejection short-circuiting;
 `scanner-state.rs` tests flag reads, stateful loops, and byte-presence checks;
 `scanner-lookahead.rs` checks maximum lookahead and EOF handling.
+
+The `ast-program`, `ast-atom`, `ast-integer`, and `ast-binary` modules come from
+the separate [AST construction DSL](../ast.md). They replace native parser map
+assembly. `ast-program-v2`, `ast-escaped`, and `ast-duplicate` are test-only
+programs for changed policy, escaping, and repeated owned arguments.
 
 Generated evaluator code contains node-kind dispatch and lowered rule expressions. It
 shares the handwritten `bootstrap_executor::runtime` primitives for JSON
@@ -51,7 +56,7 @@ the shell after editing CUE rules so its export directory reflects those edits:
 
 ```sh
 cargo build --manifest-path bootstrap/executor/Cargo.toml --no-default-features \
-  --bin bootstrap-codegen --bin bootstrap-scan-codegen
+  --bin bootstrap-codegen --bin bootstrap-scan-codegen --bin bootstrap-ast-codegen
 set -o pipefail
 for rules in "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/evaluation-left-twice.json" \
@@ -69,6 +74,12 @@ for machine in whitespace after-operand group-open group-close bound-prefix infi
   bootstrap/executor/target/debug/bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$machine.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
+for builder in ast-program ast-atom ast-integer ast-binary tests/valid/ast-program-v2 \
+  tests/valid/ast-escaped tests/valid/ast-duplicate; do
+  name=$(basename "$builder")
+  bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$builder.json" \
+    | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
+done
 ```
 
 ## Fresh Nix builds
@@ -78,12 +89,12 @@ stages, clearing leftover JSON and generated Rust from each staged source copy
 first. This never deletes files in the working tree. CUE JSON exports are an
 independent Nix output built only from CUE sources, not committed artifacts.
 
-1. Compile only the handwritten `bootstrap-codegen` and `bootstrap-scan-codegen`
-   seeds with `--no-default-features`. This excludes the `source` feature's
-   parser/generated-scanner dependency. Seed tests need generated modules,
+1. Compile the handwritten `bootstrap-codegen`, `bootstrap-scan-codegen`, and
+   `bootstrap-ast-codegen` seeds with `--no-default-features`. This excludes
+   the `source` feature's parser/generated-scanner/builder dependencies. Seed tests need generated modules,
    so they run in the final stage rather than creating a bootstrap cycle.
-2. Use the fresh JSON output and the seeds to regenerate evaluator and scanner
-   Rust. Compile all binaries with the default `source` feature enabled and
+2. Use the fresh JSON output and the seeds to regenerate evaluator, scanner,
+   and AST-builder Rust. Compile all binaries with the default `source` feature enabled and
    run the complete formatting, Clippy, and test suite against fresh artifacts.
 
 Committed Rust modules remain reviewable golden files: the Rust generation

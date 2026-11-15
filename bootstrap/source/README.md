@@ -19,9 +19,11 @@ are CUE-authored statement programs compiled to Rust, including start-byte
 recognition, scanning loops, decimal lexical rejection, operand-newline policy,
 parenthesis-token handling, and bound/infix token recognition. The native parser
 no longer peeks directly at source bytes. Checked i64 conversion, grammar
-validation/lookup, AST construction, precedence, expression recursion, and
+validation/lookup, precedence, expression recursion, and
 Pratt parsing remain native;
 grammar configuration alone is not self-hosted parser machinery.
+[AST construction](../ast.md) now uses CUE-defined builder expressions compiled
+to typed Rust functions, rather than native JSON-map assembly.
 
 ## Deliberately small subset
 

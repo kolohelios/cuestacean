@@ -7,6 +7,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use snafu::{ResultExt, Snafu};
 
+pub mod ast;
 mod codegen;
 #[cfg(feature = "source")]
 pub mod parser;

@@ -1,0 +1,10 @@
+[
+  {"program":{"formatVersion":2,"parameters":[],"result":{"op":"integer","value":1}}, "error":"formatVersion 1 required"},
+  {"program":{"formatVersion":1,"parameters":[],"result":{"op":"argument","name":"missing"}}, "error":"unknown argument"},
+  {"program":{"formatVersion":1,"parameters":[{"name":"x","type":"json"},{"name":"x","type":"json"}],"result":{"op":"argument","name":"x"}}, "error":"duplicate parameter"},
+  {"program":{"formatVersion":1,"parameters":[{"name":"","type":"json"}],"result":{"op":"integer","value":1}}, "error":"empty or duplicate"},
+  {"program":{"formatVersion":1,"parameters":[{"name":"x","type":"integer"}],"result":{"op":"object","fields":[{"key":{"op":"argument","name":"x"},"value":{"op":"string","value":"v"}}]}}, "error":"object key must be a string"},
+  {"program":{"formatVersion":1,"parameters":[],"result":{"op":"rust","code":"panic!()"}}, "error":"invalid AST builder JSON"},
+  {"program":{"formatVersion":1,"parameters":[],"result":{"op":"integer","value":9223372036854775808}}, "error":"invalid AST builder JSON"},
+  {"program":{"formatVersion":1,"parameters":[],"result":{"op":"string","value":"x","extra":true}}, "error":"invalid AST builder JSON"}
+]

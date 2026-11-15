@@ -91,9 +91,11 @@ prints `42`. It does not invoke Go at runtime. Whitespace, decimal, and ASCII
 identifier scanning are compiled from the [scanner DSL](../scanner.md).
 Decimal lexical validation, operand-newline policy, and diagnostic reasons
 are also CUE-defined, along with parenthesis and bound/infix token recognition.
-Checked i64 conversion, grammar validation/lookup, AST construction, precedence,
+Checked i64 conversion, grammar validation/lookup, precedence,
 expression recursion, and the Pratt algorithm remain native. Existing JSON interfaces remain unchanged.
 `bootstrap-scan-codegen <program.json>` is the separate scanner-to-Rust compiler.
+The [AST builder DSL](../ast.md) generates typed construction functions used
+by the parser; `bootstrap-ast-codegen <builder.json>` is its native compiler.
 
 ## Deliberate limits
 
@@ -124,7 +126,7 @@ expression recursion, and the Pratt algorithm remain native. Existing JSON inter
 code-generator seeds enable a [fresh two-stage build](../generated/README.md),
 then the final package runs Rust formatting, Clippy, and all tests in the
 sandbox. Tests use the real exported
-fixtures, the changed-rule export, integer boundary/error cases, all five
+fixtures, the changed-rule export, integer boundary/error cases, all six
 CLIs, the source parser, the scanner DSL, and compiled generated modules. The interpreter and generated CLIs
 must agree byte-for-byte on stdout and stderr, and on exit status, for both
 exported expressions, the complete program-case corpus, malformed JSON, and
