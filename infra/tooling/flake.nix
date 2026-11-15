@@ -19,6 +19,8 @@
         "after-operand"
         "group-open"
         "group-close"
+        "bound-prefix"
+        "infix"
         "decimal"
         "identifier"
         "tests/valid/scanner-horizontal"
@@ -27,6 +29,7 @@
         "tests/valid/scanner-decimal-permissive"
         "tests/valid/scanner-reject"
         "tests/valid/scanner-state"
+        "tests/valid/scanner-lookahead"
       ];
       scannerNames = builtins.concatStringsSep " " scannerFixtures;
       exportFixtures = [

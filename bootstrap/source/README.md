@@ -17,9 +17,10 @@ It exports to `grammar.json` in the Nix `exports` output and is compiled into
 the frontend. [Whitespace, decimal, and ASCII identifier scanning](../scanner.md)
 are CUE-authored statement programs compiled to Rust, including start-byte
 recognition, scanning loops, decimal lexical rejection, operand-newline policy,
-and parenthesis-token consumption/validation.
-Checked i64 conversion, grammar validation, keyword lookup, AST construction,
-bound/infix dispatch, expression recursion, and Pratt parsing remain native;
+parenthesis-token handling, and bound/infix token recognition. The native parser
+no longer peeks directly at source bytes. Checked i64 conversion, grammar
+validation/lookup, AST construction, precedence, expression recursion, and
+Pratt parsing remain native;
 grammar configuration alone is not self-hosted parser machinery.
 
 ## Deliberately small subset

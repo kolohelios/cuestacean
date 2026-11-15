@@ -25,7 +25,8 @@ its loop and newline branch come from shared CUE statements in
 `scanner-fragments.cue`. `after-operand.rs` composes those statements with
 state/EOF checks and rejection policy. `group-open.rs` recognizes the opener;
 `group-close.rs` composes whitespace scanning with closing-token validation,
-consumption, and diagnostics. Expression recursion remains native. `decimal.rs` uses the
+consumption, and diagnostics. `bound-prefix.rs` and `infix.rs` recognize symbol
+spans; grammar lookup, precedence and expression recursion remain native. `decimal.rs` uses the
 same DSL for optional-minus/digit scanning and lexical rejection; `identifier.rs`
 supplies ASCII identifier start/continuation scanning. Checked i64 conversion,
 grammar validation, keyword lookup, and AST construction remain native. The `scanner-horizontal`,
@@ -33,7 +34,8 @@ grammar validation, keyword lookup, and AST construction remain native. The `sca
 exercise alternate branches, non-progress, and native cursor guards.
 `scanner-decimal-permissive.rs` demonstrates alternate lexical policy;
 `scanner-reject.rs` checks escaped reasons and rejection short-circuiting;
-`scanner-state.rs` tests flag reads, stateful loops, and byte-presence checks.
+`scanner-state.rs` tests flag reads, stateful loops, and byte-presence checks;
+`scanner-lookahead.rs` checks maximum lookahead and EOF handling.
 
 Generated evaluator code contains node-kind dispatch and lowered rule expressions. It
 shares the handwritten `bootstrap_executor::runtime` primitives for JSON
@@ -58,10 +60,11 @@ for rules in "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   bootstrap/executor/target/debug/bootstrap-codegen "$rules" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
-for machine in whitespace after-operand group-open group-close decimal identifier \
+for machine in whitespace after-operand group-open group-close bound-prefix infix decimal identifier \
   tests/valid/scanner-horizontal \
   tests/valid/scanner-stalled tests/valid/scanner-advance \
-  tests/valid/scanner-decimal-permissive tests/valid/scanner-reject tests/valid/scanner-state; do
+  tests/valid/scanner-decimal-permissive tests/valid/scanner-reject tests/valid/scanner-state \
+  tests/valid/scanner-lookahead; do
   name=$(basename "$machine")
   bootstrap/executor/target/debug/bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$machine.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"

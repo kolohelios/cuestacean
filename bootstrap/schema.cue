@@ -47,7 +47,8 @@ package bootstrap
 // Control flow lives in these programs; cursor safety remains native.
 #ScanPredicate: #ScanByteIn | #ScanFlagIs | #ScanHasByte
 #ScanByteIn: {
-	op: "byteIn"
+	ahead?: uint & <=64
+	op:     "byteIn"
 	bytes: [uint & <=127, ...uint & <=127]
 }
 #ScanFlagIs: {op: "flagIs", value: bool}

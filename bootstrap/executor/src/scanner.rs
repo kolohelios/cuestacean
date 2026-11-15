@@ -28,6 +28,14 @@ mod generated_group_open;
 #[path = "../../generated/group-close.rs"]
 mod generated_group_close;
 
+#[cfg(feature = "source")]
+#[path = "../../generated/bound-prefix.rs"]
+mod generated_bound_prefix;
+
+#[cfg(feature = "source")]
+#[path = "../../generated/infix.rs"]
+mod generated_infix;
+
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("invalid scanner JSON: {source}"))]
@@ -75,7 +83,11 @@ impl<'a> Cursor<'a> {
     }
 
     pub fn peek(&self) -> Option<u8> {
-        self.source.get(self.offset).copied()
+        self.peek_at(0)
+    }
+
+    pub fn peek_at(&self, ahead: usize) -> Option<u8> {
+        self.source.get(self.offset.checked_add(ahead)?).copied()
     }
 
     pub fn step(&mut self) -> Result<(), Error> {
@@ -125,7 +137,11 @@ struct Program {
 #[serde(tag = "op", deny_unknown_fields)]
 enum Predicate {
     #[serde(rename = "byteIn")]
-    ByteIn { bytes: Vec<u8> },
+    ByteIn {
+        bytes: Vec<u8>,
+        #[serde(default)]
+        ahead: usize,
+    },
     #[serde(rename = "flagIs")]
     FlagIs { value: bool },
     #[serde(rename = "hasByte")]
@@ -135,7 +151,7 @@ enum Predicate {
 impl Predicate {
     fn validate(&self) -> Result<(), Error> {
         match self {
-            Self::ByteIn { bytes }
+            Self::ByteIn { bytes, .. }
                 if bytes.is_empty()
                     || bytes.len() > 128
                     || bytes.iter().any(|byte| !byte.is_ascii()) =>
@@ -145,13 +161,19 @@ impl Predicate {
                 }
                 .fail()
             }
+            Self::ByteIn { ahead, .. } if *ahead > 64 => ProgramSnafu {
+                reason: "byteIn lookahead exceeds 64 bytes",
+            }
+            .fail(),
             _ => Ok(()),
         }
     }
 
     fn test(&self, cursor: &Cursor<'_>) -> bool {
         match self {
-            Self::ByteIn { bytes } => cursor.peek().is_some_and(|byte| bytes.contains(&byte)),
+            Self::ByteIn { bytes, ahead } => cursor
+                .peek_at(*ahead)
+                .is_some_and(|byte| bytes.contains(&byte)),
             Self::FlagIs { value } => cursor.flag() == *value,
             Self::HasByte {} => cursor.peek().is_some(),
         }
@@ -166,8 +188,8 @@ impl Predicate {
     }
 
     fn rust(&self) -> String {
-        let bytes = match self {
-            Self::ByteIn { bytes } => bytes,
+        let (bytes, ahead) = match self {
+            Self::ByteIn { bytes, ahead } => (bytes, ahead),
             Self::FlagIs { value: true } => return "cursor.flag()".into(),
             Self::FlagIs { value: false } => return "!cursor.flag()".into(),
             Self::HasByte {} => return "cursor.peek().is_some()".into(),
@@ -185,7 +207,12 @@ impl Predicate {
             }
         }
         let pattern = patterns.join(" | ");
-        format!("matches!(cursor.peek(), Some({pattern}))")
+        let peek = if *ahead == 0 {
+            "cursor.peek()".into()
+        } else {
+            format!("cursor.peek_at({ahead})")
+        };
+        format!("matches!({peek}, Some({pattern}))")
     }
 }
 
@@ -405,6 +432,18 @@ pub fn group_close(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_group_close::scan(source, offset)
 }
 
+/// Recognize a complete inclusive-bound prefix; no match leaves offset unchanged.
+#[cfg(feature = "source")]
+pub fn bound_prefix(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_bound_prefix::scan(source, offset)
+}
+
+/// Recognize one byte from the bootstrap infix alphabet, independent of grammar lookup.
+#[cfg(feature = "source")]
+pub fn infix(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_infix::scan(source, offset)
+}
+
 /// Validate decimal spelling (digits required, no leading zeroes), not magnitude.
 /// The result flag records whether the optional minus was consumed.
 #[cfg(feature = "source")]
@@ -427,14 +466,16 @@ mod tests {
     fn byte_sets_compact_contiguous_runs_without_changing_sparse_patterns() {
         assert_eq!(
             Predicate::ByteIn {
-                bytes: vec![13, 0, 1, 2, 4, 5, 10, 11, 12, 13]
+                bytes: vec![13, 0, 1, 2, 4, 5, 10, 11, 12, 13],
+                ahead: 0
             }
             .rust(),
             "matches!(cursor.peek(), Some(0..=2 | 4 | 5 | 10..=13))"
         );
         assert_eq!(
             Predicate::ByteIn {
-                bytes: vec![32, 9, 10, 13]
+                bytes: vec![32, 9, 10, 13],
+                ahead: 0
             }
             .rust(),
             "matches!(cursor.peek(), Some(9 | 10 | 13 | 32))"
@@ -455,13 +496,19 @@ mod tests {
         let mut body = vec![];
         for _ in 0..16 {
             body = vec![Statement::While {
-                condition: Predicate::ByteIn { bytes: vec![32] },
+                condition: Predicate::ByteIn {
+                    bytes: vec![32],
+                    ahead: 0,
+                },
                 body,
             }];
         }
         validate(&body, 0, &mut 0).expect("16 nesting levels allowed");
         body = vec![Statement::While {
-            condition: Predicate::ByteIn { bytes: vec![32] },
+            condition: Predicate::ByteIn {
+                bytes: vec![32],
+                ahead: 0,
+            },
             body,
         }];
         assert!(

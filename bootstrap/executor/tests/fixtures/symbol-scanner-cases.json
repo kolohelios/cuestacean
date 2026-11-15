@@ -1,0 +1,21 @@
+[
+  {"source":"", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":0, "infixFlag":false},
+  {"source":">", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":0, "infixFlag":false},
+  {"source":"<", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":0, "infixFlag":false},
+  {"source":">=", "start":0, "boundEnd":2, "boundFlag":true, "infixEnd":0, "infixFlag":false},
+  {"source":"<=3", "start":0, "boundEnd":2, "boundFlag":true, "infixEnd":0, "infixFlag":false},
+  {"source":">==", "start":0, "boundEnd":2, "boundFlag":true, "infixEnd":0, "infixFlag":false},
+  {"source":"=>", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":0, "infixFlag":false},
+  {"source":"> x", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":0, "infixFlag":false},
+  {"source":">λ", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":0, "infixFlag":false},
+  {"source":"\u2265", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":0, "infixFlag":false},
+  {"source":"λ>=", "start":2, "boundEnd":4, "boundFlag":true, "infixEnd":2, "infixFlag":false},
+  {"source":"λ", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":0, "infixFlag":false},
+  {"source":"+", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":1, "infixFlag":true},
+  {"source":"*", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":1, "infixFlag":true},
+  {"source":"&", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":1, "infixFlag":true},
+  {"source":"/", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":1, "infixFlag":true},
+  {"source":"+=", "start":0, "boundEnd":0, "boundFlag":false, "infixEnd":1, "infixFlag":true},
+  {"source":" \t+", "start":2, "boundEnd":2, "boundFlag":false, "infixEnd":3, "infixFlag":true},
+  {"source":"abc", "start":3, "boundEnd":3, "boundFlag":false, "infixEnd":3, "infixFlag":false}
+]

@@ -76,6 +76,7 @@ fn supported_source_reaches_the_generated_evaluator() {
         ("group-nested", 21),
         ("group-spaced", 3),
         ("group-leading-newline", 3),
+        ("symbol-bound", 3),
     ] {
         let path = bootstrap().join(format!("source/valid/{name}.cue"));
         let program = parse(&read(&path), &grammar).expect(name);
@@ -201,6 +202,11 @@ fn assert_source_diagnostics(fixture: &str) {
         assert!(output.stdout.is_empty());
         assert_eq!(output.stderr, format!("{expected}\n").as_bytes());
     }
+}
+
+#[test]
+fn cue_symbol_scanning_preserves_diagnostics() {
+    assert_source_diagnostics("symbol-diagnostic-cases.json");
 }
 
 #[test]
@@ -386,6 +392,42 @@ fn bound_tokens_and_constructors_come_from_grammar_data() {
         .is_ok()
     );
     assert!(parse(&source, &grammar).is_err());
+}
+
+#[test]
+fn symbol_spans_still_require_runtime_grammar_lookup() {
+    let original = read(exports().join("grammar.json"));
+    let division = read(bootstrap().join("source/rejected/symbol-division.cue"));
+    assert!(parse(&division, &original).is_err());
+    let mut grammar: Value = serde_json::from_str(&original).expect("grammar");
+    grammar["operators"][0]["token"] = "/".into();
+    grammar["operators"][0]["kind"] = "alternate".into();
+    grammar["operators"][0]["leftField"] = "first".into();
+    grammar["operators"][0]["rightField"] = "second".into();
+    let program = parse(
+        &division,
+        &serde_json::to_string(&grammar).expect("changed grammar"),
+    )
+    .expect("configured symbol");
+    assert_eq!(program["entry"]["kind"], "alternate");
+    assert_eq!(program["entry"]["first"]["value"], 8);
+    assert_eq!(program["entry"]["second"]["value"], 2);
+    // These are parser configuration tests, not CUE division semantics.
+    let mut disabled: Value = serde_json::from_str(&original).expect("grammar");
+    disabled["bounds"].as_array_mut().expect("bounds").clear();
+    let source = read(bootstrap().join("source/valid/symbol-bound.cue"));
+    match parse(
+        &source,
+        &serde_json::to_string(&disabled).expect("disabled bounds"),
+    )
+    .expect_err("unconfigured prefix")
+    {
+        bootstrap_executor::parser::Error::Source { offset, reason } => {
+            assert_eq!(offset, 0);
+            assert_eq!(reason, "expected signed decimal integer");
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 }
 
 #[test]
