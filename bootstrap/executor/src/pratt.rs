@@ -34,6 +34,9 @@ enum Number {
 enum Condition {
     HasOperator {},
     LeftAssociative {},
+    GroupOpen {},
+    HasBound {},
+    HasIdentifier {},
     Boolean {
         value: bool,
     },
@@ -55,6 +58,19 @@ enum Statement {
     AdvanceOperator {},
     ParseRight {},
     BuildBinary {},
+    Whitespace {},
+    ScanGroup {},
+    AdvanceGroup {},
+    CloseGroup {},
+    ScanBound {},
+    AdvanceBound {},
+    ParseBound {},
+    ScanIdentifier {},
+    ParseAtom {},
+    ParseInteger {},
+    ParseGroup {
+        minimum: Number,
+    },
     SetBindingPower {
         value: Number,
     },
@@ -132,6 +148,9 @@ impl Condition {
         match self {
             Self::HasOperator {} => "_frame.has_operator()".into(),
             Self::LeftAssociative {} => "_frame.left_associative()?".into(),
+            Self::GroupOpen {} => "_frame.group_open()?".into(),
+            Self::HasBound {} => "_frame.has_bound()?".into(),
+            Self::HasIdentifier {} => "_frame.has_identifier()?".into(),
             Self::Boolean { value } => value.to_string(),
             Self::AtLeast { left, right } => format!("{} >= {}", left.rust(), right.rust()),
             Self::And { left, right } => format!("{} && {}", left.rust(), right.rust()),
@@ -142,6 +161,9 @@ impl Condition {
         Ok(match self {
             Self::HasOperator {} => frame.has_operator(),
             Self::LeftAssociative {} => frame.left_associative()?,
+            Self::GroupOpen {} => frame.group_open()?,
+            Self::HasBound {} => frame.has_bound()?,
+            Self::HasIdentifier {} => frame.has_identifier()?,
             Self::Boolean { value } => *value,
             Self::AtLeast { left, right } => left.value(frame)? >= right.value(frame)?,
             Self::And { left, right } => left.test(frame)? && right.test(frame)?,
@@ -172,8 +194,21 @@ fn execute(
                     Statement::AdvanceOperator {} => frame.advance_operator()?,
                     Statement::ParseRight {} => frame.parse_right()?,
                     Statement::BuildBinary {} => frame.build_binary()?,
+                    Statement::Whitespace {} => frame.whitespace()?,
+                    Statement::ScanGroup {} => frame.scan_group()?,
+                    Statement::AdvanceGroup {} => frame.advance_group()?,
+                    Statement::CloseGroup {} => frame.close_group()?,
+                    Statement::ScanBound {} => frame.scan_bound()?,
+                    Statement::AdvanceBound {} => frame.advance_bound()?,
+                    Statement::ParseBound {} => frame.parse_bound()?,
+                    Statement::ScanIdentifier {} => frame.scan_identifier()?,
+                    Statement::ParseAtom {} => frame.parse_atom()?,
+                    Statement::ParseInteger {} => frame.parse_integer()?,
+                    Statement::ParseGroup { minimum } => {
+                        frame.parse_group(minimum.value(frame)?)?
+                    }
                     Statement::SetBindingPower { value } => {
-                        frame.set_binding_power(value.value(frame)?)
+                        frame.set_binding_power(value.value(frame)?)?
                     }
                     Statement::If {
                         condition,
@@ -220,8 +255,21 @@ fn emit(body: &[Statement], output: &mut String) {
             Statement::AdvanceOperator {} => output.push_str("_frame.advance_operator()?;\n"),
             Statement::ParseRight {} => output.push_str("_frame.parse_right()?;\n"),
             Statement::BuildBinary {} => output.push_str("_frame.build_binary()?;\n"),
+            Statement::Whitespace {} => output.push_str("_frame.whitespace()?;\n"),
+            Statement::ScanGroup {} => output.push_str("_frame.scan_group()?;\n"),
+            Statement::AdvanceGroup {} => output.push_str("_frame.advance_group()?;\n"),
+            Statement::CloseGroup {} => output.push_str("_frame.close_group()?;\n"),
+            Statement::ScanBound {} => output.push_str("_frame.scan_bound()?;\n"),
+            Statement::AdvanceBound {} => output.push_str("_frame.advance_bound()?;\n"),
+            Statement::ParseBound {} => output.push_str("_frame.parse_bound()?;\n"),
+            Statement::ScanIdentifier {} => output.push_str("_frame.scan_identifier()?;\n"),
+            Statement::ParseAtom {} => output.push_str("_frame.parse_atom()?;\n"),
+            Statement::ParseInteger {} => output.push_str("_frame.parse_integer()?;\n"),
+            Statement::ParseGroup { minimum } => {
+                output.push_str(&format!("_frame.parse_group({})?;\n", minimum.rust()))
+            }
             Statement::SetBindingPower { value } => {
-                output.push_str(&format!("_frame.set_binding_power({});\n", value.rust()))
+                output.push_str(&format!("_frame.set_binding_power({})?;\n", value.rust()))
             }
             Statement::If {
                 condition,

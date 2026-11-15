@@ -82,7 +82,7 @@ Rust control flow rather than calling native scanning algorithms. Decimal
 missing-digit/leading-zero rejection and the conservative operand-newline rule
 are also CUE-defined, as are parenthesis recognition/consumption and missing-close
 diagnostics. Bound/infix symbol recognition also uses the scanner DSL. The native
-parser only looks up complete spans; primary dispatch remains native. Checked i64 conversion,
+parser only looks up complete spans. Checked i64 conversion,
 grammar validation, keyword lookup, other parsing, and the scanner compiler/runtime
 remain handwritten.
 
@@ -93,8 +93,10 @@ grammar field names. Their compiler/interpreter remain handwritten.
 
 The [Pratt control program](pratt.md) now owns expression repetition,
 binding-power comparison, associativity adjustment and recursive-right sequencing.
-It calls checked native frame operations for primary parsing, grammar lookup and
-operand handling; it is not yet a fully self-hosted parser/compiler.
+The separate [primary program](primary.md) now owns primary dispatch and grouping
+control using the same DSL/compiler. Both call checked native frame operations
+for scanner/builder calls, grammar lookup and operand handling; this is not yet
+a fully self-hosted parser/compiler.
 
 The syntax and rules remain experimental, not a settled intermediate
 representation. They exercise the source-to-artifact boundary that Cuestacean

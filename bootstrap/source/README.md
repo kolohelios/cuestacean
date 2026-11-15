@@ -19,11 +19,13 @@ are CUE-authored statement programs compiled to Rust, including start-byte
 recognition, scanning loops, decimal lexical rejection, operand-newline policy,
 parenthesis-token handling, and bound/infix token recognition. The native parser
 no longer peeks directly at source bytes. Checked i64 conversion, grammar
-validation/lookup, primary dispatch and frame safety remain native;
+validation/lookup and frame safety remain native;
 grammar configuration alone is not self-hosted parser machinery. The
 [Pratt expression loop](../pratt.md) now executes CUE-authored control flow for
 operator repetition, binding-power checks, associativity and recursive-right
-sequencing; this is not yet a fully self-hosted parser.
+sequencing. The separate [primary program](../primary.md) owns dispatch among
+groups, bounds, atoms and integers, plus the grouping minimum and close order.
+This is not yet a fully self-hosted parser.
 [AST construction](../ast.md) now uses CUE-defined builder expressions compiled
 to typed Rust functions, rather than native JSON-map assembly.
 

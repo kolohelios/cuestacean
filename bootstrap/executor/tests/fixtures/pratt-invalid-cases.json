@@ -3,5 +3,8 @@
   {"program":{"formatVersion":1,"body":[{"op":"parsePratt"}]}, "error":"invalid Pratt control JSON"},
   {"program":{"formatVersion":1,"body":[{"op":"while","body":[]}]}, "error":"invalid Pratt control JSON"},
   {"program":{"formatVersion":1,"body":[{"op":"primary","extra":true}]}, "error":"invalid Pratt control JSON"},
-  {"program":{"formatVersion":1,"body":[{"op":"setBindingPower","value":{"op":"integer","value":256}}]}, "error":"invalid Pratt control JSON"}
+  {"program":{"formatVersion":1,"body":[{"op":"setBindingPower","value":{"op":"integer","value":256}}]}, "error":"invalid Pratt control JSON"},
+  {"program":{"formatVersion":1,"body":[{"op":"parseGroup"}]}, "error":"invalid Pratt control JSON"},
+  {"program":{"formatVersion":1,"body":[{"op":"parseGroup","minimum":{"op":"integer","value":256}}]}, "error":"invalid Pratt control JSON"},
+  {"program":{"formatVersion":1,"body":[{"op":"if","condition":{"op":"groupOpen","value":true},"then":[]}]}, "error":"invalid Pratt control JSON"}
 ]

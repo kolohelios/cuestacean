@@ -43,6 +43,10 @@
       ];
       builderNames = builtins.concatStringsSep " " builderFixtures;
       prattFixtures = [
+        "primary"
+        "tests/valid/primary-no-atoms"
+        "tests/valid/primary-high-minimum"
+        "tests/valid/primary-cross-phase"
         "pratt"
         "tests/valid/pratt-right"
         "tests/valid/pratt-stalled"

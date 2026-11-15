@@ -8,10 +8,11 @@ combine the operands. `bootstrap-pratt-codegen <control.json>` emits real Rust
 that generated function, not the reference interpreter or a native Pratt loop.
 
 This is a larger executable boundary, **not a fully self-hosted parser or
-compiler**. The backend still handles primary dispatch (including grouping),
-grammar validation/lookup, scanner/builder invocation, checked i64 conversion,
-and safe frame transitions. Group primaries reset the expression minimum to
-zero natively; right-hand recursion takes its binding power from the CUE program.
+compiler**. The backend still handles grammar validation/lookup, scanner/builder
+invocation, checked i64 conversion, and safe frame transitions. The separate
+[primary program](primary.md) now owns primary dispatch and grouping control,
+including the group minimum. Right-hand recursion takes its binding power from
+the expression program.
 All compilers and the reference interpreter remain handwritten. Go CUE still
 exports the specifications; supported source syntax is unchanged.
 
@@ -20,8 +21,10 @@ exports the specifications; supported source syntax is unchanged.
 `#PrattProgram` contains version 1 and a statement `body`. Statements include
 `while`, `if`/`else`, `setBindingPower`, and explicit frame intrinsics:
 `primary`, `afterOperand`, `lookupOperator`, `advanceOperator`, `parseRight`,
-and `buildBinary`. There is deliberately no `parsePratt` instruction that hides
-the loop in Rust.
+and `buildBinary`. `primary` dispatches the separate CUE primary program.
+There is deliberately no `parsePratt` instruction that hides the loop in Rust.
+The [primary contract](primary.md) documents its additional operations and
+conditions in this same version-1 DSL.
 
 Conditions read `hasOperator`, `leftAssociative`, literal booleans, numeric
 `atLeast`, or short-circuit `and`. Numbers read the frame `minimum`, current
@@ -55,7 +58,7 @@ Runtime grammar mutations still control precedence, associativity, kinds and
 field names. Parser/CLI lexical diagnostics remain covered by their existing
 exact checks.
 
-`parse_with_driver` is a trusted native testing/embedding hook; arbitrary Rust
+`parse_with_driver` and `parse_with_drivers` are trusted native hooks; arbitrary Rust
 drivers are not sandboxed. Fuel checks are guaranteed by the compiler and
 interpreter for this DSL, not by arbitrary caller-written Rust.
 

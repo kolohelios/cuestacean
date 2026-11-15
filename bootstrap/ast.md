@@ -14,8 +14,9 @@ builder JSON file is needed during source execution.
 
 These expressions define construction, not control flow; the separate
 [Pratt DSL](pratt.md) now supplies the expression loop and binding-power policy.
-Grammar validation/lookup, checked i64 conversion, primary dispatch, frame
-safety, and the builder compiler/interpreter remain handwritten. Specification export
+The [primary control program](primary.md) supplies primary dispatch and grouping
+policy. Grammar validation/lookup, checked i64 conversion, frame safety, and
+the builder compiler/interpreter remain handwritten. Specification export
 still uses upstream Go CUE. Neither the full parser nor its compiler is
 self-hosted yet.
 
