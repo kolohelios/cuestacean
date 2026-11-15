@@ -34,6 +34,14 @@ fn supported_source_reaches_the_generated_evaluator() {
         ("minimum-product", i64::MIN),
         ("zero-product", 0),
         ("double-negative", 14),
+        ("unify", 3),
+        ("unify-addition", 3),
+        ("unify-product", 6),
+        ("unify-grouped", 3),
+        ("unify-chain", 3),
+        ("unify-negative", -7),
+        ("unify-minimum", i64::MIN),
+        ("unify-maximum", i64::MAX),
     ] {
         let path = bootstrap().join(format!("source/valid/{name}.cue"));
         let program = parse(&read(&path), &grammar).expect(name);
@@ -58,9 +66,11 @@ fn supported_source_reaches_the_generated_evaluator() {
 
 #[test]
 fn rejected_sources_and_cli_errors_fail_without_results() {
-    let directory = bootstrap().join("source/rejected");
-    let files: Vec<_> = std::fs::read_dir(directory)
-        .expect("rejected fixtures")
+    let files: Vec<_> = ["source/rejected", "source/conflicts"]
+        .into_iter()
+        .flat_map(|directory| {
+            std::fs::read_dir(bootstrap().join(directory)).expect("rejected fixtures")
+        })
         .map(|entry| entry.expect("fixture").path())
         .filter(|p| p.extension().is_some_and(|x| x == "cue"))
         .collect();
@@ -73,6 +83,16 @@ fn rejected_sources_and_cli_errors_fail_without_results() {
         assert_eq!(output.status.code(), Some(2), "{path:?}: {output:?}");
         assert!(output.stdout.is_empty(), "{path:?}");
         assert!(!output.stderr.is_empty(), "{path:?}");
+        if path
+            .parent()
+            .expect("fixture directory")
+            .ends_with("conflicts")
+        {
+            assert!(
+                String::from_utf8_lossy(&output.stderr).contains("conflicting integer values"),
+                "{path:?}: {output:?}"
+            );
+        }
     }
     for args in [vec![], vec!["not-a-file"], vec!["one", "two"]] {
         let output = Command::new(env!("CARGO_BIN_EXE_bootstrap-source"))

@@ -8,15 +8,15 @@ and Rust as the execution target. The ambition is full self-hosting, not merely
 using CUE to configure a handwritten Rust compiler.
 
 There is no general CUE implementation yet. The [bootstrap fixtures](bootstrap/README.md)
-define integer-literal, addition and multiplication trees, plus evaluation rules,
-in CUE and export them to checked-in JSON using upstream CUE. A small
+define integer-literal, arithmetic and concrete-unification trees, plus evaluation
+rules, in CUE and export them to checked-in JSON using upstream CUE. A small
 [bootstrap Rust executor](bootstrap/executor/README.md) interprets those rules.
 An initial [rule-to-Rust generator](bootstrap/generated/README.md) lowers the
 same rules to compiled evaluator modules. Nix builds a handwritten generator
 seed, regenerates JSON and Rust from the CUE specifications, then compiles and
 tests the final executables. A [source frontend](bootstrap/source/README.md)
-now handles a tiny decimal-integer subset with addition, multiplication and
-parentheses without Go at runtime.
+now handles a tiny decimal-integer subset with arithmetic, concrete integer
+unification, and parentheses without Go at runtime.
 Bootstrap specification evaluation still relies on the upstream Go tool.
 
 ## CUE all the way down

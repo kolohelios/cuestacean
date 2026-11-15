@@ -1,5 +1,12 @@
 {
   "rules": {
+    "unify": {
+      "result": {
+        "op": "unify",
+        "right": {"op": "evaluate", "field": "right"},
+        "left": {"op": "evaluate", "field": "left"}
+      }
+    },
     "multiply": {
       "result": {
         "op": "product",
