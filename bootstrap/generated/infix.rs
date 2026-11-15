@@ -3,7 +3,7 @@ use crate::scanner::{Cursor, Error, Scan};
 pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
     let mut cursor = Cursor::new(source, offset)?;
     cursor.step()?;
-    if matches!(cursor.peek(), Some(38 | 42 | 43 | 47)) {
+    if matches!(cursor.peek(), Some(38 | 42 | 43 | 45 | 47)) {
         cursor.step()?;
         cursor.advance()?;
         cursor.step()?;

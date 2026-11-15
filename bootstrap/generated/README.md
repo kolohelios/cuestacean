@@ -1,7 +1,7 @@
 # First Rust generation boundary
 
 The evaluator modules are generated from rule JSON by the handwritten Rust
-`bootstrap-codegen` binary. This lowers our eight instruction primitives, not
+`bootstrap-codegen` binary. This lowers our nine instruction primitives, not
 arbitrary CUE source. The interpreter remains the default executable and a
 reference for tests. The normal generated module also runs as a separate CLI:
 
@@ -54,7 +54,7 @@ attempts expression operations inside primary dispatch to exercise state guards.
 Generated evaluator code contains node-kind dispatch and lowered rule expressions. It
 shares the handwritten `bootstrap_executor::runtime` primitives for JSON
 validation, field access, integer/type values, inclusive bounds, unification,
-and checked integer arithmetic. Unification delegates to `unify.rs`, generated
+and checked integer arithmetic, including `difference`/subtraction. Unification delegates to `unify.rs`, generated
 from the [unification DSL](../unify.md); `unify-right` and `unify-scoped` are
 test-only policies. Intermediate values may be abstract `int` or
 bounds; the generated public

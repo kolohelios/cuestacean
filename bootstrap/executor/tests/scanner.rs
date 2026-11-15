@@ -688,7 +688,7 @@ fn symbol_scanners_preserve_spans_without_consuming_partial_matches() {
 }
 
 #[test]
-fn symbol_recognition_matches_the_original_ascii_alphabet() {
+fn symbol_recognition_matches_the_supported_ascii_alphabet() {
     let bound = program("bound-prefix");
     let infix = program("infix");
     for byte in 0_u8..=127 {
@@ -706,7 +706,7 @@ fn symbol_recognition_matches_the_original_ascii_alphabet() {
             scanner::bound_prefix(&source, 0).expect("bound compiled"),
             expected
         );
-        let flag = matches!(byte, b'+' | b'*' | b'/' | b'&');
+        let flag = matches!(byte, b'+' | b'-' | b'*' | b'/' | b'&');
         let expected = Scan {
             offset: usize::from(flag),
             flag,

@@ -63,6 +63,7 @@
       exportFixtures = [
         "literal"
         "addition"
+        "subtraction"
         "multiplication"
         "unification"
         "int-constraint"

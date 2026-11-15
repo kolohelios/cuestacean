@@ -1,7 +1,7 @@
 package bootstrap
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #IntegerLiteral | #IntegerType | #LowerBound | #UpperBound | #Addition | #Multiplication | #Unification
+#Expression: #IntegerLiteral | #IntegerType | #LowerBound | #UpperBound | #Addition | #Subtraction | #Multiplication | #Unification
 
 #IntegerLiteral: {
 	kind:  "integer"
@@ -22,6 +22,12 @@ package bootstrap
 
 #Addition: {
 	kind:  "add"
+	left:  #Expression
+	right: #Expression
+}
+
+#Subtraction: {
+	kind:  "subtract"
 	left:  #Expression
 	right: #Expression
 }
@@ -148,7 +154,7 @@ package bootstrap
 // Pratt configuration: tokens and constructors come from data. #PrattProgram
 // owns expression and primary control flow; grammar lookup stays native.
 #InfixOperator: {
-	token:         string & =~"^[+*/&]$"
+	token:         string & =~"^[-+*/&]$"
 	kind:          string & !=""
 	leftField:     string & !="" & !="kind"
 	rightField:    string & !="" & !="kind" & !=leftField
@@ -200,6 +206,11 @@ package bootstrap
 		}
 		add: result: {
 			op:    "sum"
+			left:  #EvaluateChild
+			right: #EvaluateChild
+		}
+		subtract: result: {
+			op:    "difference"
 			left:  #EvaluateChild
 			right: #EvaluateChild
 		}

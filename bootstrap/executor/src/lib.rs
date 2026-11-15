@@ -40,6 +40,8 @@ pub enum Error {
     Integer { field: String },
     #[snafu(display("signed 64-bit integer addition overflow"))]
     Overflow,
+    #[snafu(display("signed 64-bit integer subtraction overflow"))]
+    DifferenceOverflow,
     #[snafu(display("signed 64-bit integer multiplication overflow"))]
     ProductOverflow,
     #[snafu(display("conflicting integer values {left} and {right}"))]
@@ -102,6 +104,10 @@ enum Instruction {
         left: Box<Instruction>,
         right: Box<Instruction>,
     },
+    Difference {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
     Product {
         left: Box<Instruction>,
         right: Box<Instruction>,
@@ -158,6 +164,11 @@ fn instruction(
             let left = instruction(left, node, rules)?;
             let right = instruction(right, node, rules)?;
             runtime::sum(left, right)
+        }
+        Instruction::Difference { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::difference(left, right)
         }
         Instruction::Product { left, right } => {
             let left = instruction(left, node, rules)?;

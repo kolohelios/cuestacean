@@ -1,7 +1,7 @@
 # Bootstrap rule executor
 
 Disposable handwritten Rust machinery that gives the exported CUE rules their
-first executable meaning. This is not a CUE parser, compiler, or constraint
+first executable meaning. This is not a general CUE parser, compiler, or constraint
 solver. The long-term goal remains replacing this scaffolding with generated
 code from a CUE-hosted implementation DSL.
 
@@ -48,6 +48,9 @@ interprets that rule's result instruction against the current node:
   same current node and adds their integer results.
 - `product` executes its left and right instructions in the same order and
   multiplies their integer results using checked arithmetic.
+- `difference` evaluates left before right and subtracts right from left using
+  checked i64 subtraction. It never negates the right operand first; subtracting
+  i64::MIN from itself correctly yields zero.
 - `unify` refines `int`, intersects bounds, and checks concrete candidates.
   Equal concrete integers agree; differing ones report
   `conflicting integer values`. Empty ranges and rejected candidates report

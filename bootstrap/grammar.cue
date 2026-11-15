@@ -29,5 +29,12 @@ package bootstrap
 		rightField:    "right"
 		precedence:    5
 		associativity: "left"
+	}, {
+		token:         "-"
+		kind:          "subtract"
+		leftField:     "left"
+		rightField:    "right"
+		precedence:    10
+		associativity: "left"
 	}]
 }

@@ -5,7 +5,7 @@ package bootstrap
 #ScanProgram & {
 	body: [{
 		op: "if"
-		condition: {op: "byteIn", bytes: [38, 42, 43, 47]}
+		condition: {op: "byteIn", bytes: [38, 42, 43, 45, 47]}
 		then: [{op: "advance"}, {op: "setFlag", value: true}]
 	}]
 }

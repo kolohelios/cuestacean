@@ -82,6 +82,13 @@ pub fn sum(left: Value, right: Value) -> Result<Value, Error> {
         .ok_or(Error::Overflow)
 }
 
+pub fn difference(left: Value, right: Value) -> Result<Value, Error> {
+    let (left, right) = operands(left, right)?;
+    left.checked_sub(right)
+        .map(Value::Integer)
+        .ok_or(Error::DifferenceOverflow)
+}
+
 pub fn product(left: Value, right: Value) -> Result<Value, Error> {
     let (left, right) = operands(left, right)?;
     left.checked_mul(right)
