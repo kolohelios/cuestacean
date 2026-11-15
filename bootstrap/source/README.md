@@ -8,7 +8,7 @@ nix run ./infra/tooling#source -- bootstrap/source/valid/nested.cue
 
 It prints `42`. `bootstrap-source <expression.cue>` reads source, parses it into
 the existing version-1 expression tree, then invokes the compiled generated
-evaluator. Success prints an integer and newline; errors print to stderr and
+evaluator. Success prints an exact JSON integer or boolean and newline; errors print to stderr and
 exit 2 without a result. No Go process is invoked at runtime.
 
 `../grammar.cue` describes atoms, bound prefixes, infix operators, precedence,
@@ -31,7 +31,7 @@ to typed Rust functions, rather than native JSON-map assembly.
 
 ## Deliberately small subset
 
-The default grammar accepts decimal signed integers, the `int` type atom,
+The default grammar accepts decimal signed integers, `true`/`false` and `bool`/`int` atoms,
 inclusive bounds (`>=`, `<=`), addition, subtraction, multiplication,
 integer division/remainder (`div`, `mod`, `quo`, `rem`), unification (`&`),
 parentheses and `//` line-comment trivia. Multiplication and integer division/remainder bind more tightly than
@@ -49,6 +49,19 @@ follow an operand before another token. This avoids silently ignoring CUE's
 implicit comma insertion at line breaks. The check and its diagnostic now live
 in the CUE after-operand program. Trailing whitespace, including newlines at
 EOF, is allowed. This is still conservative rejection, not full comma insertion.
+
+### Booleans and typed scalar output
+
+`true`, `false`, and `bool` use the existing CUE atom grammar and AST builder;
+there is no native keyword dispatch. `bool & true` and `true & true` produce
+`true`; `false & bool` produces `false`. Bare `bool` and `bool & bool` are
+incomplete, not conflicting. `true & false` conflicts, as do all boolean/numeric
+mixes such as `int & true` and `>=0 & false`. CUE unification control owns these
+decisions before numeric identity. Arithmetic still requires concrete integers:
+no boolean-to-number coercion, logical operators or equality syntax is added.
+See the [executor API/output contract](../executor/README.md) for the preserved
+integer API and new JSON scalar APIs. Structs/strings still require a value-model
+design; this Copy scalar scaffold is not a full CUE lattice.
 
 ### Line comments
 
@@ -133,12 +146,13 @@ separate a prefix from its literal. Bounds bind before binary operators;
 Exclusive bounds, fractional thresholds, and general bound operands such as
 `>=(1 + 2)` are outside this source subset.
 
-Unification supports concrete integers, abstract `int`, and inclusive bounds,
-but no other types, general symbolic constraints, or first-class bottom values.
+Unification supports concrete integers/booleans, abstract `int`/`bool`, and
+inclusive bounds, but no other types, general symbolic constraints, or
+first-class bottom values.
 Only scalar output requires concreteness. Arithmetic requires concrete operands,
 so `int + 1` cannot produce a result. Full declarations, packages,
 references, other number spellings/operators, and other unary operators
-are unsupported. Concrete values, thresholds, and arithmetic results are bounded
+are unsupported. Concrete numeric values, thresholds, and arithmetic results are bounded
 to i64, narrower than upstream CUE's concrete integer domain. The parser limits
 a source to 64 AST nodes and 32 recursive parsing levels; these are bootstrap
 limits, not CUE limits. It rejects trailing input rather than a partial parse.
@@ -156,7 +170,7 @@ Rust tests cover source execution, the existing nested AST, grammar-controlled
 associativity, precedence and constructors, grammar validation, resource limits,
 and CLI failures. The Nix `bootstrap-source` check compares every `valid/*.cue` result
 against pinned upstream `cue export`: only the exact scalar spelling `-0` is
-canonicalized to `0`, since both denote integer zero. All nonzero decimal output
+canonicalized to `0`, since both denote integer zero. All boolean and nonzero decimal output
 remains byte-exact, without a floating-point JSON formatter. It
 also requires both upstream CUE and the bootstrap tool to reject `conflicts/`
 and `incomplete/` fixtures with no result. Conflict messages and exit-code numbers need not match.

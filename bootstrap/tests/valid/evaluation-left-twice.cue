@@ -4,6 +4,9 @@ package bootstrap
 #EvaluationRules & {
 	rules: {
 		intType: result: {op: "int"}
+		boolType: result: {op: "bool"}
+		"true": result: {op: "boolean", value: true}
+		"false": result: {op: "boolean", value: false}
 		lowerBound: result: {op: "lowerBound", value: {op: "field", field: "value"}}
 		upperBound: result: {op: "upperBound", value: {op: "field", field: "value"}}
 		integer: result: {op: "field", field: "value"}

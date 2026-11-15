@@ -7,8 +7,7 @@ use serde_json::{Value, json};
 
 #[path = "../../generated/pratt.rs"]
 mod expression;
-#[path = "../../generated/evaluation.rs"]
-mod generated;
+use bootstrap_executor::generated;
 #[path = "../../generated/primary-low-negation.rs"]
 mod low_binding;
 #[path = "../../generated/primary-no-atoms.rs"]

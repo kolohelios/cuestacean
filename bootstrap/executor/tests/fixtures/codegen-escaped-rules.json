@@ -1,6 +1,7 @@
 {
   "formatVersion": 1,
   "rules": {
+    "true": {"result": {"op": "boolean", "value": false}},
     "kind\"\\\nλ": {
       "result": {
         "op": "unify",

@@ -6,12 +6,17 @@ pub fn execute(input: &str) -> Result<i64, Error> {
     runtime::concrete(evaluate(&runtime::program(input)?)?)
 }
 
+pub fn execute_json(input: &str) -> Result<Value, Error> {
+    runtime::concrete_json(evaluate(&runtime::program(input)?)?)
+}
+
 fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
     match runtime::kind(node)? {
         "kind\"\\\nλ" => runtime::unify(
             (runtime::lower_bound((runtime::integer(node, "payload\"\\\nλ"))?))?,
             (runtime::integer(node, "payload\"\\\nλ"))?,
         ),
+        "true" => Ok::<_, Error>(runtime::Value::Boolean(false)),
         kind => Err(Error::MissingRule {
             kind: kind.to_string(),
         }),

@@ -237,6 +237,9 @@ fn validation_rejects_bad_wire_data_and_unbound_locals() {
         program(json!({"op":"input","input":"middle"})),
         program(json!({"op":"input","input":"left","extra":0})),
         program(json!({"op":"fail","reason":"unknown"})),
+        // An unselected OR branch must still validate its local binding.
+        program(json!({"op":"if","condition":{"op":"or","left":{"op":"same"},"right":{"op":"hasEndpoint","value":local}},"then":input,"else":input})),
+        program(json!({"op":"if","condition":{"op":"same","extra":0},"then":input,"else":input})),
         program(json!({"op":"bounds","lower":local,"upper":empty})),
         // The new binding is unavailable in either initializer.
         program(json!({"op":"letBounds","lower":local,"upper":empty,"result":input})),

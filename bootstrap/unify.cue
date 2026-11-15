@@ -7,7 +7,34 @@ package bootstrap
 	let RU = {op: "input", input: "right", endpoint: "upper"}
 	let L = {op: "local", endpoint: "lower"}
 	let U = {op: "local", endpoint: "upper"}
+	let LeftBool = {op: "or", left: {op: "kindIs", input: "left", kind: "bool"}, right: {op: "kindIs", input: "left", kind: "boolean"}}
+	let RightBool = {op: "or", left: {op: "kindIs", input: "right", kind: "bool"}, right: {op: "kindIs", input: "right", kind: "boolean"}}
 	result: {
+		op: "if", condition: LeftBool
+		then: {
+			op: "if", condition: RightBool
+			then: {
+				op: "if", condition: {op: "kindIs", input: "left", kind: "bool"}
+				then: {op: "input", input: "right"}
+				else: {
+					op: "if", condition: {op: "kindIs", input: "right", kind: "bool"}
+					then: {op: "input", input: "left"}
+					else: {
+						op: "if", condition: {op: "same"}
+						then: {op: "input", input: "left"}
+						else: {op: "fail", reason: "booleans"}
+					}
+				}
+			}
+			else: {op: "fail", reason: "types"}
+		}
+		else: {
+			op: "if", condition: RightBool
+			then: {op: "fail", reason: "types"}
+			else: Numeric
+		}
+	}
+	let Numeric = {
 		op: "if", condition: {op: "kindIs", input: "left", kind: "int"}
 		then: {op: "input", input: "right"}
 		else: {

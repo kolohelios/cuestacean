@@ -1,5 +1,8 @@
 {
   "rules": {
+    "true": {"result": {"value": true, "op": "boolean"}},
+    "boolType": {"result": {"op": "bool"}},
+    "false": {"result": {"value": false, "op": "boolean"}},
     "divide": {"result": {"op": "divide", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
     "modulo": {"result": {"op": "modulo", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
     "quotient": {"result": {"op": "quotient", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},

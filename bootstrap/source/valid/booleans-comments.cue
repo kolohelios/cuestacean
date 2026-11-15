@@ -1,0 +1,2 @@
+bool & // refinement
+false

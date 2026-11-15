@@ -8,7 +8,7 @@ and Rust as the execution target. The ambition is full self-hosting, not merely
 using CUE to configure a handwritten Rust compiler.
 
 There is no general CUE implementation yet. The [bootstrap fixtures](bootstrap/README.md)
-define integer, `int`-constraint, inclusive-bound, arithmetic and unification trees, plus evaluation
+define integer/boolean values and constraints, inclusive bounds, arithmetic and unification trees, plus evaluation
 rules, in CUE and export them to build-only JSON using upstream CUE. A small
 [bootstrap Rust executor](bootstrap/executor/README.md) interprets those rules.
 An initial [rule-to-Rust generator](bootstrap/generated/README.md) lowers the
@@ -16,7 +16,7 @@ same rules to compiled evaluator modules. Nix builds handwritten generator
 seeds, regenerates JSON and Rust from the CUE specifications, then compiles and
 tests the final executables. A [source frontend](bootstrap/source/README.md)
 now handles a tiny decimal-integer subset with addition, subtraction,
-multiplication, integer division/remainder, unary negation, the `int` constraint,
+multiplication, integer division/remainder, unary negation, `true`/`false`, `bool`/`int` constraints,
 inclusive bounds, unification, parentheses, and Unicode `//` comment trivia
 without Go at runtime.
 The first [executable scanner DSL](bootstrap/scanner.md) now supplies the
@@ -28,8 +28,8 @@ and frame safety remain native. The [Pratt expression loop](bootstrap/pratt.md)
 and [primary dispatch](bootstrap/primary.md) now run from CUE control statements,
 including binding-power, associativity and grouping-minimum decisions. Bootstrap specification evaluation still relies on the upstream Go tool. [AST construction](bootstrap/ast.md)
 now uses separate CUE-defined builder expressions compiled to typed Rust functions;
-the native parser no longer assembles JSON maps. [Integer unification](bootstrap/unify.md)
-now also executes CUE-defined identity, interval-intersection and conflict policy;
+the native parser no longer assembles JSON maps. [Scalar unification](bootstrap/unify.md)
+executes CUE-defined identity, interval-intersection, boolean equality and typed conflict policy;
 value representation and low-level comparisons remain native.
 
 ## CUE all the way down

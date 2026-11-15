@@ -11,6 +11,9 @@ pub fn generate(input: &str) -> Result<String, Error> {
          pub fn execute(input: &str) -> Result<i64, Error> {\n\
              runtime::concrete(evaluate(&runtime::program(input)?)?)\n\
          }\n\n\
+         pub fn execute_json(input: &str) -> Result<Value, Error> {\n\
+             runtime::concrete_json(evaluate(&runtime::program(input)?)?)\n\
+         }\n\n\
          fn evaluate(node: &Value) -> Result<runtime::Value, Error> {\n\
              match runtime::kind(node)? {\n",
     );
@@ -29,6 +32,10 @@ pub fn generate(input: &str) -> Result<String, Error> {
 fn instruction(op: &Instruction) -> String {
     match op {
         Instruction::Int {} => "Ok::<_, Error>(runtime::Value::Int)".to_string(),
+        Instruction::Bool {} => "Ok::<_, Error>(runtime::Value::Bool)".to_string(),
+        Instruction::Boolean { value } => {
+            format!("Ok::<_, Error>(runtime::Value::Boolean({value}))")
+        }
         Instruction::LowerBound { value } => {
             format!("runtime::lower_bound(({})?)", instruction(value))
         }

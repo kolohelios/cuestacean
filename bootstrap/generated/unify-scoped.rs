@@ -24,10 +24,28 @@ pub fn unify(_left: Value, _right: Value) -> Result<Value, Error> {
             ))? {
                 crate::unification::fail(crate::unification::Failure::Bounds, _left, _right)
             } else {
-                Ok::<_, Error>(Value::Bounds {
-                    lower: (Ok::<_, Error>(_lower))?,
-                    upper: (Ok::<_, Error>(_upper))?,
-                })
+                if (Ok::<_, Error>(
+                    (Ok::<_, Error>(
+                        (Ok::<_, Error>(crate::unification::kind_is(
+                            _left,
+                            crate::unification::Kind::Int,
+                        )))? || (Ok::<_, Error>(crate::unification::kind_is(
+                            _left,
+                            crate::unification::Kind::Bounds,
+                        )))?,
+                    ))? || (crate::unification::compare(
+                        (Ok::<_, Error>(None::<i64>))?,
+                        (Ok::<_, Error>(None::<i64>))?,
+                        crate::unification::Relation::Equal,
+                    ))?,
+                ))? {
+                    Ok::<_, Error>(Value::Bounds {
+                        lower: (Ok::<_, Error>(_lower))?,
+                        upper: (Ok::<_, Error>(_upper))?,
+                    })
+                } else {
+                    crate::unification::fail(crate::unification::Failure::Bounds, _left, _right)
+                }
             }
         }
     }

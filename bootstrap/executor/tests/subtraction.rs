@@ -5,8 +5,7 @@ use bootstrap_executor::{Error, execute, parser, runtime};
 use runtime::Value as RuntimeValue;
 use serde_json::{Value, json};
 
-#[path = "../../generated/evaluation.rs"]
-mod generated;
+use bootstrap_executor::generated;
 
 fn export(name: &str) -> String {
     std::fs::read_to_string(

@@ -4,8 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use bootstrap_executor::{execute, generate};
 
-#[path = "../../generated/evaluation.rs"]
-mod generated;
+use bootstrap_executor::generated;
 #[path = "../../generated/evaluation-left-twice.rs"]
 mod generated_left_twice;
 use serde::Deserialize;
@@ -44,6 +43,10 @@ fn exported_programs_and_rule_change() {
     assert_eq!(
         generated_left_twice::execute(&program).expect("changed generated evaluator"),
         40
+    );
+    assert_eq!(
+        generated_left_twice::execute_json(&program).expect("changed scalar evaluator"),
+        Value::from(40)
     );
     let mixed = read(bootstrap().join("multiplication.json"));
     assert_eq!(execute(&mixed, &rules).expect("mixed interpreted"), 7);

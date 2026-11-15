@@ -1,9 +1,10 @@
 # Bootstrap expression fixtures
 
-`schema.cue` defines a recursive expression tree with thirteen node kinds:
+`schema.cue` defines a recursive expression tree with sixteen node kinds:
 
 - `integer`: an integer `value`.
 - `intType`: the abstract `int` constraint, with no payload.
+- `true` / `false` / `boolType`: payload-free boolean values and type constraint.
 - `lowerBound`: an inclusive lower threshold in integer `value`.
 - `upperBound`: an inclusive upper threshold in integer `value`.
 - `add`: ordered `left` and `right` expression children.
@@ -12,7 +13,7 @@
 - `negate`: an `operand` expression, negated with checked i64 arithmetic.
 - `divide` / `modulo`: Euclidean quotient and nonnegative remainder.
 - `quotient` / `remainder`: truncating quotient and dividend-signed remainder.
-- `unify`: ordered children whose integers, `int`, or bounds must agree.
+- `unify`: ordered children whose integer/bounds or boolean domains must agree.
 
 `#Program` wraps an expression with `formatVersion: 1`. Node definitions reject
 unexpected fields. Missing fields with a single allowed value (such as the
@@ -30,6 +31,7 @@ tool exports these into matching JSON files in a Nix build output, not version
 control. `int-constraint.cue` describes
 `int & 3`, introducing an abstract intermediate value. `bounds.cue` describes
 `int & >=0 & <=10 & 3`, retaining abstract range intermediates.
+`booleans.cue` describes `bool & true`, retaining the abstract type leaf.
 Definitions such as `#Expression` do not appear in the exported artifacts.
 
 ## Evaluation rules as data
@@ -39,6 +41,8 @@ Rules are selected by the input expression's `kind`; each describes how to
 produce its `result`:
 
 - `intType`: `{op: "int"}` constructs abstract `int`.
+- `boolType`: `{op: "bool"}` constructs abstract `bool`; `true` / `false` use
+  `{op: "boolean", value: true/false}` constants supplied by rule data.
 - `integer`: `{op: "field", field: "value"}` reads the current node's integer.
 - `lowerBound` / `upperBound`: execute their `value` instruction to obtain a
   concrete threshold, then construct an inclusive one-sided bound.
@@ -52,7 +56,8 @@ produce its `result`:
   left-first, require concrete integers/nonzero divisor, and apply the chosen
   integer-division convention with checked quotient overflow.
 - `negate`: evaluates its `operand` and applies checked integer negation.
-- `unify`: intersect bounds, refine `int`, and check concrete candidates.
+- `unify`: intersect bounds, refine `int`/`bool`, and check concrete candidates.
+  Different scalar domains conflict; concrete booleans agree only when equal.
   Conflicts fail; abstract results remain incomplete, not conflicting.
   Even equal endpoints stay abstract until given a concrete candidate.
   This is not a general constraint solver.
@@ -66,7 +71,7 @@ evaluate the addition tree. The [bootstrap Rust executor](executor/README.md)
 interprets the exported rules in a separate step: the original fixtures produce
 `42`, the mixed multiplication fixture produces `7`, and unification produces
 `3`. The schema constrains
-these thirteen rule shapes and their
+these sixteen rule shapes and their
 field names, not a general-purpose rule language. Validation alone does not
 establish correct evaluation behavior.
 

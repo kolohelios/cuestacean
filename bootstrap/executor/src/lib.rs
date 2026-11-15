@@ -18,6 +18,15 @@ pub mod unification;
 
 pub use codegen::generate;
 
+#[cfg(feature = "semantics")]
+extern crate self as bootstrap_executor;
+
+/// Default CUE-generated rules, with integer-only and JSON scalar entry points.
+/// Compiler-only seeds omit this module and all generated semantics.
+#[cfg(feature = "semantics")]
+#[path = "../../generated/evaluation.rs"]
+pub mod generated;
+
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("invalid {document} JSON: {source}"))]
@@ -54,6 +63,14 @@ pub enum Error {
     Conflict { left: i64, right: i64 },
     #[snafu(display("non-concrete int value"))]
     Incomplete,
+    #[snafu(display("conflicting boolean values {left} and {right}"))]
+    BooleanConflict { left: bool, right: bool },
+    #[snafu(display("conflicting value types"))]
+    TypeConflict,
+    #[snafu(display("non-concrete bool value"))]
+    IncompleteBool,
+    #[snafu(display("integer output requires an integer value"))]
+    IntegerOutput,
     #[snafu(display("conflicting integer bounds"))]
     BoundsConflict,
     #[snafu(display("non-concrete integer bounds"))]
@@ -92,6 +109,10 @@ struct Rule {
 #[serde(tag = "op", rename_all = "lowercase", deny_unknown_fields)]
 enum Instruction {
     Int {},
+    Bool {},
+    Boolean {
+        value: bool,
+    },
     #[serde(rename = "lowerBound")]
     LowerBound {
         value: Box<Instruction>,
@@ -152,6 +173,14 @@ pub fn execute(program: &str, rules: &str) -> Result<i64, Error> {
     runtime::concrete(evaluate(&program, &rules.rules)?)
 }
 
+/// Execute to an exact concrete JSON scalar (integer or boolean).
+#[cfg(feature = "semantics")]
+pub fn execute_json(program: &str, rules: &str) -> Result<Value, Error> {
+    let program = runtime::program(program)?;
+    let rules = parse_rules(rules)?;
+    runtime::concrete_json(evaluate(&program, &rules.rules)?)
+}
+
 fn parse_rules(input: &str) -> Result<Rules, Error> {
     let rules: Rules = serde_json::from_str(input).context(JsonSnafu { document: "rules" })?;
     if rules.format_version != 1 {
@@ -181,6 +210,8 @@ fn instruction(
 ) -> Result<runtime::Value, Error> {
     match op {
         Instruction::Int {} => Ok(runtime::Value::Int),
+        Instruction::Bool {} => Ok(runtime::Value::Bool),
+        Instruction::Boolean { value } => Ok(runtime::Value::Boolean(*value)),
         Instruction::LowerBound { value } => runtime::lower_bound(instruction(value, node, rules)?),
         Instruction::UpperBound { value } => runtime::upper_bound(instruction(value, node, rules)?),
         Instruction::Field { field: name } => runtime::integer(node, name),
