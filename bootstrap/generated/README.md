@@ -37,9 +37,21 @@ for rules in evaluation.json tests/valid/evaluation-left-twice.json executor/tes
 done
 ```
 
-The pinned formatter defines the artifact's byte layout. The generated CLI is
-built from the committed normal module; regeneration and export checks validate
-each artifact boundary rather than regenerating source during compilation.
-Nix rejects drift, Rust tests compile all three modules, and CLI tests compare
-results, errors, and exit statuses with the interpreter. Neither the generator
-nor the shared runtime is self-hosted yet.
+## Fresh Nix builds
+
+The pinned formatter defines the artifact's byte layout. Nix now builds in two
+stages, clearing the JSON exports and generated Rust from each staged source
+copy first. This never deletes files in the working tree.
+
+1. Compile only the handwritten `bootstrap-codegen` seed. Its tests need
+   generated modules, so they run in the final stage rather than creating a
+   bootstrap dependency cycle.
+2. Use upstream CUE to regenerate the expression and rule JSON, then the seed
+   to regenerate Rust. Compile all binaries and run the complete formatting,
+   Clippy, and test suite against these fresh artifacts.
+
+Committed artifacts remain reviewable golden files: separate export and Rust
+generation checks still reject drift. CLI tests compare results, errors, and
+exit statuses with the interpreter. Neither the generator nor the shared
+runtime is self-hosted yet; the seed is handwritten Rust and CUE exports still
+require the upstream Go implementation.

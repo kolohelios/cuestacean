@@ -28,7 +28,9 @@ whitespace, and the [bootstrap export](../../bootstrap/README.md). The flake's
 `bootstrap-export` check exports each CUE fixture twice, compares both exports
 with its committed JSON artifact, and requires malformed expression trees and
 evaluation-rule descriptions to fail export. The `bootstrap-executor` check
-builds the Rust package and runs formatting, Clippy, library/CLI tests,
+builds a handwritten code-generator seed without intermediate artifacts, then
+regenerates CUE exports and Rust before compiling the final package. The final
+stage runs formatting, Clippy, the complete library/CLI tests,
 compiled generated evaluators, interpreter/generated CLI parity, and integer
 boundary cases in the Nix sandbox.
 The `bootstrap-codegen` check verifies deterministic Rust generation and rejects
@@ -37,4 +39,5 @@ repository root builds that same package without a separate publishing job.
 `nix run ./infra/tooling#generated -- bootstrap/addition.json` runs the generated
 evaluator; the default entry point still runs the interpreter.
 Repo-wide `shaka preflight` also validates the CUE project schema and rejects
-drift in generated files or unaccounted GitHub Actions workflows.
+drift in generated files or unaccounted GitHub Actions workflows. `taplo.toml`
+excludes direnv and Cargo caches from formatting, not project TOML sources.

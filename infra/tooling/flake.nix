@@ -14,7 +14,7 @@
       ...
     }:
     let
-      executor =
+      rustPackage =
         pkgs:
         pkgs.rustPlatform.buildRustPackage {
           pname = "bootstrap-executor";
@@ -34,6 +34,57 @@
             cargo clippy --offline --all-targets -- -D warnings
           '';
         };
+
+      # Delete only staged build copies, never the working tree. Both stages
+      # must succeed without the committed JSON/Rust intermediates.
+      clearArtifacts = ''
+        for fixture in literal addition evaluation tests/valid/evaluation-left-twice; do
+          rm -f "../$fixture.json"
+        done
+        rm -f ../generated/*.rs
+      '';
+
+      codegenSeed =
+        pkgs:
+        (rustPackage pkgs).overrideAttrs (old: {
+          pname = "bootstrap-codegen-seed";
+          meta = old.meta // {
+            mainProgram = "bootstrap-codegen";
+          };
+          cargoBuildFlags = [
+            "--bin"
+            "bootstrap-codegen"
+          ];
+          postPatch = clearArtifacts;
+          # The tests require generated modules. Break that bootstrap cycle here;
+          # the final package below runs the complete test suite, including codegen.
+          doCheck = false;
+        });
+
+      executor =
+        pkgs:
+        (rustPackage pkgs).overrideAttrs (old: {
+          nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
+            pkgs.cue
+            pkgs.jq
+            pkgs.rustfmt
+            (codegenSeed pkgs)
+          ];
+          postPatch = clearArtifacts + ''
+            # Do not leak strict shell options into later stdenv hooks.
+            (
+              set -euo pipefail
+              export LC_ALL=C TZ=UTC
+              for fixture in literal addition evaluation tests/valid/evaluation-left-twice; do
+                cue export ../schema.cue "../$fixture.cue" --out json | jq -S . > "../$fixture.json"
+              done
+              for rules in evaluation.json tests/valid/evaluation-left-twice.json executor/tests/fixtures/codegen-escaped-rules.json; do
+                name=$(basename "$rules" .json)
+                bootstrap-codegen "../$rules" | rustfmt --edition 2024 > "../generated/$name.rs"
+              done
+            )
+          '';
+        });
     in
     {
       packages = kolohelios-nix.lib.forEachSupportedSystem ({ pkgs, ... }: { default = executor pkgs; });

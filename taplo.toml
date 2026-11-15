@@ -1,0 +1,2 @@
+# Check project sources, not cached toolchains or build outputs.
+exclude = ["**/.direnv/**", "**/target/**"]

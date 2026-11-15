@@ -12,8 +12,10 @@ define integer-literal and addition trees, plus proposed evaluation rules, in
 CUE and export them to checked-in JSON using upstream CUE. A small
 [bootstrap Rust executor](bootstrap/executor/README.md) interprets those rules.
 An initial [rule-to-Rust generator](bootstrap/generated/README.md) lowers the
-same rules to compiled evaluator modules. The normal generated evaluator is
-runnable; neither tool parses CUE source.
+same rules to compiled evaluator modules. Nix builds a handwritten generator
+seed, regenerates JSON and Rust from the CUE specifications, then compiles and
+tests the final executables. The generated evaluator is runnable; CUE evaluation
+still relies on the upstream Go tool.
 
 ## CUE all the way down
 

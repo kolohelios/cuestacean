@@ -24,8 +24,10 @@ nix run ./infra/tooling#generated -- bootstrap/addition.json
 
 It prints `42` and takes only a program path. The normal `evaluation.json` rules
 are compiled into it through `../generated/evaluation.rs`; it does not read or
-interpret a rule file at runtime. To change its rules, regenerate the module
-and rebuild. The default Nix entry point remains the interpreter.
+interpret a rule file at runtime. Nix regenerates the JSON and Rust in its build
+sandbox before compilation. After changing CUE rules, regenerate the committed
+artifacts too so the drift checks pass. The default Nix entry point remains the
+interpreter.
 
 Both evaluators use the same output and evaluation-error conventions. Their
 usage messages differ because their argument lists differ.
@@ -73,8 +75,10 @@ alternate behavior. `bootstrap-generated` runs the normal generated module;
 
 ## Checks
 
-`shaka preflight` builds the package through `nix flake check`, which runs Rust
-formatting, Clippy, and the tests in the sandbox. Tests use the real exported
+`shaka preflight` builds the package through `nix flake check`. A handwritten
+code-generator seed enables a [fresh two-stage build](../generated/README.md),
+then the final package runs Rust formatting, Clippy, and all tests in the
+sandbox. Tests use the real exported
 fixtures, the changed-rule export, integer boundary/error cases, all three
 CLIs, and the compiled generated evaluators. The interpreter and generated CLIs
 must agree byte-for-byte on stdout and stderr, and on exit status, for both
