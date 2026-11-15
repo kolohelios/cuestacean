@@ -19,6 +19,10 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "subtract" => runtime::difference(
+            (evaluate(runtime::field(node, "left")?))?,
+            (evaluate(runtime::field(node, "right")?))?,
+        ),
         "unify" => runtime::unify(
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,

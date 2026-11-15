@@ -15,7 +15,8 @@ An initial [rule-to-Rust generator](bootstrap/generated/README.md) lowers the
 same rules to compiled evaluator modules. Nix builds handwritten generator
 seeds, regenerates JSON and Rust from the CUE specifications, then compiles and
 tests the final executables. A [source frontend](bootstrap/source/README.md)
-now handles a tiny decimal-integer subset with arithmetic, the `int` constraint,
+now handles a tiny decimal-integer subset with addition, subtraction,
+multiplication, the `int` constraint,
 inclusive bounds, unification, and parentheses without Go at runtime.
 The first [executable scanner DSL](bootstrap/scanner.md) now supplies the
 whitespace, decimal, and ASCII identifier scanning as CUE-authored control flow

@@ -11,6 +11,11 @@ package bootstrap
 			left: {op: "evaluate", field: "left"}
 			right: {op: "evaluate", field: "right"}
 		}
+		subtract: result: {
+			op: "difference"
+			left: {op: "evaluate", field: "left"}
+			right: {op: "evaluate", field: "right"}
+		}
 		unify: result: {
 			op: "unify"
 			left: {op: "evaluate", field: "left"}

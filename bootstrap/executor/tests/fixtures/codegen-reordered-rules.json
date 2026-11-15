@@ -1,5 +1,12 @@
 {
   "rules": {
+    "subtract": {
+      "result": {
+        "op": "difference",
+        "right": {"op": "evaluate", "field": "right"},
+        "left": {"op": "evaluate", "field": "left"}
+      }
+    },
     "upperBound": {"result": {"op": "upperBound", "value": {"op": "field", "field": "value"}}},
     "lowerBound": {"result": {"op": "lowerBound", "value": {"op": "field", "field": "value"}}},
     "intType": {"result": {"op": "int"}},

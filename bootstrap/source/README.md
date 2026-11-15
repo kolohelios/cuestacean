@@ -32,9 +32,10 @@ to typed Rust functions, rather than native JSON-map assembly.
 ## Deliberately small subset
 
 The default grammar accepts decimal signed integers, the `int` type atom,
-inclusive bounds (`>=`, `<=`), addition, multiplication, unification (`&`),
-and parentheses. Multiplication binds more
-tightly than addition, which binds more tightly than `&`; all are left-associative.
+inclusive bounds (`>=`, `<=`), addition, subtraction, multiplication,
+unification (`&`), and parentheses. Multiplication binds more tightly than
+addition/subtraction, which share a precedence and bind more tightly than `&`;
+all are left-associative.
 These choices live in CUE grammar data, not in the parser algorithm.
 `1 + 2 * 3` produces `7`, while `(1 + 2) * 3` produces `9`.
 `1 + 2 & 3` produces `3`; `3 & 4` fails without printing a result.
@@ -45,6 +46,21 @@ follow an operand before another token. This avoids silently ignoring CUE's
 implicit comma insertion at line breaks. The check and its diagnostic now live
 in the CUE after-operand program. Trailing whitespace, including newlines at
 EOF, is allowed. This is still conservative rejection, not full comma insertion.
+
+### Checked subtraction
+
+`50 - 8` produces `42`; `10-3-2` produces `5`, while `10-(3-2)` produces `9`.
+Binary minus and signed decimal primaries are distinct parsing contexts, so
+`1--2` produces `3` and `-2-3` produces `-5`. The CUE infix scanner recognizes
+minus; the existing CUE grammar, Pratt control and AST builder supply its meaning.
+No special subtraction branch is added to parser control.
+
+The rule `difference` evaluates left before right and calls native checked i64
+subtraction. Subtracting i64::MIN from itself yields zero; overflowing intermediates
+fail even if later subtraction would bring the mathematical result into range.
+There is no wrapping, arbitrary precision, or general unary negation: `-(1+2)`
+remains unsupported. Abstract arithmetic such as `int - 1` still needs concrete
+operands rather than backward constraint propagation.
 
 ### Inclusive bounds
 
