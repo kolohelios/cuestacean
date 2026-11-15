@@ -1,7 +1,7 @@
 package bootstrap
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #IntegerLiteral | #IntegerType | #LowerBound | #UpperBound | #Addition | #Subtraction | #Multiplication | #Unification | #Negation
+#Expression: #IntegerLiteral | #IntegerType | #LowerBound | #UpperBound | #Addition | #Subtraction | #Multiplication | #Division | #Modulo | #Quotient | #Remainder | #Unification | #Negation
 
 #IntegerLiteral: {
 	kind:  "integer"
@@ -39,6 +39,30 @@ package bootstrap
 
 #Multiplication: {
 	kind:  "multiply"
+	left:  #Expression
+	right: #Expression
+}
+
+#Division: {
+	kind:  "divide"
+	left:  #Expression
+	right: #Expression
+}
+
+#Modulo: {
+	kind:  "modulo"
+	left:  #Expression
+	right: #Expression
+}
+
+#Quotient: {
+	kind:  "quotient"
+	left:  #Expression
+	right: #Expression
+}
+
+#Remainder: {
+	kind:  "remainder"
 	left:  #Expression
 	right: #Expression
 }
@@ -159,7 +183,7 @@ package bootstrap
 // Pratt configuration: tokens and constructors come from data. #PrattProgram
 // owns expression and primary control flow; grammar lookup stays native.
 #InfixOperator: {
-	token:         string & =~"^[-+*/&]$"
+	token:         string & =~"^([-+*/&]|div|mod|quo|rem)$"
 	kind:          string & !=""
 	leftField:     string & !="" & !="kind"
 	rightField:    string & !="" & !="kind" & !=leftField
@@ -188,8 +212,8 @@ package bootstrap
 	atoms: *[] | [...#Atom]
 	bounds: *[] | [...#BoundPrefix]
 	negation?: {
-		token: "-"
-		kind: string & !=""
+		token:        "-"
+		kind:         string & !=""
 		operandField: string & !="" & !="kind"
 	}
 	group: {open: "(", close: ")"}
@@ -227,6 +251,26 @@ package bootstrap
 		}
 		multiply: result: {
 			op:    "product"
+			left:  #EvaluateChild
+			right: #EvaluateChild
+		}
+		divide: result: {
+			op:    "divide"
+			left:  #EvaluateChild
+			right: #EvaluateChild
+		}
+		modulo: result: {
+			op:    "modulo"
+			left:  #EvaluateChild
+			right: #EvaluateChild
+		}
+		quotient: result: {
+			op:    "quotient"
+			left:  #EvaluateChild
+			right: #EvaluateChild
+		}
+		remainder: result: {
+			op:    "remainder"
 			left:  #EvaluateChild
 			right: #EvaluateChild
 		}

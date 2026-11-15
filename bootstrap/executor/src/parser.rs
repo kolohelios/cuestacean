@@ -185,8 +185,10 @@ impl Grammar {
         }
         let mut tokens = BTreeSet::new();
         for op in &self.operators {
-            if !matches!(op.token.as_str(), "+" | "-" | "*" | "/" | "&")
-                || !tokens.insert(&op.token)
+            if !matches!(
+                op.token.as_str(),
+                "+" | "-" | "*" | "/" | "&" | "div" | "mod" | "quo" | "rem"
+            ) || !tokens.insert(&op.token)
                 || op.kind.is_empty()
                 || !field(&op.left_field)
                 || !field(&op.right_field)

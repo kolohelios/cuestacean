@@ -1,5 +1,9 @@
 {
   "rules": {
+    "divide": {"result": {"op": "divide", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
+    "modulo": {"result": {"op": "modulo", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
+    "quotient": {"result": {"op": "quotient", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
+    "remainder": {"result": {"op": "remainder", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
     "negate": {"result": {"op": "negate", "value": {"op": "evaluate", "field": "operand"}}},
     "subtract": {
       "result": {

@@ -106,6 +106,48 @@ pub fn product(left: Value, right: Value) -> Result<Value, Error> {
         .ok_or(Error::ProductOverflow)
 }
 
+fn division_operands(left: Value, right: Value) -> Result<(i64, i64), Error> {
+    let (left, right) = operands(left, right)?;
+    if right == 0 {
+        return Err(Error::DivisionByZero);
+    }
+    Ok((left, right))
+}
+
+pub fn divide(left: Value, right: Value) -> Result<Value, Error> {
+    let (left, right) = division_operands(left, right)?;
+    left.checked_div_euclid(right)
+        .map(Value::Integer)
+        .ok_or(Error::DivisionOverflow)
+}
+
+pub fn modulo(left: Value, right: Value) -> Result<Value, Error> {
+    let (left, right) = division_operands(left, right)?;
+    if right == -1 {
+        return Ok(Value::Integer(0));
+    }
+    left.checked_rem_euclid(right)
+        .map(Value::Integer)
+        .ok_or(Error::DivisionOverflow)
+}
+
+pub fn quotient(left: Value, right: Value) -> Result<Value, Error> {
+    let (left, right) = division_operands(left, right)?;
+    left.checked_div(right)
+        .map(Value::Integer)
+        .ok_or(Error::DivisionOverflow)
+}
+
+pub fn remainder(left: Value, right: Value) -> Result<Value, Error> {
+    let (left, right) = division_operands(left, right)?;
+    if right == -1 {
+        return Ok(Value::Integer(0));
+    }
+    left.checked_rem(right)
+        .map(Value::Integer)
+        .ok_or(Error::DivisionOverflow)
+}
+
 pub fn lower_bound(value: Value) -> Result<Value, Error> {
     let Value::Integer(value) = value else {
         return Err(Error::BoundThreshold);

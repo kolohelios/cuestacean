@@ -44,6 +44,10 @@ pub enum Error {
     DifferenceOverflow,
     #[snafu(display("signed 64-bit integer multiplication overflow"))]
     ProductOverflow,
+    #[snafu(display("integer division by zero"))]
+    DivisionByZero,
+    #[snafu(display("signed 64-bit integer division overflow"))]
+    DivisionOverflow,
     #[snafu(display("signed 64-bit integer negation overflow"))]
     NegationOverflow,
     #[snafu(display("conflicting integer values {left} and {right}"))]
@@ -117,6 +121,22 @@ enum Instruction {
         left: Box<Instruction>,
         right: Box<Instruction>,
     },
+    Divide {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
+    Modulo {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
+    Quotient {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
+    Remainder {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
     Unify {
         left: Box<Instruction>,
         right: Box<Instruction>,
@@ -180,6 +200,26 @@ fn instruction(
             let left = instruction(left, node, rules)?;
             let right = instruction(right, node, rules)?;
             runtime::product(left, right)
+        }
+        Instruction::Divide { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::divide(left, right)
+        }
+        Instruction::Modulo { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::modulo(left, right)
+        }
+        Instruction::Quotient { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::quotient(left, right)
+        }
+        Instruction::Remainder { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::remainder(left, right)
         }
         Instruction::Unify { left, right } => {
             let left = instruction(left, node, rules)?;

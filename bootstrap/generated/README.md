@@ -1,7 +1,7 @@
 # First Rust generation boundary
 
 The evaluator modules are generated from rule JSON by the handwritten Rust
-`bootstrap-codegen` binary. This lowers our ten instruction primitives, not
+`bootstrap-codegen` binary. This lowers our fourteen instruction primitives, not
 arbitrary CUE source. The interpreter remains the default executable and a
 reference for tests. The normal generated module also runs as a separate CLI:
 

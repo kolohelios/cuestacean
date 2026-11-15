@@ -123,8 +123,12 @@ newlines; that does not expand the parser's conservative source subset.
 
 The bound-prefix program checks `>=` or `<=` with one-byte lookahead before
 advancing. A partial match such as `>`, `> x`, or `>λ` leaves both offset and
-flag unchanged. The infix program recognizes one byte from `+`, `*`, `/`, `&`.
-Recognizing `/` does not enable division: the default grammar has no `/` entry.
+flag unchanged. The infix program recognizes a byte from `+`, `-`, `*`, `/`, `&`
+or a complete `div`, `mod`, `quo`, `rem` keyword. CUE checks the three keyword
+bytes and rejects an ASCII identifier-continuation suffix before advancing;
+partial/extended words leave offset and flag unchanged. A keyword consumes
+exactly three bytes, leaving a following minus for operand parsing. Recognizing
+`/` does not enable rational division: the default grammar has no `/` entry.
 
 The native parser looks up complete recognized spans in runtime grammar data.
 It commits an infix span only after the binding-power check, so lookahead does
@@ -169,7 +173,7 @@ flag updates, and exact parser/CLI newline diagnostics. Atom tests verify
 complete-token lookup and custom names. Parenthesis tests cover all ASCII bytes,
 whitespace, Unicode/EOF, nesting, and exact diagnostics/error precedence. Symbol
 tests cover ASCII pairs, partial matches, maximum lookahead, disabled grammar
-entries, and operator configuration.
+entries, operator configuration and all ASCII keyword suffixes.
 Separate compiled programs exercise non-progressing loops, unsafe advancement,
 escaped rejection text, short-circuiting, and alternate decimal policy. Parser
 and CLI tests assert exact lexical diagnostic offsets and messages. Invalid statement documents must

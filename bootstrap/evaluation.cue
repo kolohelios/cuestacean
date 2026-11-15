@@ -22,6 +22,26 @@ package bootstrap
 			left: {op: "evaluate", field: "left"}
 			right: {op: "evaluate", field: "right"}
 		}
+		divide: result: {
+			op: "divide"
+			left: {op: "evaluate", field: "left"}
+			right: {op: "evaluate", field: "right"}
+		}
+		modulo: result: {
+			op: "modulo"
+			left: {op: "evaluate", field: "left"}
+			right: {op: "evaluate", field: "right"}
+		}
+		quotient: result: {
+			op: "quotient"
+			left: {op: "evaluate", field: "left"}
+			right: {op: "evaluate", field: "right"}
+		}
+		remainder: result: {
+			op: "remainder"
+			left: {op: "evaluate", field: "left"}
+			right: {op: "evaluate", field: "right"}
+		}
 		multiply: result: {
 			op: "product"
 			left: {op: "evaluate", field: "left"}

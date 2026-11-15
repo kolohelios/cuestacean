@@ -56,6 +56,26 @@ fn instruction(op: &Instruction) -> String {
             instruction(left),
             instruction(right)
         ),
+        Instruction::Divide { left, right } => format!(
+            "runtime::divide(({})?, ({})?)",
+            instruction(left),
+            instruction(right)
+        ),
+        Instruction::Modulo { left, right } => format!(
+            "runtime::modulo(({})?, ({})?)",
+            instruction(left),
+            instruction(right)
+        ),
+        Instruction::Quotient { left, right } => format!(
+            "runtime::quotient(({})?, ({})?)",
+            instruction(left),
+            instruction(right)
+        ),
+        Instruction::Remainder { left, right } => format!(
+            "runtime::remainder(({})?, ({})?)",
+            instruction(left),
+            instruction(right)
+        ),
         Instruction::Unify { left, right } => format!(
             "runtime::unify(({})?, ({})?)",
             instruction(left),

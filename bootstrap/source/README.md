@@ -33,7 +33,8 @@ to typed Rust functions, rather than native JSON-map assembly.
 
 The default grammar accepts decimal signed integers, the `int` type atom,
 inclusive bounds (`>=`, `<=`), addition, subtraction, multiplication,
-unification (`&`), and parentheses. Multiplication binds more tightly than
+integer division/remainder (`div`, `mod`, `quo`, `rem`), unification (`&`),
+and parentheses. Multiplication and integer division/remainder bind more tightly than
 addition/subtraction, which share a precedence and bind more tightly than `&`;
 binary operators are left-associative, and unary negation binds more tightly.
 These choices live in CUE grammar data, not in the parser algorithm.
@@ -62,6 +63,26 @@ subtraction. Subtracting i64::MIN from itself yields zero; overflowing intermedi
 fail even if later subtraction would bring the mathematical result into range.
 There is no wrapping or arbitrary precision. Abstract arithmetic such as `int - 1` still needs concrete
 operands rather than backward constraint propagation.
+
+### Integer division and remainder
+
+`div` and `mod` use Euclidean division: the remainder is nonnegative and less
+than the divisor's magnitude. `quo` truncates toward zero and `rem` has the
+same sign as the dividend (or is zero). Thus `-7 div 3` is `-3`, `-7 mod 3`
+is `2`, while `-7 quo 3` is `-2` and `-7 rem 3` is `-1`.
+
+All four share multiplication's precedence and are left-associative. The CUE
+scanner requires complete keywords: `quo2` and `div_name` do not consume any
+operator bytes. Whitespace is not required at a number boundary (`8quo 2` is
+`4`), and a signed RHS remains intact (`7quo-3` is `-2`). This does not enable
+rational `/`, which remains unregistered in the default grammar.
+
+All zero divisors fail without output. The two quotient operators reject
+i64::MIN divided by `-1` as overflow; both remainder operators correctly return
+zero for that pair. A divisor of i64::MIN is valid: `-1 mod -9223372036854775808`
+produces i64::MAX, without taking an overflowing absolute value. Values and
+intermediates remain i64; arithmetic still requires concrete operands. Integer
+zero is printed canonically as `0`, even where upstream CUE spells it `-0`.
 
 ### Unary negation
 
@@ -117,8 +138,9 @@ operands; both tools must also reject these scalar exports.
 Rust tests cover source execution, the existing nested AST, grammar-controlled
 associativity, precedence and constructors, grammar validation, resource limits,
 and CLI failures. The Nix `bootstrap-source` check compares every `valid/*.cue` result
-byte-for-byte against the pinned upstream `cue export`, using exact decimal
-output without passing integers through a floating-point JSON formatter. It
+against pinned upstream `cue export`: only the exact scalar spelling `-0` is
+canonicalized to `0`, since both denote integer zero. All nonzero decimal output
+remains byte-exact, without a floating-point JSON formatter. It
 also requires both upstream CUE and the bootstrap tool to reject `conflicts/`
 and `incomplete/` fixtures with no result. Conflict messages and exit-code numbers need not match.
 Existing interpreter, generated JSON CLI, and code-generation checks remain.
