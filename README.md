@@ -103,8 +103,9 @@ This also prints `42`; see the [explicit subset limits](bootstrap/source/README.
 - Nix pins the development environment and upstream CUE bootstrap tool.
 - [Shaka](https://github.com/kolohelios/kolohelios/tree/main/tools/shaka)
   provides shared repository and validation tooling.
-- Changes will arrive as small, focused pull requests for maintainer review and
-  manual merging; no automatic merging.
+- Changes will arrive as focused pull requests for maintainer review and
+  manual merging; no automatic merging. See [development guidelines](AGENTS.md)
+  and the [bootstrap checkpoint/continuation guide](docs/bootstrap-status.md).
 - `.shaka/repo.cue` declares repository policy. Run `shaka repo audit` to check
   GitHub settings; `cuestacean validate` is the required CI check.
 
