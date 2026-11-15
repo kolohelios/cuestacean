@@ -9,6 +9,8 @@ use serde_json::Value;
 mod advance;
 #[path = "../../generated/scanner-horizontal.rs"]
 mod horizontal;
+#[path = "../../generated/scanner-lookahead.rs"]
+mod lookahead;
 #[path = "../../generated/scanner-decimal-permissive.rs"]
 mod permissive;
 #[path = "../../generated/scanner-reject.rs"]
@@ -626,6 +628,142 @@ fn parenthesis_recognition_and_close_validation_match_all_ascii_bytes() {
             );
         }
     }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SymbolCase {
+    source: String,
+    start: usize,
+    bound_end: usize,
+    bound_flag: bool,
+    infix_end: usize,
+    infix_flag: bool,
+}
+
+#[test]
+fn symbol_scanners_preserve_spans_without_consuming_partial_matches() {
+    let cases: Vec<SymbolCase> = serde_json::from_str(
+        &std::fs::read_to_string("tests/fixtures/symbol-scanner-cases.json").expect("cases"),
+    )
+    .expect("symbol cases");
+    let bound = program("bound-prefix");
+    let infix = program("infix");
+    for case in cases {
+        let expected = Scan {
+            offset: case.bound_end,
+            flag: case.bound_flag,
+        };
+        assert_eq!(
+            scanner::interpret(&bound, &case.source, case.start).expect("bound interpreted"),
+            expected
+        );
+        assert_eq!(
+            scanner::bound_prefix(&case.source, case.start).expect("bound compiled"),
+            expected
+        );
+        let expected = Scan {
+            offset: case.infix_end,
+            flag: case.infix_flag,
+        };
+        assert_eq!(
+            scanner::interpret(&infix, &case.source, case.start).expect("infix interpreted"),
+            expected
+        );
+        assert_eq!(
+            scanner::infix(&case.source, case.start).expect("infix compiled"),
+            expected
+        );
+    }
+    for (source, start) in [("", 1), ("λ", 1), ("abc", 4)] {
+        for result in [
+            scanner::bound_prefix(source, start),
+            scanner::infix(source, start),
+            scanner::interpret(&bound, source, start),
+            scanner::interpret(&infix, source, start),
+        ] {
+            assert!(matches!(result, Err(Error::Offset)));
+        }
+    }
+}
+
+#[test]
+fn symbol_recognition_matches_the_original_ascii_alphabet() {
+    let bound = program("bound-prefix");
+    let infix = program("infix");
+    for byte in 0_u8..=127 {
+        let source = String::from_utf8(vec![byte, b'=']).expect("ASCII");
+        let flag = matches!(byte, b'<' | b'>');
+        let expected = Scan {
+            offset: if flag { 2 } else { 0 },
+            flag,
+        };
+        assert_eq!(
+            scanner::interpret(&bound, &source, 0).expect("bound interpreted"),
+            expected
+        );
+        assert_eq!(
+            scanner::bound_prefix(&source, 0).expect("bound compiled"),
+            expected
+        );
+        let flag = matches!(byte, b'+' | b'*' | b'/' | b'&');
+        let expected = Scan {
+            offset: usize::from(flag),
+            flag,
+        };
+        assert_eq!(
+            scanner::interpret(&infix, &source, 0).expect("infix interpreted"),
+            expected
+        );
+        assert_eq!(
+            scanner::infix(&source, 0).expect("infix compiled"),
+            expected
+        );
+        for first in [b'<', b'>'] {
+            let source = String::from_utf8(vec![first, byte]).expect("ASCII");
+            let expected = Scan {
+                offset: if byte == b'=' { 2 } else { 0 },
+                flag: byte == b'=',
+            };
+            assert_eq!(
+                scanner::interpret(&bound, &source, 0).expect("lookahead interpreted"),
+                expected
+            );
+            assert_eq!(
+                scanner::bound_prefix(&source, 0).expect("lookahead compiled"),
+                expected
+            );
+        }
+    }
+}
+
+#[test]
+fn lookahead_is_bounded_non_consuming_and_safe_past_eof() {
+    let cursor = scanner::Cursor::new("xy", 1).expect("cursor");
+    assert_eq!(cursor.peek_at(0), Some(b'y'));
+    assert_eq!(cursor.peek_at(1), None);
+    assert_eq!(cursor.peek_at(usize::MAX), None);
+    let program = program("tests/valid/scanner-lookahead");
+    for source in [
+        format!("{}=", "x".repeat(64)),
+        format!("{}=", "λ".repeat(32)),
+    ] {
+        let expected = Scan {
+            offset: 0,
+            flag: true,
+        };
+        assert_eq!(
+            scanner::interpret(&program, &source, 0).expect("interpreted limit"),
+            expected
+        );
+        assert_eq!(
+            lookahead::scan(&source, 0).expect("compiled limit"),
+            expected
+        );
+    }
+    let expected = Err((0, "expected equals at lookahead".to_owned()));
+    assert_eq!(outcome(scanner::interpret(&program, "=", 0)), expected);
+    assert_eq!(outcome(lookahead::scan("=", 0)), expected);
 }
 
 #[derive(Deserialize)]

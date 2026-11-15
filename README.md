@@ -20,9 +20,9 @@ inclusive bounds, unification, and parentheses without Go at runtime.
 The first [executable scanner DSL](bootstrap/scanner.md) now supplies the
 whitespace, decimal, and ASCII identifier scanning as CUE-authored control flow
 lowered to Rust. Parenthesis token handling, decimal lexical validation, the
-conservative newline-after-operand rule, and their diagnostics also live in CUE.
-Checked i64 conversion, grammar validation, keyword lookup, AST construction,
-bound/infix dispatch, expression recursion, and Pratt parsing remain native. Bootstrap specification
+conservative newline-after-operand rule, bound/infix token recognition, and their
+diagnostics also live in CUE. Checked i64 conversion, grammar validation/lookup,
+AST construction, precedence, expression recursion, and Pratt parsing remain native. Bootstrap specification
 evaluation still relies on the upstream Go tool.
 
 ## CUE all the way down

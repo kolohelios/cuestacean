@@ -1,4 +1,6 @@
 [
+  {"program":{"formatVersion":1,"body":[{"op":"if","condition":{"op":"byteIn","bytes":[61],"ahead":65},"then":[]}]}, "error":"lookahead exceeds 64"},
+  {"program":{"formatVersion":1,"body":[{"op":"if","condition":{"op":"byteIn","bytes":[61],"ahead":-1},"then":[]}]}, "error":"invalid scanner JSON"},
   {"program":{"formatVersion":1,"body":[{"op":"if","condition":{"op":"flagIs"},"then":[]}]}, "error":"invalid scanner JSON"},
   {"program":{"formatVersion":1,"body":[{"op":"if","condition":{"op":"flagIs","value":"true"},"then":[]}]}, "error":"invalid scanner JSON"},
   {"program":{"formatVersion":1,"body":[{"op":"if","condition":{"op":"hasByte","value":true},"then":[]}]}, "error":"invalid scanner JSON"},

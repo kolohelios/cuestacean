@@ -9,18 +9,19 @@ newline-after-operand rule.
 validation, using a generic `reject` instruction for diagnostics.
 [`identifier.cue`](identifier.cue) supplies ASCII identifier start/continuation
 scanning. [`group-open.cue`](group-open.cue) and `group-close.cue` recognize and
-consume parenthesis tokens. The handwritten
+consume parenthesis tokens. [`bound-prefix.cue`](bound-prefix.cue) and
+[`infix.cue`](infix.cue) recognize symbols. The handwritten
 `bootstrap-scan-codegen <program.json>` compiler lowers these programs into
 Rust control flow. The parser calls generated whitespace, after-operand,
-decimal, identifier, and parenthesis scanners, not the statement interpreter.
+decimal, identifier, parenthesis, and symbol scanners, not the statement interpreter.
 No Go process runs during source evaluation.
 
 This is more than a byte-class table: CUE defines the loop and branch bodies,
 including when to advance, inspect state, update state, and reject input.
 These are small scanning algorithms and policies,
 **not a self-hosted parser or compiler**. Checked i64 conversion, grammar
-validation, keyword lookup, AST construction, bound/infix dispatch, expression
-recursion and Pratt parsing,
+validation, grammar lookup, AST construction, precedence/associativity,
+expression recursion and Pratt parsing,
 the statement compiler/interpreter,
 JSON loading, and safe cursor
 primitives remain handwritten. Upstream Go CUE still exports specifications.
@@ -38,7 +39,8 @@ primitives remain handwritten. Upstream Go CUE still exports specifications.
 | `reject` | Stop with the current byte offset and a nonempty `reason` string. |
 
 The predicate `byteIn` tests the current byte against a nonempty ASCII byte
-list. EOF never matches. Duplicate entries have set semantics; generation
+list. Optional `ahead` (default 0, maximum 64) reads that many bytes ahead without
+consumption. Reading past EOF never matches. Duplicate entries have set semantics; generation
 sorts/deduplicates them and compacts contiguous runs into Rust range patterns.
 `flagIs` compares the current flag to its literal boolean `value`; `hasByte`
 tests for any remaining byte, including non-ASCII bytes. These predicates are
@@ -115,12 +117,30 @@ still fail as missing operands, and a newline before `)` is rejected by the
 operand policy before the closing program runs. Direct closing scans can skip
 newlines; that does not expand the parser's conservative source subset.
 
+## Symbol recognition, not grammar meaning
+
+The bound-prefix program checks `>=` or `<=` with one-byte lookahead before
+advancing. A partial match such as `>`, `> x`, or `>λ` leaves both offset and
+flag unchanged. The infix program recognizes one byte from `+`, `*`, `/`, `&`.
+Recognizing `/` does not enable division: the default grammar has no `/` entry.
+
+The native parser looks up complete recognized spans in runtime grammar data.
+It commits an infix span only after the binding-power check, so lookahead does
+not consume lower-precedence operators prematurely. Disabled bounds/operators,
+constructor names, fields, precedence and associativity still come from grammar
+data. These configuration tests are not assertions of alternate CUE semantics.
+The parser no longer directly peeks at source bytes; grammar lookup, AST
+construction and expression recursion remain native.
+
 ## Explicit native safety boundary
 
 The shared `scanner::Cursor` validates the initial UTF-8 character boundary,
 checks EOF, and refuses to advance over non-ASCII bytes. Thus even an incorrect
 program cannot split a UTF-8 character or index outside the source. Normal
 whitespace scanning stops before Unicode; this does not add Unicode lexing.
+`peek_at` uses checked offset addition and bounds-checked byte access, returning
+no byte past EOF or on overflow. It may inspect bytes inside UTF-8, but does
+not advance the cursor or create a string slice.
 
 Each action, `if` test, and `while` condition test consumes one execution step.
 The budget is `128 * (remaining source bytes + 1)`, with saturating arithmetic.
@@ -145,7 +165,9 @@ identifier start/continuation rules, long runs, CRLF, Unicode boundaries, EOF
 and invalid offsets. Operand tests cover ASCII suffix bytes, CRLF, EOF, Unicode,
 flag updates, and exact parser/CLI newline diagnostics. Atom tests verify
 complete-token lookup and custom names. Parenthesis tests cover all ASCII bytes,
-whitespace, Unicode/EOF, nesting, and exact diagnostics/error precedence.
+whitespace, Unicode/EOF, nesting, and exact diagnostics/error precedence. Symbol
+tests cover ASCII pairs, partial matches, maximum lookahead, disabled grammar
+entries, and operator configuration.
 Separate compiled programs exercise non-progressing loops, unsafe advancement,
 escaped rejection text, short-circuiting, and alternate decimal policy. Parser
 and CLI tests assert exact lexical diagnostic offsets and messages. Invalid statement documents must

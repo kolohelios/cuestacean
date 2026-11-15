@@ -1,6 +1,6 @@
-//! Narrow bootstrap Pratt parser. Whitespace, decimal and identifier scanning are
-//! CUE-generated, including decimal spelling, operand-newline and delimiter checks.
-//! Conversion, grammar validation, lookup and Pratt parsing remain native.
+//! Narrow bootstrap Pratt parser. Token scanning and lexical policies are
+//! CUE-generated; conversion, grammar validation, lookup, AST construction and
+//! Pratt parsing remain native.
 
 use std::collections::BTreeSet;
 
@@ -213,10 +213,6 @@ impl Parser<'_> {
         Ok(())
     }
 
-    fn peek(&self) -> Option<u8> {
-        self.source.as_bytes().get(self.offset).copied()
-    }
-
     fn node(&mut self) -> Result<(), Error> {
         self.nodes += 1;
         if self.nodes > 64 {
@@ -237,36 +233,42 @@ impl Parser<'_> {
             let close = crate::scanner::group_close(self.source, self.offset)?;
             self.offset = close.offset;
             value
-        } else if let Some(bound) = self
-            .grammar
-            .bounds
-            .iter()
-            .find(|bound| self.source[self.offset..].starts_with(&bound.token))
-            .cloned()
-        {
-            self.offset += bound.token.len();
-            self.whitespace()?;
-            let value = self.decimal()?;
-            self.node()?;
-            Value::Object(Map::from_iter([
-                ("kind".into(), bound.kind.into()),
-                (bound.value_field, value.into()),
-            ]))
         } else {
-            let identifier = crate::scanner::identifier(self.source, self.offset)?;
-            if identifier.flag {
-                self.atom(identifier.offset)?
+            let prefix = crate::scanner::bound_prefix(self.source, self.offset)?;
+            let spelling = &self.source[self.offset..prefix.offset];
+            let bound = self
+                .grammar
+                .bounds
+                .iter()
+                .find(|bound| prefix.flag && bound.token == spelling)
+                .cloned();
+            if let Some(bound) = bound {
+                self.offset = prefix.offset;
+                self.whitespace()?;
+                let value = self.decimal()?;
+                self.node()?;
+                Value::Object(Map::from_iter([
+                    ("kind".into(), bound.kind.into()),
+                    (bound.value_field, value.into()),
+                ]))
             } else {
-                self.integer()?
+                let identifier = crate::scanner::identifier(self.source, self.offset)?;
+                if identifier.flag {
+                    self.atom(identifier.offset)?
+                } else {
+                    self.integer()?
+                }
             }
         };
         loop {
             self.after_operand()?;
+            let token = crate::scanner::infix(self.source, self.offset)?;
+            let spelling = &self.source[self.offset..token.offset];
             let op = self
                 .grammar
                 .operators
                 .iter()
-                .find(|op| Some(op.token.as_bytes()[0]) == self.peek())
+                .find(|op| token.flag && op.token == spelling)
                 .cloned();
             let Some(op) = op else {
                 break;
@@ -274,7 +276,7 @@ impl Parser<'_> {
             if op.precedence < minimum {
                 break;
             }
-            self.offset += 1;
+            self.offset = token.offset;
             let next = match op.associativity {
                 Associativity::Left => op.precedence + 1,
                 Associativity::Right => op.precedence,

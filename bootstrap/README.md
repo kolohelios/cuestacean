@@ -81,7 +81,8 @@ whitespace, decimal, and ASCII identifier scanning in CUE. Its compiler emits
 Rust control flow rather than calling native scanning algorithms. Decimal
 missing-digit/leading-zero rejection and the conservative operand-newline rule
 are also CUE-defined, as are parenthesis recognition/consumption and missing-close
-diagnostics. Expression recursion remains native. Checked i64 conversion,
+diagnostics. Bound/infix symbol recognition also uses the scanner DSL. The native
+parser only looks up complete spans; expression recursion remains native. Checked i64 conversion,
 grammar validation, keyword lookup, AST construction, other parsing, and the
 scanner compiler/runtime
 remain handwritten.

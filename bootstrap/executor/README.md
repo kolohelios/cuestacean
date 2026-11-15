@@ -90,9 +90,9 @@ the repository root, `nix run ./infra/tooling#source -- bootstrap/source/valid/n
 prints `42`. It does not invoke Go at runtime. Whitespace, decimal, and ASCII
 identifier scanning are compiled from the [scanner DSL](../scanner.md).
 Decimal lexical validation, operand-newline policy, and diagnostic reasons
-are also CUE-defined, along with parenthesis-token handling. Checked i64
-conversion, grammar validation, keyword lookup, AST construction, bound/infix
-dispatch, expression recursion, and the Pratt algorithm remain native. Existing JSON interfaces remain unchanged.
+are also CUE-defined, along with parenthesis and bound/infix token recognition.
+Checked i64 conversion, grammar validation/lookup, AST construction, precedence,
+expression recursion, and the Pratt algorithm remain native. Existing JSON interfaces remain unchanged.
 `bootstrap-scan-codegen <program.json>` is the separate scanner-to-Rust compiler.
 
 ## Deliberate limits
