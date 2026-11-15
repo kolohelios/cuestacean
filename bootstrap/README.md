@@ -46,8 +46,11 @@ expression behavior.
 
 The handwritten executor now also includes a rule-to-Rust generator. Its
 [generated modules](generated/README.md) compile in the test suite and agree
-with the interpreter for fixture results and error cases. This starts lowering
-the exported rule DSL to Rust; it does not compile CUE source or rebuild itself.
+with the interpreter for fixture results and error cases. The normal generated
+module also runs through `nix run ./infra/tooling#generated -- <program.json>`,
+with its rules compiled in. CLI tests compare it against the interpreter.
+This lowers the exported rule DSL to Rust; it does not compile CUE source or
+rebuild itself.
 The shared native runtime and the generator remain handwritten.
 
 The syntax and rules remain experimental, not a settled intermediate

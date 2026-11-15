@@ -38,6 +38,17 @@
     {
       packages = kolohelios-nix.lib.forEachSupportedSystem ({ pkgs, ... }: { default = executor pkgs; });
 
+      apps = kolohelios-nix.lib.forEachSupportedSystem (
+        { pkgs, ... }:
+        {
+          generated = {
+            type = "app";
+            program = "${executor pkgs}/bin/bootstrap-generated";
+            meta.description = "Evaluate JSON with the CUE-defined rules compiled into Rust";
+          };
+        }
+      );
+
       devShells = kolohelios-nix.lib.forEachSupportedSystem (
         { system, pkgs, ... }:
         {

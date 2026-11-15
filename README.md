@@ -7,12 +7,13 @@ Cuestacean is an experimental project to reimplement
 and Rust as the execution target. The ambition is full self-hosting, not merely
 using CUE to configure a handwritten Rust compiler.
 
-There is no compiler implementation yet. The [bootstrap fixtures](bootstrap/README.md)
+There is no CUE compiler implementation yet. The [bootstrap fixtures](bootstrap/README.md)
 define integer-literal and addition trees, plus proposed evaluation rules, in
 CUE and export them to checked-in JSON using upstream CUE. A small
 [bootstrap Rust executor](bootstrap/executor/README.md) interprets those rules.
 An initial [rule-to-Rust generator](bootstrap/generated/README.md) lowers the
-same rules to compiled evaluator modules. Neither tool parses CUE source.
+same rules to compiled evaluator modules. The normal generated evaluator is
+runnable; neither tool parses CUE source.
 
 ## CUE all the way down
 
@@ -63,8 +64,17 @@ See [development tooling](infra/tooling/README.md) for regeneration commands.
 There is no CUE compiler build yet. CI builds and tests the bootstrap executor,
 checks the tooling environment and project declarations, compiles generated
 evaluators, rejects generated-file drift, verifies reproducible bootstrap
-exports, and rejects malformed expression
-trees and rule descriptions.
+exports, compares interpreted and generated CLI behavior, and rejects malformed
+expression trees and rule descriptions.
+
+Run the generated evaluator with its compiled-in rules:
+
+```sh
+nix run ./infra/tooling#generated -- bootstrap/addition.json
+```
+
+It prints `42`. The interpreter remains available through the default Nix entry
+point for comparison.
 
 - Nix pins the development environment and upstream CUE bootstrap tool.
 - [Shaka](https://github.com/kolohelios/kolohelios/tree/main/tools/shaka)

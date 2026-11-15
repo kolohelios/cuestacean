@@ -16,6 +16,20 @@ Both print `42`. The CLI takes exactly two paths: program JSON, then rule JSON.
 Success prints a decimal integer and newline; errors go to stderr with exit
 status 2 and no result on stdout.
 
+The generated evaluator is a separate CLI:
+
+```sh
+nix run ./infra/tooling#generated -- bootstrap/addition.json
+```
+
+It prints `42` and takes only a program path. The normal `evaluation.json` rules
+are compiled into it through `../generated/evaluation.rs`; it does not read or
+interpret a rule file at runtime. To change its rules, regenerate the module
+and rebuild. The default Nix entry point remains the interpreter.
+
+Both evaluators use the same output and evaluation-error conventions. Their
+usage messages differ because their argument lists differ.
+
 ## Instruction meanings
 
 The executor looks up a node's string `kind` in the supplied rule map, then
@@ -41,7 +55,8 @@ is deterministic regardless of input object-key order.
 The [generated modules](../generated/README.md) use the shared native runtime
 rather than the instruction interpreter. Tests compile them, compare values and
 errors against the interpreter, and verify that alternate rule data generates
-alternate behavior. The default CLI above still uses the interpreter.
+alternate behavior. `bootstrap-generated` runs the normal generated module;
+`bootstrap-executor` remains available for runtime rule changes and comparison.
 
 ## Deliberate limits
 
@@ -60,10 +75,14 @@ alternate behavior. The default CLI above still uses the interpreter.
 
 `shaka preflight` builds the package through `nix flake check`, which runs Rust
 formatting, Clippy, and the tests in the sandbox. Tests use the real exported
-fixtures, the changed-rule export, integer boundary/error cases, both CLIs, and
-the compiled generated evaluators. A separate Nix check verifies repeated Rust
-generation and committed-source drift. The Rust toolchain is pinned through the tooling flake's Nixpkgs lock; Rust
-dependencies are pinned by `Cargo.lock`. No additional workflow is needed.
+fixtures, the changed-rule export, integer boundary/error cases, all three
+CLIs, and the compiled generated evaluators. The interpreter and generated CLIs
+must agree byte-for-byte on stdout and stderr, and on exit status, for both
+exported expressions, the complete program-case corpus, malformed JSON, and
+missing program files. Argument errors are checked against each CLI's usage.
+A separate Nix check verifies repeated Rust generation and committed-source
+drift. The Rust toolchain is pinned through the tooling flake's Nixpkgs lock;
+Rust dependencies are pinned by `Cargo.lock`. No additional workflow is needed.
 
 For a quick local iteration inside `nix develop ./infra/tooling`:
 
