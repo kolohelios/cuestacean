@@ -42,6 +42,14 @@ fn supported_source_reaches_the_generated_evaluator() {
         ("unify-negative", -7),
         ("unify-minimum", i64::MIN),
         ("unify-maximum", i64::MAX),
+        ("int-left", 3),
+        ("int-right", 3),
+        ("int-chain", 3),
+        ("int-grouped", 4),
+        ("int-product", 6),
+        ("int-minimum", i64::MIN),
+        ("int-maximum", i64::MAX),
+        ("int-repeated", 3),
     ] {
         let path = bootstrap().join(format!("source/valid/{name}.cue"));
         let program = parse(&read(&path), &grammar).expect(name);
@@ -66,7 +74,7 @@ fn supported_source_reaches_the_generated_evaluator() {
 
 #[test]
 fn rejected_sources_and_cli_errors_fail_without_results() {
-    let files: Vec<_> = ["source/rejected", "source/conflicts"]
+    let files: Vec<_> = ["source/rejected", "source/conflicts", "source/incomplete"]
         .into_iter()
         .flat_map(|directory| {
             std::fs::read_dir(bootstrap().join(directory)).expect("rejected fixtures")
@@ -93,6 +101,13 @@ fn rejected_sources_and_cli_errors_fail_without_results() {
                 "{path:?}: {output:?}"
             );
         }
+    }
+    for file in ["int", "int-pair", "int-addition", "int-product"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_bootstrap-source"))
+            .arg(bootstrap().join(format!("source/incomplete/{file}.cue")))
+            .output()
+            .expect("incomplete source");
+        assert!(String::from_utf8_lossy(&output.stderr).contains("concrete"));
     }
     for args in [vec![], vec!["not-a-file"], vec!["one", "two"]] {
         let output = Command::new(env!("CARGO_BIN_EXE_bootstrap-source"))
@@ -169,6 +184,28 @@ fn precedence_comes_from_grammar_data() {
 }
 
 #[test]
+fn atom_names_and_constructors_come_from_grammar_data() {
+    let grammar = read(bootstrap().join("grammar.json"));
+    let source = read(bootstrap().join("source/rejected/atom-boundary.cue"));
+    assert!(parse(&source, &grammar).is_err());
+    let mut changed: Value = serde_json::from_str(&grammar).expect("grammar");
+    changed["atoms"][0]["token"] = "integer".into();
+    changed["atoms"][0]["kind"] = "alternateType".into();
+    let program =
+        parse(&source, &serde_json::to_string(&changed).expect("grammar")).expect("changed atom");
+    assert_eq!(program["entry"]["left"]["kind"], "alternateType");
+    let atom = changed["atoms"][0].clone();
+    changed["atoms"].as_array_mut().expect("atoms").push(atom);
+    assert!(
+        parse(
+            &source,
+            &serde_json::to_string(&changed).expect("ambiguous grammar")
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn runtime_grammar_validation_and_resource_limits_are_explicit() {
     let original: Value =
         serde_json::from_str(&read(bootstrap().join("grammar.json"))).expect("grammar");
@@ -176,6 +213,9 @@ fn runtime_grammar_validation_and_resource_limits_are_explicit() {
     for (pointer, value) in [
         ("/formatVersion", 2.into()),
         ("/integer/valueField", "kind".into()),
+        ("/atoms/0/token", "".into()),
+        ("/atoms/0/token", "1int".into()),
+        ("/atoms/0/kind", "".into()),
         ("/operators/0/token", "++".into()),
         ("/operators/0/precedence", 0.into()),
         ("/operators/0/associativity", "center".into()),

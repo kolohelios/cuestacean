@@ -1,4 +1,12 @@
 [
+  {"name":"abstract int","program":{"formatVersion":1,"entry":{"kind":"intType"}},"error":"non-concrete int value"},
+  {"name":"int and integer","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"intType"},"right":{"kind":"integer","value":3}}},"expected":3},
+  {"name":"integer and int","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"integer","value":3},"right":{"kind":"intType"}}},"expected":3},
+  {"name":"int and int","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"intType"},"right":{"kind":"intType"}}},"error":"non-concrete int value"},
+  {"name":"abstract intermediate","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"unify","left":{"kind":"intType"},"right":{"kind":"intType"}},"right":{"kind":"integer","value":3}}},"expected":3},
+  {"name":"constrained arithmetic","program":{"formatVersion":1,"entry":{"kind":"add","left":{"kind":"unify","left":{"kind":"intType"},"right":{"kind":"integer","value":3}},"right":{"kind":"integer","value":1}}},"expected":4},
+  {"name":"incomplete addition","program":{"formatVersion":1,"entry":{"kind":"add","left":{"kind":"intType"},"right":{"kind":"integer","value":1}}},"error":"arithmetic requires concrete integer operands"},
+  {"name":"incomplete multiplication","program":{"formatVersion":1,"entry":{"kind":"multiply","left":{"kind":"intType"},"right":{"kind":"integer","value":2}}},"error":"arithmetic requires concrete integer operands"},
   {"name":"unify equal","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"integer","value":3},"right":{"kind":"integer","value":3}}},"expected":3},
   {"name":"unify zero","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"integer","value":0},"right":{"kind":"integer","value":0}}},"expected":0},
   {"name":"unify negative","program":{"formatVersion":1,"entry":{"kind":"unify","left":{"kind":"integer","value":-7},"right":{"kind":"integer","value":-7}}},"expected":-7},

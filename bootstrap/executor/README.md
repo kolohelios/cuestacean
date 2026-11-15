@@ -37,14 +37,21 @@ usage messages differ because their argument lists differ.
 The executor looks up a node's string `kind` in the supplied rule map, then
 interprets that rule's result instruction against the current node:
 
-- `field` reads the named field as an integer.
+- `int` constructs an abstract integer-type value.
+- `field` reads the named field as a concrete integer value.
 - `evaluate` selects the named child and recursively dispatches its rule.
 - `sum` executes its left instruction, then its right instruction, against the
   same current node and adds their integer results.
 - `product` executes its left and right instructions in the same order and
   multiplies their integer results using checked arithmetic.
-- `unify` evaluates both instructions and returns their shared integer, or
-  reports `conflicting integer values` if they differ.
+- `unify` refines the abstract `int` value with either operand. Equal concrete
+  integers agree; differing integers report `conflicting integer values`.
+
+The native value scaffold has two variants: a concrete i64 and abstract `int`.
+Intermediate abstract values are valid: `int & int & 3` produces `3`. Only the
+outer scalar-output boundary requires concreteness; bare `int` reports
+`non-concrete int value`, not a conflict. The value representation is still
+handwritten Rust and is not a general CUE value lattice.
 
 Rust implements these primitives, not special cases for the expression kinds.
 The CUE-exported `../tests/valid/evaluation-left-twice.json` changes addition to
@@ -74,12 +81,14 @@ still handwritten scaffolding. Existing JSON interfaces remain unchanged.
 
 ## Deliberate limits
 
-- Unification is only equality of two concrete i64 results. A conflict exits
-  without a result; it is not a first-class bottom value. Symbolic constraints,
-  types, structs, disjunctions, defaults, references, and full CUE unification
-  remain unsupported. Runtime diagnostics are not upstream CUE diagnostics.
+- Unification supports concrete i64 values and abstract `int` only. Conflicts
+  are errors, not first-class bottom values. Other types, structs, bounds,
+  disjunctions, defaults, references, and full CUE unification remain unsupported.
+  Runtime diagnostics are not upstream CUE diagnostics.
+- Arithmetic requires concrete operands: `(int & 3) + 1` works, but `int + 1`
+  cannot produce a concrete result. There is no backward symbolic propagation.
 - Both documents require `formatVersion: 1`.
-- Values and intermediate results are signed 64-bit integers. Out-of-range
+- Concrete values and arithmetic results are signed 64-bit integers. Out-of-range
   values, non-integer JSON values, overflow, and underflow are errors. No
   wrapping, saturation, or floating-point arithmetic. This is narrower than
   CUE's integer domain and is only a bootstrap limitation. Multiplying `i64::MIN`

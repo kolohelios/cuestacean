@@ -1,4 +1,5 @@
 [
+  {"name":"unexpected int instruction field","rules":{"formatVersion":1,"rules":{"integer":{"result":{"op":"int","extra":true}}}},"error":"invalid rules JSON"},
   {"name":"missing unification operand","rules":{"formatVersion":1,"rules":{"integer":{"result":{"op":"unify","left":{"op":"field","field":"value"}}}}},"error":"invalid rules JSON"},
   {"name":"version","rules":{"formatVersion":2,"rules":{}},"error":"unsupported rules formatVersion"},
   {"name":"unknown operation","rules":{"formatVersion":1,"rules":{"integer":{"result":{"op":"multiply"}}}},"error":"invalid rules JSON"},

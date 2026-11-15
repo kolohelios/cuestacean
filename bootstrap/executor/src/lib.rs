@@ -39,6 +39,10 @@ pub enum Error {
     ProductOverflow,
     #[snafu(display("conflicting integer values {left} and {right}"))]
     Conflict { left: i64, right: i64 },
+    #[snafu(display("non-concrete int value"))]
+    Incomplete,
+    #[snafu(display("arithmetic requires concrete integer operands"))]
+    Arithmetic,
 }
 
 #[derive(Deserialize)]
@@ -64,6 +68,7 @@ struct Rule {
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "lowercase", deny_unknown_fields)]
 enum Instruction {
+    Int {},
     Field {
         field: String,
     },
@@ -89,7 +94,7 @@ enum Instruction {
 pub fn execute(program: &str, rules: &str) -> Result<i64, Error> {
     let program = runtime::program(program)?;
     let rules = parse_rules(rules)?;
-    evaluate(&program, &rules.rules)
+    runtime::concrete(evaluate(&program, &rules.rules)?)
 }
 
 fn parse_rules(input: &str) -> Result<Rules, Error> {
@@ -104,7 +109,7 @@ fn parse_rules(input: &str) -> Result<Rules, Error> {
     Ok(rules)
 }
 
-fn evaluate(node: &Value, rules: &BTreeMap<String, Rule>) -> Result<i64, Error> {
+fn evaluate(node: &Value, rules: &BTreeMap<String, Rule>) -> Result<runtime::Value, Error> {
     let kind = runtime::kind(node)?;
     let rule = rules.get(kind).ok_or_else(|| Error::MissingRule {
         kind: kind.to_string(),
@@ -116,8 +121,9 @@ fn instruction(
     op: &Instruction,
     node: &Value,
     rules: &BTreeMap<String, Rule>,
-) -> Result<i64, Error> {
+) -> Result<runtime::Value, Error> {
     match op {
+        Instruction::Int {} => Ok(runtime::Value::Int),
         Instruction::Field { field: name } => runtime::integer(node, name),
         Instruction::Evaluate { field: name } => evaluate(runtime::field(node, name)?, rules),
         Instruction::Sum { left, right } => {

@@ -3,15 +3,16 @@ use bootstrap_executor::{Error, runtime};
 use serde_json::Value;
 
 pub fn execute(input: &str) -> Result<i64, Error> {
-    evaluate(&runtime::program(input)?)
+    runtime::concrete(evaluate(&runtime::program(input)?)?)
 }
 
-fn evaluate(node: &Value) -> Result<i64, Error> {
+fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
     match runtime::kind(node)? {
         "add" => runtime::sum(
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "left")?))?,
         ),
+        "intType" => Ok::<_, Error>(runtime::Value::Int),
         "integer" => runtime::integer(node, "value"),
         "multiply" => runtime::product(
             (evaluate(runtime::field(node, "left")?))?,

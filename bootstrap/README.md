@@ -1,11 +1,12 @@
 # Bootstrap expression fixtures
 
-`schema.cue` defines a recursive expression tree with four node kinds:
+`schema.cue` defines a recursive expression tree with five node kinds:
 
 - `integer`: an integer `value`.
+- `intType`: the abstract `int` constraint, with no payload.
 - `add`: ordered `left` and `right` expression children.
 - `multiply`: ordered `left` and `right` expression children.
-- `unify`: ordered children whose concrete integer results must agree.
+- `unify`: ordered children whose integer values or `int` constraints must agree.
 
 `#Program` wraps an expression with `formatVersion: 1`. Node definitions reject
 unexpected fields. Missing fields with a single allowed value (such as the
@@ -16,7 +17,8 @@ concrete, complete expression.
 `20 + (10 + 12)`, preserving its nested tree rather than evaluating it to `42`.
 `multiplication.cue` describes `1 + 2 * 3` as an addition with a multiplication
 child. `unification.cue` describes `(1 + 2) & 3`. The pinned upstream Go CUE
-tool exports these into matching JSON files.
+tool exports these into matching JSON files. `int-constraint.cue` describes
+`int & 3`, introducing an abstract intermediate value.
 Definitions such as `#Expression` do not appear in the exported artifacts.
 
 ## Evaluation rules as data
@@ -25,13 +27,15 @@ Definitions such as `#Expression` do not appear in the exported artifacts.
 Rules are selected by the input expression's `kind`; each describes how to
 produce its `result`:
 
+- `intType`: `{op: "int"}` constructs abstract `int`.
 - `integer`: `{op: "field", field: "value"}` reads the current node's integer.
 - `add`: `sum` combines two integer results, obtained by `evaluate` instructions
   targeting the current node's `left` and `right` children.
 - `multiply`: `product` combines the evaluated children using checked integer
   multiplication.
-- `unify`: return the integer if the evaluated children agree; otherwise fail
-  with a concrete-integer conflict. This is not a general constraint solver.
+- `unify`: refine `int` with the other value, or require concrete integers to
+  agree. Conflicts fail; abstract results remain incomplete, not conflicting.
+  This is not a general constraint solver.
 
 Child evaluation means selecting and applying a rule recursively to that child,
 not reading the child tree as an integer. The two operand instructions in a sum
@@ -42,7 +46,7 @@ evaluate the addition tree. The [bootstrap Rust executor](executor/README.md)
 interprets the exported rules in a separate step: the original fixtures produce
 `42`, the mixed multiplication fixture produces `7`, and unification produces
 `3`. The schema constrains
-these four rule shapes and their
+these five rule shapes and their
 field names, not a general-purpose rule language. Validation alone does not
 establish correct evaluation behavior.
 
@@ -77,6 +81,7 @@ cue export bootstrap/schema.cue bootstrap/literal.cue --out json | jq -S . > boo
 cue export bootstrap/schema.cue bootstrap/addition.cue --out json | jq -S . > bootstrap/addition.json
 cue export bootstrap/schema.cue bootstrap/multiplication.cue --out json | jq -S . > bootstrap/multiplication.json
 cue export bootstrap/schema.cue bootstrap/unification.cue --out json | jq -S . > bootstrap/unification.json
+cue export bootstrap/schema.cue bootstrap/int-constraint.cue --out json | jq -S . > bootstrap/int-constraint.json
 cue export bootstrap/schema.cue bootstrap/evaluation.cue --out json | jq -S . > bootstrap/evaluation.json
 cue export bootstrap/schema.cue bootstrap/tests/valid/evaluation-left-twice.cue --out json | jq -S . > bootstrap/tests/valid/evaluation-left-twice.json
 ```

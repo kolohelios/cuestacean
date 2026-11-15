@@ -1,4 +1,10 @@
 {
+  "atoms": [
+    {
+      "kind": "intType",
+      "token": "int"
+    }
+  ],
   "formatVersion": 1,
   "group": {
     "close": ")",

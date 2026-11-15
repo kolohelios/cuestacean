@@ -3,6 +3,7 @@ package bootstrap
 // A well-typed but different rule: add evaluates its left child twice.
 #EvaluationRules & {
 	rules: {
+		intType: result: {op: "int"}
 		integer: result: {op: "field", field: "value"}
 		add: result: {
 			op: "sum"
