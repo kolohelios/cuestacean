@@ -1,0 +1,10 @@
+[
+  {"file":"group-missing", "offset":3, "reason":"expected closing parenthesis"},
+  {"file":"group-wrong-close", "offset":2, "reason":"expected closing parenthesis"},
+  {"file":"group-nested-missing", "offset":5, "reason":"expected closing parenthesis"},
+  {"file":"group-trailing-token", "offset":2, "reason":"expected closing parenthesis"},
+  {"file":"group-empty", "offset":1, "reason":"expected signed decimal integer"},
+  {"file":"group-empty-nested", "offset":3, "reason":"expected signed decimal integer"},
+  {"file":"group-unknown-atom", "offset":1, "reason":"unknown atom"},
+  {"file":"operand-newline-group", "offset":3, "reason":"line break after operand is unsupported"}
+]

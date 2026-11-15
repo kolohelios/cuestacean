@@ -1,0 +1,21 @@
+[
+  {"source":"", "start":0, "openEnd":0, "openFlag":false, "closeEnd":0, "closeFlag":false, "error":"expected closing parenthesis"},
+  {"source":"(", "start":0, "openEnd":1, "openFlag":true, "closeEnd":0, "closeFlag":false, "error":"expected closing parenthesis"},
+  {"source":")", "start":0, "openEnd":0, "openFlag":false, "closeEnd":1, "closeFlag":false},
+  {"source":"()", "start":1, "openEnd":1, "openFlag":false, "closeEnd":2, "closeFlag":false},
+  {"source":" (", "start":0, "openEnd":0, "openFlag":false, "closeEnd":1, "closeFlag":false, "error":"expected closing parenthesis"},
+  {"source":" \t)", "start":0, "openEnd":0, "openFlag":false, "closeEnd":3, "closeFlag":false},
+  {"source":"\n)", "start":0, "openEnd":0, "openFlag":false, "closeEnd":2, "closeFlag":true},
+  {"source":"\r\n )x", "start":0, "openEnd":0, "openFlag":false, "closeEnd":4, "closeFlag":true},
+  {"source":"\r\n x", "start":0, "openEnd":0, "openFlag":false, "closeEnd":3, "closeFlag":true, "error":"expected closing parenthesis"},
+  {"source":"λ)", "start":0, "openEnd":0, "openFlag":false, "closeEnd":0, "closeFlag":false, "error":"expected closing parenthesis"},
+  {"source":"λ)", "start":2, "openEnd":2, "openFlag":false, "closeEnd":3, "closeFlag":false},
+  {"source":"λ(", "start":2, "openEnd":3, "openFlag":true, "closeEnd":2, "closeFlag":false, "error":"expected closing parenthesis"},
+  {"source":"1 )", "start":1, "openEnd":1, "openFlag":false, "closeEnd":3, "closeFlag":false},
+  {"source":"1\n)", "start":1, "openEnd":1, "openFlag":false, "closeEnd":3, "closeFlag":true},
+  {"source":"abc", "start":3, "openEnd":3, "openFlag":false, "closeEnd":3, "closeFlag":false, "error":"expected closing parenthesis"},
+  {"source":"[", "start":0, "openEnd":0, "openFlag":false, "closeEnd":0, "closeFlag":false, "error":"expected closing parenthesis"},
+  {"source":"]", "start":0, "openEnd":0, "openFlag":false, "closeEnd":0, "closeFlag":false, "error":"expected closing parenthesis"},
+  {"source":"\t", "start":0, "openEnd":0, "openFlag":false, "closeEnd":1, "closeFlag":false, "error":"expected closing parenthesis"},
+  {"source":"\n", "start":0, "openEnd":0, "openFlag":false, "closeEnd":1, "closeFlag":true, "error":"expected closing parenthesis"}
+]

@@ -1,23 +1,26 @@
 # First executable parser control flow
 
 [`scanner-fragments.cue`](scanner-fragments.cue) defines shared whitespace loop
-statements used by [`whitespace.cue`](whitespace.cue) and
-[`after-operand.cue`](after-operand.cue). The latter owns the conservative
+statements used by [`whitespace.cue`](whitespace.cue),
+[`group-close.cue`](group-close.cue), and [`after-operand.cue`](after-operand.cue).
+The latter owns the conservative
 newline-after-operand rule.
 [`decimal.cue`](decimal.cue) supplies optional-minus/digit scanning and lexical
 validation, using a generic `reject` instruction for diagnostics.
 [`identifier.cue`](identifier.cue) supplies ASCII identifier start/continuation
-scanning. The handwritten
+scanning. [`group-open.cue`](group-open.cue) and `group-close.cue` recognize and
+consume parenthesis tokens. The handwritten
 `bootstrap-scan-codegen <program.json>` compiler lowers these programs into
 Rust control flow. The parser calls generated whitespace, after-operand,
-decimal, and identifier scanners, not the statement interpreter.
+decimal, identifier, and parenthesis scanners, not the statement interpreter.
 No Go process runs during source evaluation.
 
 This is more than a byte-class table: CUE defines the loop and branch bodies,
 including when to advance, inspect state, update state, and reject input.
 These are small scanning algorithms and policies,
 **not a self-hosted parser or compiler**. Checked i64 conversion, grammar
-validation, keyword lookup, AST construction, symbol dispatch, prefix/Pratt parsing,
+validation, keyword lookup, AST construction, bound/infix dispatch, expression
+recursion and Pratt parsing,
 the statement compiler/interpreter,
 JSON loading, and safe cursor
 primitives remain handwritten. Upstream Go CUE still exports specifications.
@@ -96,6 +99,22 @@ They are unknown atoms with the default grammar, but work if configured as atom
 names. Case is preserved; this adds neither reference resolution nor Unicode
 identifiers. Keyword lookup and AST construction remain native.
 
+## Parenthesis tokens, not expression recursion
+
+The opening program recognizes `(` at the current offset and consumes one byte,
+setting its flag true. Other starts, including EOF, leave offset/flag unchanged.
+The parser dispatches on this result rather than classifying the source byte.
+
+The closing program skips shared whitespace, consumes `)`, or rejects with
+`expected closing parenthesis` at the current offset. Its flag describes skipped
+newlines, not recognition; failure is an error. Grouping is still fixed to
+parentheses by native grammar validation, not configurable to other delimiters.
+
+Expression recursion and the order of scanner calls remain native. Empty groups
+still fail as missing operands, and a newline before `)` is rejected by the
+operand policy before the closing program runs. Direct closing scans can skip
+newlines; that does not expand the parser's conservative source subset.
+
 ## Explicit native safety boundary
 
 The shared `scanner::Cursor` validates the initial UTF-8 character boundary,
@@ -125,7 +144,8 @@ expectations, including all 128 ASCII bytes, decimal sign/digit boundaries,
 identifier start/continuation rules, long runs, CRLF, Unicode boundaries, EOF
 and invalid offsets. Operand tests cover ASCII suffix bytes, CRLF, EOF, Unicode,
 flag updates, and exact parser/CLI newline diagnostics. Atom tests verify
-complete-token lookup and custom names.
+complete-token lookup and custom names. Parenthesis tests cover all ASCII bytes,
+whitespace, Unicode/EOF, nesting, and exact diagnostics/error precedence.
 Separate compiled programs exercise non-progressing loops, unsafe advancement,
 escaped rejection text, short-circuiting, and alternate decimal policy. Parser
 and CLI tests assert exact lexical diagnostic offsets and messages. Invalid statement documents must

@@ -23,7 +23,9 @@ remain test-only.
 `whitespace.rs` is generated from a different, executable [scanner DSL](../scanner.md):
 its loop and newline branch come from shared CUE statements in
 `scanner-fragments.cue`. `after-operand.rs` composes those statements with
-state/EOF checks and rejection policy. `decimal.rs` uses the
+state/EOF checks and rejection policy. `group-open.rs` recognizes the opener;
+`group-close.rs` composes whitespace scanning with closing-token validation,
+consumption, and diagnostics. Expression recursion remains native. `decimal.rs` uses the
 same DSL for optional-minus/digit scanning and lexical rejection; `identifier.rs`
 supplies ASCII identifier start/continuation scanning. Checked i64 conversion,
 grammar validation, keyword lookup, and AST construction remain native. The `scanner-horizontal`,
@@ -56,7 +58,8 @@ for rules in "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   bootstrap/executor/target/debug/bootstrap-codegen "$rules" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
-for machine in whitespace after-operand decimal identifier tests/valid/scanner-horizontal \
+for machine in whitespace after-operand group-open group-close decimal identifier \
+  tests/valid/scanner-horizontal \
   tests/valid/scanner-stalled tests/valid/scanner-advance \
   tests/valid/scanner-decimal-permissive tests/valid/scanner-reject tests/valid/scanner-state; do
   name=$(basename "$machine")

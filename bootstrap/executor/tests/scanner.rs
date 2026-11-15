@@ -516,6 +516,119 @@ fn generic_predicates_read_updated_state_and_detect_non_ascii_bytes() {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GroupCase {
+    source: String,
+    start: usize,
+    open_end: usize,
+    open_flag: bool,
+    close_end: usize,
+    close_flag: bool,
+    error: Option<String>,
+}
+
+#[test]
+fn parenthesis_scanners_preserve_spans_flags_and_close_diagnostics() {
+    let cases: Vec<GroupCase> = serde_json::from_str(
+        &std::fs::read_to_string("tests/fixtures/group-scanner-cases.json").expect("cases"),
+    )
+    .expect("group cases");
+    let opening = program("group-open");
+    let closing = program("group-close");
+    for case in cases {
+        let expected = Scan {
+            offset: case.open_end,
+            flag: case.open_flag,
+        };
+        assert_eq!(
+            scanner::interpret(&opening, &case.source, case.start).expect("open interpreted"),
+            expected
+        );
+        assert_eq!(
+            scanner::group_open(&case.source, case.start).expect("open compiled"),
+            expected
+        );
+        let expected = match case.error {
+            Some(reason) => Err((case.close_end, reason)),
+            None => Ok(Scan {
+                offset: case.close_end,
+                flag: case.close_flag,
+            }),
+        };
+        assert_eq!(
+            outcome(scanner::interpret(&closing, &case.source, case.start)),
+            expected,
+            "{:?}",
+            case.source
+        );
+        assert_eq!(
+            outcome(scanner::group_close(&case.source, case.start)),
+            expected,
+            "{:?}",
+            case.source
+        );
+    }
+    for (source, start) in [("", 1), ("λ", 1), ("abc", 4)] {
+        for result in [
+            scanner::group_open(source, start),
+            scanner::group_close(source, start),
+            scanner::interpret(&opening, source, start),
+            scanner::interpret(&closing, source, start),
+        ] {
+            assert!(matches!(result, Err(Error::Offset)));
+        }
+    }
+}
+
+#[test]
+fn parenthesis_recognition_and_close_validation_match_all_ascii_bytes() {
+    let opening = program("group-open");
+    let closing = program("group-close");
+    for byte in 0_u8..=127 {
+        let source = String::from_utf8(vec![byte]).expect("ASCII");
+        let expected = Scan {
+            offset: usize::from(byte == b'('),
+            flag: byte == b'(',
+        };
+        assert_eq!(
+            scanner::interpret(&opening, &source, 0).expect("open interpreted"),
+            expected
+        );
+        assert_eq!(
+            scanner::group_open(&source, 0).expect("open compiled"),
+            expected
+        );
+        let whitespace = matches!(byte, b' ' | b'\t' | b'\r' | b'\n');
+        for prefix in [vec![], vec![b' '], vec![b'\n']] {
+            let start = prefix.len();
+            let newline = prefix.contains(&b'\n');
+            let source = String::from_utf8([prefix, vec![byte]].concat()).expect("ASCII");
+            let expected = if byte == b')' {
+                Ok(Scan {
+                    offset: start + 1,
+                    flag: newline,
+                })
+            } else {
+                Err((
+                    start + usize::from(whitespace),
+                    "expected closing parenthesis".to_owned(),
+                ))
+            };
+            assert_eq!(
+                outcome(scanner::interpret(&closing, &source, 0)),
+                expected,
+                "{source:?}"
+            );
+            assert_eq!(
+                outcome(scanner::group_close(&source, 0)),
+                expected,
+                "{source:?}"
+            );
+        }
+    }
+}
+
+#[derive(Deserialize)]
 struct InvalidCase {
     program: Value,
     error: String,
