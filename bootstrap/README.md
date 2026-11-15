@@ -42,6 +42,14 @@ executor produces `40` for the same addition tree. This is a regression check
 that changing CUE rule data changes execution, rather than Rust hardcoding the
 expression behavior.
 
+## First Rust generation boundary
+
+The handwritten executor now also includes a rule-to-Rust generator. Its
+[generated modules](generated/README.md) compile in the test suite and agree
+with the interpreter for fixture results and error cases. This starts lowering
+the exported rule DSL to Rust; it does not compile CUE source or rebuild itself.
+The shared native runtime and the generator remain handwritten.
+
 The syntax and rules remain experimental, not a settled intermediate
 representation. They exercise the source-to-artifact boundary that Cuestacean
 will eventually need to reproduce without upstream CUE.
@@ -68,7 +76,9 @@ missing operands, nested non-integer values, and unexpected fields. Rule cases
 cover unknown operations and child fields, reading a child without evaluating
 it, and missing operand instructions. Differing exports, stale JSON, or
 accepting any invalid fixture fails the check. A second Nix check builds and
-tests the Rust executor, including formatting and Clippy. CI uses this same gate.
+tests the Rust executor and generated evaluators, including formatting and
+Clippy. A third check verifies repeated Rust generation and rejects drift in
+the committed modules. CI uses this same gate.
 
 Agreement here only tests these fixtures with pinned tools. It establishes
 neither self-hosting nor compatibility with the rest of CUE.

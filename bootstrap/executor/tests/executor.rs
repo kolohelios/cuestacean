@@ -1,7 +1,12 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use bootstrap_executor::execute;
+use bootstrap_executor::{execute, generate};
+
+#[path = "../../generated/evaluation.rs"]
+mod generated;
+#[path = "../../generated/evaluation-left-twice.rs"]
+mod generated_left_twice;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -22,12 +27,20 @@ fn exported_programs_and_rule_change() {
             execute(&program, &rules).expect("execute exported tree"),
             42
         );
+        assert_eq!(
+            generated::execute(&program).expect("generated evaluator"),
+            42
+        );
     }
     let program = read(bootstrap().join("addition.json"));
     let changed = read(bootstrap().join("tests/valid/evaluation-left-twice.json"));
     // Same program and Rust binary, different CUE-exported rule: 20 + 20.
     assert_eq!(
         execute(&program, &changed).expect("execute changed rule"),
+        40
+    );
+    assert_eq!(
+        generated_left_twice::execute(&program).expect("changed generated evaluator"),
         40
     );
 }
@@ -48,6 +61,14 @@ fn integer_boundaries_and_program_errors() {
     for case in cases {
         let program = serde_json::to_string(&case.program).expect("serialize program");
         let result = execute(&program, &rules);
+        assert_eq!(
+            result.as_ref().map_err(ToString::to_string),
+            generated::execute(&program)
+                .as_ref()
+                .map_err(ToString::to_string),
+            "{}: interpreted versus generated",
+            case.name
+        );
         match (case.expected, case.error) {
             (Some(expected), None) => {
                 assert_eq!(result.expect(&case.name), expected, "{}", case.name)
@@ -77,6 +98,12 @@ fn malformed_rules_and_json() {
     for case in cases {
         let rules = serde_json::to_string(&case.rules).expect("serialize rules");
         assert!(
+            generate(&rules)
+                .expect_err(&case.name)
+                .to_string()
+                .contains(&case.error)
+        );
+        assert!(
             execute(&program, &rules)
                 .expect_err(&case.name)
                 .to_string()
@@ -86,6 +113,12 @@ fn malformed_rules_and_json() {
         );
     }
     let invalid = read("tests/fixtures/invalid.json");
+    assert!(
+        generate(&invalid)
+            .expect_err("invalid generation input")
+            .to_string()
+            .contains("invalid rules JSON")
+    );
     let rules = read(bootstrap().join("evaluation.json"));
     assert!(
         execute(&invalid, &rules)

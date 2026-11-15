@@ -7,6 +7,11 @@ use serde::Deserialize;
 use serde_json::Value;
 use snafu::{ResultExt, Snafu};
 
+mod codegen;
+pub mod runtime;
+
+pub use codegen::generate;
+
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("invalid {document} JSON: {source}"))]
@@ -69,36 +74,29 @@ enum Instruction {
 /// Execute version-1 JSON documents using checked signed 64-bit arithmetic.
 /// This executes accessed fields; it does not validate the complete CUE AST.
 pub fn execute(program: &str, rules: &str) -> Result<i64, Error> {
-    let program: Program = serde_json::from_str(program).context(JsonSnafu {
-        document: "program",
-    })?;
-    let rules: Rules = serde_json::from_str(rules).context(JsonSnafu { document: "rules" })?;
-    for (document, version) in [
-        ("program", program.format_version),
-        ("rules", rules.format_version),
-    ] {
-        if version != 1 {
-            return VersionSnafu { document, version }.fail();
+    let program = runtime::program(program)?;
+    let rules = parse_rules(rules)?;
+    evaluate(&program, &rules.rules)
+}
+
+fn parse_rules(input: &str) -> Result<Rules, Error> {
+    let rules: Rules = serde_json::from_str(input).context(JsonSnafu { document: "rules" })?;
+    if rules.format_version != 1 {
+        return VersionSnafu {
+            document: "rules",
+            version: rules.format_version,
         }
+        .fail();
     }
-    evaluate(&program.entry, &rules.rules)
+    Ok(rules)
 }
 
 fn evaluate(node: &Value, rules: &BTreeMap<String, Rule>) -> Result<i64, Error> {
-    let kind = node
-        .get("kind")
-        .and_then(Value::as_str)
-        .ok_or(Error::Kind)?;
+    let kind = runtime::kind(node)?;
     let rule = rules.get(kind).ok_or_else(|| Error::MissingRule {
         kind: kind.to_string(),
     })?;
     instruction(&rule.result, node, rules)
-}
-
-fn field<'a>(node: &'a Value, name: &str) -> Result<&'a Value, Error> {
-    node.get(name).ok_or_else(|| Error::MissingField {
-        field: name.to_string(),
-    })
 }
 
 fn instruction(
@@ -107,16 +105,12 @@ fn instruction(
     rules: &BTreeMap<String, Rule>,
 ) -> Result<i64, Error> {
     match op {
-        Instruction::Field { field: name } => {
-            field(node, name)?.as_i64().ok_or_else(|| Error::Integer {
-                field: name.clone(),
-            })
-        }
-        Instruction::Evaluate { field: name } => evaluate(field(node, name)?, rules),
+        Instruction::Field { field: name } => runtime::integer(node, name),
+        Instruction::Evaluate { field: name } => evaluate(runtime::field(node, name)?, rules),
         Instruction::Sum { left, right } => {
             let left = instruction(left, node, rules)?;
             let right = instruction(right, node, rules)?;
-            left.checked_add(right).ok_or(Error::Overflow)
+            runtime::sum(left, right)
         }
     }
 }

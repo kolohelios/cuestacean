@@ -31,6 +31,18 @@ The CUE-exported `../tests/valid/evaluation-left-twice.json` changes addition to
 evaluate the left child twice. With the unchanged addition tree and executable,
 that rule file yields `40`, demonstrating that rule data controls behavior.
 
+## Rust generation
+
+The package also includes `bootstrap-codegen <rules.json>`. It emits a Rust
+module to stdout and rejects malformed or unsupported rule documents before
+emitting source. Names are escaped as Rust string literals, and dispatch order
+is deterministic regardless of input object-key order.
+
+The [generated modules](../generated/README.md) use the shared native runtime
+rather than the instruction interpreter. Tests compile them, compare values and
+errors against the interpreter, and verify that alternate rule data generates
+alternate behavior. The default CLI above still uses the interpreter.
+
 ## Deliberate limits
 
 - Both documents require `formatVersion: 1`.
@@ -48,8 +60,9 @@ that rule file yields `40`, demonstrating that rule data controls behavior.
 
 `shaka preflight` builds the package through `nix flake check`, which runs Rust
 formatting, Clippy, and the tests in the sandbox. Tests use the real exported
-fixtures, the changed-rule export, integer boundary/error cases, and the CLI.
-The Rust toolchain is pinned through the tooling flake's Nixpkgs lock; Rust
+fixtures, the changed-rule export, integer boundary/error cases, both CLIs, and
+the compiled generated evaluators. A separate Nix check verifies repeated Rust
+generation and committed-source drift. The Rust toolchain is pinned through the tooling flake's Nixpkgs lock; Rust
 dependencies are pinned by `Cargo.lock`. No additional workflow is needed.
 
 For a quick local iteration inside `nix develop ./infra/tooling`:

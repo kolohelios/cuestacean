@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "integer": {"result": {"op": "field", "field": "value"}},
+    "add": {
+      "result": {
+        "op": "sum",
+        "right": {"op": "evaluate", "field": "right"},
+        "left": {"op": "evaluate", "field": "left"}
+      }
+    }
+  },
+  "formatVersion": 1
+}
