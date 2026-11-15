@@ -36,6 +36,10 @@ mod generated_bound_prefix;
 #[path = "../../generated/infix.rs"]
 mod generated_infix;
 
+#[cfg(feature = "source")]
+#[path = "../../generated/negation-prefix.rs"]
+mod generated_negation_prefix;
+
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("invalid scanner JSON: {source}"))]
@@ -449,6 +453,12 @@ pub fn infix(source: &str, offset: usize) -> Result<Scan, Error> {
 #[cfg(feature = "source")]
 pub fn decimal(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_decimal::scan(source, offset)
+}
+
+/// Recognize minus before a non-digit; signed decimal literals stay atomic.
+#[cfg(feature = "source")]
+pub fn negation_prefix(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_negation_prefix::scan(source, offset)
 }
 
 /// Recognize an ASCII identifier; the flag indicates a valid first byte.

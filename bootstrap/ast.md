@@ -1,11 +1,12 @@
 # CUE-defined AST construction
 
-The parser's JSON-object assembly now comes from four CUE builder programs:
+The parser's JSON-object assembly now comes from five CUE builder programs:
 
 - `ast-program.cue`: the versioned program wrapper.
 - `ast-atom.cue`: a payload-free node with a grammar-supplied kind.
 - `ast-integer.cue`: integer and bound leaves with a dynamic payload field.
 - `ast-binary.cue`: nodes with grammar-supplied kind and child field names.
+- `ast-unary.cue`: unary nodes with a dynamic kind and operand field.
 
 `bootstrap-ast-codegen <builder.json>` compiles these pure construction
 expressions into typed Rust functions. The parser calls the generated builders,

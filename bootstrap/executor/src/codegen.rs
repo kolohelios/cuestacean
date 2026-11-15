@@ -38,6 +38,9 @@ fn instruction(op: &Instruction) -> String {
         // Debug formatting emits escaped Rust string literals, not raw code.
         Instruction::Field { field } => format!("runtime::integer(node, {field:?})"),
         Instruction::Evaluate { field } => format!("evaluate(runtime::field(node, {field:?})?)"),
+        Instruction::Negate { value } => {
+            format!("runtime::negate(({})?)", instruction(value))
+        }
         Instruction::Sum { left, right } => format!(
             "runtime::sum(({})?, ({})?)",
             instruction(left),

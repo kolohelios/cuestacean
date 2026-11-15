@@ -63,6 +63,8 @@ struct Grammar {
     atoms: Vec<Atom>,
     #[serde(default)]
     bounds: Vec<BoundPrefix>,
+    #[serde(default)]
+    negation: Option<Negation>,
     group: Group,
     operators: Vec<Operator>,
 }
@@ -87,6 +89,14 @@ struct BoundPrefix {
     token: String,
     kind: String,
     value_field: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Negation {
+    token: String,
+    kind: String,
+    operand_field: String,
 }
 
 #[derive(Deserialize)]
@@ -129,6 +139,16 @@ impl Grammar {
         {
             return GrammarSnafu {
                 reason: "integer constructor and operators required",
+            }
+            .fail();
+        }
+        if let Some(negation) = &self.negation
+            && (negation.token != "-"
+                || negation.kind.is_empty()
+                || !field(&negation.operand_field))
+        {
+            return GrammarSnafu {
+                reason: "invalid negation configuration",
             }
             .fail();
         }
@@ -381,6 +401,9 @@ enum PrimaryState {
     GroupScanned(Option<usize>),
     GroupAdvanced,
     GroupParsed,
+    NegationScanned(Option<usize>),
+    NegationAdvanced,
+    NegationParsed,
     BoundScanned(Option<(usize, usize)>),
     BoundAdvanced(usize),
     IdentifierScanned(Option<usize>),
@@ -529,8 +552,67 @@ impl Frame<'_, '_> {
         self.primary_state = Some(PrimaryState::Done);
         Ok(())
     }
-    pub fn scan_bound(&mut self) -> Result<(), Error> {
+    pub fn scan_negation(&mut self) -> Result<(), Error> {
         if !matches!(self.primary_state, Some(PrimaryState::GroupScanned(_))) {
+            return self.primary_state_error();
+        }
+        let scan = crate::scanner::negation_prefix(self.parser.source, self.parser.offset)?;
+        let candidate =
+            (scan.flag && self.parser.grammar.negation.is_some()).then_some(scan.offset);
+        self.primary_state = Some(PrimaryState::NegationScanned(candidate));
+        Ok(())
+    }
+    pub fn has_negation(&self) -> Result<bool, Error> {
+        match self.primary_state {
+            Some(PrimaryState::NegationScanned(end)) => Ok(end.is_some()),
+            _ => self.primary_state_error(),
+        }
+    }
+    pub fn advance_negation(&mut self) -> Result<(), Error> {
+        let Some(PrimaryState::NegationScanned(Some(end))) = self.primary_state else {
+            return self.primary_state_error();
+        };
+        self.advance_primary(end)?;
+        self.primary_state = Some(PrimaryState::NegationAdvanced);
+        Ok(())
+    }
+    pub fn parse_negation(&mut self, minimum: u8) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::NegationAdvanced)) {
+            return self.primary_state_error();
+        }
+        self.left = Some(self.parser.expression(minimum, self.depth + 1)?);
+        self.primary_state = Some(PrimaryState::NegationParsed);
+        Ok(())
+    }
+    pub fn build_negation(&mut self) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::NegationParsed)) {
+            return self.primary_state_error();
+        }
+        self.parser.node()?;
+        let operand = self.left.take().ok_or(Error::ControlState {
+            reason: "missing negation operand",
+        })?;
+        let negation = self
+            .parser
+            .grammar
+            .negation
+            .as_ref()
+            .ok_or(Error::ControlState {
+                reason: "missing negation constructor",
+            })?;
+        self.left = Some(ast::unary(
+            negation.kind.clone(),
+            negation.operand_field.clone(),
+            operand,
+        ));
+        self.primary_state = Some(PrimaryState::Done);
+        Ok(())
+    }
+    pub fn scan_bound(&mut self) -> Result<(), Error> {
+        if !matches!(
+            self.primary_state,
+            Some(PrimaryState::GroupScanned(_) | PrimaryState::NegationScanned(_))
+        ) {
             return self.primary_state_error();
         }
         let scan = crate::scanner::bound_prefix(self.parser.source, self.parser.offset)?;

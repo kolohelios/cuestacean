@@ -17,27 +17,39 @@ pub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {
         _frame.close_group()?;
     } else {
         _frame.step()?;
-        _frame.scan_bound()?;
+        _frame.scan_negation()?;
         _frame.step()?;
-        if _frame.has_bound()? {
+        if _frame.has_negation()? {
             _frame.step()?;
-            _frame.advance_bound()?;
+            _frame.advance_negation()?;
             _frame.step()?;
-            _frame.whitespace()?;
+            _frame.parse_negation(101u8)?;
             _frame.step()?;
-            _frame.parse_bound()?;
+            _frame.build_negation()?;
         } else {
             _frame.step()?;
-            _frame.scan_identifier()?;
+            _frame.scan_bound()?;
             _frame.step()?;
-            if _frame.has_identifier()? {
+            if _frame.has_bound()? {
                 _frame.step()?;
-                _frame.parse_atom()?;
+                _frame.advance_bound()?;
                 _frame.step()?;
-                _frame.lookup_operator()?;
+                _frame.whitespace()?;
+                _frame.step()?;
+                _frame.parse_bound()?;
             } else {
                 _frame.step()?;
-                _frame.parse_integer()?;
+                _frame.scan_identifier()?;
+                _frame.step()?;
+                if _frame.has_identifier()? {
+                    _frame.step()?;
+                    _frame.parse_atom()?;
+                    _frame.step()?;
+                    _frame.lookup_operator()?;
+                } else {
+                    _frame.step()?;
+                    _frame.parse_integer()?;
+                }
             }
         }
     }

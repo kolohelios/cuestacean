@@ -7,6 +7,7 @@ package bootstrap
 		{token: ">=", kind: "lowerBound", valueField: "value"},
 		{token: "<=", kind: "upperBound", valueField: "value"},
 	]
+	negation: {token: "-", kind: "negate", operandField: "operand"}
 	group: {open: "(", close: ")"}
 	operators: [{
 		token:         "+"

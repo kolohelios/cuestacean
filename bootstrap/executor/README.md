@@ -51,6 +51,8 @@ interprets that rule's result instruction against the current node:
 - `difference` evaluates left before right and subtracts right from left using
   checked i64 subtraction. It never negates the right operand first; subtracting
   i64::MIN from itself correctly yields zero.
+- `negate` evaluates its `value` instruction and applies checked i64 negation.
+  Negating i64::MIN overflows; parsing that signed literal directly does not.
 - `unify` refines `int`, intersects bounds, and checks concrete candidates.
   Equal concrete integers agree; differing ones report
   `conflicting integer values`. Empty ranges and rejected candidates report

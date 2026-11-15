@@ -1,5 +1,6 @@
 {
   "rules": {
+    "negate": {"result": {"op": "negate", "value": {"op": "evaluate", "field": "operand"}}},
     "subtract": {
       "result": {
         "op": "difference",

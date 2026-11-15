@@ -75,6 +75,16 @@ fn operands(left: Value, right: Value) -> Result<(i64, i64), Error> {
     }
 }
 
+pub fn negate(value: Value) -> Result<Value, Error> {
+    let Value::Integer(value) = value else {
+        return Err(Error::Arithmetic);
+    };
+    value
+        .checked_neg()
+        .map(Value::Integer)
+        .ok_or(Error::NegationOverflow)
+}
+
 pub fn sum(left: Value, right: Value) -> Result<Value, Error> {
     let (left, right) = operands(left, right)?;
     left.checked_add(right)

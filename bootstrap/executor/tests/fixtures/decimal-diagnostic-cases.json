@@ -1,8 +1,5 @@
 [
-  {"file":"decimal-sign", "offset":1, "reason":"expected signed decimal integer"},
-  {"file":"decimal-double-sign", "offset":1, "reason":"expected signed decimal integer"},
-  {"file":"decimal-sign-space", "offset":1, "reason":"expected signed decimal integer"},
-  {"file":"decimal-sign-newline", "offset":1, "reason":"expected signed decimal integer"},
+  {"file":"decimal-sign", "offset":2, "reason":"expected signed decimal integer"},
   {"file":"leading-zero", "offset":2, "reason":"leading zeroes are unsupported"},
   {"file":"decimal-bound-sign", "offset":3, "reason":"expected signed decimal integer"},
   {"file":"decimal-bound-leading-zero", "offset":5, "reason":"leading zeroes are unsupported"},
