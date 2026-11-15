@@ -9,8 +9,9 @@ using CUE to configure a handwritten Rust compiler.
 
 There is no compiler implementation yet. The [bootstrap fixtures](bootstrap/README.md)
 define integer-literal and addition trees, plus proposed evaluation rules, in
-CUE and export them to checked-in JSON using upstream CUE. The rules are data;
-there is no rule executor yet.
+CUE and export them to checked-in JSON using upstream CUE. A small
+[bootstrap Rust executor](bootstrap/executor/README.md) interprets those rules;
+it does not parse or evaluate CUE source.
 
 ## CUE all the way down
 
@@ -58,9 +59,10 @@ shaka preflight
 
 With direnv, `direnv allow` enters this environment from the repository root.
 See [development tooling](infra/tooling/README.md) for regeneration commands.
-There is no compiler build yet: CI checks the tooling environment, project
-declarations, generated-file drift, reproducible export of the bootstrap
-fixtures, and rejection of malformed expression trees and rule descriptions.
+There is no CUE compiler build yet. CI builds and tests the bootstrap executor,
+checks the tooling environment and project declarations, rejects generated-file
+drift, verifies reproducible bootstrap exports, and rejects malformed expression
+trees and rule descriptions.
 
 - Nix pins the development environment and upstream CUE bootstrap tool.
 - [Shaka](https://github.com/kolohelios/kolohelios/tree/main/tools/shaka)

@@ -1,0 +1,19 @@
+[
+  {"name":"zero","program":{"formatVersion":1,"entry":{"kind":"integer","value":0}},"expected":0},
+  {"name":"negative","program":{"formatVersion":1,"entry":{"kind":"integer","value":-7}},"expected":-7},
+  {"name":"maximum","program":{"formatVersion":1,"entry":{"kind":"integer","value":9223372036854775807}},"expected":9223372036854775807},
+  {"name":"minimum","program":{"formatVersion":1,"entry":{"kind":"integer","value":-9223372036854775808}},"expected":-9223372036854775808},
+  {"name":"signed sum","program":{"formatVersion":1,"entry":{"kind":"add","left":{"kind":"integer","value":-7},"right":{"kind":"integer","value":2}}},"expected":-5},
+  {"name":"overflow","program":{"formatVersion":1,"entry":{"kind":"add","left":{"kind":"integer","value":9223372036854775807},"right":{"kind":"integer","value":1}}},"error":"addition overflow"},
+  {"name":"underflow","program":{"formatVersion":1,"entry":{"kind":"add","left":{"kind":"integer","value":-9223372036854775808},"right":{"kind":"integer","value":-1}}},"error":"addition overflow"},
+  {"name":"out of range","program":{"formatVersion":1,"entry":{"kind":"integer","value":9223372036854775808}},"error":"signed 64-bit integer"},
+  {"name":"fraction","program":{"formatVersion":1,"entry":{"kind":"integer","value":1.5}},"error":"signed 64-bit integer"},
+  {"name":"boolean","program":{"formatVersion":1,"entry":{"kind":"integer","value":true}},"error":"signed 64-bit integer"},
+  {"name":"missing value","program":{"formatVersion":1,"entry":{"kind":"integer"}},"error":"missing field"},
+  {"name":"missing child","program":{"formatVersion":1,"entry":{"kind":"add","left":{"kind":"integer","value":1}}},"error":"missing field"},
+  {"name":"invalid child","program":{"formatVersion":1,"entry":{"kind":"add","left":1,"right":{"kind":"integer","value":2}}},"error":"string kind"},
+  {"name":"missing kind","program":{"formatVersion":1,"entry":{"value":1}},"error":"string kind"},
+  {"name":"unknown kind","program":{"formatVersion":1,"entry":{"kind":"multiply"}},"error":"no rule"},
+  {"name":"version","program":{"formatVersion":2,"entry":{"kind":"integer","value":1}},"error":"unsupported program formatVersion"},
+  {"name":"extra wrapper field","program":{"formatVersion":1,"entry":{"kind":"integer","value":1},"extra":true},"error":"invalid program JSON"}
+]
