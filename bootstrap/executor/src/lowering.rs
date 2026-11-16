@@ -2,7 +2,7 @@
 use std::{collections::BTreeMap, fmt, fmt::Write as _};
 
 use serde::{
-    Deserialize, Deserializer,
+    Deserialize, Deserializer, Serialize, Serializer,
     de::{DeserializeSeed, IgnoredAny, MapAccess, SeqAccess, Visitor},
 };
 use serde_json::Value;
@@ -24,6 +24,7 @@ pub(crate) fn invalid(reason: impl Into<String>) -> Error {
 
 pub struct Policy {
     cases: BTreeMap<String, Expr>,
+    aliases: BTreeMap<String, String>,
     module: Option<Vec<crate::module::Statement>>,
 }
 
@@ -33,6 +34,8 @@ struct RawPolicy {
     format_version: u32,
     #[serde(deserialize_with = "unique_cases")]
     cases: BTreeMap<String, Expr>,
+    #[serde(default, deserialize_with = "unique_cases")]
+    aliases: BTreeMap<String, String>,
     #[serde(default, deserialize_with = "module_body")]
     module: Option<Vec<crate::module::Statement>>,
 }
@@ -44,18 +47,18 @@ fn module_body<'de, D: Deserializer<'de>>(
 }
 
 // Unlike a struct, a map normally accepts duplicate keys during deserialization.
-fn unique_cases<'de, D: Deserializer<'de>>(
+fn unique_cases<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
     deserializer: D,
-) -> Result<BTreeMap<String, Expr>, D::Error> {
-    struct Cases;
-    impl<'de> Visitor<'de> for Cases {
-        type Value = BTreeMap<String, Expr>;
+) -> Result<BTreeMap<String, T>, D::Error> {
+    struct Cases<T>(std::marker::PhantomData<T>);
+    impl<'de, T: Deserialize<'de>> Visitor<'de> for Cases<T> {
+        type Value = BTreeMap<String, T>;
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.write_str("a map of unique lowering cases")
         }
         fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<Self::Value, M::Error> {
             let mut cases = BTreeMap::new();
-            while let Some((key, value)) = map.next_entry::<String, Expr>()? {
+            while let Some((key, value)) = map.next_entry::<String, T>()? {
                 if cases.insert(key.clone(), value).is_some() {
                     return Err(serde::de::Error::custom(format!("duplicate case {key:?}")));
                 }
@@ -63,10 +66,10 @@ fn unique_cases<'de, D: Deserializer<'de>>(
             Ok(cases)
         }
     }
-    deserializer.deserialize_map(Cases)
+    deserializer.deserialize_map(Cases(std::marker::PhantomData))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum Expr {
     Path {
@@ -74,6 +77,7 @@ enum Expr {
     },
     Call {
         path: String,
+        #[serde(serialize_with = "serialize_call_args")]
         args: Vec<Expr>,
     },
     Ok {
@@ -98,6 +102,7 @@ enum Expr {
         value: String,
     },
     Concat {
+        #[serde(serialize_with = "serialize_concat_parts")]
         parts: Vec<Expr>,
     },
     Unsigned {
@@ -148,8 +153,16 @@ enum Expr {
     },
     Select {
         field: String,
-        #[serde(deserialize_with = "unique_cases")]
+        #[serde(
+            deserialize_with = "unique_cases",
+            serialize_with = "serialize_select_cases"
+        )]
         cases: BTreeMap<String, Expr>,
+    },
+    Identifier {
+        field: String,
+        #[serde(default)]
+        snake: bool,
     },
     IfEmpty {
         field: String,
@@ -157,6 +170,53 @@ enum Expr {
         #[serde(rename = "else")]
         otherwise: Box<Expr>,
     },
+}
+
+#[derive(Serialize)]
+struct Role<'a> {
+    op: &'static str,
+    value: &'a Expr,
+}
+
+fn serialize_roles<S: Serializer>(
+    values: &[Expr],
+    op: &'static str,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    values
+        .iter()
+        .map(|value| Role { op, value })
+        .collect::<Vec<_>>()
+        .serialize(serializer)
+}
+fn serialize_call_args<S: Serializer>(values: &[Expr], serializer: S) -> Result<S::Ok, S::Error> {
+    serialize_roles(values, "callArgument", serializer)
+}
+fn serialize_concat_parts<S: Serializer>(
+    values: &[Expr],
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serialize_roles(values, "concatArgument", serializer)
+}
+#[derive(Serialize)]
+struct SelectRole<'a> {
+    op: &'static str,
+    tag: &'a str,
+    value: &'a Expr,
+}
+fn serialize_select_cases<S: Serializer>(
+    cases: &BTreeMap<String, Expr>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    cases
+        .iter()
+        .map(|(tag, value)| SelectRole {
+            op: "selectCase",
+            tag,
+            value,
+        })
+        .collect::<Vec<_>>()
+        .serialize(serializer)
 }
 
 // Count original values, including overwritten duplicate keys, before typed decode.
@@ -330,6 +390,7 @@ impl Expr {
             | Self::List { field }
             | Self::BytePattern { field }
             | Self::CharPattern { field }
+            | Self::Identifier { field, .. }
                 if field.is_empty() || field.len() > 128 =>
             {
                 Err(invalid("selector must contain 1..=128 bytes"))
@@ -375,11 +436,25 @@ impl Policy {
             return Err(invalid("formatVersion 1 required"));
         }
         validate_cases(&policy.cases)?;
+        if policy.cases.len() + policy.aliases.len() > 64 {
+            return Err(invalid("policy must contain 1..=64 cases and aliases"));
+        }
+        for (alias, target) in &policy.aliases {
+            if alias.is_empty() || alias.len() > 64 {
+                return Err(invalid("alias key must contain 1..=64 bytes"));
+            }
+            if policy.cases.contains_key(alias) || !policy.cases.contains_key(target) {
+                return Err(invalid(
+                    "alias must not collide and must target a canonical case",
+                ));
+            }
+        }
         if let Some(body) = &policy.module {
             crate::module::validate(body)?;
         }
         Ok(Self {
             cases: policy.cases,
+            aliases: policy.aliases,
             module: policy.module,
         })
     }
@@ -421,8 +496,9 @@ impl Driver for Policy {
     }
     fn render(&self, ctx: &mut Context, node: &Value, depth: usize) -> Result<String, Error> {
         let op = instruction_op(node)?;
+        let canonical = self.aliases.get(op).map_or(op, String::as_str);
         self.cases
-            .get(op)
+            .get(canonical)
             .ok_or_else(|| missing_case(op))?
             .render(ctx, node, depth, self)
     }
@@ -484,6 +560,7 @@ impl Expr {
                 |ctx| then.render_scoped(ctx, node, depth, driver, env),
                 |ctx| otherwise.render_scoped(ctx, node, depth, driver, env),
             ),
+            Self::Identifier { field, snake } => ctx.identifier(node, field, *snake),
             Self::BytePattern { field } => ctx.byte_pattern(node, field),
             Self::CharPattern { field } => ctx.char_pattern(node, field),
             Self::Path { value } => ctx.path(value),
@@ -863,6 +940,40 @@ impl Context {
             Ok(out)
         })
     }
+    /// Render a checked ASCII identifier component, not a scanner source injection API.
+    pub fn identifier(&mut self, node: &Value, field: &str, snake: bool) -> Result<String, Error> {
+        self.expression(|ctx| {
+            let value = node.get(field).and_then(Value::as_str).ok_or_else(|| {
+                invalid(format!("field {field:?} must be an identifier component"))
+            })?;
+            let mut bytes = value.bytes();
+            if value.len() > 64
+                || !matches!(bytes.next(), Some(b'a'..=b'z' | b'A'..=b'Z' | b'_'))
+                || !bytes.all(|b| b.is_ascii_alphanumeric() || b == b'_')
+            {
+                return Err(invalid(format!(
+                    "field {field:?} must be an identifier component"
+                )));
+            }
+            let mut out = String::new();
+            let mut writer = BudgetWriter {
+                budget: &mut ctx.budget,
+                output: &mut out,
+            };
+            for (i, b) in value.bytes().enumerate() {
+                if snake && i > 0 && b.is_ascii_uppercase() {
+                    writer
+                        .write_char('_')
+                        .map_err(|_| invalid("lowering exceeds 1 MiB rendered bytes"))?;
+                }
+                let b = if snake { b.to_ascii_lowercase() } else { b };
+                writer
+                    .write_char(char::from(b))
+                    .map_err(|_| invalid("lowering exceeds 1 MiB rendered bytes"))?;
+            }
+            Ok(out)
+        })
+    }
     pub fn string(&mut self, node: &Value, field: &str) -> Result<String, Error> {
         self.expression(|ctx| {
             let value = node
@@ -1021,12 +1132,41 @@ impl Call<'_> {
 /// Compile a fully validated policy into a standalone lowering driver module.
 pub fn generate(policy_json: &str) -> Result<String, Error> {
     let policy = Policy::parse(policy_json)?;
+    #[cfg(feature = "compiled-lowering")]
+    {
+        generate_driver(&policy, &crate::compiled_meta_lowering::Compiled)
+    }
+    #[cfg(not(feature = "compiled-lowering"))]
+    {
+        let compiler = Policy::parse(include_str!(concat!(
+            env!("CUESTACEAN_BOOTSTRAP_JSON"),
+            "/meta-lowering.json"
+        )))?;
+        generate_driver(&policy, &compiler)
+    }
+}
+
+/// Compile with an explicitly supplied CUE compiler policy. The target is validated first.
+pub fn generate_with_policy(policy_json: &str, compiler_json: &str) -> Result<String, Error> {
+    let policy = Policy::parse(policy_json)?;
+    let compiler = Policy::parse(compiler_json)?;
+    generate_driver(&policy, &compiler)
+}
+
+// The shell and module emitter remain native. Each expression gets a fresh shared
+// compiler budget; the surrounding shell is not charged to that budget.
+fn generate_driver(policy: &Policy, compiler: &dyn Driver) -> Result<String, Error> {
     let mut out = String::from(
         "// Generated lowering driver. Do not edit.\nuse bootstrap_executor::lowering::{self, Context, Driver, Error};\nuse serde_json::Value;\n\npub struct Compiled;\n\nimpl Driver for Compiled {\n    fn render(&self, ctx: &mut Context, _node: &Value, _depth: usize) -> Result<String, Error> {\n        match lowering::instruction_op(_node)? {\n",
     );
     for (op, expr) in &policy.cases {
-        write!(out, "            {op:?} => ").expect("write to string");
-        expr.emit(&mut out);
+        write!(out, "            {op:?}").expect("write to string");
+        for (alias, _) in policy.aliases.iter().filter(|(_, target)| *target == op) {
+            write!(out, " | {alias:?}").expect("write to string");
+        }
+        out.push_str(" => ");
+        let node = serde_json::to_value(expr).context(JsonSnafu)?;
+        out.push_str(&Context::run(&node, compiler)?);
         out.push_str(",\n");
     }
     out.push_str("            op => Err(lowering::missing_case(op)),\n        }\n    }\n");
@@ -1039,143 +1179,6 @@ pub fn generate(policy_json: &str) -> Result<String, Error> {
     out.push_str("}\n\npub fn lower(node: &Value) -> Result<String, Error> {\n    Context::run(node, &Compiled)\n}\n");
     Ok(out)
 }
-impl Expr {
-    fn emit(&self, out: &mut String) {
-        match self {
-            Self::Bind { name, value, body } => {
-                out.push_str("ctx.bind(|ctx| ");
-                value.emit(out);
-                write!(out, ", |ctx, _render_{name}| ").expect("write to string");
-                body.emit(out);
-                out.push(')');
-            }
-            Self::Get { name } => {
-                write!(out, "ctx.rendered(_render_{name})").expect("write to string")
-            }
-            Self::IfEqual {
-                left,
-                right,
-                then,
-                otherwise,
-            } => {
-                out.push_str("ctx.if_equal(|ctx| ");
-                left.emit(out);
-                out.push_str(", |ctx| ");
-                right.emit(out);
-                out.push_str(", |ctx| ");
-                then.emit(out);
-                out.push_str(", |ctx| ");
-                otherwise.emit(out);
-                out.push(')');
-            }
-            Self::IfTrue {
-                field,
-                then,
-                otherwise,
-            } => {
-                write!(out, "ctx.if_true(_node, {field:?}, |ctx| ").expect("write to string");
-                then.emit(out);
-                out.push_str(", |ctx| ");
-                otherwise.emit(out);
-                out.push(')');
-            }
-            Self::BytePattern { field } => {
-                write!(out, "ctx.byte_pattern(_node, {field:?})").expect("write to string")
-            }
-            Self::CharPattern { field } => {
-                write!(out, "ctx.char_pattern(_node, {field:?})").expect("write to string")
-            }
-            Self::Path { value } => write!(out, "ctx.path({value:?})").expect("write to string"),
-            Self::Text { value } => write!(out, "ctx.text({value:?})").expect("write to string"),
-            Self::Unsigned { field } => {
-                write!(out, "ctx.unsigned(_node, {field:?})").expect("write to string")
-            }
-            Self::List { field } => {
-                write!(out, "ctx.list(_node, {field:?}, _depth, self)").expect("write to string")
-            }
-            Self::Signed { field } => {
-                write!(out, "ctx.signed(_node, {field:?})").expect("write to string")
-            }
-            Self::Join { field, separator } => write!(
-                out,
-                "ctx.join(_node, {field:?}, {separator:?}, _depth, self)"
-            )
-            .expect("write to string"),
-            Self::IfZero {
-                field,
-                then,
-                otherwise,
-            } => {
-                write!(out, "ctx.if_zero(_node, {field:?}, |ctx| ").expect("write to string");
-                then.emit(out);
-                out.push_str(", |ctx| ");
-                otherwise.emit(out);
-                out.push(')');
-            }
-            Self::Select { field, cases } => {
-                write!(out, "ctx.select(_node, {field:?}, |ctx, tag| match tag {{ ")
-                    .expect("write to string");
-                for (tag, expr) in cases {
-                    write!(out, "{tag:?} => ").expect("write to string");
-                    expr.emit(out);
-                    out.push_str(", ");
-                }
-                out.push_str("tag => Err(lowering::missing_selection(tag)), })");
-            }
-            Self::IfEmpty {
-                field,
-                then,
-                otherwise,
-            } => {
-                write!(out, "ctx.if_empty(_node, {field:?}, |ctx| ").expect("write to string");
-                then.emit(out);
-                out.push_str(", |ctx| ");
-                otherwise.emit(out);
-                out.push(')');
-            }
-            Self::Concat { parts } => {
-                let name = if parts.is_empty() { "_parts" } else { "parts" };
-                writeln!(out, "ctx.concat(|{name}| {{").expect("write to string");
-                for part in parts {
-                    out.push_str("parts.arg(|ctx| ");
-                    part.emit(out);
-                    out.push_str(")?;\n");
-                }
-                out.push_str("Ok(())\n})");
-            }
-            Self::String { field } => {
-                write!(out, "ctx.string(_node, {field:?})").expect("write to string")
-            }
-            Self::Boolean { field } => {
-                write!(out, "ctx.boolean(_node, {field:?})").expect("write to string")
-            }
-            Self::Lower { field } => {
-                write!(out, "ctx.child(_node, {field:?}, _depth, self)").expect("write to string")
-            }
-            Self::Ok { value } | Self::Group { value } | Self::Try { value } => {
-                let method = match self {
-                    Self::Ok { .. } => "ok",
-                    Self::Group { .. } => "group",
-                    _ => "try_value",
-                };
-                write!(out, "ctx.{method}(|ctx| ").expect("write to string");
-                value.emit(out);
-                out.push(')');
-            }
-            Self::Call { path, args } => {
-                let name = if args.is_empty() { "_call" } else { "call" };
-                write!(out, "ctx.call({path:?}, |{name}| {{ ").expect("write to string");
-                for arg in args {
-                    out.push_str("call.arg(|ctx| ");
-                    arg.emit(out);
-                    out.push_str(")?; ");
-                }
-                out.push_str("Ok(()) })");
-            }
-        }
-    }
-}
-
 struct BudgetWriter<'a> {
     budget: &'a mut Budget,
     output: &'a mut String,
@@ -1216,6 +1219,73 @@ mod tests {
     use super::{Budget, BudgetWriter, Context, Policy};
     use serde_json::json;
     use std::fmt::Write as _;
+
+    #[test]
+    fn aliases_are_eager_and_preserve_original_op() -> Result<(), Box<dyn std::error::Error>> {
+        let policy = Policy::parse(
+            r#"{"formatVersion":1,"cases":{"base":{"op":"string","field":"op"}},"aliases":{"other":"base"}}"#,
+        )?;
+        assert_eq!(policy.lower(&json!({"op":"other"}))?, "\"other\"");
+        for text in [
+            r#"{"formatVersion":1,"cases":{"x":{"op":"text","value":""}},"aliases":{"a":"x","a":"x"}}"#,
+            r#"{"formatVersion":1,"cases":{"x":{"op":"text","value":""}},"aliases":{"x":"x"}}"#,
+            r#"{"formatVersion":1,"cases":{"x":{"op":"text","value":""}},"aliases":{"a":"b","b":"x"}}"#,
+            r#"{"formatVersion":1,"cases":{"x":{"op":"text","value":""}},"aliases":null}"#,
+        ] {
+            assert!(Policy::parse(text).is_err());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn identifier_validates_before_output_and_charges_one_frame()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mut ctx = Context {
+            budget: Budget {
+                steps: 0,
+                bytes: 1024 * 1024 - 12,
+                frames: 0,
+            },
+        };
+        assert_eq!(
+            ctx.identifier(&json!({"x":"bytePattern"}), "x", true)?,
+            "byte_pattern"
+        );
+        assert_eq!(ctx.budget.steps, 1);
+        assert_eq!(ctx.budget.frames, 0);
+        assert!(
+            ctx.identifier(&json!({"x":"bad-identifier"}), "x", true)
+                .expect_err("invalid input first")
+                .to_string()
+                .contains("identifier")
+        );
+        assert_eq!(ctx.budget.frames, 0);
+        assert!(ctx.identifier(&json!({"x":"x"}), "x", false).is_err());
+        for value in ["", "0a", "é", "bad::path"] {
+            assert!(
+                Context::run(
+                    &json!({"op":"x","v":value}),
+                    &Policy::parse(
+                        r#"{"formatVersion":1,"cases":{"x":{"op":"identifier","field":"v"}}}"#
+                    )?
+                )
+                .is_err()
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn expression_serialization_projects_roles() -> Result<(), Box<dyn std::error::Error>> {
+        let expr: super::Expr = serde_json::from_value(
+            json!({"op":"concat","parts":[{"op":"call","path":"f","args":[{"op":"identifier","field":"op"}]},{"op":"select","field":"x","cases":{"z":{"op":"text","value":"z"},"a":{"op":"text","value":"a"}}}]}),
+        )?;
+        assert_eq!(
+            serde_json::to_value(expr)?,
+            json!({"op":"concat","parts":[{"op":"concatArgument","value":{"op":"call","path":"f","args":[{"op":"callArgument","value":{"op":"identifier","field":"op","snake":false}}]}},{"op":"concatArgument","value":{"op":"select","field":"x","cases":[{"op":"selectCase","tag":"a","value":{"op":"text","value":"a"}},{"op":"selectCase","tag":"z","value":{"op":"text","value":"z"}}]}}]})
+        );
+        Ok(())
+    }
 
     #[test]
     fn bindings_are_lexical_and_branches_lazy() -> Result<(), Box<dyn std::error::Error>> {

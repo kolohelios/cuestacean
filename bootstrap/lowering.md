@@ -16,14 +16,17 @@ The production generator now uses a **compiled CUE lowering driver**, not the
 policy interpreter. `bootstrap-lower-codegen` compiles validated policy expressions
 to Rust calls into a shared checked rendering kernel. The reference interpreter
 uses that same kernel for seeds and explicit custom policies. This is not full
-generator self-hosting: the policy compiler, typed decoder, renderer and safety
+generator self-hosting: the [expression emitter is now CUE-owned](meta-lowering.md),
+but typed decoding, driver shell/module-statement compilation, rendering and safety
 guards remain Rust. The policy's [module statement program](module.md) now owns
 outer boilerplate and rule traversal as well. Go CUE still exports policies;
 source-language/evaluator behavior is unchanged.
 
 ## Typed policy
 
-`#LoweringPolicy` version 1 maps opcode strings to expressions:
+`#LoweringPolicy` version 1 maps opcode strings to expressions. Optional one-hop
+`aliases` reuse canonical cases without modifying the input node; collisions,
+unknown targets/chains/duplicates reject eagerly. Cases plus aliases total ≤64.
 
 | Operation | Meaning |
 | --- | --- |
@@ -48,6 +51,7 @@ source-language/evaluator behavior is unchanged.
 | `ifEqual {left, right, then, else}` | Compare rendered operands, select one branch |
 | `ifTrue {field, then, else}` | Select one branch using a bool field |
 | `bytePattern {field}` / `charPattern {field}` | Bounded sorted Rust pattern rendering |
+| `identifier {field, snake?}` | Checked ASCII component, optionally snake-cased |
 
 The instruction is the current input to every expression; recursive `lower`
 changes that input to the selected child. There is no native sum/product/etc.
@@ -63,7 +67,9 @@ string fields. They allow ASCII identifier segments separated by `::`, not raw
 Rust snippets. This is lexical validation, not Rust name/type resolution;
 the downstream compiler checks those. Policies are executable compiler inputs,
 not a security boundary for compiling untrusted implementation code. Instruction
-strings remain data and cannot become paths or unescaped Rust syntax. Fixed
+strings cannot become paths or unchecked Rust source. The explicit `identifier`
+operation is a bounded ASCII component exception, not keyword/name/type resolution;
+CUE supplies its surrounding syntax and Rust checks the result. Fixed
 `text`, like module `text`, is instead trusted implementation source and may
 contain arbitrary Rust syntax; it is not subject to the path grammar.
 
@@ -73,7 +79,8 @@ contain arbitrary Rust syntax; it is not subject to the path grammar.
   duplicates, before typed decoding. Original-text decoding then rejects duplicate
   record fields and case keys; generic JSON maps cannot erase that evidence.
 - A policy has at most 512 JSON nodes and 32 levels, counting the root. It has
-  1–64 cases; keys are 1–64 bytes, selectors 1–128 bytes and paths at most 128.
+  1–64 canonical cases, with cases plus aliases ≤64; keys are 1–64 bytes,
+  selectors 1–128 bytes and paths at most 128.
   Nested `select` maps have the same case/key limits and eager validation.
 - Each instruction lowering shares a budget of 4096 dispatch/expression steps,
   at most 64 instruction levels, 128 combined dispatch/render frames, and 1 MiB
@@ -90,7 +97,13 @@ contain arbitrary Rust syntax; it is not subject to the path grammar.
 `compiled-lowering` feature. `generate_with_policy(rules, policy)` and the optional
 `bootstrap-codegen <rules.json> [lowering.json]` override use the reference engine.
 `lowering::generate(policy)` / `bootstrap-lower-codegen <policy.json>` compile a
-policy to a Rust driver. Both compilers return before printing partial source.
+policy to a Rust driver, now using the CUE meta emitter for expression bodies.
+An optional second CLI argument selects an alternate compiler policy. Each target
+expression now has a fresh shared compiler context (4096 steps, 128 combined frames,
+1 MiB including copies); otherwise-valid policies can fail emission. Native shell
+and module-statement output are outside that budget. The meta contract describes
+self-regeneration and compiled alternate-policy evidence. Both compilers return
+before printing partial source.
 
 Generated matches own opcode dispatch and expression sequencing; recursive
 `child` calls retain the selected driver, including alternate policies. The

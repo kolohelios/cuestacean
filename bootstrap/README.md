@@ -90,13 +90,16 @@ module also runs through `nix run ./infra/tooling#generated -- <program.json>`,
 with its rules compiled in. CLI tests compare it against the interpreter.
 The Nix build exports JSON from CUE into an immutable output and regenerates
 staged Rust before compiling, using handwritten generator seeds. This lowers the
-exported rule DSL to Rust; it does not implement CUE evaluation or rebuild the
-generator from CUE. The value scaffold and generators remain handwritten. The separate
+exported rule DSL to Rust, not arbitrary CUE. Client compiler layouts and now the
+[lowering-expression meta emitter](meta-lowering.md) live in CUE; typed validation,
+checked kernels, driver shell/module-statement compilation and value scaffolding
+remain native. This is not complete generator bootstrap closure. The separate
 [unification control program](unify.md) now lowers identity, intersection and
 conflict decisions from CUE into the shared runtime's production unification.
-[Instruction-to-Rust lowering](lowering.md) now interprets CUE-owned recursive
-expression programs instead of a native opcode-emission match. Its generic VM
-and outer module assembly remain native; normal output matches existing goldens.
+[Instruction-to-Rust lowering](lowering.md) runs CUE-owned recursive programs
+through compiled drivers (reference interpretation in seeds), not a native
+opcode-emission match. CUE also owns evaluator assembly/traversal control;
+normal output matches existing goldens.
 Compiler seeds consume freshly exported policy JSON, not committed artifacts.
 
 The first [executable scanner DSL](scanner.md) separately expresses the

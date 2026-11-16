@@ -48,6 +48,11 @@ pub mod compiled_ast_lowering;
 #[path = "../../generated/scan-lowering.rs"]
 pub mod compiled_scan_lowering;
 
+/// CUE-owned lowering-expression emitter; the driver shell remains native.
+#[cfg(feature = "compiled-lowering")]
+#[path = "../../generated/meta-lowering.rs"]
+pub mod compiled_meta_lowering;
+
 /// Default CUE-generated rules, with integer-only and JSON scalar entry points.
 /// Compiler-only seeds omit this module and all generated semantics.
 #[cfg(feature = "semantics")]
