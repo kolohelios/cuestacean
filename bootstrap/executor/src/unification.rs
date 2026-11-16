@@ -1,4 +1,4 @@
-//! Finite CUE-authored binary control for unification/addition and its lowering.
+//! Finite CUE-authored binary control for scalar operations and its lowering.
 use crate::runtime::Value;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
@@ -48,6 +48,8 @@ enum Function {
     #[default]
     Unify,
     Sum,
+    Equal,
+    NotEqual,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -81,6 +83,9 @@ enum Expr {
     },
     IntegerSum {},
     TextConcat {},
+    Boolean {
+        value: bool,
+    },
     Fail {
         reason: Failure,
     },
@@ -94,6 +99,7 @@ pub enum Failure {
     Types,
     Strings,
     Arithmetic,
+    Comparison,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
@@ -179,9 +185,11 @@ fn parse(input: &str) -> Result<Program, Error> {
 impl Expr {
     fn validate(&self, bound: bool) -> Result<(), Error> {
         match self {
-            Self::Input { .. } | Self::Fail { .. } | Self::IntegerSum {} | Self::TextConcat {} => {
-                Ok(())
-            }
+            Self::Input { .. }
+            | Self::Fail { .. }
+            | Self::IntegerSum {}
+            | Self::TextConcat {}
+            | Self::Boolean { .. } => Ok(()),
             Self::If {
                 condition,
                 then,
@@ -287,6 +295,7 @@ pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate
         Failure::Bounds => Err(crate::Error::BoundsConflict),
         Failure::Types => Err(crate::Error::TypeConflict),
         Failure::Arithmetic => Err(crate::Error::Arithmetic),
+        Failure::Comparison => Err(crate::Error::Comparison),
         Failure::Booleans => match (left, right) {
             (Value::Boolean(left), Value::Boolean(right)) => Err(crate::Error::BooleanConflict {
                 left: *left,
@@ -413,6 +422,7 @@ impl Expr {
             }),
             Self::IntegerSum {} => crate::runtime::integer_sum(l, r),
             Self::TextConcat {} => crate::runtime::text_concat(l, r),
+            Self::Boolean { value } => Ok(Value::Boolean(*value)),
             Self::Fail { reason } => fail(*reason, l, r),
         }
     }
@@ -470,6 +480,24 @@ mod tests {
             assert!(parse(&control).is_err());
         }
         assert!(parse(r#"{"formatVersion":1,"result":{"op":"textConcat","extra":true}}"#).is_err());
+        for function in ["equal", "notEqual"] {
+            let control = format!(
+                r#"{{"formatVersion":1,"function":"{function}","result":{{"op":"boolean","value":false}}}}"#
+            );
+            assert!(parse(&control).is_ok());
+        }
+        for value in ["null", "1", "\"false\""] {
+            let control =
+                format!(r#"{{"formatVersion":1,"result":{{"op":"boolean","value":{value}}}}}"#);
+            assert!(parse(&control).is_err());
+        }
+        assert!(
+            parse(r#"{"formatVersion":1,"result":{"op":"boolean","value":true,"extra":1}}"#)
+                .is_err()
+        );
+        assert!(
+            parse(r#"{"formatVersion":1,"result":{"op":"fail","reason":"comparison"}}"#).is_ok()
+        );
     }
 
     #[test]

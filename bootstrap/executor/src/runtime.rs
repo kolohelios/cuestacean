@@ -1,5 +1,5 @@
 //! Value primitives shared by interpreted and generated evaluators.
-//! Unification and addition dispatch CUE-generated control over native kernels.
+//! Scalar operations dispatch CUE-generated control over native kernels.
 
 use std::sync::Arc;
 
@@ -15,6 +15,14 @@ mod generated_unification;
 #[cfg(feature = "semantics")]
 #[path = "../../generated/sum.rs"]
 mod generated_sum;
+
+#[cfg(feature = "semantics")]
+#[path = "../../generated/equal.rs"]
+mod generated_equal;
+
+#[cfg(feature = "semantics")]
+#[path = "../../generated/not-equal.rs"]
+mod generated_not_equal;
 
 /// Owned scalar scaffold; abstract types are not conflicting values.
 /// Concrete integers are still restricted to the bootstrap i64 domain.
@@ -151,6 +159,18 @@ pub fn text_concat(left: &Value, right: &Value) -> Result<Value, Error> {
 #[cfg(feature = "semantics")]
 pub fn sum(left: Value, right: Value) -> Result<Value, Error> {
     generated_sum::sum(left, right)
+}
+
+/// Compare using generated CUE policy; compiler-only seeds exclude this API.
+#[cfg(feature = "semantics")]
+pub fn equal(left: Value, right: Value) -> Result<Value, Error> {
+    generated_equal::equal(left, right)
+}
+
+/// Compare using generated CUE policy; compiler-only seeds exclude this API.
+#[cfg(feature = "semantics")]
+pub fn not_equal(left: Value, right: Value) -> Result<Value, Error> {
+    generated_not_equal::not_equal(left, right)
 }
 
 pub fn difference(left: Value, right: Value) -> Result<Value, Error> {

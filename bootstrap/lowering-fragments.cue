@@ -49,6 +49,8 @@ package bootstrap
 		upperBound: {op: "call", path: "runtime::upper_bound", args: [V]}
 		negate: {op: "call", path: "runtime::negate", args: [V]}
 		sum: {op: "call", path: "runtime::sum", args: [L, R]}
+		equal: {op: "call", path: "runtime::equal", args: [L, R]}
+		notEqual: {op: "call", path: "runtime::not_equal", args: [L, R]}
 		difference: {op: "call", path: "runtime::difference", args: [L, R]}
 		product: {op: "call", path: "runtime::product", args: [L, R]}
 		divide: {op: "call", path: "runtime::divide", args: [L, R]}

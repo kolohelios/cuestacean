@@ -1,7 +1,7 @@
 # CUE-owned IR-to-Rust lowering
 
 [`lowering-fragments.cue`](lowering-fragments.cue) defines executable expression
-lowering for all sixteen evaluation instructions. [`lowering.cue`](lowering.cue)
+lowering for the evaluation instructions, including scalar equality/inequality. [`lowering.cue`](lowering.cue)
 selects the normal program. CUE chooses runtime calls, constructor layout,
 recursive instruction-field selection, grouping and Result propagation.
 `bootstrap-codegen` no longer contains a per-instruction emission match. The

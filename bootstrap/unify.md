@@ -20,7 +20,9 @@ does not define accepted source syntax.
 
 `#UnifyProgram` version 1 contains a `result` expression. The same finite binary
 control now implements [addition](sum.md): optional `function` is the validated
-compiled entry-name enum `unify` (default) or `sum`, not a runtime behavior mode.
+compiled entry-name enum `unify` (default), `sum`, `equal` or `notEqual`, not a runtime
+behavior mode. [Scalar equality](equality.md) adds `boolean {value}` construction
+and `comparison` failure; CUE owns concrete-domain guards and result selection.
 `integerSum` and `textConcat` call checked borrowed-input kernels; `fail` also
 supports `arithmetic`. The interpreter executes `result` independently of the
 entry-name metadata. There is no native overloaded-addition fallback. Value expressions

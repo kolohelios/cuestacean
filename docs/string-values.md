@@ -36,8 +36,9 @@ unification. Unicode data is preserved without normalization or coercion.
 integer `execute` rejects concrete strings. Abstract string output is incomplete.
 Ordinary integer/boolean values and arithmetic results remain unchanged; the
 Arithmetic diagnostic now says compatible concrete operands rather than integers.
-Concrete text concatenation uses CUE addition control; comparison operators and
-native source-policy fallback remain unsupported.
+Concrete text concatenation uses CUE addition control; scalar `==`/`!=` use
+[CUE equality control](../bootstrap/equality.md). Ordering and native source-policy
+fallback remain unsupported.
 
 ## Evidence and bootstrap
 

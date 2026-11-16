@@ -3,88 +3,101 @@ use crate::scanner::{Cursor, Error, Scan};
 pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
     let mut cursor = Cursor::new(source, offset)?;
     cursor.step()?;
-    if matches!(cursor.peek(), Some(38 | 42 | 43 | 45 | 47)) {
+    if matches!(cursor.peek(), Some(33 | 61)) {
         cursor.step()?;
-        cursor.advance()?;
-        cursor.step()?;
-        cursor.set_flag(true);
+        if matches!(cursor.peek_at(1), Some(61)) {
+            cursor.step()?;
+            cursor.advance()?;
+            cursor.step()?;
+            cursor.advance()?;
+            cursor.step()?;
+            cursor.set_flag(true);
+        }
     } else {
         cursor.step()?;
-        if matches!(cursor.peek(), Some(100)) {
+        if matches!(cursor.peek(), Some(38 | 42 | 43 | 45 | 47)) {
             cursor.step()?;
-            if matches!(cursor.peek_at(1), Some(105)) {
+            cursor.advance()?;
+            cursor.step()?;
+            cursor.set_flag(true);
+        } else {
+            cursor.step()?;
+            if matches!(cursor.peek(), Some(100)) {
                 cursor.step()?;
-                if matches!(cursor.peek_at(2), Some(118)) {
+                if matches!(cursor.peek_at(1), Some(105)) {
                     cursor.step()?;
-                    if !matches!(cursor.peek_at(3), Some(48..=57 | 65..=90 | 95 | 97..=122)) {
+                    if matches!(cursor.peek_at(2), Some(118)) {
                         cursor.step()?;
-                        cursor.advance()?;
-                        cursor.step()?;
-                        cursor.advance()?;
-                        cursor.step()?;
-                        cursor.advance()?;
-                        cursor.step()?;
-                        cursor.set_flag(true);
+                        if !matches!(cursor.peek_at(3), Some(48..=57 | 65..=90 | 95 | 97..=122)) {
+                            cursor.step()?;
+                            cursor.advance()?;
+                            cursor.step()?;
+                            cursor.advance()?;
+                            cursor.step()?;
+                            cursor.advance()?;
+                            cursor.step()?;
+                            cursor.set_flag(true);
+                        }
                     }
                 }
             }
-        }
-        cursor.step()?;
-        if matches!(cursor.peek(), Some(109)) {
             cursor.step()?;
-            if matches!(cursor.peek_at(1), Some(111)) {
+            if matches!(cursor.peek(), Some(109)) {
                 cursor.step()?;
-                if matches!(cursor.peek_at(2), Some(100)) {
+                if matches!(cursor.peek_at(1), Some(111)) {
                     cursor.step()?;
-                    if !matches!(cursor.peek_at(3), Some(48..=57 | 65..=90 | 95 | 97..=122)) {
+                    if matches!(cursor.peek_at(2), Some(100)) {
                         cursor.step()?;
-                        cursor.advance()?;
-                        cursor.step()?;
-                        cursor.advance()?;
-                        cursor.step()?;
-                        cursor.advance()?;
-                        cursor.step()?;
-                        cursor.set_flag(true);
+                        if !matches!(cursor.peek_at(3), Some(48..=57 | 65..=90 | 95 | 97..=122)) {
+                            cursor.step()?;
+                            cursor.advance()?;
+                            cursor.step()?;
+                            cursor.advance()?;
+                            cursor.step()?;
+                            cursor.advance()?;
+                            cursor.step()?;
+                            cursor.set_flag(true);
+                        }
                     }
                 }
             }
-        }
-        cursor.step()?;
-        if matches!(cursor.peek(), Some(113)) {
             cursor.step()?;
-            if matches!(cursor.peek_at(1), Some(117)) {
+            if matches!(cursor.peek(), Some(113)) {
                 cursor.step()?;
-                if matches!(cursor.peek_at(2), Some(111)) {
+                if matches!(cursor.peek_at(1), Some(117)) {
                     cursor.step()?;
-                    if !matches!(cursor.peek_at(3), Some(48..=57 | 65..=90 | 95 | 97..=122)) {
+                    if matches!(cursor.peek_at(2), Some(111)) {
                         cursor.step()?;
-                        cursor.advance()?;
-                        cursor.step()?;
-                        cursor.advance()?;
-                        cursor.step()?;
-                        cursor.advance()?;
-                        cursor.step()?;
-                        cursor.set_flag(true);
+                        if !matches!(cursor.peek_at(3), Some(48..=57 | 65..=90 | 95 | 97..=122)) {
+                            cursor.step()?;
+                            cursor.advance()?;
+                            cursor.step()?;
+                            cursor.advance()?;
+                            cursor.step()?;
+                            cursor.advance()?;
+                            cursor.step()?;
+                            cursor.set_flag(true);
+                        }
                     }
                 }
             }
-        }
-        cursor.step()?;
-        if matches!(cursor.peek(), Some(114)) {
             cursor.step()?;
-            if matches!(cursor.peek_at(1), Some(101)) {
+            if matches!(cursor.peek(), Some(114)) {
                 cursor.step()?;
-                if matches!(cursor.peek_at(2), Some(109)) {
+                if matches!(cursor.peek_at(1), Some(101)) {
                     cursor.step()?;
-                    if !matches!(cursor.peek_at(3), Some(48..=57 | 65..=90 | 95 | 97..=122)) {
+                    if matches!(cursor.peek_at(2), Some(109)) {
                         cursor.step()?;
-                        cursor.advance()?;
-                        cursor.step()?;
-                        cursor.advance()?;
-                        cursor.step()?;
-                        cursor.advance()?;
-                        cursor.step()?;
-                        cursor.set_flag(true);
+                        if !matches!(cursor.peek_at(3), Some(48..=57 | 65..=90 | 95 | 97..=122)) {
+                            cursor.step()?;
+                            cursor.advance()?;
+                            cursor.step()?;
+                            cursor.advance()?;
+                            cursor.step()?;
+                            cursor.advance()?;
+                            cursor.step()?;
+                            cursor.set_flag(true);
+                        }
                     }
                 }
             }
