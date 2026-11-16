@@ -69,6 +69,8 @@
         "lowering"
         "tests/valid/lowering-left-twice"
         "tests/valid/lowering-escaped"
+        "tests/valid/lowering-reverse"
+        "tests/valid/lowering-module-escaped"
       ];
       loweringNames = builtins.concatStringsSep " " loweringFixtures;
       exportFixtures = [
@@ -224,6 +226,7 @@
               bootstrap-codegen "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-left-twice.json" | rustfmt --edition 2024 > policy-generated.rs
               cmp policy-generated.rs ../generated/evaluation-left-twice.rs
               mv policy-generated.rs ../generated/evaluation-left-twice.rs
+              bootstrap-codegen "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-reverse.json" | rustfmt --edition 2024 > ../generated/evaluation-reverse.rs
               for machine in ${scannerNames}; do
                 name=$(basename "$machine")
                 bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$machine.json" | rustfmt --edition 2024 > "../generated/$name.rs"
@@ -323,6 +326,10 @@
                 done
                 bootstrap-codegen ${jsonExports pkgs}/evaluation.json ${jsonExports pkgs}/tests/valid/lowering-left-twice.json | rustfmt --edition 2024 > policy.rs
                 diff -u ${../../bootstrap/generated}/evaluation-left-twice.rs policy.rs
+                bootstrap-codegen ${jsonExports pkgs}/evaluation.json ${jsonExports pkgs}/tests/valid/lowering-reverse.json | rustfmt --edition 2024 > reverse.rs
+                bootstrap-codegen ${jsonExports pkgs}/evaluation.json ${jsonExports pkgs}/tests/valid/lowering-reverse.json | rustfmt --edition 2024 > reverse-second.rs
+                cmp reverse.rs reverse-second.rs
+                diff -u ${../../bootstrap/generated}/evaluation-reverse.rs reverse.rs
                 for machine in ${scannerNames}; do
                   name=$(basename "$machine")
                   bootstrap-scan-codegen ${jsonExports pkgs}/"$machine.json" | rustfmt --edition 2024 > first.rs

@@ -87,7 +87,14 @@ package bootstrap
 } | {op: "ok" | "group" | "try", value: #LoweringExpression} | {
 	op: "lower" | "string" | "boolean", field: string & !=""
 }
-#LoweringPolicy: {formatVersion: 1, cases: [string & !=""]: #LoweringExpression}
+#ModuleStatement: {op: "text", value: string} | {
+	op: "firstRule" | "lastRule" | "nextRule" | "previousRule" | "kind" | "expression"
+} | {op: "whileRules", body: [...#ModuleStatement]}
+#LoweringPolicy: {
+	formatVersion: 1
+	cases: [string & !=""]: #LoweringExpression
+	module?: [...#ModuleStatement]
+}
 
 // Pure finite unification control. Local endpoints are scoped by letBounds.
 #UnifySide:         "left" | "right"

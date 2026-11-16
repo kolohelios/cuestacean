@@ -17,6 +17,9 @@ impl Driver for Compiled {
             op => Err(lowering::missing_case(op)),
         }
     }
+    fn assemble(&self, _frame: &mut bootstrap_executor::module::Frame<'_>) -> Result<(), Error> {
+        Ok(())
+    }
 }
 
 pub fn lower(node: &Value) -> Result<String, Error> {

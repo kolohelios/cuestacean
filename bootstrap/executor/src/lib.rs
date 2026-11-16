@@ -10,6 +10,7 @@ use snafu::{ResultExt, Snafu};
 pub mod ast;
 mod codegen;
 pub mod lowering;
+pub mod module;
 #[cfg(feature = "source")]
 pub mod parser;
 pub mod pratt;

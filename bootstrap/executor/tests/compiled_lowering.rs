@@ -73,6 +73,11 @@ fn compiled_corpus_and_rule_results_match_reference() {
 
 #[test]
 fn escaped_policy_keys_selectors_and_empty_calls_compile_and_render() {
+    assert_eq!(
+        bootstrap_executor::module::Frame::run(&[], &escaped::Compiled)
+            .expect("compiled empty module"),
+        ""
+    );
     let policy = Policy::parse(&export("tests/valid/lowering-escaped")).expect("escaped policy");
     let text = json!({"op":"text\"\\\nλ", "payload\"\\\nλ":"quote\"\\\n雪"});
     for (node, expected) in [

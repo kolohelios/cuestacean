@@ -10,8 +10,9 @@ The production generator now uses a **compiled CUE lowering driver**, not the
 policy interpreter. `bootstrap-lower-codegen` compiles validated policy expressions
 to Rust calls into a shared checked rendering kernel. The reference interpreter
 uses that same kernel for seeds and explicit custom policies. This is not full
-generator self-hosting: the policy compiler, typed decoder, renderer, outer
-module assembly and safety guards remain Rust. Go CUE still exports policies;
+generator self-hosting: the policy compiler, typed decoder, renderer and safety
+guards remain Rust. The policy's [module statement program](module.md) now owns
+outer boilerplate and rule traversal as well. Go CUE still exports policies;
 source-language/evaluator behavior is unchanged.
 
 ## Typed policy
@@ -55,7 +56,8 @@ strings remain data and cannot become paths or unescaped Rust syntax.
 - Selected string values are limited to 64 KiB before allocating quoted output.
   Debug quoting writes directly through the byte budget, without an uncharged
   quoted-string temporary. Output-budget checks precede appending. These are bootstrap bounds, not
-  comprehensive hostile-input hardening or whole-module size limits.
+  comprehensive hostile-input hardening. Module assembly has its own cumulative
+  output/step bounds; see the [module contract](module.md).
 
 ## API, seeds and evidence
 
@@ -74,7 +76,7 @@ charge each dispatch/expression, delimiter and intermediate copy identically.
 Six native compiler seeds build with `--no-default-features`, excluding generated
 lowering, semantics and frontend. The seed rule generator interprets fresh
 **upstream-built policy JSON**; it does not contain a handwritten instruction
-policy. Seeds generate normal/alternate lowering drivers and all evaluator/frontend
+policy. Seeds generate normal/alternate lowering and assembly drivers and all evaluator/frontend
 Rust before the final default-feature build uses compiled lowering. The final
 compiled generator regenerates the same evaluator bytes in drift checks.
 
@@ -95,4 +97,6 @@ escaping, duplicate/unused-invalid rejection, exact structural boundaries,
 shared expansion limits, determinism and CLI policy failures. A compiled
 adversarial policy checks escaped case/selector strings and empty calls. Fixed
 frame/byte-boundary tests pin acceptance, unwinding and delimiter-vs-field-error
-precedence independently of interpreter/compiled agreement.
+precedence independently of interpreter/compiled agreement. Reverse assembly
+has its own compiled evaluator golden, without changing the normal evaluator
+artifacts.
