@@ -70,6 +70,9 @@
         "less-equal"
         "greater"
         "greater-equal"
+        "logical-and"
+        "logical-or"
+        "tests/valid/logic-false"
         "tests/valid/less-false"
         "tests/valid/equal-false"
         "tests/valid/sum-right"
@@ -112,6 +115,8 @@
         "inequality"
         "ordering"
         "ordering-text"
+        "logic-and"
+        "logic-or"
         "tests/valid/equality-mixed"
         "tests/valid/strings-empty"
         "tests/valid/strings-equal"
@@ -147,6 +152,7 @@
                 ../../bootstrap/scanner-fragments.cue
                 ../../bootstrap/equality-fragments.cue
                 ../../bootstrap/ordering-fragments.cue
+                ../../bootstrap/logic-fragments.cue
                 ../../bootstrap/lowering-fragments.cue
                 ../../bootstrap/pratt-lowering-fragments.cue
                 ../../bootstrap/unify-lowering-fragments.cue
@@ -170,15 +176,41 @@
             set -euo pipefail
             export LC_ALL=C TZ=UTC
             for fixture in ${fixtureNames}; do
-              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue ${cueSources}/scan-lowering-fragments.cue ${cueSources}/meta-lowering-fragments.cue ${cueSources}/equality-fragments.cue ${cueSources}/ordering-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > first.json
-              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue ${cueSources}/scan-lowering-fragments.cue ${cueSources}/meta-lowering-fragments.cue ${cueSources}/equality-fragments.cue ${cueSources}/ordering-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > second.json
+              echo "exporting $fixture"
+              # Load only the fixture's definition closure. Loading every compiler
+              # for a literal can exhaust the CI runner while checking unused CUE.
+              fragments=()
+              case "$fixture" in
+                whitespace|after-operand|after-word-operator|group-close)
+                  fragments=(scanner-fragments) ;;
+                lowering|tests/valid/lowering-left-twice|tests/valid/lowering-reverse)
+                  fragments=(lowering-fragments) ;;
+                pratt-lowering|tests/valid/pratt-lowering-*) fragments=(pratt-lowering-fragments) ;;
+                unify-lowering|tests/valid/unify-lowering-*) fragments=(unify-lowering-fragments) ;;
+                ast-lowering|tests/valid/ast-lowering-*) fragments=(ast-lowering-fragments) ;;
+                scan-lowering|tests/valid/scan-lowering-*) fragments=(scan-lowering-fragments) ;;
+                meta-lowering|tests/valid/meta-lowering-*|tests/valid/meta-driver-previous)
+                  fragments=(meta-lowering-fragments) ;;
+                equal|not-equal) fragments=(equality-fragments) ;;
+                less|less-equal|greater|greater-equal) fragments=(ordering-fragments) ;;
+                logical-and|logical-or) fragments=(equality-fragments logic-fragments) ;;
+              esac
+              inputs=(${cueSources}/schema.cue)
+              for fragment in "''${fragments[@]}"; do inputs+=("${cueSources}/$fragment.cue"); done
+              inputs+=("${cueSources}/$fixture.cue")
+              cue export "''${inputs[@]}" --out json | jq -S . > first.json
+              cue export "''${inputs[@]}" --out json | jq -S . > second.json
               cmp first.json second.json
               mkdir -p "$(dirname "$out/$fixture.json")"
               cp first.json "$out/$fixture.json"
             done
             for fixture in ${cueSources}/tests/invalid/*.cue; do
-              if cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue ${cueSources}/scan-lowering-fragments.cue ${cueSources}/meta-lowering-fragments.cue ${cueSources}/equality-fragments.cue ${cueSources}/ordering-fragments.cue "$fixture" --out json > invalid.log 2>&1; then
+              if cue export ${cueSources}/schema.cue "$fixture" --out json > invalid.log 2>&1; then
                 echo "Expected rejection: $fixture" >&2
+                exit 1
+              fi
+              if grep -Eq 'reference .*not found|undefined' invalid.log; then
+                echo "Missing definition in invalid fixture: $fixture" >&2
                 exit 1
               fi
             done
@@ -484,7 +516,7 @@
                   test -s error
                 done
                 # These rejected operand domains must also fail upstream.
-                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue; do
+                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue; do
                   if cue export "$source" --out json > expected 2> cue-error; then exit 1; fi
                   test ! -s expected
                   test -s cue-error
@@ -544,6 +576,20 @@
                   property="''${pair%%:*}"
                   fixture="''${pair#*:}"
                   cue export ${../../bootstrap/tests/upstream/ordering.cue} -e "$property" --out json > expected
+                  for binary in bootstrap-executor bootstrap-generated; do
+                    if [ "$binary" = bootstrap-executor ]; then
+                      "$binary" ${jsonExports pkgs}/"$fixture.json" ${jsonExports pkgs}/evaluation.json > actual
+                    else
+                      "$binary" ${jsonExports pkgs}/"$fixture.json" > actual
+                    fi
+                    jq -e 'type == "boolean"' actual > /dev/null
+                    diff -u expected actual
+                  done
+                done
+                for pair in and:logic-and or:logic-or; do
+                  property="''${pair%%:*}"
+                  fixture="''${pair#*:}"
+                  cue export ${../../bootstrap/tests/upstream/logic.cue} -e "$property" --out json > expected
                   for binary in bootstrap-executor bootstrap-generated; do
                     if [ "$binary" = bootstrap-executor ]; then
                       "$binary" ${jsonExports pkgs}/"$fixture.json" ${jsonExports pkgs}/evaluation.json > actual

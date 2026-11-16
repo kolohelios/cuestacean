@@ -158,6 +158,8 @@ or a complete `==`, `!=`, `div`, `mod`, `quo`, `rem` token.
 Bare `=` or `!` does not advance; equality tokens consume exactly two bytes.
 If no earlier infix matched, CUE recognizes `<`/`>` and an optional adjacent `=`.
 The flag guard prevents merging an already matched token with a following symbol.
+CUE recognizes `&&` before single `&`, and consumes only complete `||`; a lone
+`|` does not advance. The same flag guard keeps `||` separate from earlier tokens.
 Prefix-bound scanning remains unchanged and requires both bytes. CUE checks the three keyword
 bytes and rejects an ASCII identifier-continuation suffix before advancing;
 partial/extended words leave offset and flag unchanged. A keyword consumes

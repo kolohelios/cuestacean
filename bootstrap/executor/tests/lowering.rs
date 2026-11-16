@@ -77,6 +77,8 @@ fn default_policy_matches_independent_instruction_expressions() {
         ("lessEqual", "less_equal"),
         ("greater", "greater"),
         ("greaterEqual", "greater_equal"),
+        ("logicalAnd", "logical_and"),
+        ("logicalOr", "logical_or"),
     ] {
         let input = json!({"op":op, "left":left, "right":right});
         assert_eq!(

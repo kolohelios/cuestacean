@@ -1,5 +1,7 @@
 {
   "rules": {
+    "logicalOr": {"result": {"op": "logicalOr", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
+    "logicalAnd": {"result": {"op": "logicalAnd", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
     "greaterEqual": {"result": {"op": "greaterEqual", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
     "greater": {"result": {"op": "greater", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
     "lessEqual": {"result": {"op": "lessEqual", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},

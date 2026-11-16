@@ -21,6 +21,8 @@ package bootstrap
 			left: {op: "evaluate", field: "left"}
 			right: {op: "evaluate", field: "right"}
 		}
+		logicalAnd: result: {op: "logicalAnd", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
+		logicalOr: result: {op: "logicalOr", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
 		less: result: {op: "less", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
 		lessEqual: result: {op: "lessEqual", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
 		greater: result: {op: "greater", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}

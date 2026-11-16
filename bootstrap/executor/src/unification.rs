@@ -56,6 +56,8 @@ enum Function {
     LessEqual,
     Greater,
     GreaterEqual,
+    LogicalAnd,
+    LogicalOr,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -107,6 +109,7 @@ pub enum Failure {
     Arithmetic,
     Comparison,
     Ordering,
+    Logical,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
@@ -141,6 +144,10 @@ enum Condition {
     KindIs {
         input: Side,
         kind: Kind,
+    },
+    BooleanIs {
+        input: Side,
+        value: bool,
     },
     HasEndpoint {
         value: End,
@@ -248,7 +255,10 @@ impl End {
 impl Condition {
     fn validate(&self, bound: bool) -> Result<(), Error> {
         match self {
-            Self::KindIs { .. } | Self::Same {} | Self::TextCompare { .. } => Ok(()),
+            Self::KindIs { .. }
+            | Self::BooleanIs { .. }
+            | Self::Same {}
+            | Self::TextCompare { .. } => Ok(()),
             Self::HasEndpoint { value } => value.validate(bound),
             Self::Compare { left, right, .. } => {
                 left.validate(bound)?;
@@ -283,6 +293,13 @@ pub fn kind_is(value: &Value, kind: Kind) -> bool {
             | (Value::Text(_), Kind::Text)
             | (Value::String, Kind::String)
     )
+}
+/// Compare a concrete boolean representation against a literal.
+pub fn boolean_is(value: &Value, expected: bool) -> Result<bool, crate::Error> {
+    let Value::Boolean(value) = value else {
+        return Err(crate::Error::Logical);
+    };
+    Ok(*value == expected)
 }
 pub fn compare(
     left: Option<i64>,
@@ -323,6 +340,7 @@ pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate
         Failure::Arithmetic => Err(crate::Error::Arithmetic),
         Failure::Comparison => Err(crate::Error::Comparison),
         Failure::Ordering => Err(crate::Error::Ordering),
+        Failure::Logical => Err(crate::Error::Logical),
         Failure::Booleans => match (left, right) {
             (Value::Boolean(left), Value::Boolean(right)) => Err(crate::Error::BooleanConflict {
                 left: *left,
@@ -405,6 +423,7 @@ impl Condition {
             Self::TextCompare { relation } => text_compare(l, r, *relation)?,
             Self::Or { left, right } => left.eval(l, r, locals)? || right.eval(l, r, locals)?,
             Self::KindIs { input, kind } => kind_is(input.value(l, r), *kind),
+            Self::BooleanIs { input, value } => boolean_is(input.value(l, r), *value)?,
             Self::HasEndpoint { value } => value.eval(l, r, locals)?.is_some(),
             Self::Compare {
                 left,
@@ -515,6 +534,8 @@ mod tests {
             "lessEqual",
             "greater",
             "greaterEqual",
+            "logicalAnd",
+            "logicalOr",
         ] {
             let control = format!(
                 r#"{{"formatVersion":1,"function":"{function}","result":{{"op":"boolean","value":false}}}}"#
@@ -593,6 +614,44 @@ mod tests {
             assert!(parse(&control).is_ok());
         }
         assert!(parse(r#"{"formatVersion":1,"result":{"op":"if","condition":{"op":"textCompare","relation":"less","extra":1},"then":{"op":"boolean","value":true},"else":{"op":"boolean","value":false}}}"#).is_err());
+    }
+
+    #[test]
+    fn boolean_predicate_representation_and_validation() {
+        use super::boolean_is;
+        use crate::runtime::Value as Scalar;
+
+        assert_eq!(boolean_is(&Scalar::Boolean(true), true).ok(), Some(true));
+        assert_eq!(boolean_is(&Scalar::Boolean(false), true).ok(), Some(false));
+        for value in [Scalar::Bool, Scalar::Int, Scalar::Integer(1)] {
+            assert!(matches!(
+                boolean_is(&value, false),
+                Err(crate::Error::Logical)
+            ));
+        }
+        let control = |condition: &str| {
+            format!(
+                r#"{{"formatVersion":1,"result":{{"op":"if","condition":{condition},"then":{{"op":"boolean","value":true}},"else":{{"op":"fail","reason":"logical"}}}}}}"#
+            )
+        };
+        assert!(
+            parse(&control(
+                r#"{"op":"booleanIs","input":"left","value":false}"#
+            ))
+            .is_ok()
+        );
+        for condition in [
+            r#"{"op":"booleanIs","input":"left"}"#,
+            r#"{"op":"booleanIs","input":"left","value":null}"#,
+            r#"{"op":"booleanIs","input":"left","value":1}"#,
+            r#"{"op":"booleanIs","input":"other","value":true}"#,
+            r#"{"op":"booleanIs","input":"left","value":true,"extra":1}"#,
+            r#"{"op":"booleanIs","input":"left","value":true,"value":false}"#,
+        ] {
+            assert!(parse(&control(condition)).is_err());
+        }
+        let unused_invalid = r#"{"formatVersion":1,"result":{"op":"if","condition":{"op":"same"},"then":{"op":"boolean","value":true},"else":{"op":"if","condition":{"op":"booleanIs","input":"left"},"then":{"op":"boolean","value":true},"else":{"op":"boolean","value":false}}}}"#;
+        assert!(parse(unused_invalid).is_err());
     }
 
     #[test]

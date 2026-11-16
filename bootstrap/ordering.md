@@ -8,7 +8,7 @@ UTF-8 order (equivalent to scalar-code-point order for valid UTF-8), not locale,
 natural-number sorting or Unicode normalization. No coercion or propagation.
 
 Both children evaluate left-first before policy checks. Source `<`, `<=`, `>`
-and `>=` share equality's precedence 7 and left associativity. CUE infix control
+and `>=` share equality's precedence 8 and left associativity. CUE infix control
 consumes an optional adjacent `=` after `<` or `>`; it leaves stray trailing
 symbols for ordinary parser errors. Existing prefix `>=`/`<=` bounds remain
 unchanged and abstract; bare prefix `<`/`>` do not add exclusive constraints.

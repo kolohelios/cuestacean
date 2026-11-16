@@ -11,7 +11,7 @@ equality, general CUE comparability or propagation. [Ordering](ordering.md) has
 its own matching-domain CUE policy, unlike equality's mixed-type behavior.
 
 Both children evaluate left-first before operand checks. Source `==` and `!=`
-use existing binary AST builders and Pratt control, with precedence 7 (above `&`
+use existing binary AST builders and Pratt control, with precedence 8 (above `&&` at 7, `||` at 6 and `&`
 at 5, below `+`/`-` at 10) and left associativity. CUE infix control recognizes
 only complete two-byte tokens; bare `=` or `!` do not advance. No boolean unary
 not, assignment or regex operators are added here; the separate ordering slice
