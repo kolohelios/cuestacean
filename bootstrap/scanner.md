@@ -155,7 +155,10 @@ The bound-prefix program checks `>=` or `<=` with one-byte lookahead before
 advancing. A partial match such as `>`, `> x`, or `>λ` leaves both offset and
 flag unchanged. The infix program recognizes a byte from `+`, `-`, `*`, `/`, `&`
 or a complete `==`, `!=`, `div`, `mod`, `quo`, `rem` token.
-Bare `=` or `!` does not advance; equality tokens consume exactly two bytes. CUE checks the three keyword
+Bare `=` or `!` does not advance; equality tokens consume exactly two bytes.
+If no earlier infix matched, CUE recognizes `<`/`>` and an optional adjacent `=`.
+The flag guard prevents merging an already matched token with a following symbol.
+Prefix-bound scanning remains unchanged and requires both bytes. CUE checks the three keyword
 bytes and rejects an ASCII identifier-continuation suffix before advancing;
 partial/extended words leave offset and flag unchanged. A keyword consumes
 exactly three bytes, leaving a following minus for operand parsing. Recognizing

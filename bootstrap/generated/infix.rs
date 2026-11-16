@@ -103,5 +103,20 @@ pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
             }
         }
     }
+    cursor.step()?;
+    if !cursor.flag() {
+        cursor.step()?;
+        if matches!(cursor.peek(), Some(60 | 62)) {
+            cursor.step()?;
+            cursor.advance()?;
+            cursor.step()?;
+            if matches!(cursor.peek(), Some(61)) {
+                cursor.step()?;
+                cursor.advance()?;
+            }
+            cursor.step()?;
+            cursor.set_flag(true);
+        }
+    }
     Ok(cursor.finish())
 }

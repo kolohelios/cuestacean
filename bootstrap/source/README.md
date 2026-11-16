@@ -33,10 +33,11 @@ to typed Rust functions, rather than native JSON-map assembly.
 
 The default grammar accepts decimal signed integers, `true`/`false` and `bool`/`int` atoms,
 inclusive bounds (`>=`, `<=`), addition, subtraction, multiplication,
-integer division/remainder (`div`, `mod`, `quo`, `rem`), scalar `==` / `!=`,
+integer division/remainder (`div`, `mod`, `quo`, `rem`), scalar comparisons
+(`==`, `!=`, `<`, `<=`, `>`, `>=`),
 unification (`&`), parentheses and `//` line-comment trivia. Multiplication and integer division/remainder bind more tightly than
 addition/subtraction, which share a precedence and bind more tightly than
-`==` / `!=`, which in turn bind more tightly than `&`;
+the comparison operators, which in turn bind more tightly than `&`;
 binary operators are left-associative, and unary negation binds more tightly.
 These choices live in CUE grammar data, not in the parser algorithm.
 `1 + 2 * 3` produces `7`, while `(1 + 2) * 3` produces `9`.
@@ -71,7 +72,13 @@ integer API and JSON scalar APIs. Strings use owned shared values
 values. Concrete mixed types compare unequal; abstract types and bounds reject
 without propagation or coercion. Text equality is content-based, with no Unicode
 normalization. Both children evaluate left-first before the CUE concreteness
-check. These are scalar `==`/`!=`, not structural/reference equality or ordering.
+check. These are scalar `==`/`!=`, not structural/reference equality.
+
+[Ordering control](../ordering.md) implements `<`, `<=`, `>` and `>=` for matching
+concrete integer or text pairs. Booleans, mixed types, abstract values and bounds
+reject. Text uses lexicographic UTF-8 order without normalization or locale rules.
+Ordering shares equality's precedence and left associativity. Prefix `>=`/`<=`
+constraints remain separate and unchanged; prefix `<`/`>` constraints remain absent.
 
 ### Single-line strings
 

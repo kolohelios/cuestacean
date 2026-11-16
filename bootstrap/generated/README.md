@@ -85,7 +85,8 @@ from the [unification DSL](../unify.md); `unify-right` and `unify-scoped` are
 test-only policies. Addition now delegates to `sum.rs` through the same finite
 binary-control DSL ([contract](../sum.md)); `sum-right` is test-only.
 `equal.rs` and `not-equal.rs` implement [scalar equality](../equality.md) through
-that same compiler; `equal-false` is test-only. Intermediate values may be abstract `bool`, `int` or
+that same compiler; `equal-false` is test-only. Four [ordering policies](../ordering.md)
+use it too, with `less-false` as a compiled test-only alternate. Intermediate values may be abstract `bool`, `int` or
 bounds; JSON evaluation also supports owned strings and abstract `string`.
 Public `execute_json` requires a concrete JSON integer/boolean/string;
 legacy `execute` remains integer-only. The normal module is exposed as
@@ -155,7 +156,7 @@ done
 bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/pratt.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/pratt-lowering-no-increment.json" \
   | rustfmt --edition 2024 > bootstrap/generated/pratt-no-increment.rs
-for control in unify sum equal not-equal tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
+for control in unify sum equal not-equal less less-equal greater greater-equal tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
   name=$(basename "$control")
   bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"

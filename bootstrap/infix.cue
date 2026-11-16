@@ -44,4 +44,11 @@ let wordContinuationBytes = list.Concat([list.Range(48, 58, 1), list.Range(65, 9
 				]},
 			]},
 		]
-	}]}]}
+	}]}, {
+	op: "if", condition: {op: "flagIs", value: false}
+	then: [{op: "if", condition: {op: "byteIn", bytes: [60, 62]}, then: [
+		{op: "advance"},
+		{op: "if", condition: {op: "byteIn", bytes: [61]}, then: [{op: "advance"}]},
+		{op: "setFlag", value: true},
+	]}]
+}]}

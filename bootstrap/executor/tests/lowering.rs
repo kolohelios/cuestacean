@@ -73,6 +73,10 @@ fn default_policy_matches_independent_instruction_expressions() {
         ("unify", "unify"),
         ("equal", "equal"),
         ("notEqual", "not_equal"),
+        ("less", "less"),
+        ("lessEqual", "less_equal"),
+        ("greater", "greater"),
+        ("greaterEqual", "greater_equal"),
     ] {
         let input = json!({"op":op, "left":left, "right":right});
         assert_eq!(

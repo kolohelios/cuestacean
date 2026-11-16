@@ -37,8 +37,9 @@ integer `execute` rejects concrete strings. Abstract string output is incomplete
 Ordinary integer/boolean values and arithmetic results remain unchanged; the
 Arithmetic diagnostic now says compatible concrete operands rather than integers.
 Concrete text concatenation uses CUE addition control; scalar `==`/`!=` use
-[CUE equality control](../bootstrap/equality.md). Ordering and native source-policy
-fallback remain unsupported.
+[CUE equality control](../bootstrap/equality.md). [Ordering control](../bootstrap/ordering.md)
+compares matching concrete strings lexicographically. Native source-policy fallback
+remains unsupported.
 
 ## Evidence and bootstrap
 

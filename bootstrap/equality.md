@@ -7,13 +7,15 @@ boolean or text values, then chooses a boolean using the existing structural
 pinned Go CUE confirms. Text compares by content without Unicode normalization
 or coercion. Abstract types and bounds fail `comparison requires concrete operands`
 even if structurally identical. This is scalar equality, not structural/reference
-equality, ordering, general CUE comparability or propagation.
+equality, general CUE comparability or propagation. [Ordering](ordering.md) has
+its own matching-domain CUE policy, unlike equality's mixed-type behavior.
 
 Both children evaluate left-first before operand checks. Source `==` and `!=`
 use existing binary AST builders and Pratt control, with precedence 7 (above `&`
 at 5, below `+`/`-` at 10) and left associativity. CUE infix control recognizes
 only complete two-byte tokens; bare `=` or `!` do not advance. No boolean unary
-not, assignment, ordering or regex operators are added. Existing source limits
+not, assignment or regex operators are added here; the separate ordering slice
+now shares this comparison precedence. Existing source limits
 and conservative LF policy remain unchanged.
 
 ## Compiler and native boundary

@@ -66,6 +66,11 @@
         "sum"
         "equal"
         "not-equal"
+        "less"
+        "less-equal"
+        "greater"
+        "greater-equal"
+        "tests/valid/less-false"
         "tests/valid/equal-false"
         "tests/valid/sum-right"
         "tests/valid/unify-right"
@@ -105,6 +110,8 @@
         "concatenation"
         "equality"
         "inequality"
+        "ordering"
+        "ordering-text"
         "tests/valid/equality-mixed"
         "tests/valid/strings-empty"
         "tests/valid/strings-equal"
@@ -139,6 +146,7 @@
                 ../../bootstrap/schema.cue
                 ../../bootstrap/scanner-fragments.cue
                 ../../bootstrap/equality-fragments.cue
+                ../../bootstrap/ordering-fragments.cue
                 ../../bootstrap/lowering-fragments.cue
                 ../../bootstrap/pratt-lowering-fragments.cue
                 ../../bootstrap/unify-lowering-fragments.cue
@@ -162,14 +170,14 @@
             set -euo pipefail
             export LC_ALL=C TZ=UTC
             for fixture in ${fixtureNames}; do
-              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue ${cueSources}/scan-lowering-fragments.cue ${cueSources}/meta-lowering-fragments.cue ${cueSources}/equality-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > first.json
-              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue ${cueSources}/scan-lowering-fragments.cue ${cueSources}/meta-lowering-fragments.cue ${cueSources}/equality-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > second.json
+              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue ${cueSources}/scan-lowering-fragments.cue ${cueSources}/meta-lowering-fragments.cue ${cueSources}/equality-fragments.cue ${cueSources}/ordering-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > first.json
+              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue ${cueSources}/scan-lowering-fragments.cue ${cueSources}/meta-lowering-fragments.cue ${cueSources}/equality-fragments.cue ${cueSources}/ordering-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > second.json
               cmp first.json second.json
               mkdir -p "$(dirname "$out/$fixture.json")"
               cp first.json "$out/$fixture.json"
             done
             for fixture in ${cueSources}/tests/invalid/*.cue; do
-              if cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue ${cueSources}/scan-lowering-fragments.cue ${cueSources}/meta-lowering-fragments.cue ${cueSources}/equality-fragments.cue "$fixture" --out json > invalid.log 2>&1; then
+              if cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue ${cueSources}/scan-lowering-fragments.cue ${cueSources}/meta-lowering-fragments.cue ${cueSources}/equality-fragments.cue ${cueSources}/ordering-fragments.cue "$fixture" --out json > invalid.log 2>&1; then
                 echo "Expected rejection: $fixture" >&2
                 exit 1
               fi
@@ -475,6 +483,12 @@
                   test ! -s actual
                   test -s error
                 done
+                # These rejected operand domains must also fail upstream.
+                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue; do
+                  if cue export "$source" --out json > expected 2> cue-error; then exit 1; fi
+                  test ! -s expected
+                  test -s cue-error
+                done
                 for source in ${../../bootstrap/source}/rejected/*.cue; do
                   if bootstrap-source "$source" > actual 2> error; then
                     echo "Expected rejection: $source" >&2
@@ -516,6 +530,20 @@
                   property="''${pair%%:*}"
                   fixture="''${pair#*:}"
                   cue export ${../../bootstrap/tests/upstream/equality.cue} -e "$property" --out json > expected
+                  for binary in bootstrap-executor bootstrap-generated; do
+                    if [ "$binary" = bootstrap-executor ]; then
+                      "$binary" ${jsonExports pkgs}/"$fixture.json" ${jsonExports pkgs}/evaluation.json > actual
+                    else
+                      "$binary" ${jsonExports pkgs}/"$fixture.json" > actual
+                    fi
+                    jq -e 'type == "boolean"' actual > /dev/null
+                    diff -u expected actual
+                  done
+                done
+                for pair in integer:ordering text:ordering-text; do
+                  property="''${pair%%:*}"
+                  fixture="''${pair#*:}"
+                  cue export ${../../bootstrap/tests/upstream/ordering.cue} -e "$property" --out json > expected
                   for binary in bootstrap-executor bootstrap-generated; do
                     if [ "$binary" = bootstrap-executor ]; then
                       "$binary" ${jsonExports pkgs}/"$fixture.json" ${jsonExports pkgs}/evaluation.json > actual

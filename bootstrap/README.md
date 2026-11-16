@@ -1,6 +1,6 @@
 # Bootstrap expression fixtures
 
-`schema.cue` defines a recursive expression tree with twenty node kinds:
+`schema.cue` defines a recursive expression tree with twenty-four node kinds:
 
 - `integer`: an integer `value`.
 - `intType`: the abstract `int` constraint, with no payload.
@@ -12,6 +12,7 @@
 - `add`: ordered `left` and `right` expression children. [CUE control](sum.md)
   chooses checked integer addition or text concatenation; `concatenation.cue`
   demonstrates the string case.
+- `less` / `lessEqual` / `greater` / `greaterEqual`: [CUE-owned integer/text ordering](ordering.md).
 - `equal` / `notEqual`: ordered children with [CUE-owned concrete scalar equality](equality.md).
 - `multiply`: ordered `left` and `right` expression children.
 - `subtract`: ordered children, subtracting right from left.
