@@ -106,6 +106,19 @@ enum Expr {
     List {
         field: String,
     },
+    Signed {
+        field: String,
+    },
+    Join {
+        field: String,
+        separator: String,
+    },
+    IfZero {
+        field: String,
+        then: Box<Expr>,
+        #[serde(rename = "else")]
+        otherwise: Box<Expr>,
+    },
     Select {
         field: String,
         #[serde(deserialize_with = "unique_cases")]
@@ -223,6 +236,11 @@ impl Expr {
                 field,
                 then,
                 otherwise,
+            }
+            | Self::IfZero {
+                field,
+                then,
+                otherwise,
             } => {
                 if field.is_empty() || field.len() > 128 {
                     return Err(invalid("selector must contain 1..=128 bytes"));
@@ -230,7 +248,17 @@ impl Expr {
                 then.validate()?;
                 otherwise.validate()
             }
+            Self::Join { field, separator } => {
+                if field.is_empty() || field.len() > 128 {
+                    return Err(invalid("selector must contain 1..=128 bytes"));
+                }
+                if separator.len() > 128 {
+                    return Err(invalid("separator exceeds 128 bytes"));
+                }
+                Ok(())
+            }
             Self::Lower { field }
+            | Self::Signed { field }
             | Self::String { field }
             | Self::Boolean { field }
             | Self::Unsigned { field }
@@ -356,7 +384,19 @@ impl Expr {
                 Ok(())
             }),
             Self::Unsigned { field } => ctx.unsigned(node, field),
+            Self::Signed { field } => ctx.signed(node, field),
             Self::List { field } => ctx.list(node, field, depth, driver),
+            Self::Join { field, separator } => ctx.join(node, field, separator, depth, driver),
+            Self::IfZero {
+                field,
+                then,
+                otherwise,
+            } => ctx.if_zero(
+                node,
+                field,
+                |ctx| then.render(ctx, node, depth, driver),
+                |ctx| otherwise.render(ctx, node, depth, driver),
+            ),
             Self::Select { field, cases } => ctx.select(node, field, |ctx, tag| {
                 cases
                     .get(tag)
@@ -453,6 +493,24 @@ impl Context {
             Ok(out)
         })
     }
+    pub fn signed(&mut self, node: &Value, field: &str) -> Result<String, Error> {
+        self.expression(|ctx| {
+            let value = node
+                .get(field)
+                .and_then(Value::as_i64)
+                .ok_or_else(|| invalid(format!("field {field:?} must be a signed integer")))?;
+            let mut out = String::new();
+            write!(
+                BudgetWriter {
+                    budget: &mut ctx.budget,
+                    output: &mut out
+                },
+                "{value}"
+            )
+            .map_err(|_| invalid("lowering exceeds 1 MiB rendered bytes"))?;
+            Ok(out)
+        })
+    }
     pub fn list(
         &mut self,
         node: &Value,
@@ -460,10 +518,23 @@ impl Context {
         depth: usize,
         driver: &dyn Driver,
     ) -> Result<String, Error> {
+        self.join(node, field, "", depth, driver)
+    }
+    pub fn join(
+        &mut self,
+        node: &Value,
+        field: &str,
+        separator: &str,
+        depth: usize,
+        driver: &dyn Driver,
+    ) -> Result<String, Error> {
         self.expression(|ctx| {
             let values = array_field(node, field)?;
             let mut out = String::new();
-            for value in values {
+            for (index, value) in values.iter().enumerate() {
+                if index > 0 {
+                    ctx.budget.append(&mut out, separator)?;
+                }
                 let rendered = ctx.dispatch(value, depth + 1, driver)?;
                 ctx.budget.append(&mut out, &rendered)?;
             }
@@ -480,6 +551,28 @@ impl Context {
         self.expression(|ctx| {
             let empty = array_field(node, field)?.is_empty();
             let rendered = if empty { then(ctx)? } else { otherwise(ctx)? };
+            let mut out = String::new();
+            ctx.budget.append(&mut out, &rendered)?;
+            Ok(out)
+        })
+    }
+    pub fn if_zero(
+        &mut self,
+        node: &Value,
+        field: &str,
+        then: impl FnOnce(&mut Context) -> Result<String, Error>,
+        otherwise: impl FnOnce(&mut Context) -> Result<String, Error>,
+    ) -> Result<String, Error> {
+        self.expression(|ctx| {
+            let value = node
+                .get(field)
+                .and_then(Value::as_u64)
+                .ok_or_else(|| invalid(format!("field {field:?} must be an unsigned integer")))?;
+            let rendered = if value == 0 {
+                then(ctx)?
+            } else {
+                otherwise(ctx)?
+            };
             let mut out = String::new();
             ctx.budget.append(&mut out, &rendered)?;
             Ok(out)
@@ -678,6 +771,25 @@ impl Expr {
             }
             Self::List { field } => {
                 write!(out, "ctx.list(_node, {field:?}, _depth, self)").expect("write to string")
+            }
+            Self::Signed { field } => {
+                write!(out, "ctx.signed(_node, {field:?})").expect("write to string")
+            }
+            Self::Join { field, separator } => write!(
+                out,
+                "ctx.join(_node, {field:?}, {separator:?}, _depth, self)"
+            )
+            .expect("write to string"),
+            Self::IfZero {
+                field,
+                then,
+                otherwise,
+            } => {
+                write!(out, "ctx.if_zero(_node, {field:?}, |ctx| ").expect("write to string");
+                then.emit(out);
+                out.push_str(", |ctx| ");
+                otherwise.emit(out);
+                out.push(')');
             }
             Self::Select { field, cases } => {
                 write!(out, "ctx.select(_node, {field:?}, |ctx, tag| match tag {{ ")
@@ -1097,6 +1209,128 @@ mod tests {
                 .contains("4096 steps")
         );
         assert_eq!(ctx.budget.frames, 0);
+    }
+
+    #[test]
+    fn signed_join_and_zero_validate_and_render() -> Result<(), Box<dyn std::error::Error>> {
+        let text = json!({"formatVersion":1,"cases":{
+            "root":{"op":"join","field":"items","separator":"|\"\\\nλ"},
+            "item":{"op":"ifZero","field":"count","then":{"op":"signed","field":"n"},"else":{"op":"text","value":"other"}}
+        }}).to_string();
+        let policy = Policy::parse(&text)?;
+        assert_eq!(policy.lower(&json!({"op":"root","items":[]}))?, "");
+        assert_eq!(
+            policy.lower(&json!({"op":"root","items":[
+                {"op":"item","count":0,"n":i64::MIN},
+                {"op":"item","count":0,"n":i64::MAX},
+                {"op":"item","count":1,"n":false}
+            ]}))?,
+            format!("{}|\"\\\nλ{}|\"\\\nλother", i64::MIN, i64::MAX)
+        );
+        for value in [json!(false), json!(-1), json!(1.5)] {
+            assert!(policy.lower(&json!({"op":"item","count":value})).is_err());
+        }
+        for value in [json!(false), json!(u64::MAX), json!(1.5)] {
+            assert!(
+                policy
+                    .lower(&json!({"op":"item","count":0,"n":value}))
+                    .is_err()
+            );
+        }
+        for size in [0, 129] {
+            for op in ["signed", "join", "ifZero"] {
+                let expr = match op {
+                    "join" => json!({"op":op,"field":"x".repeat(size),"separator":""}),
+                    "ifZero" => {
+                        json!({"op":op,"field":"x".repeat(size),"then":{"op":"text","value":""},"else":{"op":"text","value":""}})
+                    }
+                    _ => json!({"op":op,"field":"x".repeat(size)}),
+                };
+                assert!(
+                    Policy::parse(&json!({"formatVersion":1,"cases":{"x":expr}}).to_string())
+                        .is_err()
+                );
+            }
+        }
+        assert!(Policy::parse(&json!({"formatVersion":1,"cases":{"x":{"op":"join","field":"a","separator":"λ".repeat(65)}}}).to_string()).is_err());
+        assert!(Policy::parse(&json!({"formatVersion":1,"cases":{"x":{"op":"ifZero","field":"a","then":{"op":"text","value":""},"else":{"op":"signed","field":""}}}}).to_string()).is_err());
+        let generated = super::generate(&text)?;
+        assert!(generated.contains(r#"ctx.join(_node, "items", "|\"\\\nλ", _depth, self)"#));
+        assert!(generated.contains("ctx.if_zero(_node, \"count\""));
+        assert!(generated.contains("ctx.signed(_node, \"n\")"));
+        Ok(())
+    }
+
+    #[test]
+    fn join_and_zero_charge_and_order() -> Result<(), Box<dyn std::error::Error>> {
+        let policy =
+            Policy::parse(r#"{"formatVersion":1,"cases":{"item":{"op":"signed","field":"n"}}}"#)?;
+        for (remaining, expected) in [
+            (4, "lowering: field \"n\" must be a signed integer"),
+            (3, "lowering: lowering exceeds 1 MiB rendered bytes"),
+        ] {
+            let mut ctx = Context {
+                budget: Budget {
+                    steps: 0,
+                    bytes: 1024 * 1024 - remaining,
+                    frames: 0,
+                },
+            };
+            let result = ctx.join(
+                &json!({"a":[{"op":"item","n":1},{"op":"item","n":false}]}),
+                "a",
+                "||",
+                1,
+                &policy,
+            );
+            assert_eq!(result.expect_err("join error").to_string(), expected);
+            assert_eq!(ctx.budget.frames, 0);
+        }
+        for (remaining, success) in [(2, true), (1, false)] {
+            let mut ctx = Context {
+                budget: Budget {
+                    steps: 0,
+                    bytes: 1024 * 1024 - remaining,
+                    frames: 0,
+                },
+            };
+            assert_eq!(
+                ctx.if_zero(
+                    &json!({"n":0}),
+                    "n",
+                    |ctx| ctx.text("x"),
+                    |_| panic!("unselected")
+                )
+                .is_ok(),
+                success
+            );
+            assert_eq!(ctx.budget.steps, 2);
+            assert_eq!(ctx.budget.frames, 0);
+        }
+        let node = json!({"a":[{"op":"item","n":1},{"op":"item","n":2}]});
+        let mut list = Context {
+            budget: Budget {
+                steps: 0,
+                bytes: 0,
+                frames: 0,
+            },
+        };
+        let mut join = Context {
+            budget: Budget {
+                steps: 0,
+                bytes: 0,
+                frames: 0,
+            },
+        };
+        assert_eq!(
+            list.list(&node, "a", 1, &policy)?,
+            join.join(&node, "a", "", 1, &policy)?
+        );
+        assert_eq!(
+            (list.budget.steps, list.budget.bytes, list.budget.frames),
+            (join.budget.steps, join.budget.bytes, join.budget.frames)
+        );
+        Ok(())
     }
 
     #[test]

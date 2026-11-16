@@ -85,10 +85,12 @@ package bootstrap
 #LoweringExpression: {op: "path", value: #LoweringPath} | {
 	op: "call", path: #LoweringPath, args: [...#LoweringExpression]
 } | {op: "ok" | "group" | "try", value: #LoweringExpression} | {
-	op: "lower" | "string" | "boolean" | "unsigned" | "list", field: string & !=""
+	op: "lower" | "string" | "boolean" | "unsigned" | "signed" | "list", field: string & !=""
 } | {op: "text", value: string} | {op: "concat", parts: [...#LoweringExpression]} | {
-	op: "ifEmpty", field: string & !="", then: #LoweringExpression, else: #LoweringExpression
-} | {op: "select", field: string & !="", cases: [string & !=""]: #LoweringExpression}
+	op: "ifEmpty" | "ifZero", field: string & !="", then: #LoweringExpression, else: #LoweringExpression
+} | {op: "select", field: string & !="", cases: [string & !=""]: #LoweringExpression} | {
+	op: "join", field: string & !="", separator: string
+}
 #ModuleStatement: {op: "text", value: string} | {
 	op: "firstRule" | "lastRule" | "nextRule" | "previousRule" | "kind" | "expression"
 } | {op: "whileRules", body: [...#ModuleStatement]}

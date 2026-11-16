@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::{ResultExt, Snafu};
 
@@ -27,28 +27,20 @@ mod unary_builder;
 pub enum Error {
     #[snafu(display("invalid AST builder JSON: {source}"))]
     Json { source: serde_json::Error },
+    #[snafu(display("{source}"))]
+    Lowering { source: crate::lowering::Error },
     #[snafu(display("invalid AST builder: {reason}"))]
     Program { reason: &'static str },
     #[snafu(display("invalid AST builder arguments: {reason}"))]
     Arguments { reason: &'static str },
 }
 
-#[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 enum Type {
     String,
     Integer,
     Json,
-}
-
-impl Type {
-    fn rust(self) -> &'static str {
-        match self {
-            Self::String => "String",
-            Self::Integer => "i64",
-            Self::Json => "Value",
-        }
-    }
 }
 
 #[derive(Deserialize)]
@@ -206,86 +198,85 @@ pub fn interpret(input: &str, arguments: &[Value]) -> Result<Value, Error> {
     evaluate(&validated.program.result, &validated.bindings, arguments)
 }
 
-fn argument(name: &str, bindings: &Bindings, uses: &mut [usize]) -> Result<(String, Type), Error> {
-    let (index, ty) = bindings
-        .get(name)
-        .ok_or_else(|| invalid("unknown argument"))?;
-    uses[*index] = uses[*index]
-        .checked_sub(1)
-        .ok_or_else(|| invalid("invalid argument usage"))?;
-    let code = if uses[*index] > 0 && *ty != Type::Integer {
-        format!("_arg{index}.clone()")
-    } else {
-        format!("_arg{index}")
-    };
-    Ok((code, *ty))
-}
-
-fn key(expr: &Expression, bindings: &Bindings, uses: &mut [usize]) -> Result<String, Error> {
-    match expr {
-        Expression::String { value } => Ok(format!("String::from({value:?})")),
+// Annotate checked facts in evaluation order, never Rust snippets or clone choices.
+fn prepare(
+    expr: &Expression,
+    bindings: &Bindings,
+    uses: &mut [usize],
+    role: &str,
+) -> Result<Value, Error> {
+    Ok(match expr {
         Expression::Argument { name } => {
-            let (code, ty) = argument(name, bindings, uses)?;
-            if ty != Type::String {
-                return Err(invalid("object key must be a string"));
-            }
-            Ok(code)
+            let (index, ty) = bindings
+                .get(name)
+                .ok_or_else(|| invalid("unknown argument"))?;
+            uses[*index] = uses[*index]
+                .checked_sub(1)
+                .ok_or_else(|| invalid("invalid argument usage"))?;
+            serde_json::json!({"op":"argument","index":index,"type":ty,"role":role,"remaining":uses[*index]})
         }
-        _ => Err(invalid("object key must be a string")),
-    }
-}
-
-fn emit(expr: &Expression, bindings: &Bindings, uses: &mut [usize]) -> Result<String, Error> {
-    match expr {
-        Expression::Argument { name } => {
-            let (code, ty) = argument(name, bindings, uses)?;
-            Ok(match ty {
-                Type::String => format!("Value::String({code})"),
-                Type::Integer => format!("Value::from({code})"),
-                Type::Json => code,
-            })
+        Expression::String { value } => {
+            serde_json::json!({"op":"string","value":value,"role":role})
         }
-        Expression::String { value } => Ok(format!("Value::String(String::from({value:?}))")),
-        Expression::Integer { value } => Ok(format!("Value::from({value}i64)")),
-        Expression::Object { fields } if fields.is_empty() => {
-            Ok("Value::Object(serde_json::Map::new())".into())
-        }
+        Expression::Integer { value } => serde_json::json!({"op":"integer","value":value}),
         Expression::Object { fields } => {
-            let mut entries = Vec::new();
-            for field in fields {
-                entries.push(format!(
-                    "({}, {})",
-                    key(&field.key, bindings, uses)?,
-                    emit(&field.value, bindings, uses)?
-                ));
-            }
-            Ok(format!(
-                "Value::Object(serde_json::Map::from_iter([{}]))",
-                entries.join(",\n")
-            ))
+            let fields = fields
+                .iter()
+                .map(|field| {
+                    let key = prepare(&field.key, bindings, uses, "key")?;
+                    let value = prepare(&field.value, bindings, uses, "value")?;
+                    Ok(serde_json::json!({"op":"field", "key":key, "value":value}))
+                })
+                .collect::<Result<Vec<_>, Error>>()?;
+            serde_json::json!({"op":"object","fields":fields})
         }
+    })
+}
+
+/// Compile via CUE-owned layout/ownership policy after native binding validation.
+pub fn generate(input: &str) -> Result<String, Error> {
+    #[cfg(feature = "compiled-lowering")]
+    {
+        lower(parse(input)?, &crate::compiled_ast_lowering::Compiled)
+    }
+    #[cfg(not(feature = "compiled-lowering"))]
+    {
+        generate_with_policy(
+            input,
+            include_str!(concat!(
+                env!("CUESTACEAN_BOOTSTRAP_JSON"),
+                "/ast-lowering.json"
+            )),
+        )
     }
 }
 
-/// Compile a typed construction expression; metadata names never become Rust identifiers.
-pub fn generate(input: &str) -> Result<String, Error> {
-    let mut validated = parse(input)?;
+pub fn generate_with_policy(input: &str, policy: &str) -> Result<String, Error> {
+    let validated = parse(input)?;
+    let policy =
+        crate::lowering::Policy::parse(policy).map_err(|source| Error::Lowering { source })?;
+    lower(validated, &policy)
+}
+
+fn lower(mut validated: Validated, driver: &dyn crate::lowering::Driver) -> Result<String, Error> {
     let parameters = validated
         .program
         .parameters
         .iter()
         .enumerate()
-        .map(|(index, parameter)| format!("_arg{index}: {}", parameter.r#type.rust()))
-        .collect::<Vec<_>>()
-        .join(", ");
-    let body = emit(
+        .map(|(index, p)| serde_json::json!({"op":"parameter","index":index,"type":p.r#type}))
+        .collect::<Vec<_>>();
+    let result = prepare(
         &validated.program.result,
         &validated.bindings,
         &mut validated.uses,
+        "value",
     )?;
-    Ok(format!(
-        "// Generated by bootstrap-ast-codegen. Do not edit by hand.\nuse serde_json::Value;\npub fn build({parameters}) -> Value {{\n{body}\n}}\n"
-    ))
+    if validated.uses.iter().any(|n| *n != 0) {
+        return Err(invalid("invalid argument usage"));
+    }
+    let node = serde_json::json!({"op":"program","parameters":parameters,"result":result});
+    crate::lowering::Context::run(&node, driver).map_err(|source| Error::Lowering { source })
 }
 
 #[cfg(feature = "source")]

@@ -128,7 +128,9 @@ expression loop and associativity/binding-power decisions; its separate
 [primary program](../primary.md) owns dispatch and grouping control. Existing JSON interfaces remain unchanged.
 `bootstrap-scan-codegen <program.json>` is the separate scanner-to-Rust compiler.
 The [AST builder DSL](../ast.md) generates typed construction functions used
-by the parser; `bootstrap-ast-codegen <builder.json>` is its native compiler.
+by the parser; `bootstrap-ast-codegen <builder.json> [lowering.json]` now uses a
+[shared CUE backend](../ast-lowering.md) for Rust layout and clone/move selection.
+Checked binding/type/use-count facts and the reference interpreter remain native.
 `bootstrap-pratt-codegen <control.json>` lowers the expression control program.
 
 ## Deliberate limits

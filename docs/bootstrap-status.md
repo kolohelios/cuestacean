@@ -20,6 +20,7 @@ advantages remain a hypothesis, not a measured result.
 
 | Boundary | Specifications and contract | Rust implementation/verification |
 | --- | --- | --- |
+| AST-builder compiler lowering | `bootstrap/ast-lowering{,-fragments}.cue`, [backend contract](../bootstrap/ast-lowering.md) | Native checked binding/use-count facts; CUE layout/clone/move selection; compiled driver |
 | Unification compiler lowering | `bootstrap/unify-lowering{,-fragments}.cue`, [backend contract](../bootstrap/unify-lowering.md) | Shared select/concat kernel and compiled driver; native typed/scope validation |
 | Pratt/primary compiler lowering | `bootstrap/pratt-lowering{,-fragments}.cue`, [backend contract](../bootstrap/pratt-lowering.md) | Shared lowering compiler/kernel; compiled driver; native typed bridge |
 | Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
@@ -119,6 +120,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#62](https://github.com/kolohelios/cuestacean/pull/62) | Compiled production lowering with artifact-free interpreter seeds |
 | [#64](https://github.com/kolohelios/cuestacean/pull/64) | CUE evaluator assembly/traversal and reverse compiled evidence |
 | [#66](https://github.com/kolohelios/cuestacean/pull/66) | Shared CUE backend for Pratt/primary compiler emission |
+| [#68](https://github.com/kolohelios/cuestacean/pull/68) | Shared CUE backend for unification compiler emission |
 
 ## Build and validation runbook
 
@@ -170,6 +172,9 @@ workspace's stale exports for changed specifications.
   Unification compilation now has the same arrangement via `unify-lowering.rs`.
   Its internal typed serialization distinguishes value/endpoint input tags;
   accepted control wire syntax remains unchanged.
+  AST-builder compilation likewise uses `ast-lowering.rs`; native binding/type/use
+  counting supplies data, CUE chooses cloning/moving and source layout. Include
+  this driver in feature-isolation removal. See the AST backend contract.
 - Default `source` enables `semantics`. Semantic evaluation/generated unification
   can build without the parser; compiler-only seeds exclude both dependencies,
   with no native unification fallback or stub. The sandbox checks these profiles.
