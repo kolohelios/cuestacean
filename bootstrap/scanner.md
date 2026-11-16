@@ -10,9 +10,9 @@ validation, using a generic `reject` instruction for diagnostics.
 [`identifier.cue`](identifier.cue) supplies ASCII identifier start/continuation
 scanning. [`group-open.cue`](group-open.cue) and `group-close.cue` recognize and
 consume parenthesis tokens. [`bound-prefix.cue`](bound-prefix.cue) and
-[`infix.cue`](infix.cue) recognize symbols. The handwritten
-`bootstrap-scan-codegen <program.json>` compiler lowers these programs into
-Rust control flow. The parser calls generated whitespace, after-operand,
+[`infix.cue`](infix.cue) recognize symbols. The
+`bootstrap-scan-codegen <program.json> [lowering.json]` compiler now uses a
+[shared CUE backend](scan-lowering.md) to lower these programs into Rust control flow. The parser calls generated whitespace, after-operand,
 decimal, identifier, parenthesis, and symbol scanners, not the statement interpreter.
 No Go process runs during source evaluation.
 
@@ -21,9 +21,9 @@ including when to advance, inspect state, update state, and reject input.
 These are small scanning algorithms and policies,
 **not a self-hosted parser or compiler**. Checked i64 conversion, grammar
 validation, grammar lookup and frame safety,
-the statement compiler/interpreter,
-JSON loading, and safe cursor
-primitives remain handwritten. Upstream Go CUE still exports specifications.
+typed validation/flow analysis, the statement interpreter,
+JSON loading, safe cursor and bounded pattern-rendering primitives remain native.
+CUE owns compiler layout and rendered-branch simplification. Upstream Go CUE still exports specifications.
 
 ## Statement contract
 
@@ -186,6 +186,14 @@ at 128 ASCII bytes or 128 Unicode characters. These are bootstrap limits, not CU
 production-hardening claim. Fuel checks are emitted into generated loops as
 well as applied by the interpreter.
 
+Compilation additionally obeys shared rendering bounds: selected string fields
+(including rejection reasons) ≤64 KiB, 4096 lowering steps, 128 combined frames
+and 1 MiB cumulative rendered bytes including copies. These are intentional new
+compiler limits, not tighter scanner-language validation: larger nonempty reasons
+remain valid for reference execution but may fail generation. Compiled/reference
+backend boundary tests pin acceptance at 65,536 reason bytes and rejection at
+65,537 without relaxing the shared kernel guards.
+
 ## Validation and regeneration
 
 From the repository root:
@@ -214,5 +222,7 @@ See [generated-module regeneration](generated/README.md) for the pinned local
 commands. Nix exports JSON only as a build output and regenerates all scanner
 Rust before compiling the final package. The handwritten seeds disable the
 default `source` feature, excluding the parser/generated scanner dependency;
-the final package enables it and runs the full suite. Committed Rust modules
+the final package enables it and runs the full suite. Seeds interpret fresh
+compiler-policy JSON; production uses `compiled_scan_lowering`, with no native
+per-statement/predicate source emitter. Committed Rust modules
 remain drift-check goldens, never inputs required by the seed build.

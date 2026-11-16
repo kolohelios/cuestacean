@@ -43,6 +43,11 @@ pub mod compiled_unify_lowering;
 #[path = "../../generated/ast-lowering.rs"]
 pub mod compiled_ast_lowering;
 
+/// CUE-owned scanner compiler source composition.
+#[cfg(feature = "compiled-lowering")]
+#[path = "../../generated/scan-lowering.rs"]
+pub mod compiled_scan_lowering;
+
 /// Default CUE-generated rules, with integer-only and JSON scalar entry points.
 /// Compiler-only seeds omit this module and all generated semantics.
 #[cfg(feature = "semantics")]

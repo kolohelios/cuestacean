@@ -1,7 +1,8 @@
-//! Small executable scanner DSL. The interpreter, emitter and safe cursor are
-//! native scaffolding; scanner algorithms are CUE-authored statement programs.
+//! CUE scanner algorithms and compiler layout over native validation, flow facts,
+//! reference execution and checked cursor/pattern primitives.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use snafu::{ResultExt, Snafu};
 
 #[cfg(feature = "source")]
@@ -47,6 +48,8 @@ mod generated_negation_prefix;
 pub enum Error {
     #[snafu(display("invalid scanner JSON: {source}"))]
     Json { source: serde_json::Error },
+    #[snafu(display("{source}"))]
+    Lowering { source: crate::lowering::Error },
     #[snafu(display("invalid scanner program: {reason}"))]
     Program { reason: &'static str },
     #[snafu(display("scanner offset is not a source character boundary"))]
@@ -155,7 +158,7 @@ struct Program {
     body: Vec<Statement>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "op", deny_unknown_fields)]
 enum Predicate {
     #[serde(rename = "byteIn")]
@@ -210,53 +213,6 @@ impl Predicate {
             Self::FlagIs { value } => cursor.flag() == *value,
             Self::HasByte {} => cursor.peek().is_some(),
         }
-    }
-
-    fn inverted_rust(&self) -> String {
-        match self {
-            Self::ByteIn { .. } | Self::CharIn { .. } => format!("!{}", self.rust()),
-            Self::FlagIs { value } => Self::FlagIs { value: !value }.rust(),
-            Self::HasByte {} => "cursor.peek().is_none()".into(),
-        }
-    }
-
-    fn rust(&self) -> String {
-        let (bytes, ahead) = match self {
-            Self::ByteIn { bytes, ahead } => (bytes, ahead),
-            Self::CharIn { characters } => {
-                let mut characters = characters.clone();
-                characters.sort_unstable();
-                characters.dedup();
-                let patterns = characters
-                    .iter()
-                    .map(|ch| format!("{ch:?}"))
-                    .collect::<Vec<_>>()
-                    .join(" | ");
-                return format!("matches!(cursor.peek_char(), Some({patterns}))");
-            }
-            Self::FlagIs { value: true } => return "cursor.flag()".into(),
-            Self::FlagIs { value: false } => return "!cursor.flag()".into(),
-            Self::HasByte {} => return "cursor.peek().is_some()".into(),
-        };
-        let mut bytes = bytes.clone();
-        bytes.sort_unstable();
-        bytes.dedup();
-        // Keep arbitrary byte sets, but compact runs to warning-free Rust ranges.
-        let mut patterns = Vec::new();
-        for run in bytes.chunk_by(|left, right| left.checked_add(1) == Some(*right)) {
-            if run.len() >= 3 {
-                patterns.push(format!("{}..={}", run[0], run[run.len() - 1]));
-            } else {
-                patterns.extend(run.iter().map(u8::to_string));
-            }
-        }
-        let pattern = patterns.join(" | ");
-        let peek = if *ahead == 0 {
-            "cursor.peek()".into()
-        } else {
-            format!("cursor.peek_at({ahead})")
-        };
-        format!("matches!({peek}, Some({pattern}))")
     }
 }
 
@@ -430,98 +386,72 @@ fn always_breaks(body: &[Statement]) -> bool {
     })
 }
 
-fn emit(body: &[Statement], output: &mut String, depth: usize, break_label: Option<usize>) -> bool {
-    for statement in body {
-        match statement {
-            Statement::While { condition, body } => {
-                if always_breaks(body) {
-                    // A guaranteed break means there is exactly one condition test.
-                    output.push_str(&format!(
-                        "cursor.step()?;\nif {} {{\n'scan{depth}: {{\n",
-                        condition.rust()
-                    ));
-                    emit(body, output, depth + 1, Some(depth));
-                    output.push_str("}\n}\n");
-                } else {
-                    output.push_str(&format!(
-                        "while {{ cursor.step()?; {} }} {{\n",
-                        condition.rust()
-                    ));
-                    emit(body, output, depth + 1, None);
-                    output.push_str("}\n");
-                }
-            }
-            Statement::If {
-                condition,
-                then,
-                otherwise,
-            } => {
-                output.push_str("cursor.step()?;\n");
-                let mut then_code = String::new();
-                let then_breaks = emit(then, &mut then_code, depth, break_label);
-                let mut else_code = String::new();
-                let else_breaks = emit(otherwise, &mut else_code, depth, break_label);
-                // Predicates are pure reads, so identical branches need no test.
-                if then_code == else_code {
-                    output.push_str(&then_code);
-                } else if then_code.is_empty() {
-                    output.push_str(&format!("if {} {{\n", condition.inverted_rust()));
-                    output.push_str(&else_code);
-                    output.push_str("}\n");
-                } else {
-                    output.push_str(&format!("if {} {{\n", condition.rust()));
-                    output.push_str(&then_code);
-                    if !else_code.is_empty() {
-                        output.push_str("} else {\n");
-                        output.push_str(&else_code);
-                    }
-                    output.push_str("}\n");
-                }
-                if then_breaks && else_breaks {
-                    return true;
-                }
-            }
-            Statement::Advance {} => output.push_str("cursor.step()?;\ncursor.advance()?;\n"),
-            Statement::AdvanceChar {} => {
-                output.push_str("cursor.step()?;\ncursor.advance_char()?;\n")
-            }
-            Statement::Break {} => {
-                output.push_str("cursor.step()?;\n");
-                if let Some(label) = break_label {
-                    output.push_str(&format!("break 'scan{label};\n"));
-                } else {
-                    output.push_str("break;\n");
-                }
-                return true;
-            }
-            Statement::SetFlag { value } => {
-                output.push_str(&format!("cursor.step()?;\ncursor.set_flag({value});\n"))
-            }
-            Statement::Reject { reason } => {
-                output.push_str(&format!("cursor.step()?;\ncursor.reject({reason:?})?;\n"))
-            }
-        }
+fn predicate_node(predicate: &Predicate, inverse: bool) -> Result<Value, Error> {
+    #[derive(Serialize)]
+    struct Node<'a> {
+        #[serde(flatten)]
+        predicate: &'a Predicate,
+        inverse: bool,
     }
-    false
+    serde_json::to_value(Node { predicate, inverse }).context(JsonSnafu)
 }
 
-/// Compile scanner control flow to Rust, using only the shared safe cursor.
+// Native flow facts: nearest-loop targets and unreachable suffixes, not source.
+fn prepare(body: &[Statement], depth: usize, label: Option<usize>) -> Result<Vec<Value>, Error> {
+    let mut nodes = Vec::new();
+    for statement in body {
+        nodes.push(match statement {
+            Statement::While { condition, body } => {
+                let once = always_breaks(body);
+                json!({"op":"while","condition":predicate_node(condition,false)?,"once":once,"depth":depth,
+                    "body":prepare(body,depth+1,if once {Some(depth)} else {None})?})
+            }
+            Statement::If { condition, then, otherwise } => {
+                let then = prepare(then,depth,label)?;
+                let otherwise = prepare(otherwise,depth,label)?;
+                json!({"op":"if","condition":predicate_node(condition,false)?,"inverted":predicate_node(condition,true)?,"then":then,"else":otherwise})
+            }
+            Statement::Advance {} => json!({"op":"advance"}),
+            Statement::AdvanceChar {} => json!({"op":"advanceChar"}),
+            Statement::Break {} => json!({"op":"break","labeled":label.is_some(),"label":label.unwrap_or_default()}),
+            Statement::SetFlag { value } => json!({"op":"setFlag","value":value}),
+            Statement::Reject { reason } => json!({"op":"reject","reason":reason}),
+        });
+        if always_breaks(std::slice::from_ref(statement)) {
+            break;
+        }
+    }
+    Ok(nodes)
+}
+
+/// Compile through CUE-owned source/branch layout over checked native flow facts.
 pub fn generate(input: &str) -> Result<String, Error> {
+    #[cfg(feature = "compiled-lowering")]
+    {
+        lower(parse(input)?, &crate::compiled_scan_lowering::Compiled)
+    }
+    #[cfg(not(feature = "compiled-lowering"))]
+    {
+        generate_with_policy(
+            input,
+            include_str!(concat!(
+                env!("CUESTACEAN_BOOTSTRAP_JSON"),
+                "/scan-lowering.json"
+            )),
+        )
+    }
+}
+
+pub fn generate_with_policy(input: &str, policy: &str) -> Result<String, Error> {
     let program = parse(input)?;
-    let mut output = String::from(
-        "// Generated by bootstrap-scan-codegen. Do not edit by hand.\n\
-         use crate::scanner::{Cursor, Error, Scan};\n\
-         pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {\n",
-    );
-    let binding = if program.body.is_empty() {
-        "cursor"
-    } else {
-        "mut cursor"
-    };
-    output.push_str(&format!("let {binding} = Cursor::new(source, offset)?;\n"));
-    emit(&program.body, &mut output, 0, None);
-    output.push_str("Ok(cursor.finish())\n}\n");
-    Ok(output)
+    let policy =
+        crate::lowering::Policy::parse(policy).map_err(|source| Error::Lowering { source })?;
+    lower(program, &policy)
+}
+
+fn lower(program: Program, driver: &dyn crate::lowering::Driver) -> Result<String, Error> {
+    let node = json!({"op":"program","body":prepare(&program.body,0,None)?});
+    crate::lowering::Context::run(&node, driver).map_err(|source| Error::Lowering { source })
 }
 
 /// CUE-owned trivia/newline policy selected for word operators by parser control.
@@ -651,22 +581,23 @@ mod tests {
 
     #[test]
     fn byte_sets_compact_contiguous_runs_without_changing_sparse_patterns() {
-        assert_eq!(
-            Predicate::ByteIn {
-                bytes: vec![13, 0, 1, 2, 4, 5, 10, 11, 12, 13],
-                ahead: 0
-            }
-            .rust(),
-            "matches!(cursor.peek(), Some(0..=2 | 4 | 5 | 10..=13))"
-        );
-        assert_eq!(
-            Predicate::ByteIn {
-                bytes: vec![32, 9, 10, 13],
-                ahead: 0
-            }
-            .rust(),
-            "matches!(cursor.peek(), Some(9 | 10 | 13 | 32))"
-        );
+        for (bytes, expected) in [
+            (
+                vec![13, 0, 1, 2, 4, 5, 10, 11, 12, 13],
+                "matches!(cursor.peek(), Some(0..=2 | 4 | 5 | 10..=13))",
+            ),
+            (
+                vec![32, 9, 10, 13],
+                "matches!(cursor.peek(), Some(9 | 10 | 13 | 32))",
+            ),
+        ] {
+            let input=serde_json::json!({"formatVersion":1,"body":[{"op":"if","condition":{"op":"byteIn","bytes":bytes},"then":[{"op":"advance"}]}]}).to_string();
+            assert!(
+                generate(&input)
+                    .expect("CUE predicate layout")
+                    .contains(expected)
+            );
+        }
     }
 
     #[test]

@@ -36,6 +36,10 @@ supplies ASCII identifier start/continuation scanning. Checked i64 conversion,
 grammar validation and keyword lookup remain native. The `scanner-horizontal`,
 `scanner-stalled`, and `scanner-advance` modules are test-only algorithms that
 exercise alternate branches, non-progress, and native cursor guards.
+`scan-lowering.rs` now compiles scanner layout from the shared CUE backend;
+`scan-unicode-advance.rs` changes the compiler policy, not scanner IR, and consumes
+λ where native ASCII advancement rejects. `lowering-bindings.rs` pins lexical
+rendered-value captures, escaping, equality and lazy boolean selection.
 `scanner-decimal-permissive.rs` demonstrates alternate lexical policy;
 `scanner-reject.rs` checks escaped reasons and rejection short-circuiting;
 `scanner-state.rs` tests flag reads, stateful loops, and byte-presence checks;
@@ -82,7 +86,7 @@ cargo build --manifest-path bootstrap/executor/Cargo.toml --no-default-features 
   --bin bootstrap-ast-codegen --bin bootstrap-pratt-codegen --bin bootstrap-unify-codegen \
   --bin bootstrap-lower-codegen
 set -o pipefail
-for policy in lowering pratt-lowering unify-lowering ast-lowering tests/valid/lowering-numbers tests/valid/lowering-select tests/valid/lowering-left-twice tests/valid/lowering-escaped tests/valid/lowering-reverse tests/valid/lowering-module-escaped tests/valid/lowering-collections; do
+for policy in lowering pratt-lowering unify-lowering ast-lowering scan-lowering tests/valid/lowering-bindings tests/valid/lowering-numbers tests/valid/lowering-select tests/valid/lowering-left-twice tests/valid/lowering-escaped tests/valid/lowering-reverse tests/valid/lowering-module-escaped tests/valid/lowering-collections; do
   name=$(basename "$policy")
   bootstrap/executor/target/debug/bootstrap-lower-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$policy.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
@@ -106,6 +110,9 @@ for machine in whitespace after-operand after-word-operator group-open group-clo
   bootstrap/executor/target/debug/bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$machine.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
+bootstrap/executor/target/debug/bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/scanner-advance.json" \
+  "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/scan-lowering-unicode.json" \
+  | rustfmt --edition 2024 > bootstrap/generated/scan-unicode-advance.rs
 for builder in ast-program ast-atom ast-integer ast-binary ast-unary tests/valid/ast-program-v2 \
   tests/valid/ast-escaped tests/valid/ast-duplicate; do
   name=$(basename "$builder")

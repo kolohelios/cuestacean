@@ -21,6 +21,8 @@ now also runs CUE-owned boilerplate and rule-traversal statements. The same
 with no native per-control-opcode emitter. [Unification-control compilation](bootstrap/unify-lowering.md)
 now uses another policy through that same engine. [AST-builder compilation](bootstrap/ast-lowering.md)
 now uses CUE layout/clone/move policy with native checked binding/use-count facts.
+[Scanner compilation](bootstrap/scan-lowering.md) also uses shared CUE source/branch
+layout, with explicit native flow facts and bounded pattern rendering.
 Nix builds native generator/VM seeds, regenerates JSON and Rust from the CUE specifications, then compiles and
 tests the final executables. A [source frontend](bootstrap/source/README.md)
 now handles a tiny decimal-integer subset with addition, subtraction,

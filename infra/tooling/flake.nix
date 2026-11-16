@@ -70,6 +70,8 @@
         "pratt-lowering"
         "unify-lowering"
         "ast-lowering"
+        "scan-lowering"
+        "tests/valid/lowering-bindings"
         "tests/valid/lowering-numbers"
         "tests/valid/lowering-select"
         "tests/valid/lowering-left-twice"
@@ -96,6 +98,7 @@
         "tests/valid/pratt-lowering-no-increment"
         "tests/valid/unify-lowering-permissive"
         "tests/valid/ast-lowering-forced"
+        "tests/valid/scan-lowering-unicode"
         "tests/valid/ast-literal"
       ]
       ++ scannerFixtures
@@ -117,6 +120,7 @@
                 ../../bootstrap/pratt-lowering-fragments.cue
                 ../../bootstrap/unify-lowering-fragments.cue
                 ../../bootstrap/ast-lowering-fragments.cue
+                ../../bootstrap/scan-lowering-fragments.cue
                 ../../bootstrap/tests/invalid
               ]
               ++ map (fixture: ../../bootstrap + "/${fixture}.cue") exportFixtures
@@ -134,14 +138,14 @@
             set -euo pipefail
             export LC_ALL=C TZ=UTC
             for fixture in ${fixtureNames}; do
-              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > first.json
-              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > second.json
+              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue ${cueSources}/scan-lowering-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > first.json
+              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue ${cueSources}/scan-lowering-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > second.json
               cmp first.json second.json
               mkdir -p "$(dirname "$out/$fixture.json")"
               cp first.json "$out/$fixture.json"
             done
             for fixture in ${cueSources}/tests/invalid/*.cue; do
-              if cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue "$fixture" --out json > invalid.log 2>&1; then
+              if cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/pratt-lowering-fragments.cue ${cueSources}/unify-lowering-fragments.cue ${cueSources}/ast-lowering-fragments.cue ${cueSources}/scan-lowering-fragments.cue "$fixture" --out json > invalid.log 2>&1; then
                 echo "Expected rejection: $fixture" >&2
                 exit 1
               fi
@@ -168,7 +172,7 @@
             cargo clippy --offline --all-targets -- -D warnings
             (
               mkdir lowering-profile-save
-              mv ../generated/lowering*.rs ../generated/pratt-lowering.rs ../generated/unify-lowering.rs ../generated/ast-lowering.rs lowering-profile-save/
+              mv ../generated/lowering*.rs ../generated/pratt-lowering.rs ../generated/unify-lowering.rs ../generated/ast-lowering.rs ../generated/scan-lowering.rs lowering-profile-save/
               trap 'mv lowering-profile-save/*.rs ../generated/; rmdir lowering-profile-save' EXIT
               cargo check --offline --no-default-features --features semantics --bins
             )
@@ -244,6 +248,7 @@
                 name=$(basename "$machine")
                 bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$machine.json" | rustfmt --edition 2024 > "../generated/$name.rs"
               done
+              bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/scanner-advance.json" "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/scan-lowering-unicode.json" | rustfmt --edition 2024 > ../generated/scan-unicode-advance.rs
               for builder in ${builderNames}; do
                 name=$(basename "$builder")
                 bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$builder.json" | rustfmt --edition 2024 > "../generated/$name.rs"
@@ -353,6 +358,10 @@
                   cmp first.rs second.rs
                   diff -u ${../../bootstrap/generated}/"$name.rs" first.rs
                 done
+                bootstrap-scan-codegen ${jsonExports pkgs}/tests/valid/scanner-advance.json ${jsonExports pkgs}/tests/valid/scan-lowering-unicode.json | rustfmt --edition 2024 > scan-alternate.rs
+                bootstrap-scan-codegen ${jsonExports pkgs}/tests/valid/scanner-advance.json ${jsonExports pkgs}/tests/valid/scan-lowering-unicode.json | rustfmt --edition 2024 > scan-alternate-second.rs
+                cmp scan-alternate.rs scan-alternate-second.rs
+                diff -u ${../../bootstrap/generated}/scan-unicode-advance.rs scan-alternate.rs
                 for builder in ${builderNames}; do
                   name=$(basename "$builder")
                   bootstrap-ast-codegen ${jsonExports pkgs}/"$builder.json" | rustfmt --edition 2024 > first.rs
