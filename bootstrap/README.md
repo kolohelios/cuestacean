@@ -91,8 +91,8 @@ with its rules compiled in. CLI tests compare it against the interpreter.
 The Nix build exports JSON from CUE into an immutable output and regenerates
 staged Rust before compiling, using handwritten generator seeds. This lowers the
 exported rule DSL to Rust, not arbitrary CUE. Client compiler layouts and now the
-[lowering-expression meta emitter](meta-lowering.md) live in CUE; typed validation,
-checked kernels, driver shell/module-statement compilation and value scaffolding
+[complete lowering-driver meta compiler](meta-lowering.md) live in CUE; typed
+validation, canonical metadata projection, checked VM/kernels and value scaffolding
 remain native. This is not complete generator bootstrap closure. The separate
 [unification control program](unify.md) now lowers identity, intersection and
 conflict decisions from CUE into the shared runtime's production unification.

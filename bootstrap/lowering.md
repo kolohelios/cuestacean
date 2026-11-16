@@ -16,9 +16,9 @@ The production generator now uses a **compiled CUE lowering driver**, not the
 policy interpreter. `bootstrap-lower-codegen` compiles validated policy expressions
 to Rust calls into a shared checked rendering kernel. The reference interpreter
 uses that same kernel for seeds and explicit custom policies. This is not full
-generator self-hosting: the [expression emitter is now CUE-owned](meta-lowering.md),
-but typed decoding, driver shell/module-statement compilation, rendering and safety
-guards remain Rust. The policy's [module statement program](module.md) now owns
+generator self-hosting: [complete driver source emission is CUE-owned](meta-lowering.md),
+but typed decoding, canonical metadata projection, reference execution, checked
+rendering and safety guards remain Rust. The policy's [module statement program](module.md) now owns
 outer boilerplate and rule traversal as well. Go CUE still exports policies;
 source-language/evaluator behavior is unchanged.
 
@@ -97,13 +97,14 @@ contain arbitrary Rust syntax; it is not subject to the path grammar.
 `compiled-lowering` feature. `generate_with_policy(rules, policy)` and the optional
 `bootstrap-codegen <rules.json> [lowering.json]` override use the reference engine.
 `lowering::generate(policy)` / `bootstrap-lower-codegen <policy.json>` compile a
-policy to a Rust driver, now using the CUE meta emitter for expression bodies.
-An optional second CLI argument selects an alternate compiler policy. Each target
-expression now has a fresh shared compiler context (4096 steps, 128 combined frames,
-1 MiB including copies); otherwise-valid policies can fail emission. Native shell
-and module-statement output are outside that budget. The meta contract describes
-self-regeneration and compiled alternate-policy evidence. Both compilers return
-before printing partial source.
+policy to a complete Rust driver using the CUE meta compiler. An optional second
+CLI argument selects an alternate compiler policy, which must handle the whole
+`driver` metadata root; there is no native header/module fallback. ONE compiler
+context now covers all cases, shell and module statements (4096 steps, 128 combined
+frames, 1 MiB including copies). This intentionally replaces per-expression resets
+and uncharged native assembly: otherwise-valid combined policies can fail emission.
+The meta contract describes self-regeneration and compiled alternate-policy evidence.
+Both compilers return before printing partial source.
 
 Generated matches own opcode dispatch and expression sequencing; recursive
 `child` calls retain the selected driver, including alternate policies. The

@@ -1,16 +1,41 @@
 package bootstrap
 
-// Expression emission only: the native driver shell and module emitter remain.
+// Complete lowering-driver emission over checked native compiler metadata.
 #MetaLowering: #LoweringPolicy & {
 	aliases: {
-		string:      "emitField", boolean:      "emitField", unsigned: "emitField", signed: "emitField"
-		bytePattern: "emitField", charPattern:  "emitField"
-		path:        "emitValue", text:         *"emitValue" | _
-		lower:       "emitRecursive", list:     "emitRecursive"
-		ok:          "emitUnary", group:        "emitUnary", "try":        "emitUnary"
-		ifEmpty:     "emitConditional", ifZero: "emitConditional", ifTrue: "emitConditional"
+		string:       "emitField", boolean:         "emitField", unsigned: "emitField", signed: "emitField"
+		bytePattern:  "emitField", charPattern:     "emitField"
+		path:         "emitValue", text:            *"emitValue" | _
+		lower:        "emitRecursive", list:        "emitRecursive"
+		ok:           "emitUnary", group:           "emitUnary", "try":           "emitUnary"
+		ifEmpty:      "emitConditional", ifZero:    "emitConditional", ifTrue:    "emitConditional"
+		firstRule:    "emitModuleAction", lastRule: "emitModuleAction", nextRule: *"emitModuleAction" | _
+		previousRule: "emitModuleAction", kind:     "emitModuleAction"
 	}
 	cases: {
+		driver: {op: "concat", parts: [
+			{op: "text", value: "// Generated lowering driver. Do not edit.\nuse bootstrap_executor::lowering::{self, Context, Driver, Error};\nuse serde_json::Value;\n\npub struct Compiled;\n\nimpl Driver for Compiled {\n    fn render(&self, ctx: &mut Context, _node: &Value, _depth: usize) -> Result<String, Error> {\n        match lowering::instruction_op(_node)? {\n"},
+			{op: "list", field: "cases"},
+			{op: "text", value: "            op => Err(lowering::missing_case(op)),\n        }\n    }\n"},
+			{op: "ifTrue", field: "hasModule", then: {op: "concat", parts: [
+				{op: "text", value: "    fn assemble(&self, "},
+				{op: "ifEmpty", field: "module", then: {op: "text", value: "_frame"}, else: {op: "text", value: "frame"}},
+				{op: "text", value: ": &mut bootstrap_executor::module::Frame<'_>) -> Result<(), Error> {\n"},
+				{op: "list", field: "module"}, {op: "text", value: "Ok(())\n}\n"},
+			]}, else: {op: "text", value: ""}},
+			{op: "text", value: "}\n\npub fn lower(node: &Value) -> Result<String, Error> {\n    Context::run(node, &Compiled)\n}\n"},
+		]}
+		dispatchCase: {op: "concat", parts: [{op: "text", value: "            "},
+			{op: "join", field: "keys", separator: " | "}, {op: "text", value: " => "},
+			{op: "lower", field: "expression"}, {op: "text", value: ",\n"}]}
+		dispatchKey: {op: "string", field: "value"}
+		moduleText: {op: "concat", parts: [{op: "text", value: "frame.step()?; frame.text("},
+			{op: "string", field: "value"}, {op: "text", value: ")?;\n"}]}
+		whileRules: {op: "concat", parts: [{op: "text", value: "while { frame.step()?; frame.has_rule() } {\n"},
+			{op: "list", field: "body"}, {op: "text", value: "}\n"}]}
+		expression: {op: "text", value: "frame.step()?; frame.expression(self)?;\n"}
+		emitModuleAction: {op: "concat", parts: [{op: "text", value: "frame.step()?; frame."},
+			{op: "identifier", field: "op", snake: true}, {op: "text", value: "()?;\n"}]}
 		emitField: {op: "concat", parts: [{op: "text", value: "ctx."}, {op: "identifier", field: "op", snake: true},
 			{op: "text", value: "(_node, "}, {op: "string", field: "field"}, {op: "text", value: ")"}]}
 		emitValue: {op: "concat", parts: [{op: "text", value: "ctx."}, {op: "identifier", field: "op"},

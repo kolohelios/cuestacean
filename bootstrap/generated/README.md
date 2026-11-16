@@ -2,8 +2,8 @@
 
 The evaluator modules are generated from rule JSON by `bootstrap-codegen`,
 whose per-instruction expression lowering runs a [compiled CUE program](../lowering.md).
-The driver shell/module-statement compiler and checked rendering/cursor kernels
-remain native; [expression emission](../meta-lowering.md) is now CUE-owned;
+Checked rendering/cursor kernels and typed metadata projection remain native;
+[complete driver source emission](../meta-lowering.md) is CUE-owned;
 [module assembly](../module.md) and traversal are now CUE-owned too. Compiler-only seeds use the reference policy interpreter. This lowers our sixteen instruction primitives, not
 arbitrary CUE source. The interpreter remains the default executable and a
 reference for tests. The normal generated module also runs as a separate CLI:
@@ -17,11 +17,12 @@ Run that command from the repository root; it prints `42`. The rules are baked
 in, so this CLI accepts only a program path. The alternate and escaping modules
 remain test-only.
 
-`meta-lowering.rs` is the CUE-defined lowering-expression emitter; fresh seeds
-interpret its policy, then the compiled emitter regenerates itself byte-exact.
-The native driver shell/module-statement compiler remain. `lowering-meta-forced.rs`
-uses an alternate meta policy to compile unchanged number-lowering IR; its actual
-compiled nonzero branch returns `forced` rather than `more`.
+`meta-lowering.rs` is the CUE-defined full driver compiler; fresh seeds interpret
+its policy, then the compiled emitter regenerates its whole source byte-exact.
+`lowering-meta-forced.rs` changes unchanged number-lowering IR's actual compiled
+nonzero output to `forced` rather than `more`. `meta-driver-keys.rs` and
+`meta-driver-previous.rs` compile unchanged keys-only module IR: the default emits
+both quoted keys, while an alternate meta compiler emits only the first.
 
 - `evaluation.rs` comes from the normal CUE-exported rules.
 - `evaluation-left-twice.rs` comes from the alternate CUE-exported rules.
@@ -93,7 +94,7 @@ cargo build --manifest-path bootstrap/executor/Cargo.toml --no-default-features 
   --bin bootstrap-ast-codegen --bin bootstrap-pratt-codegen --bin bootstrap-unify-codegen \
   --bin bootstrap-lower-codegen
 set -o pipefail
-for policy in lowering pratt-lowering unify-lowering ast-lowering scan-lowering meta-lowering tests/valid/lowering-bindings tests/valid/lowering-numbers tests/valid/lowering-select tests/valid/lowering-left-twice tests/valid/lowering-escaped tests/valid/lowering-reverse tests/valid/lowering-module-escaped tests/valid/lowering-collections; do
+for policy in lowering pratt-lowering unify-lowering ast-lowering scan-lowering meta-lowering tests/valid/meta-driver-keys tests/valid/lowering-bindings tests/valid/lowering-numbers tests/valid/lowering-select tests/valid/lowering-left-twice tests/valid/lowering-escaped tests/valid/lowering-reverse tests/valid/lowering-module-escaped tests/valid/lowering-collections; do
   name=$(basename "$policy")
   bootstrap/executor/target/debug/bootstrap-lower-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$policy.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
@@ -101,6 +102,9 @@ done
 bootstrap/executor/target/debug/bootstrap-lower-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-numbers.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/meta-lowering-forced.json" \
   | rustfmt --edition 2024 > bootstrap/generated/lowering-meta-forced.rs
+bootstrap/executor/target/debug/bootstrap-lower-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/meta-driver-keys.json" \
+  "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/meta-driver-previous.json" \
+  | rustfmt --edition 2024 > bootstrap/generated/meta-driver-previous.rs
 for rules in "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/evaluation-left-twice.json" \
   bootstrap/executor/tests/fixtures/codegen-escaped-rules.json; do

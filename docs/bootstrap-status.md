@@ -20,7 +20,7 @@ advantages remain a hypothesis, not a measured result.
 
 | Boundary | Specifications and contract | Rust implementation/verification |
 | --- | --- | --- |
-| Lowering-expression compiler | `bootstrap/meta-lowering{,-fragments}.cue`, [meta contract](../bootstrap/meta-lowering.md) | Self-regenerating expression emitter; native decoder, driver shell and module-statement compiler |
+| Lowering-driver compiler | `bootstrap/meta-lowering{,-fragments}.cue`, [meta contract](../bootstrap/meta-lowering.md) | Self-regenerating full source emitter; native decoder, metadata projection and checked VM/kernels |
 | Scanner compiler lowering | `bootstrap/scan-lowering{,-fragments}.cue`, [backend contract](../bootstrap/scan-lowering.md) | Native flow/label facts and bounded patterns; CUE source/branch layout; compiled driver |
 | AST-builder compiler lowering | `bootstrap/ast-lowering{,-fragments}.cue`, [backend contract](../bootstrap/ast-lowering.md) | Native checked binding/use-count facts; CUE layout/clone/move selection; compiled driver |
 | Unification compiler lowering | `bootstrap/unify-lowering{,-fragments}.cue`, [backend contract](../bootstrap/unify-lowering.md) | Shared select/concat kernel and compiled driver; native typed/scope validation |
@@ -125,6 +125,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#68](https://github.com/kolohelios/cuestacean/pull/68) | Shared CUE backend for unification compiler emission |
 | [#70](https://github.com/kolohelios/cuestacean/pull/70) | Shared CUE backend for AST builders and ownership selection |
 | [#72](https://github.com/kolohelios/cuestacean/pull/72) | Shared CUE backend for scanner source and branch layout |
+| [#74](https://github.com/kolohelios/cuestacean/pull/74) | CUE-defined self-regenerating lowering-expression emitter |
 
 ## Build and validation runbook
 
@@ -182,10 +183,11 @@ workspace's stale exports for changed specifications.
   Scanner compilation now uses `scan-lowering.rs` with native flow/label facts
   and bounded pattern rendering. CUE owns source composition and cached branch
   simplification; include this driver in feature-isolation removal too.
-  `meta-lowering.rs` now emits lowering expressions, including its own regeneration;
+  `meta-lowering.rs` now emits whole lowering drivers, including its own regeneration;
   seeds interpret fresh meta JSON. Remove it for semantics-only isolation too.
-  Driver shell/alias grouping and module-statement compilation remain native;
-  this is not full compiler bootstrap closure.
+  Native code projects canonical dispatch/module facts; CUE owns all source assembly.
+  One global compiler context includes shell/module output. Typed decoding, checked
+  VM/kernels and Go export remain boundaries, not full compiler bootstrap closure.
 - Default `source` enables `semantics`. Semantic evaluation/generated unification
   can build without the parser; compiler-only seeds exclude both dependencies,
   with no native unification fallback or stub. The sandbox checks these profiles.

@@ -15,9 +15,9 @@ An initial [rule-to-Rust generator](bootstrap/generated/README.md) lowers the
 same rules to compiled evaluator modules. [Instruction-to-Rust lowering](bootstrap/lowering.md)
 now compiles CUE-owned recursive expression programs into Rust drivers, with a
 reference interpreter for seeds and custom policies. The checked renderer,
-typed decoding, driver shell/module-statement compilation and safety guards remain
-native. The [lowering-expression emitter](bootstrap/meta-lowering.md) now lives in
-CUE and regenerates its own expression implementation. [Module assembly](bootstrap/module.md)
+typed decoding, canonical metadata projection and safety guards remain native.
+The [complete lowering-driver emitter](bootstrap/meta-lowering.md) now lives in
+CUE and regenerates its whole source implementation. [Module assembly](bootstrap/module.md)
 now also runs CUE-owned boilerplate and rule-traversal statements. The same
 [lowering machinery now compiles Pratt/primary control](bootstrap/pratt-lowering.md),
 with no native per-control-opcode emitter. [Unification-control compilation](bootstrap/unify-lowering.md)

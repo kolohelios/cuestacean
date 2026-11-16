@@ -73,6 +73,7 @@
         "scan-lowering"
         "meta-lowering"
         "tests/valid/lowering-bindings"
+        "tests/valid/meta-driver-keys"
         "tests/valid/lowering-numbers"
         "tests/valid/lowering-select"
         "tests/valid/lowering-left-twice"
@@ -101,6 +102,7 @@
         "tests/valid/ast-lowering-forced"
         "tests/valid/scan-lowering-unicode"
         "tests/valid/meta-lowering-forced"
+        "tests/valid/meta-driver-previous"
         "tests/valid/ast-literal"
       ]
       ++ scannerFixtures
@@ -175,7 +177,7 @@
             cargo clippy --offline --all-targets -- -D warnings
             (
               mkdir lowering-profile-save
-              mv ../generated/lowering*.rs ../generated/pratt-lowering.rs ../generated/unify-lowering.rs ../generated/ast-lowering.rs ../generated/scan-lowering.rs ../generated/meta-lowering.rs lowering-profile-save/
+              mv ../generated/lowering*.rs ../generated/pratt-lowering.rs ../generated/unify-lowering.rs ../generated/ast-lowering.rs ../generated/scan-lowering.rs ../generated/meta-lowering.rs ../generated/meta-driver-*.rs lowering-profile-save/
               trap 'mv lowering-profile-save/*.rs ../generated/; rmdir lowering-profile-save' EXIT
               cargo check --offline --no-default-features --features semantics --bins
             )
@@ -247,6 +249,7 @@
               cmp policy-generated.rs ../generated/evaluation-left-twice.rs
               mv policy-generated.rs ../generated/evaluation-left-twice.rs
               bootstrap-lower-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-numbers.json" "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/meta-lowering-forced.json" | rustfmt --edition 2024 > ../generated/lowering-meta-forced.rs
+              bootstrap-lower-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/meta-driver-keys.json" "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/meta-driver-previous.json" | rustfmt --edition 2024 > ../generated/meta-driver-previous.rs
               bootstrap-codegen "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-reverse.json" | rustfmt --edition 2024 > ../generated/evaluation-reverse.rs
               for machine in ${scannerNames}; do
                 name=$(basename "$machine")
@@ -359,6 +362,10 @@
                 bootstrap-lower-codegen ${jsonExports pkgs}/tests/valid/lowering-numbers.json ${jsonExports pkgs}/tests/valid/meta-lowering-forced.json | rustfmt --edition 2024 > meta-forced-second.rs
                 cmp meta-forced.rs meta-forced-second.rs
                 diff -u ${../../bootstrap/generated}/lowering-meta-forced.rs meta-forced.rs
+                bootstrap-lower-codegen ${jsonExports pkgs}/tests/valid/meta-driver-keys.json ${jsonExports pkgs}/tests/valid/meta-driver-previous.json | rustfmt --edition 2024 > driver-previous.rs
+                bootstrap-lower-codegen ${jsonExports pkgs}/tests/valid/meta-driver-keys.json ${jsonExports pkgs}/tests/valid/meta-driver-previous.json | rustfmt --edition 2024 > driver-previous-second.rs
+                cmp driver-previous.rs driver-previous-second.rs
+                diff -u ${../../bootstrap/generated}/meta-driver-previous.rs driver-previous.rs
                 for machine in ${scannerNames}; do
                   name=$(basename "$machine")
                   bootstrap-scan-codegen ${jsonExports pkgs}/"$machine.json" | rustfmt --edition 2024 > first.rs
