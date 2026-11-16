@@ -28,6 +28,11 @@ extern crate self as bootstrap_executor;
 #[path = "../../generated/lowering.rs"]
 pub mod compiled_lowering;
 
+/// Compiled CUE backend for Pratt/primary control generation.
+#[cfg(feature = "compiled-lowering")]
+#[path = "../../generated/pratt-lowering.rs"]
+pub mod compiled_pratt_lowering;
+
 /// Default CUE-generated rules, with integer-only and JSON scalar entry points.
 /// Compiler-only seeds omit this module and all generated semantics.
 #[cfg(feature = "semantics")]

@@ -1,0 +1,66 @@
+# CUE-owned Pratt compiler backend
+
+[`pratt-lowering-fragments.cue`](pratt-lowering-fragments.cue) describes how every
+Pratt/primary number, condition and statement becomes Rust. It also emits the
+parser-driver wrapper. `pratt.rs` no longer has per-opcode emission matches or
+hardcoded generated-source boilerplate. This is distinct from `pratt.cue` and
+`primary.cue`, which describe runtime parser behavior.
+
+Both backends use the [same lowering compiler/kernel](lowering.md): evaluator
+instruction lowering and parser-control compilation are separate CUE policies,
+not separate handwritten generators. The compiler count remains six.
+
+## Generic expression operations
+
+Five reusable operations extend the existing expression vocabulary:
+
+- `text {value}`: trusted fixed target-source text, at most 64 KiB.
+- `concat {parts}`: ordered concatenation, including a valid empty sequence.
+- `unsigned {field}`: project a u64 and stream its exact decimal spelling.
+- `list {field}`: require an array, recursively lower each child using the same
+  selected driver, and concatenate results with shared work/depth/output budgets.
+- `ifEmpty {field, then, else}`: require an array and evaluate only the selected
+  branch. Both templates validate before any execution/compilation.
+
+Source text is trusted implementation code, not instruction-derived data and not
+restricted like `path`. Dynamic string values retain Rust quoting; unsigned
+values cannot inject syntax. The existing generic structural, selector, work,
+combined-stack and rendered-byte limits apply unchanged. These are bootstrap
+bounds, not comprehensive hostile-input hardening or a sandbox for native drivers.
+
+## Bridge and bootstrap
+
+Native code validates complete typed control IR, retains the reference parser
+interpreter and serializes the statement body as a tagged `program` node.
+Original-text typed decoding now rejects duplicate control fields rather than
+silently accepting a generic JSON map's overwritten value. The existing control
+JSON structural guard is unchanged; it is not the policy's streaming checker.
+
+`pratt::generate` uses the compiled CUE backend under `compiled-lowering`.
+Compiler-only seeds interpret freshly exported `pratt-lowering.json` instead.
+`pratt::generate_with_policy` and the optional second argument to
+`bootstrap-pratt-codegen <control.json> [lowering.json]` select a reference backend.
+Typed validation still precedes backend execution even when a backend ignores
+some input fields. The final compiled compiler reproduces all existing Pratt and
+primary driver goldens, including alternate/error/fuel policies.
+
+The native policy compiler, decoder/serializer, generic collection traversal,
+rendering primitives and guards remain Rust; neither compiler closure nor full
+CUE compatibility is claimed. The six fresh seeds do not depend on committed
+Rust, JSON stays build-only, and compiled-backend-only/semantics-only profiles
+remain checked with generated dependencies removed where appropriate.
+
+## Evidence
+
+`pratt-lowering-no-increment` selects a different `add` compiler case while
+leaving the input parser-control program unchanged. The resulting compiled parser
+driver nests addition to the right: `MAX + 1 + -1` succeeds with MAX instead of
+failing at the normal left-first intermediate overflow. This is a deliberate
+alternate policy, not the default source language.
+
+Known source/AST/error expectations and the full compiled/reference parser corpus
+remain in force. New tests compare both backend engines, generic primitive
+composition/type errors/unused branches/shared limits, original control decoding,
+CLI overrides and failures. An actual compiled adversarial collection policy
+exercises escaped selectors/opcodes, text, empty concat, list dispatch and u64
+extrema rather than merely checking emitted strings.

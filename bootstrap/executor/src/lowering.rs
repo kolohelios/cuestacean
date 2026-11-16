@@ -69,14 +69,49 @@ fn unique_cases<'de, D: Deserializer<'de>>(
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum Expr {
-    Path { value: String },
-    Call { path: String, args: Vec<Expr> },
-    Ok { value: Box<Expr> },
-    Group { value: Box<Expr> },
-    Try { value: Box<Expr> },
-    Lower { field: String },
-    String { field: String },
-    Boolean { field: String },
+    Path {
+        value: String,
+    },
+    Call {
+        path: String,
+        args: Vec<Expr>,
+    },
+    Ok {
+        value: Box<Expr>,
+    },
+    Group {
+        value: Box<Expr>,
+    },
+    Try {
+        value: Box<Expr>,
+    },
+    Lower {
+        field: String,
+    },
+    String {
+        field: String,
+    },
+    Boolean {
+        field: String,
+    },
+    Text {
+        value: String,
+    },
+    Concat {
+        parts: Vec<Expr>,
+    },
+    Unsigned {
+        field: String,
+    },
+    List {
+        field: String,
+    },
+    IfEmpty {
+        field: String,
+        then: Box<Expr>,
+        #[serde(rename = "else")]
+        otherwise: Box<Expr>,
+    },
 }
 
 // Count original values, including overwritten duplicate keys, before typed decode.
@@ -166,7 +201,29 @@ impl Expr {
                 Ok(())
             }
             Self::Ok { value } | Self::Group { value } | Self::Try { value } => value.validate(),
-            Self::Lower { field } | Self::String { field } | Self::Boolean { field }
+            Self::Text { value } if value.len() > 64 * 1024 => Err(invalid("text exceeds 64 KiB")),
+            Self::Concat { parts } => {
+                for part in parts {
+                    part.validate()?;
+                }
+                Ok(())
+            }
+            Self::IfEmpty {
+                field,
+                then,
+                otherwise,
+            } => {
+                if field.is_empty() || field.len() > 128 {
+                    return Err(invalid("selector must contain 1..=128 bytes"));
+                }
+                then.validate()?;
+                otherwise.validate()
+            }
+            Self::Lower { field }
+            | Self::String { field }
+            | Self::Boolean { field }
+            | Self::Unsigned { field }
+            | Self::List { field }
                 if field.is_empty() || field.len() > 128 =>
             {
                 Err(invalid("selector must contain 1..=128 bytes"))
@@ -271,6 +328,25 @@ impl Expr {
             Self::Lower { field } => ctx.child(node, field, depth, driver),
             Self::String { field } => ctx.string(node, field),
             Self::Boolean { field } => ctx.boolean(node, field),
+            Self::Text { value } => ctx.text(value),
+            Self::Concat { parts } => ctx.concat(|call| {
+                for part in parts {
+                    call.arg(|ctx| part.render(ctx, node, depth, driver))?;
+                }
+                Ok(())
+            }),
+            Self::Unsigned { field } => ctx.unsigned(node, field),
+            Self::List { field } => ctx.list(node, field, depth, driver),
+            Self::IfEmpty {
+                field,
+                then,
+                otherwise,
+            } => ctx.if_empty(
+                node,
+                field,
+                |ctx| then.render(ctx, node, depth, driver),
+                |ctx| otherwise.render(ctx, node, depth, driver),
+            ),
         }
     }
 }
@@ -323,6 +399,63 @@ impl Context {
         self.expression(|ctx| {
             let mut out = String::new();
             ctx.budget.append(&mut out, path)?;
+            Ok(out)
+        })
+    }
+    pub fn text(&mut self, value: &str) -> Result<String, Error> {
+        self.expression(|ctx| {
+            let mut out = String::new();
+            ctx.budget.append(&mut out, value)?;
+            Ok(out)
+        })
+    }
+    pub fn unsigned(&mut self, node: &Value, field: &str) -> Result<String, Error> {
+        self.expression(|ctx| {
+            let value = node
+                .get(field)
+                .and_then(Value::as_u64)
+                .ok_or_else(|| invalid(format!("field {field:?} must be an unsigned integer")))?;
+            let mut out = String::new();
+            write!(
+                BudgetWriter {
+                    budget: &mut ctx.budget,
+                    output: &mut out
+                },
+                "{value}"
+            )
+            .map_err(|_| invalid("lowering exceeds 1 MiB rendered bytes"))?;
+            Ok(out)
+        })
+    }
+    pub fn list(
+        &mut self,
+        node: &Value,
+        field: &str,
+        depth: usize,
+        driver: &dyn Driver,
+    ) -> Result<String, Error> {
+        self.expression(|ctx| {
+            let values = array_field(node, field)?;
+            let mut out = String::new();
+            for value in values {
+                let rendered = ctx.dispatch(value, depth + 1, driver)?;
+                ctx.budget.append(&mut out, &rendered)?;
+            }
+            Ok(out)
+        })
+    }
+    pub fn if_empty(
+        &mut self,
+        node: &Value,
+        field: &str,
+        then: impl FnOnce(&mut Context) -> Result<String, Error>,
+        otherwise: impl FnOnce(&mut Context) -> Result<String, Error>,
+    ) -> Result<String, Error> {
+        self.expression(|ctx| {
+            let empty = array_field(node, field)?.is_empty();
+            let rendered = if empty { then(ctx)? } else { otherwise(ctx)? };
+            let mut out = String::new();
+            ctx.budget.append(&mut out, &rendered)?;
             Ok(out)
         })
     }
@@ -422,17 +555,40 @@ impl Context {
                 ctx,
                 out: &mut out,
                 first: true,
+                separator: ", ",
             })?;
             ctx.budget.append(&mut out, ")")?;
             Ok(out)
         })
     }
+    pub fn concat(
+        &mut self,
+        f: impl FnOnce(&mut Call<'_>) -> Result<(), Error>,
+    ) -> Result<String, Error> {
+        self.expression(|ctx| {
+            let mut out = String::new();
+            f(&mut Call {
+                ctx,
+                out: &mut out,
+                first: true,
+                separator: "",
+            })?;
+            Ok(out)
+        })
+    }
+}
+
+fn array_field<'a>(node: &'a Value, field: &str) -> Result<&'a Vec<Value>, Error> {
+    node.get(field)
+        .and_then(Value::as_array)
+        .ok_or_else(|| invalid(format!("field {field:?} must be an array")))
 }
 
 pub struct Call<'a> {
     ctx: &'a mut Context,
     out: &'a mut String,
     first: bool,
+    separator: &'static str,
 }
 impl Call<'_> {
     pub fn arg(
@@ -440,7 +596,7 @@ impl Call<'_> {
         f: impl FnOnce(&mut Context) -> Result<String, Error>,
     ) -> Result<(), Error> {
         if !self.first {
-            self.ctx.budget.append(self.out, ", ")?;
+            self.ctx.budget.append(self.out, self.separator)?;
         }
         self.first = false;
         let rendered = f(self.ctx)?;
@@ -473,6 +629,34 @@ impl Expr {
     fn emit(&self, out: &mut String) {
         match self {
             Self::Path { value } => write!(out, "ctx.path({value:?})").expect("write to string"),
+            Self::Text { value } => write!(out, "ctx.text({value:?})").expect("write to string"),
+            Self::Unsigned { field } => {
+                write!(out, "ctx.unsigned(_node, {field:?})").expect("write to string")
+            }
+            Self::List { field } => {
+                write!(out, "ctx.list(_node, {field:?}, _depth, self)").expect("write to string")
+            }
+            Self::IfEmpty {
+                field,
+                then,
+                otherwise,
+            } => {
+                write!(out, "ctx.if_empty(_node, {field:?}, |ctx| ").expect("write to string");
+                then.emit(out);
+                out.push_str(", |ctx| ");
+                otherwise.emit(out);
+                out.push(')');
+            }
+            Self::Concat { parts } => {
+                let name = if parts.is_empty() { "_parts" } else { "parts" };
+                writeln!(out, "ctx.concat(|{name}| {{").expect("write to string");
+                for part in parts {
+                    out.push_str("parts.arg(|ctx| ");
+                    part.emit(out);
+                    out.push_str(")?;\n");
+                }
+                out.push_str("Ok(())\n})");
+            }
             Self::String { field } => {
                 write!(out, "ctx.string(_node, {field:?})").expect("write to string")
             }
@@ -619,6 +803,60 @@ mod tests {
     }
 
     #[test]
+    fn collection_primitives_keep_exact_budget_precedence() {
+        for (remaining, expected) in [
+            (2, "lowering: field \"n\" must be an unsigned integer"),
+            (1, "lowering: lowering exceeds 1 MiB rendered bytes"),
+        ] {
+            let mut ctx = Context {
+                budget: Budget {
+                    steps: 0,
+                    bytes: 1024 * 1024 - remaining,
+                    frames: 0,
+                },
+            };
+            let result = ctx.concat(|parts| {
+                parts.arg(|ctx| ctx.text("x"))?;
+                parts.arg(|ctx| ctx.unsigned(&json!({"n":false}), "n"))
+            });
+            assert_eq!(result.expect_err("concat ordering").to_string(), expected);
+            assert_eq!(ctx.budget.frames, 0);
+        }
+        let mut ctx = Context {
+            budget: Budget {
+                steps: 0,
+                bytes: 1024 * 1024,
+                frames: 0,
+            },
+        };
+        assert_eq!(
+            ctx.if_empty(
+                &json!({"a":false}),
+                "a",
+                |ctx| ctx.text("x"),
+                |ctx| ctx.text("y")
+            )
+            .expect_err("array check first")
+            .to_string(),
+            "lowering: field \"a\" must be an array"
+        );
+        let mut ctx = Context {
+            budget: Budget {
+                steps: 0,
+                bytes: 0,
+                frames: 127,
+            },
+        };
+        assert!(
+            ctx.concat(|parts| parts.arg(|ctx| ctx.text("x")))
+                .expect_err("combined collection frames")
+                .to_string()
+                .contains("128 combined frames")
+        );
+        assert_eq!(ctx.budget.frames, 127);
+    }
+
+    #[test]
     fn fixed_frame_and_byte_boundaries_preserve_error_precedence() {
         let policy = Policy::parse(r#"{"formatVersion":1,"cases":{"leaf":{"op":"path","value":"x"},"call":{"op":"call","path":"f","args":[{"op":"path","value":"x"}]},"bad":{"op":"call","path":"f","args":[{"op":"path","value":"x"},{"op":"string","field":"s"}]}}}"#).expect("boundary policy");
         let mut ctx = Context {
@@ -682,6 +920,52 @@ mod tests {
             );
             assert_eq!(ctx.budget.frames, 0);
         }
+    }
+
+    #[test]
+    fn extended_expressions_validate_and_share_budgets() -> Result<(), Box<dyn std::error::Error>> {
+        let policy = Policy::parse(&json!({"formatVersion":1,"cases":{
+            "root":{"op":"concat","parts":[{"op":"text","value":"["},{"op":"list","field":"items"},{"op":"ifEmpty","field":"items","then":{"op":"text","value":"empty"},"else":{"op":"text","value":"]"}}]},
+            "item":{"op":"unsigned","field":"n"}
+        }}).to_string())?;
+        assert_eq!(policy.lower(&json!({"op":"root","items":[]}))?, "[empty");
+        assert_eq!(
+            policy.lower(
+                &json!({"op":"root","items":[{"op":"item","n":0},{"op":"item","n":u64::MAX}]})
+            )?,
+            "[018446744073709551615]"
+        );
+        assert!(
+            policy
+                .lower(&json!({"op":"root","items":null}))
+                .expect_err("array required")
+                .to_string()
+                .contains("must be an array")
+        );
+        for value in [json!(-1), json!(1.5), json!("1")] {
+            assert!(
+                policy
+                    .lower(&json!({"op":"item","n":value}))
+                    .expect_err("unsigned integer required")
+                    .to_string()
+                    .contains("unsigned integer")
+            );
+        }
+        let items = vec![json!({"op":"item","n":1}); 2050];
+        assert!(
+            policy
+                .lower(&json!({"op":"root","items":items}))
+                .expect_err("shared fuel exhausted")
+                .to_string()
+                .contains("4096 steps")
+        );
+        let invalid = json!({"formatVersion":1,"cases":{"x":{"op":"ifEmpty","field":"a","then":{"op":"text","value":""},"else":{"op":"lower","field":""}}}}).to_string();
+        assert!(Policy::parse(&invalid).is_err());
+        let generated = super::generate(
+            &json!({"formatVersion":1,"cases":{"x":{"op":"concat","parts":[]}}}).to_string(),
+        )?;
+        assert!(generated.contains("ctx.concat(|_parts|"));
+        Ok(())
     }
 
     #[test]

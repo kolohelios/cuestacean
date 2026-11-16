@@ -1,22 +1,24 @@
 //! Executable expression-parser control flow. Frame operations are native;
 //! the loop, binding-power comparison and associativity policy are CUE-authored.
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("invalid Pratt control JSON: {source}"))]
     Json { source: serde_json::Error },
+    #[snafu(display("{source}"))]
+    Lowering { source: crate::lowering::Error },
     #[snafu(display("invalid Pratt control: {reason}"))]
     Program { reason: &'static str },
 }
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Program {
     format_version: u32,
     body: Vec<Statement>,
 }
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum Number {
     Minimum {},
@@ -30,7 +32,7 @@ enum Number {
         right: Box<Number>,
     },
 }
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum Condition {
     HasOperator {},
@@ -51,7 +53,7 @@ enum Condition {
         right: Box<Condition>,
     },
 }
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum Statement {
     Primary {},
@@ -120,7 +122,7 @@ fn limits(value: &serde_json::Value, depth: usize, nodes: &mut usize) -> Result<
 pub(crate) fn parse(input: &str) -> Result<Program, Error> {
     let value: serde_json::Value = serde_json::from_str(input).context(JsonSnafu)?;
     limits(&value, 0, &mut 0)?;
-    let program: Program = serde_json::from_value(value).context(JsonSnafu)?;
+    let program: Program = serde_json::from_str(input).context(JsonSnafu)?;
     if program.format_version != 1 {
         return ProgramSnafu {
             reason: "formatVersion 1 required",
@@ -130,17 +132,6 @@ pub(crate) fn parse(input: &str) -> Result<Program, Error> {
     Ok(program)
 }
 impl Number {
-    fn rust(&self) -> String {
-        match self {
-            Self::Minimum {} => "_frame.minimum()".into(),
-            Self::TokenLength {} => "_frame.token_length()?".into(),
-            Self::Precedence {} => "_frame.precedence()?".into(),
-            Self::Integer { value } => format!("{value}u8"),
-            Self::Add { left, right } => {
-                format!("_frame.binding_add({}, {})?", left.rust(), right.rust())
-            }
-        }
-    }
     #[cfg(feature = "source")]
     fn value(&self, frame: &crate::parser::Frame<'_, '_>) -> Result<u8, crate::parser::Error> {
         Ok(match self {
@@ -155,19 +146,6 @@ impl Number {
     }
 }
 impl Condition {
-    fn rust(&self) -> String {
-        match self {
-            Self::HasOperator {} => "_frame.has_operator()".into(),
-            Self::LeftAssociative {} => "_frame.left_associative()?".into(),
-            Self::GroupOpen {} => "_frame.group_open()?".into(),
-            Self::HasBound {} => "_frame.has_bound()?".into(),
-            Self::HasIdentifier {} => "_frame.has_identifier()?".into(),
-            Self::HasNegation {} => "_frame.has_negation()?".into(),
-            Self::Boolean { value } => value.to_string(),
-            Self::AtLeast { left, right } => format!("{} >= {}", left.rust(), right.rust()),
-            Self::And { left, right } => format!("{} && {}", left.rust(), right.rust()),
-        }
-    }
     #[cfg(feature = "source")]
     fn test(&self, frame: &crate::parser::Frame<'_, '_>) -> Result<bool, crate::parser::Error> {
         Ok(match self {
@@ -256,72 +234,33 @@ pub(crate) fn interpret(
 ) -> Result<(), crate::parser::Error> {
     execute(&program.body, frame)
 }
-fn emit(body: &[Statement], output: &mut String) {
-    for statement in body {
-        if let Statement::While { condition, body } = statement {
-            output.push_str(&format!(
-                "while {{ _frame.step()?; {} }} {{\n",
-                condition.rust()
-            ));
-            emit(body, output);
-            output.push_str("}\n");
-            continue;
-        }
-        output.push_str("_frame.step()?;\n");
-        match statement {
-            Statement::Primary {} => output.push_str("_frame.primary()?;\n"),
-            Statement::AfterOperand {} => output.push_str("_frame.after_operand()?;\n"),
-            Statement::AfterWordOperator {} => output.push_str("_frame.after_word_operator()?;\n"),
-            Statement::LookupOperator {} => output.push_str("_frame.lookup_operator()?;\n"),
-            Statement::AdvanceOperator {} => output.push_str("_frame.advance_operator()?;\n"),
-            Statement::ParseRight {} => output.push_str("_frame.parse_right()?;\n"),
-            Statement::BuildBinary {} => output.push_str("_frame.build_binary()?;\n"),
-            Statement::Whitespace {} => output.push_str("_frame.whitespace()?;\n"),
-            Statement::ScanGroup {} => output.push_str("_frame.scan_group()?;\n"),
-            Statement::ScanNegation {} => output.push_str("_frame.scan_negation()?;\n"),
-            Statement::AdvanceNegation {} => output.push_str("_frame.advance_negation()?;\n"),
-            Statement::BuildNegation {} => output.push_str("_frame.build_negation()?;\n"),
-            Statement::ParseNegation { minimum } => {
-                output.push_str(&format!("_frame.parse_negation({})?;\n", minimum.rust()))
-            }
-            Statement::AdvanceGroup {} => output.push_str("_frame.advance_group()?;\n"),
-            Statement::CloseGroup {} => output.push_str("_frame.close_group()?;\n"),
-            Statement::ScanBound {} => output.push_str("_frame.scan_bound()?;\n"),
-            Statement::AdvanceBound {} => output.push_str("_frame.advance_bound()?;\n"),
-            Statement::ParseBound {} => output.push_str("_frame.parse_bound()?;\n"),
-            Statement::ScanIdentifier {} => output.push_str("_frame.scan_identifier()?;\n"),
-            Statement::ParseAtom {} => output.push_str("_frame.parse_atom()?;\n"),
-            Statement::ParseInteger {} => output.push_str("_frame.parse_integer()?;\n"),
-            Statement::ParseGroup { minimum } => {
-                output.push_str(&format!("_frame.parse_group({})?;\n", minimum.rust()))
-            }
-            Statement::SetBindingPower { value } => {
-                output.push_str(&format!("_frame.set_binding_power({})?;\n", value.rust()))
-            }
-            Statement::If {
-                condition,
-                then,
-                otherwise,
-            } => {
-                output.push_str(&format!("if {} {{\n", condition.rust()));
-                emit(then, output);
-                if !otherwise.is_empty() {
-                    output.push_str("} else {\n");
-                    emit(otherwise, output);
-                }
-                output.push_str("}\n");
-            }
-            Statement::While { .. } => unreachable!(),
-        }
+/// Compile parser control through the shared CUE-owned lowering backend.
+pub fn generate(input: &str) -> Result<String, Error> {
+    #[cfg(feature = "compiled-lowering")]
+    {
+        lower(parse(input)?, &crate::compiled_pratt_lowering::Compiled)
+    }
+    #[cfg(not(feature = "compiled-lowering"))]
+    {
+        generate_with_policy(
+            input,
+            include_str!(concat!(
+                env!("CUESTACEAN_BOOTSTRAP_JSON"),
+                "/pratt-lowering.json"
+            )),
+        )
     }
 }
-/// Lower parser control statements to Rust calls and control flow, not a native Pratt loop.
-pub fn generate(input: &str) -> Result<String, Error> {
+
+/// Use a custom trusted compiler policy after validating the complete control IR.
+pub fn generate_with_policy(input: &str, policy: &str) -> Result<String, Error> {
     let program = parse(input)?;
-    let mut output = String::from(
-        "// Generated by bootstrap-pratt-codegen. Do not edit by hand.\nuse crate::parser::{Error, Frame};\npub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {\n",
-    );
-    emit(&program.body, &mut output);
-    output.push_str("Ok(())\n}\n");
-    Ok(output)
+    let policy =
+        crate::lowering::Policy::parse(policy).map_err(|source| Error::Lowering { source })?;
+    lower(program, &policy)
+}
+
+fn lower(program: Program, driver: &dyn crate::lowering::Driver) -> Result<String, Error> {
+    let node = serde_json::json!({"op":"program", "body":program.body});
+    crate::lowering::Context::run(&node, driver).map_err(|source| Error::Lowering { source })
 }
