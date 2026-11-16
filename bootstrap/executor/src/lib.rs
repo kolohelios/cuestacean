@@ -33,6 +33,11 @@ pub mod compiled_lowering;
 #[path = "../../generated/pratt-lowering.rs"]
 pub mod compiled_pratt_lowering;
 
+/// Compiled CUE backend for unification-control generation.
+#[cfg(feature = "compiled-lowering")]
+#[path = "../../generated/unify-lowering.rs"]
+pub mod compiled_unify_lowering;
+
 /// Default CUE-generated rules, with integer-only and JSON scalar entry points.
 /// Compiler-only seeds omit this module and all generated semantics.
 #[cfg(feature = "semantics")]

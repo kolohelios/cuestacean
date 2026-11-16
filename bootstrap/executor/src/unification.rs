@@ -1,28 +1,30 @@
 //! Finite, CUE-authored unification control and its Rust lowering.
 use crate::runtime::Value;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("invalid unification control JSON: {source}"))]
     Json { source: serde_json::Error },
+    #[snafu(display("{source}"))]
+    Lowering { source: crate::lowering::Error },
     #[snafu(display("invalid unification control: {reason}"))]
     Program { reason: &'static str },
 }
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 enum Side {
     Left,
     Right,
 }
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Endpoint {
     Lower,
     Upper,
 }
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Kind {
     Integer,
@@ -31,7 +33,7 @@ pub enum Kind {
     Boolean,
     Bool,
 }
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Relation {
     Equal,
@@ -44,9 +46,10 @@ struct Program {
     format_version: u32,
     result: Expr,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum Expr {
+    #[serde(rename(serialize = "inputValue", deserialize = "input"))]
     Input {
         input: Side,
     },
@@ -69,7 +72,7 @@ enum Expr {
         reason: Failure,
     },
 }
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Failure {
     Integers,
@@ -77,9 +80,10 @@ pub enum Failure {
     Booleans,
     Types,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum End {
+    #[serde(rename(serialize = "inputEndpoint", deserialize = "input"))]
     Input {
         input: Side,
         endpoint: Endpoint,
@@ -95,7 +99,7 @@ enum End {
         otherwise: Box<End>,
     },
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum Condition {
     Same {},
@@ -282,12 +286,6 @@ pub fn fail(reason: Failure, left: Value, right: Value) -> Result<Value, crate::
     }
 }
 impl Side {
-    fn rust(self) -> &'static str {
-        match self {
-            Self::Left => "_left",
-            Self::Right => "_right",
-        }
-    }
     fn value(self, l: Value, r: Value) -> Value {
         match self {
             Self::Left => l,
@@ -296,18 +294,6 @@ impl Side {
     }
 }
 impl Endpoint {
-    fn rust(self) -> &'static str {
-        match self {
-            Self::Lower => "Lower",
-            Self::Upper => "Upper",
-        }
-    }
-    fn local(self) -> &'static str {
-        match self {
-            Self::Lower => "_lower",
-            Self::Upper => "_upper",
-        }
-    }
     fn value(self, locals: (Option<i64>, Option<i64>)) -> Option<i64> {
         match self {
             Self::Lower => locals.0,
@@ -315,58 +301,7 @@ impl Endpoint {
         }
     }
 }
-impl Kind {
-    fn rust(self) -> &'static str {
-        match self {
-            Self::Integer => "Integer",
-            Self::Int => "Int",
-            Self::Bounds => "Bounds",
-            Self::Boolean => "Boolean",
-            Self::Bool => "Bool",
-        }
-    }
-}
-impl Relation {
-    fn rust(self) -> &'static str {
-        match self {
-            Self::Equal => "Equal",
-            Self::Less => "Less",
-            Self::Greater => "Greater",
-        }
-    }
-}
-impl Failure {
-    fn rust(self) -> &'static str {
-        match self {
-            Self::Integers => "Integers",
-            Self::Bounds => "Bounds",
-            Self::Booleans => "Booleans",
-            Self::Types => "Types",
-        }
-    }
-}
 impl End {
-    fn rust(&self) -> String {
-        match self {
-            Self::Input { input, endpoint } => format!(
-                "Ok::<_, Error>(crate::unification::endpoint({}, crate::unification::Endpoint::{}))",
-                input.rust(),
-                endpoint.rust()
-            ),
-            Self::Local { endpoint } => format!("Ok::<_, Error>({})", endpoint.local()),
-            Self::Empty {} => "Ok::<_, Error>(None::<i64>)".into(),
-            Self::Choose {
-                condition,
-                then,
-                otherwise,
-            } => format!(
-                "if ({})? {{ {} }} else {{ {} }}",
-                condition.rust(),
-                then.rust(),
-                otherwise.rust()
-            ),
-        }
-    }
     fn eval(
         &self,
         l: Value,
@@ -392,33 +327,6 @@ impl End {
     }
 }
 impl Condition {
-    fn rust(&self) -> String {
-        match self {
-            Self::Same {} => "Ok::<_, Error>(_left == _right)".into(),
-            Self::Or { left, right } => {
-                format!("Ok::<_, Error>(({})? || ({})?)", left.rust(), right.rust())
-            }
-            Self::KindIs { input, kind } => format!(
-                "Ok::<_, Error>(crate::unification::kind_is({}, crate::unification::Kind::{}))",
-                input.rust(),
-                kind.rust()
-            ),
-            Self::HasEndpoint { value } => format!("Ok::<_, Error>(({})?.is_some())", value.rust()),
-            Self::Compare {
-                left,
-                right,
-                relation,
-            } => format!(
-                "crate::unification::compare(({})?, ({})?, crate::unification::Relation::{})",
-                left.rust(),
-                right.rust(),
-                relation.rust()
-            ),
-            Self::And { left, right } => {
-                format!("Ok::<_, Error>(({})? && ({})?)", left.rust(), right.rust())
-            }
-        }
-    }
     fn eval(
         &self,
         l: Value,
@@ -444,40 +352,6 @@ impl Condition {
     }
 }
 impl Expr {
-    fn rust(&self) -> String {
-        match self {
-            Self::Input { input } => format!("Ok::<_, Error>({})", input.rust()),
-            Self::If {
-                condition,
-                then,
-                otherwise,
-            } => format!(
-                "if ({})? {{ {} }} else {{ {} }}",
-                condition.rust(),
-                then.rust(),
-                otherwise.rust()
-            ),
-            Self::LetBounds {
-                lower,
-                upper,
-                result,
-            } => format!(
-                "{{ let (_lower, _upper) = (({})?, ({})?); {} }}",
-                lower.rust(),
-                upper.rust(),
-                result.rust()
-            ),
-            Self::Bounds { lower, upper } => format!(
-                "Ok::<_, Error>(Value::Bounds {{ lower: ({})?, upper: ({})? }})",
-                lower.rust(),
-                upper.rust()
-            ),
-            Self::Fail { reason } => format!(
-                "crate::unification::fail(crate::unification::Failure::{}, _left, _right)",
-                reason.rust()
-            ),
-        }
-    }
     fn eval(
         &self,
         l: Value,
@@ -510,13 +384,34 @@ impl Expr {
         }
     }
 }
-/// Lower validated control to native Rust control flow.
+/// Lower validated control through the shared CUE compiler policy.
 pub fn generate(input: &str) -> Result<String, Error> {
+    #[cfg(feature = "compiled-lowering")]
+    {
+        lower(parse(input)?, &crate::compiled_unify_lowering::Compiled)
+    }
+    #[cfg(not(feature = "compiled-lowering"))]
+    {
+        generate_with_policy(
+            input,
+            include_str!(concat!(
+                env!("CUESTACEAN_BOOTSTRAP_JSON"),
+                "/unify-lowering.json"
+            )),
+        )
+    }
+}
+
+pub fn generate_with_policy(input: &str, policy: &str) -> Result<String, Error> {
     let p = parse(input)?;
-    Ok(format!(
-        "// Generated by bootstrap-unify-codegen. Do not edit by hand.\nuse crate::{{Error, runtime::Value}};\npub fn unify(_left: Value, _right: Value) -> Result<Value, Error> {{\n{}\n}}\n",
-        p.result.rust()
-    ))
+    let policy =
+        crate::lowering::Policy::parse(policy).map_err(|source| Error::Lowering { source })?;
+    lower(p, &policy)
+}
+
+fn lower(p: Program, driver: &dyn crate::lowering::Driver) -> Result<String, Error> {
+    let node = serde_json::json!({"op":"program", "result":p.result});
+    crate::lowering::Context::run(&node, driver).map_err(|source| Error::Lowering { source })
 }
 /// Execute the same validated control directly, for differential testing.
 pub fn interpret(input: &str, left: Value, right: Value) -> Result<Value, crate::Error> {

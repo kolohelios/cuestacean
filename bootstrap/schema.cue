@@ -88,7 +88,7 @@ package bootstrap
 	op: "lower" | "string" | "boolean" | "unsigned" | "list", field: string & !=""
 } | {op: "text", value: string} | {op: "concat", parts: [...#LoweringExpression]} | {
 	op: "ifEmpty", field: string & !="", then: #LoweringExpression, else: #LoweringExpression
-}
+} | {op: "select", field: string & !="", cases: [string & !=""]: #LoweringExpression}
 #ModuleStatement: {op: "text", value: string} | {
 	op: "firstRule" | "lastRule" | "nextRule" | "previousRule" | "kind" | "expression"
 } | {op: "whileRules", body: [...#ModuleStatement]}
