@@ -101,7 +101,11 @@ CUE-generated Rust driver. Compiler-only seeds interpret fresh upstream-built
 JSON instead, as do `generate_with_policy`/the optional CLI policy override.
 `bootstrap-lower-codegen <policy.json>` is the sixth native compiler: it emits
 normal/alternate Rust drivers using the same checked renderer as the interpreter.
-The policy compiler, typed validation, renderer and outer assembly remain native.
+[Module statements](../module.md) now own boilerplate and rule traversal too;
+only typed serialization, canonical storage, the policy compiler, checked
+rendering and cursor/resource guards remain native. Expression-only policies
+need an explicit module program to assemble an evaluator; there is no native
+header/footer fallback.
 
 The [generated modules](../generated/README.md) use the shared native runtime
 rather than the instruction interpreter. Tests compile them, compare values and

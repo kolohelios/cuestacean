@@ -1,6 +1,7 @@
 package bootstrap
 
 #LoweringPolicy & {
+	module: []
 	cases: {
 		"text\"\\\nλ": {op: "string", field: "payload\"\\\nλ"}
 		empty: {op: "call", path: "module::empty", args: []}

@@ -19,7 +19,8 @@ advantages remain a hypothesis, not a measured result.
 
 | Boundary | Specifications and contract | Rust implementation/verification |
 | --- | --- | --- |
-| Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` compiler/reference engine/shared kernel; generated Rust driver; native module assembly |
+| Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
+| Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` compiler/reference engine/shared kernel; generated Rust driver; native checked primitives |
 | Evaluation rules | `bootstrap/evaluation.cue`, expression/rule schemas | `src/lib.rs`, `src/codegen.rs`; interpreted and generated rule execution |
 | Token/trivia scanning | `bootstrap/*.cue`, [scanner contract](../bootstrap/scanner.md) | `src/scanner.rs`; generated scanners and reference interpreter |
 | AST construction | `bootstrap/ast-*.cue`, [builder contract](../bootstrap/ast.md) | `src/ast.rs`; typed builders, no native parser JSON-map assembly |
@@ -31,7 +32,7 @@ Paths beginning `src/` above are under `bootstrap/executor/`.
 Generated Rust goldens are under `bootstrap/generated/`.
 
 Native boundaries still include grammar validation/lookup, checked cursor and
-frame operations, lowering compiler/rendering kernel/module assembly, value representation/projection, finite comparison, arithmetic
+frame operations, lowering compiler/rendering and cursor kernels, value representation/projection, finite comparison, arithmetic
 primitives, JSON handling, concrete output, resource guards, and compiler code.
 Do not describe the full parser/compiler/solver as self-hosted.
 
@@ -112,6 +113,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#56](https://github.com/kolohelios/cuestacean/pull/56) | CUE-owned Unicode line comments and word-newline policy |
 | [#58](https://github.com/kolohelios/cuestacean/pull/58) | Boolean domain, CUE typed unification and JSON scalar APIs |
 | [#60](https://github.com/kolohelios/cuestacean/pull/60) | Interpreted CUE instruction-to-Rust lowering |
+| [#62](https://github.com/kolohelios/cuestacean/pull/62) | Compiled production lowering with artifact-free interpreter seeds |
 
 ## Build and validation runbook
 
@@ -154,7 +156,9 @@ workspace's stale exports for changed specifications.
   Seeds interpret the policy; default `compiled-lowering` uses generated Rust.
   The reference interpreter remains for explicit custom policies, sharing exact
   rendering/quoting/resource primitives. `compiled-lowering` is independent of
-  semantics/source and has its own feature check.
+  semantics/source and has its own feature check. The same driver now assembles
+  modules with CUE-owned statements; expression-only custom policies cannot
+  silently fall back to native assembly. See the module contract for new bounds.
 - Default `source` enables `semantics`. Semantic evaluation/generated unification
   can build without the parser; compiler-only seeds exclude both dependencies,
   with no native unification fallback or stub. The sandbox checks these profiles.

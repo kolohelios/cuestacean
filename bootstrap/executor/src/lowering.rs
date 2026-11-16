@@ -16,7 +16,7 @@ pub enum Error {
     Invalid { reason: String },
 }
 
-fn invalid(reason: impl Into<String>) -> Error {
+pub(crate) fn invalid(reason: impl Into<String>) -> Error {
     Error::Invalid {
         reason: reason.into(),
     }
@@ -24,6 +24,7 @@ fn invalid(reason: impl Into<String>) -> Error {
 
 pub struct Policy {
     cases: BTreeMap<String, Expr>,
+    module: Option<Vec<crate::module::Statement>>,
 }
 
 #[derive(Deserialize)]
@@ -32,6 +33,14 @@ struct RawPolicy {
     format_version: u32,
     #[serde(deserialize_with = "unique_cases")]
     cases: BTreeMap<String, Expr>,
+    #[serde(default, deserialize_with = "module_body")]
+    module: Option<Vec<crate::module::Statement>>,
+}
+
+fn module_body<'de, D: Deserializer<'de>>(
+    d: D,
+) -> Result<Option<Vec<crate::module::Statement>>, D::Error> {
+    Vec::deserialize(d).map(Some)
 }
 
 // Unlike a struct, a map normally accepts duplicate keys during deserialization.
@@ -191,8 +200,12 @@ impl Policy {
             }
             expr.validate()?;
         }
+        if let Some(body) = &policy.module {
+            crate::module::validate(body)?;
+        }
         Ok(Self {
             cases: policy.cases,
+            module: policy.module,
         })
     }
 
@@ -203,6 +216,9 @@ impl Policy {
 }
 
 pub trait Driver {
+    fn assemble(&self, _frame: &mut crate::module::Frame<'_>) -> Result<(), Error> {
+        Err(invalid("missing module program"))
+    }
     fn render(&self, ctx: &mut Context, node: &Value, depth: usize) -> Result<String, Error>;
 }
 
@@ -217,6 +233,13 @@ pub fn missing_case(op: &str) -> Error {
 }
 
 impl Driver for Policy {
+    fn assemble(&self, frame: &mut crate::module::Frame<'_>) -> Result<(), Error> {
+        let body = self
+            .module
+            .as_deref()
+            .ok_or_else(|| invalid("missing module program"))?;
+        crate::module::execute(body, frame, self)
+    }
     fn render(&self, ctx: &mut Context, node: &Value, depth: usize) -> Result<String, Error> {
         let op = instruction_op(node)?;
         self.cases
@@ -436,7 +459,14 @@ pub fn generate(policy_json: &str) -> Result<String, Error> {
         expr.emit(&mut out);
         out.push_str(",\n");
     }
-    out.push_str("            op => Err(lowering::missing_case(op)),\n        }\n    }\n}\n\npub fn lower(node: &Value) -> Result<String, Error> {\n    Context::run(node, &Compiled)\n}\n");
+    out.push_str("            op => Err(lowering::missing_case(op)),\n        }\n    }\n");
+    if let Some(body) = &policy.module {
+        let frame = if body.is_empty() { "_frame" } else { "frame" };
+        writeln!(out, "    fn assemble(&self, {frame}: &mut bootstrap_executor::module::Frame<'_>) -> Result<(), Error> {{").expect("write to string");
+        crate::module::emit(body, &mut out);
+        out.push_str("Ok(())\n}\n");
+    }
+    out.push_str("}\n\npub fn lower(node: &Value) -> Result<String, Error> {\n    Context::run(node, &Compiled)\n}\n");
     Ok(out)
 }
 impl Expr {

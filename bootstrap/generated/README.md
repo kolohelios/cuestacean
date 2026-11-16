@@ -2,8 +2,8 @@
 
 The evaluator modules are generated from rule JSON by `bootstrap-codegen`,
 whose per-instruction expression lowering runs a [compiled CUE program](../lowering.md).
-The policy compiler, checked rendering kernel and outer module assembly remain
-handwritten Rust. Compiler-only seeds use the reference policy interpreter. This lowers our sixteen instruction primitives, not
+The policy compiler and checked rendering/cursor kernels remain handwritten
+Rust; [module assembly](../module.md) and traversal are now CUE-owned too. Compiler-only seeds use the reference policy interpreter. This lowers our sixteen instruction primitives, not
 arbitrary CUE source. The interpreter remains the default executable and a
 reference for tests. The normal generated module also runs as a separate CLI:
 
@@ -78,7 +78,7 @@ cargo build --manifest-path bootstrap/executor/Cargo.toml --no-default-features 
   --bin bootstrap-ast-codegen --bin bootstrap-pratt-codegen --bin bootstrap-unify-codegen \
   --bin bootstrap-lower-codegen
 set -o pipefail
-for policy in lowering tests/valid/lowering-left-twice tests/valid/lowering-escaped; do
+for policy in lowering tests/valid/lowering-left-twice tests/valid/lowering-escaped tests/valid/lowering-reverse tests/valid/lowering-module-escaped; do
   name=$(basename "$policy")
   bootstrap/executor/target/debug/bootstrap-lower-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$policy.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
@@ -90,6 +90,9 @@ for rules in "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   bootstrap/executor/target/debug/bootstrap-codegen "$rules" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
+bootstrap/executor/target/debug/bootstrap-codegen "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
+  "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-reverse.json" \
+  | rustfmt --edition 2024 > bootstrap/generated/evaluation-reverse.rs
 for machine in whitespace after-operand after-word-operator group-open group-close negation-prefix bound-prefix infix decimal identifier \
   tests/valid/scanner-horizontal \
   tests/valid/scanner-stalled tests/valid/scanner-advance \
@@ -141,7 +144,8 @@ independent Nix output built only from CUE sources, not committed artifacts.
    included in the final compiled tests. Drift checks run the final compiled
    default generator and compare its evaluator output to the interpreter-seeded
    artifacts. Normal, alternate and escaped/zero-argument lowering drivers also
-   have repeat/drift checks. The semantics-only feature check temporarily removes
+   have repeat/drift checks. Reverse traversal additionally regenerates and
+   compiles `evaluation-reverse.rs` while normal evaluator goldens stay unchanged. The semantics-only feature check temporarily removes
    every generated lowering driver to prove its independence.
 
 Committed Rust modules remain reviewable golden files: the Rust generation
