@@ -11,7 +11,9 @@ the selection algorithm in Rust. The primary program explicitly sequences:
 
 - `whitespace`, `scanGroup`, and a `groupOpen` condition;
 - `advanceGroup`, `parseGroup` with a CUE-supplied `minimum`, then `closeGroup`;
-- otherwise `scanNegation` and `hasNegation`, then `advanceNegation`,
+- otherwise `scanNot` and `hasNot`, then `advanceNot`, `parseNot` at CUE
+  minimum 101 and `buildNot`, or negation handling;
+- `scanNegation` and `hasNegation`, then `advanceNegation`,
   `parseNegation` with CUE minimum 101, and `buildNegation`, or bound handling;
 - `scanBound` and `hasBound`, then `advanceBound`, whitespace and
   `parseBound`, or string handling;
@@ -51,6 +53,9 @@ specifications and JSON remains a build-only artifact.
 Tests assert independent complete trees and exact diagnostics, alongside
 compiled/interpreted parity over the full source corpus. Runtime grammar tests
 change atom spelling, constructor kinds, bound fields and binary fields.
+[Logical not](logical-not.md) adds optional constructor metadata and checked
+private prefix stages. Older alternate programs may skip its scan, including
+continuing from a scanned-but-ignored candidate; no native fallback is added.
 
 Alternate CUE programs demonstrate executable policy rather than tables:
 `primary-no-atoms` routes identifiers to decimal parsing and rejects `int`;

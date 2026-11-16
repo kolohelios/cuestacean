@@ -21,6 +21,7 @@
         "group-open"
         "group-close"
         "negation-prefix"
+        "not-prefix"
         "bound-prefix"
         "infix"
         "decimal"
@@ -72,6 +73,10 @@
         "greater-equal"
         "logical-and"
         "logical-or"
+        "logical-not"
+        "tests/valid/not-true"
+        "tests/valid/control-default"
+        "tests/valid/unary-conditions"
         "tests/valid/logic-false"
         "tests/valid/less-false"
         "tests/valid/equal-false"
@@ -117,6 +122,7 @@
         "ordering-text"
         "logic-and"
         "logic-or"
+        "not"
         "tests/valid/equality-mixed"
         "tests/valid/strings-empty"
         "tests/valid/strings-equal"
@@ -516,7 +522,7 @@
                   test -s error
                 done
                 # These rejected operand domains must also fail upstream.
-                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue; do
+                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/not-integer.cue; do
                   if cue export "$source" --out json > expected 2> cue-error; then exit 1; fi
                   test ! -s expected
                   test -s cue-error
@@ -586,7 +592,7 @@
                     diff -u expected actual
                   done
                 done
-                for pair in and:logic-and or:logic-or; do
+                for pair in and:logic-and or:logic-or not:not; do
                   property="''${pair%%:*}"
                   fixture="''${pair#*:}"
                   cue export ${../../bootstrap/tests/upstream/logic.cue} -e "$property" --out json > expected

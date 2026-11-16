@@ -28,6 +28,9 @@ inclusive finite relations and `ordering` failure. Existing unification semantic
 and missing-endpoint guards remain unchanged. [Logical selection](logic.md) adds
 `logicalAnd` / `logicalOr`, `booleanIs {input, value}` inspection and `logical`
 failure. Eager children and both-value concreteness precede CUE result selection.
+[Unary logical not](logical-not.md) adds a separate checked one-input subset and
+`interpret_unary`; wrong-arity API calls and even unused binary dependencies fail.
+Omitted function metadata remains binary by default in CUE and native decoding.
 `integerSum` and `textConcat` call checked borrowed-input kernels; `fail` also
 supports `arithmetic`. The interpreter executes `result` independently of the
 entry-name metadata. There is no native overloaded-addition fallback. Value expressions

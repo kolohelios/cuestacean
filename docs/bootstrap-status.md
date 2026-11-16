@@ -33,6 +33,7 @@ advantages remain a hypothesis, not a measured result.
 | AST construction | `bootstrap/ast-*.cue`, [builder contract](../bootstrap/ast.md) | `src/ast.rs`; typed builders, no native parser JSON-map assembly |
 | Pratt expression loop | `bootstrap/pratt.cue`, [control contract](../bootstrap/pratt.md) | `src/pratt.rs`, checked native frame callbacks in `src/parser.rs` |
 | Primary dispatch | `bootstrap/primary.cue`, [primary contract](../bootstrap/primary.md) | Same control compiler; groups, negation, bounds, atoms, integers |
+| Unary logical not | `bootstrap/logical-not.cue`, [unary control](../bootstrap/logical-not.md) | Checked unary arity/subset; same compiler and generated one-operand policy |
 | Logical value selection | `bootstrap/{logic-fragments,logical-and,logical-or}.cue`, [logical control](../bootstrap/logic.md) | Same finite binary compiler; native boolean inspection; CUE concreteness/result policy |
 | Scalar ordering | `bootstrap/{ordering-fragments,less,less-equal,greater,greater-equal}.cue`, [ordering control](../bootstrap/ordering.md) | Same finite binary compiler; native finite/text comparisons; generated domain/result policy |
 | Scalar equality | `bootstrap/{equal,not-equal,equality-fragments}.cue`, [equality control](../bootstrap/equality.md) | Same finite binary compiler; native content equality; generated concreteness/result policy |
@@ -53,7 +54,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 
 - Single-line quoted UTF-8 strings with seven common escapes; abstract `string`;
   signed decimal integers; `true`/`false`; `bool`/`int`; inclusive literal bounds `>=` / `<=`;
-  parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary expression negation;
+  parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary `!` and expression negation;
   `div`, `mod`, `quo`, `rem`; concrete scalar `==` / `!=`; integer/text `<` / `<=` / `>` / `>=`; CUE-owned UTF-8 `//` comment trivia.
 - Binary operators are left-associative by default. `div/mod/quo/rem` share
   multiplication's precedence 20; addition/subtraction use 10, unification 5.
@@ -67,6 +68,9 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   signed-decimal path: `-9223372036854775808` must never be parsed as negating
   an out-of-range positive literal. Other prefixes recurse at CUE minimum 101,
   above the maximum configurable binary precedence 100.
+- `!` uses CUE prefix/primary control and the unary AST builder, at minimum 101.
+  It accepts concrete booleans only. Unary control has a real one-value signature;
+  unused right references and binary operations reject, without a dummy operand.
 - `-2` is an integer AST leaf; `-(2)` is a unary AST node. Optional negation
   constructor metadata can disable expression prefixes without disabling
   signed literals. `--1`, spaced signs and newline-after-sign are supported.
@@ -151,6 +155,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#82](https://github.com/kolohelios/cuestacean/pull/82) | CUE-owned scalar addition dispatch and text concatenation |
 | [#84](https://github.com/kolohelios/cuestacean/pull/84) | CUE-owned concrete scalar equality and inequality |
 | [#86](https://github.com/kolohelios/cuestacean/pull/86) | CUE-owned complete integer/text ordering family |
+| [#88](https://github.com/kolohelios/cuestacean/pull/88) | CUE-owned logical selection and export-schema resource fixes |
 
 ## Build and validation runbook
 

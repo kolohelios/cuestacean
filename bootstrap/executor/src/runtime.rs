@@ -40,6 +40,9 @@ mod generated_less_equal;
 #[path = "../../generated/logical-and.rs"]
 mod generated_logical_and;
 #[cfg(feature = "semantics")]
+#[path = "../../generated/logical-not.rs"]
+mod generated_logical_not;
+#[cfg(feature = "semantics")]
 #[path = "../../generated/logical-or.rs"]
 mod generated_logical_or;
 
@@ -223,6 +226,12 @@ pub fn logical_and(left: Value, right: Value) -> Result<Value, Error> {
 #[cfg(feature = "semantics")]
 pub fn logical_or(left: Value, right: Value) -> Result<Value, Error> {
     generated_logical_or::logical_or(left, right)
+}
+
+/// Invert a logical value using generated CUE policy.
+#[cfg(feature = "semantics")]
+pub fn logical_not(value: Value) -> Result<Value, Error> {
+    generated_logical_not::logical_not(value)
 }
 
 pub fn difference(left: Value, right: Value) -> Result<Value, Error> {

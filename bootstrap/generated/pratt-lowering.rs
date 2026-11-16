@@ -18,6 +18,7 @@ Ok(())
             "advanceBound" => ctx.text("_frame.step()?;\n_frame.advance_bound()?;\n"),
             "advanceGroup" => ctx.text("_frame.step()?;\n_frame.advance_group()?;\n"),
             "advanceNegation" => ctx.text("_frame.step()?;\n_frame.advance_negation()?;\n"),
+            "advanceNot" => ctx.text("_frame.step()?;\n_frame.advance_not()?;\n"),
             "advanceOperator" => ctx.text("_frame.step()?;\n_frame.advance_operator()?;\n"),
             "afterOperand" => ctx.text("_frame.step()?;\n_frame.after_operand()?;\n"),
             "afterWordOperator" => ctx.text("_frame.step()?;\n_frame.after_word_operator()?;\n"),
@@ -36,11 +37,13 @@ Ok(())
             "boolean" => ctx.boolean(_node, "value"),
             "buildBinary" => ctx.text("_frame.step()?;\n_frame.build_binary()?;\n"),
             "buildNegation" => ctx.text("_frame.step()?;\n_frame.build_negation()?;\n"),
+            "buildNot" => ctx.text("_frame.step()?;\n_frame.build_not()?;\n"),
             "closeGroup" => ctx.text("_frame.step()?;\n_frame.close_group()?;\n"),
             "groupOpen" => ctx.text("_frame.group_open()?"),
             "hasBound" => ctx.text("_frame.has_bound()?"),
             "hasIdentifier" => ctx.text("_frame.has_identifier()?"),
             "hasNegation" => ctx.text("_frame.has_negation()?"),
+            "hasNot" => ctx.text("_frame.has_not()?"),
             "hasOperator" => ctx.text("_frame.has_operator()"),
             "hasString" => ctx.text("_frame.has_string()?"),
             "if" => ctx.concat(|parts| {
@@ -79,6 +82,12 @@ parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
 parts.arg(|ctx| ctx.text(")?;\n"))?;
 Ok(())
 }),
+            "parseNot" => ctx.concat(|parts| {
+parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.parse_not("))?;
+parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
+parts.arg(|ctx| ctx.text(")?;\n"))?;
+Ok(())
+}),
             "parseRight" => ctx.text("_frame.step()?;\n_frame.parse_right()?;\n"),
             "parseString" => ctx.text("_frame.step()?;\n_frame.parse_string()?;\n"),
             "precedence" => ctx.text("_frame.precedence()?"),
@@ -93,6 +102,7 @@ Ok(())
             "scanGroup" => ctx.text("_frame.step()?;\n_frame.scan_group()?;\n"),
             "scanIdentifier" => ctx.text("_frame.step()?;\n_frame.scan_identifier()?;\n"),
             "scanNegation" => ctx.text("_frame.step()?;\n_frame.scan_negation()?;\n"),
+            "scanNot" => ctx.text("_frame.step()?;\n_frame.scan_not()?;\n"),
             "scanString" => ctx.text("_frame.step()?;\n_frame.scan_string()?;\n"),
             "setBindingPower" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.set_binding_power("))?;

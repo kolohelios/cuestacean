@@ -10,6 +10,7 @@ package bootstrap
 		{token: "<=", kind: "upperBound", valueField: "value"},
 	]
 	negation: {token: "-", kind: "negate", operandField: "operand"}
+	logicalNot: {token: "!", kind: "logicalNot", operandField: "operand"}
 	group: {open: "(", close: ")"}
 	operators: [{
 		token:         "+"

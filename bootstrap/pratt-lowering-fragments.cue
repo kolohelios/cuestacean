@@ -12,6 +12,7 @@ package bootstrap
 		scanBound:      "scan_bound", advanceBound:         "advance_bound", parseBound: "parse_bound"
 		scanIdentifier: "scan_identifier", parseAtom:       "parse_atom", parseInteger:  "parse_integer"
 		scanString:     "scan_string", parseString:         "parse_string"
+		scanNot:        "scan_not", advanceNot:             "advance_not", buildNot:           "build_not"
 		scanNegation:   "scan_negation", advanceNegation:   "advance_negation", buildNegation: "build_negation"
 	}
 	cases: {
@@ -35,12 +36,15 @@ package bootstrap
 		hasIdentifier: {op: "text", value: "_frame.has_identifier()?"}
 		hasString: {op: "text", value: "_frame.has_string()?"}
 		hasNegation: {op: "text", value: "_frame.has_negation()?"}
+		hasNot: {op: "text", value: "_frame.has_not()?"}
 		boolean: {op: "boolean", field: "value"}
 		atLeast: {op: "concat", parts: [L, {op: "text", value: " >= "}, R]}
 		and: {op: "concat", parts: [L, {op: "text", value: " && "}, R]}
 		setBindingPower: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.set_binding_power("},
 			{op: "lower", field: "value"}, {op: "text", value: ")?;\n"}]}
 		parseGroup: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_group("},
+			{op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"}]}
+		parseNot: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_not("},
 			{op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"}]}
 		parseNegation: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_negation("},
 			{op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"}]}

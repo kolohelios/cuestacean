@@ -1,6 +1,6 @@
 package bootstrap
 
-#OrderingProgram: #UnifyProgram & {
+#OrderingProgram: #BinaryControlProgram & {
 	_relation: "less" | "lessEqual" | "greater" | "greaterEqual"
 	let Result = {op: "boolean", value: true}
 	let Other = {op: "boolean", value: false}
