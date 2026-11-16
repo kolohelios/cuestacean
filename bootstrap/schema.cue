@@ -1,7 +1,7 @@
 package bootstrap
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #Equality | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #Addition | #Subtraction | #Multiplication | #Division | #Modulo | #Quotient | #Remainder | #Unification | #Negation
+#Expression: #Ordering | #Equality | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #Addition | #Subtraction | #Multiplication | #Division | #Modulo | #Quotient | #Remainder | #Unification | #Negation
 
 #IntegerLiteral: {
 	kind:  "integer"
@@ -27,6 +27,8 @@ package bootstrap
 	kind:    "negate"
 	operand: #Expression
 }
+
+#Ordering: {kind: "less" | "lessEqual" | "greater" | "greaterEqual", left: #Expression, right: #Expression}
 
 #Equality: {kind: "equal" | "notEqual", left: #Expression, right: #Expression}
 
@@ -119,15 +121,16 @@ package bootstrap
 #UnifyEndpoint: {op: "input", input: #UnifySide, endpoint: #UnifyEndpointName} | {op: "local", endpoint: #UnifyEndpointName} | {op: "empty"} | {
 	op: "choose", condition: #UnifyCondition, then: #UnifyEndpoint, else: #UnifyEndpoint
 }
-#UnifyCondition: {op: "kindIs", input: #UnifySide, kind: "integer" | "int" | "bounds" | "boolean" | "bool" | "text" | "string"} | {op: "same"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
-	op: "compare", left: #UnifyEndpoint, right: #UnifyEndpoint, relation: "equal" | "less" | "greater"
+#UnifyRelation: "equal" | "less" | "greater" | "lessEqual" | "greaterEqual"
+#UnifyCondition: {op: "textCompare", relation: #UnifyRelation} | {op: "kindIs", input: #UnifySide, kind: "integer" | "int" | "bounds" | "boolean" | "bool" | "text" | "string"} | {op: "same"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
+	op: "compare", left: #UnifyEndpoint, right: #UnifyEndpoint, relation: #UnifyRelation
 } | {op: "and" | "or", left: #UnifyCondition, right: #UnifyCondition}
 #UnifyExpression: {op: "boolean", value: bool} | {op: "integerSum" | "textConcat"} | {op: "input", input: #UnifySide} | {
 	op: "if", condition: #UnifyCondition, then: #UnifyExpression, else: #UnifyExpression
 } | {
 	op: "letBounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint, result: #UnifyExpression
-} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison"}
-#UnifyProgram: {formatVersion: 1, function?: "unify" | "sum" | "equal" | "notEqual", result: #UnifyExpression}
+} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering"}
+#UnifyProgram: {formatVersion: 1, function?: "unify" | "sum" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual", result: #UnifyExpression}
 
 // Expression-parser control flow; native frame operations are explicit intrinsics.
 #PrattNumber: {op: "minimum"} | {op: "precedence"} | {op: "tokenLength"} | {op: "integer", value: uint & <=255} | {
@@ -224,7 +227,7 @@ package bootstrap
 // Pratt configuration: tokens and constructors come from data. #PrattProgram
 // owns expression and primary control flow; grammar lookup stays native.
 #InfixOperator: {
-	token:         string & =~"^([-+*/&]|==|!=|div|mod|quo|rem)$"
+	token:         string & =~"^([-+*/&<>]|<=|>=|==|!=|div|mod|quo|rem)$"
 	kind:          string & !=""
 	leftField:     string & !="" & !="kind"
 	rightField:    string & !="" & !="kind" & !=leftField
@@ -321,6 +324,10 @@ package bootstrap
 			left:  #EvaluateChild
 			right: #EvaluateChild
 		}
+		less: result: {op: "less", left: #EvaluateChild, right: #EvaluateChild}
+		lessEqual: result: {op: "lessEqual", left: #EvaluateChild, right: #EvaluateChild}
+		greater: result: {op: "greater", left: #EvaluateChild, right: #EvaluateChild}
+		greaterEqual: result: {op: "greaterEqual", left: #EvaluateChild, right: #EvaluateChild}
 		equal: result: {op: "equal", left: #EvaluateChild, right: #EvaluateChild}
 		notEqual: result: {op: "notEqual", left: #EvaluateChild, right: #EvaluateChild}
 		unify: result: {

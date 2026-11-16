@@ -40,7 +40,9 @@ pub enum Kind {
 pub enum Relation {
     Equal,
     Less,
+    LessEqual,
     Greater,
+    GreaterEqual,
 }
 #[derive(Clone, Copy, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,6 +52,10 @@ enum Function {
     Sum,
     Equal,
     NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -100,6 +106,7 @@ pub enum Failure {
     Strings,
     Arithmetic,
     Comparison,
+    Ordering,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
@@ -124,6 +131,9 @@ enum End {
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum Condition {
     Same {},
+    TextCompare {
+        relation: Relation,
+    },
     Or {
         left: Box<Condition>,
         right: Box<Condition>,
@@ -238,7 +248,7 @@ impl End {
 impl Condition {
     fn validate(&self, bound: bool) -> Result<(), Error> {
         match self {
-            Self::KindIs { .. } | Self::Same {} => Ok(()),
+            Self::KindIs { .. } | Self::Same {} | Self::TextCompare { .. } => Ok(()),
             Self::HasEndpoint { value } => value.validate(bound),
             Self::Compare { left, right, .. } => {
                 left.validate(bound)?;
@@ -287,7 +297,23 @@ pub fn compare(
     Ok(match relation {
         Relation::Equal => left == right,
         Relation::Less => left < right,
+        Relation::LessEqual => left <= right,
         Relation::Greater => left > right,
+        Relation::GreaterEqual => left >= right,
+    })
+}
+
+/// Compare concrete text bytes without normalization or allocation.
+pub fn text_compare(left: &Value, right: &Value, relation: Relation) -> Result<bool, crate::Error> {
+    let (Value::Text(left), Value::Text(right)) = (left, right) else {
+        return Err(crate::Error::Ordering);
+    };
+    Ok(match relation {
+        Relation::Equal => left == right,
+        Relation::Less => left < right,
+        Relation::LessEqual => left <= right,
+        Relation::Greater => left > right,
+        Relation::GreaterEqual => left >= right,
     })
 }
 pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate::Error> {
@@ -296,6 +322,7 @@ pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate
         Failure::Types => Err(crate::Error::TypeConflict),
         Failure::Arithmetic => Err(crate::Error::Arithmetic),
         Failure::Comparison => Err(crate::Error::Comparison),
+        Failure::Ordering => Err(crate::Error::Ordering),
         Failure::Booleans => match (left, right) {
             (Value::Boolean(left), Value::Boolean(right)) => Err(crate::Error::BooleanConflict {
                 left: *left,
@@ -375,6 +402,7 @@ impl Condition {
     ) -> Result<bool, crate::Error> {
         Ok(match self {
             Self::Same {} => l == r,
+            Self::TextCompare { relation } => text_compare(l, r, *relation)?,
             Self::Or { left, right } => left.eval(l, r, locals)? || right.eval(l, r, locals)?,
             Self::KindIs { input, kind } => kind_is(input.value(l, r), *kind),
             Self::HasEndpoint { value } => value.eval(l, r, locals)?.is_some(),
@@ -480,7 +508,14 @@ mod tests {
             assert!(parse(&control).is_err());
         }
         assert!(parse(r#"{"formatVersion":1,"result":{"op":"textConcat","extra":true}}"#).is_err());
-        for function in ["equal", "notEqual"] {
+        for function in [
+            "equal",
+            "notEqual",
+            "less",
+            "lessEqual",
+            "greater",
+            "greaterEqual",
+        ] {
             let control = format!(
                 r#"{{"formatVersion":1,"function":"{function}","result":{{"op":"boolean","value":false}}}}"#
             );
@@ -498,6 +533,66 @@ mod tests {
         assert!(
             parse(r#"{"formatVersion":1,"result":{"op":"fail","reason":"comparison"}}"#).is_ok()
         );
+    }
+
+    #[test]
+    fn ordering_primitives_and_control_validation() {
+        use super::{Relation, compare, text_compare};
+        use crate::runtime::Value as Scalar;
+        use std::sync::Arc;
+
+        assert_eq!(
+            compare(Some(i64::MIN), Some(i64::MAX), Relation::LessEqual).ok(),
+            Some(true)
+        );
+        assert_eq!(
+            compare(Some(i64::MAX), Some(i64::MAX), Relation::GreaterEqual).ok(),
+            Some(true)
+        );
+        assert_eq!(
+            compare(Some(i64::MIN), Some(i64::MAX), Relation::GreaterEqual).ok(),
+            Some(false)
+        );
+        assert!(matches!(
+            compare(None, Some(0), Relation::LessEqual),
+            Err(crate::Error::UnificationState {
+                reason: "comparison requires endpoints"
+            })
+        ));
+        assert!(matches!(
+            compare(Some(0), None, Relation::GreaterEqual),
+            Err(crate::Error::UnificationState {
+                reason: "comparison requires endpoints"
+            })
+        ));
+        let text = |s: &str| Scalar::Text(Arc::from(s));
+        assert_eq!(
+            text_compare(&text("é"), &text("e\u{301}"), Relation::Greater).ok(),
+            Some(true)
+        );
+        assert_eq!(
+            text_compare(&text("10"), &text("2"), Relation::Less).ok(),
+            Some(true)
+        );
+        assert_eq!(
+            text_compare(&text(""), &text(""), Relation::LessEqual).ok(),
+            Some(true)
+        );
+        assert_eq!(
+            text_compare(&text(""), &text(""), Relation::GreaterEqual).ok(),
+            Some(true)
+        );
+        assert!(matches!(
+            text_compare(&text(""), &Scalar::String, Relation::Equal),
+            Err(crate::Error::Ordering)
+        ));
+        for relation in ["equal", "less", "lessEqual", "greater", "greaterEqual"] {
+            let control = format!(
+                r#"{{"formatVersion":1,"result":{{"op":"if","condition":{{"op":"textCompare","relation":"{relation}"}},"then":{{"op":"boolean","value":true}},"else":{{"op":"fail","reason":"ordering"}}}}}}"#
+            );
+            assert!(parse(&control).is_ok());
+        }
+        assert!(parse(r#"{"formatVersion":1,"result":{"op":"if","condition":{"op":"textCompare","relation":"less","extra":1},"then":{"op":"boolean","value":true},"else":{"op":"boolean","value":false}}}"#).is_err());
     }
 
     #[test]

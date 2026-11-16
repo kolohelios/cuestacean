@@ -20,6 +20,10 @@ package bootstrap
 			left: {op: "evaluate", field: "left"}
 			right: {op: "evaluate", field: "right"}
 		}
+		less: result: {op: "less", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
+		lessEqual: result: {op: "lessEqual", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
+		greater: result: {op: "greater", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
+		greaterEqual: result: {op: "greaterEqual", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
 		equal: result: {op: "equal", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
 		notEqual: result: {op: "notEqual", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
 		unify: result: {

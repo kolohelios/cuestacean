@@ -16,7 +16,7 @@ separate CUE unifier; explicit `==`/`!=` now use [equality control](equality.md)
 ## Reused finite control, checked kernels
 
 The finite unification-control DSL is reused for binary value policies. An optional
-validated `function` enum (`unify` by default, `sum`, `equal` or `notEqual`) chooses only the compiled
+validated `function` enum (`unify` by default, `sum` and comparison entry names) chooses only the compiled
 entry-point name, not runtime behavior. CUE lowering selects that spelling; raw
 metadata cannot inject identifiers. `integerSum` and `textConcat` expressions call
 native borrowed-input primitives. Those primitives validate representations and

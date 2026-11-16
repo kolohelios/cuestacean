@@ -47,6 +47,8 @@ executes CUE-defined identity, interval-intersection, scalar equality and typed 
 [CUE-owned addition control](bootstrap/sum.md) selects checked integer addition
 or concrete string concatenation. [Scalar equality](bootstrap/equality.md)
 adds `==` and `!=` with CUE-owned concreteness guards and boolean result selection.
+[CUE ordering](bootstrap/ordering.md) adds `<`, `<=`, `>` and `>=` for matching
+concrete integers or text, preserving inclusive prefix bounds.
 Value representation and low-level primitives remain native.
 
 ## CUE all the way down

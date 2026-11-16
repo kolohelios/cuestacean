@@ -119,6 +119,8 @@ pub enum Error {
     Arithmetic,
     #[snafu(display("comparison requires concrete operands"))]
     Comparison,
+    #[snafu(display("ordering requires matching concrete integers or strings"))]
+    Ordering,
     #[snafu(display("string concatenation exceeds available capacity"))]
     TextCapacity,
     #[snafu(display("{source}"))]
@@ -204,6 +206,24 @@ enum Instruction {
         right: Box<Instruction>,
     },
     Remainder {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
+    Less {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
+    #[serde(rename = "lessEqual")]
+    LessEqual {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
+    Greater {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
+    #[serde(rename = "greaterEqual")]
+    GreaterEqual {
         left: Box<Instruction>,
         right: Box<Instruction>,
     },
@@ -311,6 +331,26 @@ fn instruction(
             let left = instruction(left, node, rules)?;
             let right = instruction(right, node, rules)?;
             runtime::remainder(left, right)
+        }
+        Instruction::Less { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::less(left, right)
+        }
+        Instruction::LessEqual { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::less_equal(left, right)
+        }
+        Instruction::Greater { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::greater(left, right)
+        }
+        Instruction::GreaterEqual { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::greater_equal(left, right)
         }
         Instruction::Equal { left, right } => {
             let left = instruction(left, node, rules)?;

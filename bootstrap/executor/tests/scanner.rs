@@ -768,7 +768,7 @@ fn symbols_match_the_supported_ascii_alphabet() {
             expected
         );
         let offset = match byte {
-            b'=' | b'!' => 2,
+            b'=' | b'!' | b'<' | b'>' => 2,
             b'+' | b'-' | b'*' | b'/' | b'&' => 1,
             _ => 0,
         };
@@ -797,6 +797,18 @@ fn symbols_match_the_supported_ascii_alphabet() {
             assert_eq!(
                 scanner::bound_prefix(&source, 0).expect("lookahead compiled"),
                 expected
+            );
+            let infix_expected = Scan {
+                offset: if byte == b'=' { 2 } else { 1 },
+                flag: true,
+            };
+            assert_eq!(
+                scanner::interpret(&infix, &source, 0).expect("infix interpreted"),
+                infix_expected
+            );
+            assert_eq!(
+                scanner::infix(&source, 0).expect("infix compiled"),
+                infix_expected
             );
         }
     }

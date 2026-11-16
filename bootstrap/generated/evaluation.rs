@@ -26,8 +26,24 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "right")?))?,
         ),
         "false" => Ok::<_, Error>(runtime::Value::Boolean(false)),
+        "greater" => runtime::greater(
+            (evaluate(runtime::field(node, "left")?))?,
+            (evaluate(runtime::field(node, "right")?))?,
+        ),
+        "greaterEqual" => runtime::greater_equal(
+            (evaluate(runtime::field(node, "left")?))?,
+            (evaluate(runtime::field(node, "right")?))?,
+        ),
         "intType" => Ok::<_, Error>(runtime::Value::Int),
         "integer" => runtime::integer(node, "value"),
+        "less" => runtime::less(
+            (evaluate(runtime::field(node, "left")?))?,
+            (evaluate(runtime::field(node, "right")?))?,
+        ),
+        "lessEqual" => runtime::less_equal(
+            (evaluate(runtime::field(node, "left")?))?,
+            (evaluate(runtime::field(node, "right")?))?,
+        ),
         "lowerBound" => runtime::lower_bound((runtime::integer(node, "value"))?),
         "modulo" => runtime::modulo(
             (evaluate(runtime::field(node, "left")?))?,

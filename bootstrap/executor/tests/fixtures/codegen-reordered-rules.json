@@ -1,5 +1,9 @@
 {
   "rules": {
+    "greaterEqual": {"result": {"op": "greaterEqual", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
+    "greater": {"result": {"op": "greater", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
+    "lessEqual": {"result": {"op": "lessEqual", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
+    "less": {"result": {"op": "less", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
     "stringType": {"result": {"op": "stringType"}},
     "string": {"result": {"field": "value", "op": "text"}},
     "true": {"result": {"value": true, "op": "boolean"}},

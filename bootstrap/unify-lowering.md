@@ -35,6 +35,9 @@ Rust spelling. The bridge always supplies a validated `function` enum (`unify`,
 entry name and emits the `integerSum`/`textConcat` kernel calls used by
 [addition control](sum.md). It also emits boolean result construction for
 [equality control](equality.md), mapping `notEqual` to the fixed `not_equal` name.
+[Ordering control](ordering.md) adds four enum-validated names and a `textCompare`
+condition; CUE also maps inclusive relation names to fixed Rust variants. Native
+finite/text comparison kernels do not choose allowed source domains.
 These are not arbitrary identifier/path inputs. Complete typed/lexical validation precedes any backend execution.
 
 `letBounds` still emits a simultaneous tuple initializer: both initializers see

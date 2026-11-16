@@ -24,6 +24,19 @@ mod generated_equal;
 #[path = "../../generated/not-equal.rs"]
 mod generated_not_equal;
 
+#[cfg(feature = "semantics")]
+#[path = "../../generated/greater.rs"]
+mod generated_greater;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/greater-equal.rs"]
+mod generated_greater_equal;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/less.rs"]
+mod generated_less;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/less-equal.rs"]
+mod generated_less_equal;
+
 /// Owned scalar scaffold; abstract types are not conflicting values.
 /// Concrete integers are still restricted to the bootstrap i64 domain.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -171,6 +184,27 @@ pub fn equal(left: Value, right: Value) -> Result<Value, Error> {
 #[cfg(feature = "semantics")]
 pub fn not_equal(left: Value, right: Value) -> Result<Value, Error> {
     generated_not_equal::not_equal(left, right)
+}
+
+/// Order using generated CUE policy; compiler-only seeds exclude this API.
+#[cfg(feature = "semantics")]
+pub fn less(left: Value, right: Value) -> Result<Value, Error> {
+    generated_less::less(left, right)
+}
+
+#[cfg(feature = "semantics")]
+pub fn less_equal(left: Value, right: Value) -> Result<Value, Error> {
+    generated_less_equal::less_equal(left, right)
+}
+
+#[cfg(feature = "semantics")]
+pub fn greater(left: Value, right: Value) -> Result<Value, Error> {
+    generated_greater::greater(left, right)
+}
+
+#[cfg(feature = "semantics")]
+pub fn greater_equal(left: Value, right: Value) -> Result<Value, Error> {
+    generated_greater_equal::greater_equal(left, right)
 }
 
 pub fn difference(left: Value, right: Value) -> Result<Value, Error> {

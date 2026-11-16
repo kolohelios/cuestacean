@@ -81,5 +81,13 @@ package bootstrap
 		rightField:    "right"
 		precedence:    7
 		associativity: "left"
+	}, {
+		token: "<", kind: "less", leftField: "left", rightField: "right", precedence: 7, associativity: "left"
+	}, {
+		token: "<=", kind: "lessEqual", leftField: "left", rightField: "right", precedence: 7, associativity: "left"
+	}, {
+		token: ">", kind: "greater", leftField: "left", rightField: "right", precedence: 7, associativity: "left"
+	}, {
+		token: ">=", kind: "greaterEqual", leftField: "left", rightField: "right", precedence: 7, associativity: "left"
 	}]
 }

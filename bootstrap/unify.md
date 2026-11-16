@@ -23,6 +23,9 @@ control now implements [addition](sum.md): optional `function` is the validated
 compiled entry-name enum `unify` (default), `sum`, `equal` or `notEqual`, not a runtime
 behavior mode. [Scalar equality](equality.md) adds `boolean {value}` construction
 and `comparison` failure; CUE owns concrete-domain guards and result selection.
+[Ordering](ordering.md) adds four validated entry names, `textCompare` conditions,
+inclusive finite relations and `ordering` failure. Existing unification semantics
+and missing-endpoint guards remain unchanged.
 `integerSum` and `textConcat` call checked borrowed-input kernels; `fail` also
 supports `arithmetic`. The interpreter executes `result` independently of the
 entry-name metadata. There is no native overloaded-addition fallback. Value expressions

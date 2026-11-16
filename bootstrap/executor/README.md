@@ -66,6 +66,9 @@ interprets that rule's result instruction against the current node:
   `quotient` / `remainder` truncate toward zero with dividend-signed remainder.
   Both children evaluate left-first before concreteness/zero-divisor checks.
   Quotient overflow fails; both remainders of i64::MIN by -1 are zero.
+- `less` / `lessEqual` / `greater` / `greaterEqual` use [CUE ordering](../ordering.md)
+  for matching concrete integers or text; other pairs reject. Both children
+  evaluate left-first before checks. String order is lexicographic, not normalized.
 - `equal` / `notEqual` evaluate left then right and delegate to [CUE scalar
   equality](../equality.md): concrete i64/bool/text compare by content, mixed
   concrete types compare unequal, abstract values/bounds reject. No coercion.

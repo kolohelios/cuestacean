@@ -197,7 +197,20 @@ impl Grammar {
         for op in &self.operators {
             if !matches!(
                 op.token.as_str(),
-                "+" | "-" | "*" | "/" | "&" | "==" | "!=" | "div" | "mod" | "quo" | "rem"
+                "+" | "-"
+                    | "*"
+                    | "/"
+                    | "&"
+                    | "=="
+                    | "!="
+                    | "<"
+                    | "<="
+                    | ">"
+                    | ">="
+                    | "div"
+                    | "mod"
+                    | "quo"
+                    | "rem"
             ) || !tokens.insert(&op.token)
                 || op.kind.is_empty()
                 || !field(&op.left_field)
