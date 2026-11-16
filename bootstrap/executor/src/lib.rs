@@ -3,12 +3,13 @@
 
 use std::collections::BTreeMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::{ResultExt, Snafu};
 
 pub mod ast;
 mod codegen;
+pub mod lowering;
 #[cfg(feature = "source")]
 pub mod parser;
 pub mod pratt;
@@ -16,7 +17,7 @@ pub mod runtime;
 pub mod scanner;
 pub mod unification;
 
-pub use codegen::generate;
+pub use codegen::{generate, generate_with_policy};
 
 #[cfg(feature = "semantics")]
 extern crate self as bootstrap_executor;
@@ -80,6 +81,8 @@ pub enum Error {
     #[snafu(display("arithmetic requires concrete integer operands"))]
     Arithmetic,
     #[snafu(display("{source}"))]
+    Lowering { source: lowering::Error },
+    #[snafu(display("{source}"))]
     UnificationProgram { source: unification::Error },
     #[snafu(display("invalid unification control state: {reason}"))]
     UnificationState { reason: &'static str },
@@ -105,7 +108,7 @@ struct Rule {
     result: Instruction,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "lowercase", deny_unknown_fields)]
 enum Instruction {
     Int {},

@@ -79,6 +79,16 @@ package bootstrap
 	entry:         #Expression
 }
 
+// Instruction-to-Rust lowering expressions. Paths come only from trusted policy;
+// instruction string fields are quoted as data, never inserted as Rust syntax.
+#LoweringPath: string & =~"^[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*$"
+#LoweringExpression: {op: "path", value: #LoweringPath} | {
+	op: "call", path: #LoweringPath, args: [...#LoweringExpression]
+} | {op: "ok" | "group" | "try", value: #LoweringExpression} | {
+	op: "lower" | "string" | "boolean", field: string & !=""
+}
+#LoweringPolicy: {formatVersion: 1, cases: [string & !=""]: #LoweringExpression}
+
 // Pure finite unification control. Local endpoints are scoped by letBounds.
 #UnifySide:         "left" | "right"
 #UnifyEndpointName: "lower" | "upper"
