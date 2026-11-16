@@ -20,6 +20,7 @@ advantages remain a hypothesis, not a measured result.
 
 | Boundary | Specifications and contract | Rust implementation/verification |
 | --- | --- | --- |
+| Scanner compiler lowering | `bootstrap/scan-lowering{,-fragments}.cue`, [backend contract](../bootstrap/scan-lowering.md) | Native flow/label facts and bounded patterns; CUE source/branch layout; compiled driver |
 | AST-builder compiler lowering | `bootstrap/ast-lowering{,-fragments}.cue`, [backend contract](../bootstrap/ast-lowering.md) | Native checked binding/use-count facts; CUE layout/clone/move selection; compiled driver |
 | Unification compiler lowering | `bootstrap/unify-lowering{,-fragments}.cue`, [backend contract](../bootstrap/unify-lowering.md) | Shared select/concat kernel and compiled driver; native typed/scope validation |
 | Pratt/primary compiler lowering | `bootstrap/pratt-lowering{,-fragments}.cue`, [backend contract](../bootstrap/pratt-lowering.md) | Shared lowering compiler/kernel; compiled driver; native typed bridge |
@@ -121,6 +122,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#64](https://github.com/kolohelios/cuestacean/pull/64) | CUE evaluator assembly/traversal and reverse compiled evidence |
 | [#66](https://github.com/kolohelios/cuestacean/pull/66) | Shared CUE backend for Pratt/primary compiler emission |
 | [#68](https://github.com/kolohelios/cuestacean/pull/68) | Shared CUE backend for unification compiler emission |
+| [#70](https://github.com/kolohelios/cuestacean/pull/70) | Shared CUE backend for AST builders and ownership selection |
 
 ## Build and validation runbook
 
@@ -175,6 +177,9 @@ workspace's stale exports for changed specifications.
   AST-builder compilation likewise uses `ast-lowering.rs`; native binding/type/use
   counting supplies data, CUE chooses cloning/moving and source layout. Include
   this driver in feature-isolation removal. See the AST backend contract.
+  Scanner compilation now uses `scan-lowering.rs` with native flow/label facts
+  and bounded pattern rendering. CUE owns source composition and cached branch
+  simplification; include this driver in feature-isolation removal too.
 - Default `source` enables `semantics`. Semantic evaluation/generated unification
   can build without the parser; compiler-only seeds exclude both dependencies,
   with no native unification fallback or stub. The sandbox checks these profiles.

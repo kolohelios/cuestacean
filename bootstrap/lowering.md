@@ -10,6 +10,7 @@ numbers, predicates, statements and the generated parser-driver wrapper. The
 [unification backend](unify-lowering.md) now also uses it for solver-control
 emission and lexical binding layout. The [AST-builder backend](ast-lowering.md)
 also uses it for constructors and ownership selection from checked native facts.
+The [scanner backend](scan-lowering.md) adds scoped rendering and branch simplification.
 
 The production generator now uses a **compiled CUE lowering driver**, not the
 policy interpreter. `bootstrap-lower-codegen` compiles validated policy expressions
@@ -43,12 +44,19 @@ source-language/evaluator behavior is unchanged.
 | `join {field, separator}` | Lower array children with trusted separators (≤128 bytes) |
 | `ifZero {field, then, else}` | Select a branch using a u64 zero test |
 | `select {field, cases}` | Select one trusted expression by string-field value |
+| `bind {name, value, body}` / `get {name}` | Lexically cache/copy one rendered value |
+| `ifEqual {left, right, then, else}` | Compare rendered operands, select one branch |
+| `ifTrue {field, then, else}` | Select one branch using a bool field |
+| `bytePattern {field}` / `charPattern {field}` | Bounded sorted Rust pattern rendering |
 
 The instruction is the current input to every expression; recursive `lower`
 changes that input to the selected child. There is no native sum/product/etc.
 case tree behind these operations. The existing typed instruction decoder still
 validates the entire rule document before policy execution, even if a policy
 ignores some fields. Every policy template is validated, including unused cases.
+Bindings have checked lowercase ASCII names (1..64 bytes), with eager lexical
+reference validation and scoped shadowing; child opcode dispatch starts fresh.
+See the scanner backend contract for pattern bounds and exact evaluation order.
 
 Paths originate only in the trusted implementation policy, never instruction
 string fields. They allow ASCII identifier segments separated by `::`, not raw

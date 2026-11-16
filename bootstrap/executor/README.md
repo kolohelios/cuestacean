@@ -126,7 +126,9 @@ Checked i64 conversion, grammar validation/lookup,
 and frame safety remain native. The [Pratt control DSL](../pratt.md) owns the
 expression loop and associativity/binding-power decisions; its separate
 [primary program](../primary.md) owns dispatch and grouping control. Existing JSON interfaces remain unchanged.
-`bootstrap-scan-codegen <program.json>` is the separate scanner-to-Rust compiler.
+`bootstrap-scan-codegen <program.json> [lowering.json]` uses a
+[shared CUE backend](../scan-lowering.md) for scanner source/branch layout;
+checked flow/label analysis, cursor and pattern rendering remain native.
 The [AST builder DSL](../ast.md) generates typed construction functions used
 by the parser; `bootstrap-ast-codegen <builder.json> [lowering.json]` now uses a
 [shared CUE backend](../ast-lowering.md) for Rust layout and clone/move selection.

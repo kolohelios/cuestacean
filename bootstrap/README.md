@@ -106,8 +106,9 @@ missing-digit/leading-zero rejection and the conservative operand-newline rule
 are also CUE-defined, as are parenthesis recognition/consumption and missing-close
 diagnostics. Bound/infix symbol recognition also uses the scanner DSL. The native
 parser only looks up complete spans. Checked i64 conversion,
-grammar validation, keyword lookup, other parsing, and the scanner compiler/runtime
-remain handwritten.
+grammar validation, keyword lookup, native flow analysis and cursor/pattern kernels
+remain native. The [scanner compiler backend](scan-lowering.md) now uses shared
+CUE source/branch layout.
 
 [AST builders](ast.md) separately define program wrappers, atoms, integer/bound
 leaves, and binary records as CUE construction expressions. Generated typed

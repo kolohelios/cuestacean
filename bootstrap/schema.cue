@@ -85,11 +85,17 @@ package bootstrap
 #LoweringExpression: {op: "path", value: #LoweringPath} | {
 	op: "call", path: #LoweringPath, args: [...#LoweringExpression]
 } | {op: "ok" | "group" | "try", value: #LoweringExpression} | {
-	op: "lower" | "string" | "boolean" | "unsigned" | "signed" | "list", field: string & !=""
+	op: "lower" | "string" | "boolean" | "unsigned" | "signed" | "list" | "bytePattern" | "charPattern", field: string & !=""
 } | {op: "text", value: string} | {op: "concat", parts: [...#LoweringExpression]} | {
-	op: "ifEmpty" | "ifZero", field: string & !="", then: #LoweringExpression, else: #LoweringExpression
+	op: "ifEmpty" | "ifZero" | "ifTrue", field: string & !="", then: #LoweringExpression, else: #LoweringExpression
 } | {op: "select", field: string & !="", cases: [string & !=""]: #LoweringExpression} | {
 	op: "join", field: string & !="", separator: string
+} | {
+	op: "bind", name: string & !="", value: #LoweringExpression, body: #LoweringExpression
+} | {
+	op: "get", name: string & !=""
+} | {
+	op: "ifEqual", left: #LoweringExpression, right: #LoweringExpression, then: #LoweringExpression, else: #LoweringExpression
 }
 #ModuleStatement: {op: "text", value: string} | {
 	op: "firstRule" | "lastRule" | "nextRule" | "previousRule" | "kind" | "expression"
