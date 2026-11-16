@@ -1,7 +1,8 @@
 # First Rust generation boundary
 
-The evaluator modules are generated from rule JSON by the handwritten Rust
-`bootstrap-codegen` binary. This lowers our sixteen instruction primitives, not
+The evaluator modules are generated from rule JSON by `bootstrap-codegen`,
+whose per-instruction expression lowering now runs a [CUE-owned program](../lowering.md).
+Its generic VM and outer module assembly remain handwritten Rust. This lowers our sixteen instruction primitives, not
 arbitrary CUE source. The interpreter remains the default executable and a
 reference for tests. The normal generated module also runs as a separate CLI:
 
@@ -119,17 +120,21 @@ stages, clearing leftover JSON and generated Rust from each staged source copy
 first. This never deletes files in the working tree. CUE JSON exports are an
 independent Nix output built only from CUE sources, not committed artifacts.
 
-1. Compile the handwritten evaluator, scanner, AST, Pratt and unification compiler
-   seeds with `--no-default-features`. This excludes generated frontend and
+1. Export fresh CUE JSON, including the instruction-lowering policy. Compile the
+   native evaluator-generator VM, scanner, AST, Pratt and unification compiler
+   seeds with `--no-default-features` and that JSON export directory. This excludes generated frontend and
    semantic dependencies; `source` normally enables `semantics`. Seed tests need generated modules,
    so they run in the final stage rather than creating a bootstrap cycle.
 2. Use the fresh JSON output and the seeds to regenerate evaluator, scanner,
    AST-builder, Pratt-control and unification Rust. Compile all binaries with the default `source` feature enabled and
    run the complete formatting, Clippy, and test suite against fresh artifacts.
+   Normal rules plus the alternate `lowering-left-twice` policy must reproduce
+   the alternate-rule golden exactly; that freshly policy-produced module is
+   included in the final compiled tests.
 
 Committed Rust modules remain reviewable golden files: the Rust generation
 check still rejects drift. JSON has repeatability and schema checks, not a
 committed byte baseline. CLI tests compare results, errors, and
 exit statuses with the interpreter. Neither the generator nor the shared
-runtime is self-hosted yet; the seeds are handwritten Rust and CUE exports still
+runtime is fully self-hosted yet; generic seeds remain Rust and CUE exports still
 require the upstream Go implementation.

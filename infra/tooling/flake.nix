@@ -77,6 +77,8 @@
         "bounds"
         "booleans"
         "evaluation"
+        "lowering"
+        "tests/valid/lowering-left-twice"
         "grammar"
         "tests/valid/evaluation-left-twice"
       ]
@@ -94,6 +96,7 @@
               [
                 ../../bootstrap/schema.cue
                 ../../bootstrap/scanner-fragments.cue
+                ../../bootstrap/lowering-fragments.cue
                 ../../bootstrap/tests/invalid
               ]
               ++ map (fixture: ../../bootstrap + "/${fixture}.cue") exportFixtures
@@ -111,14 +114,14 @@
             set -euo pipefail
             export LC_ALL=C TZ=UTC
             for fixture in ${fixtureNames}; do
-              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > first.json
-              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > second.json
+              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > first.json
+              cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue ${cueSources}/"$fixture.cue" --out json | jq -S . > second.json
               cmp first.json second.json
               mkdir -p "$(dirname "$out/$fixture.json")"
               cp first.json "$out/$fixture.json"
             done
             for fixture in ${cueSources}/tests/invalid/*.cue; do
-              if cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue "$fixture" --out json > invalid.log 2>&1; then
+              if cue export ${cueSources}/schema.cue ${cueSources}/scanner-fragments.cue ${cueSources}/lowering-fragments.cue "$fixture" --out json > invalid.log 2>&1; then
                 echo "Expected rejection: $fixture" >&2
                 exit 1
               fi
@@ -161,6 +164,8 @@
         pkgs:
         (rustPackage pkgs).overrideAttrs (old: {
           pname = "bootstrap-codegen-seed";
+          # Policy is fresh upstream CUE data, not a generated Rust seed dependency.
+          CUESTACEAN_BOOTSTRAP_JSON = jsonExports pkgs;
           meta = old.meta // {
             mainProgram = "bootstrap-codegen";
           };
@@ -199,6 +204,9 @@
                 name=$(basename "$rules" .json)
                 bootstrap-codegen "$rules" | rustfmt --edition 2024 > "../generated/$name.rs"
               done
+              bootstrap-codegen "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-left-twice.json" | rustfmt --edition 2024 > policy-generated.rs
+              cmp policy-generated.rs ../generated/evaluation-left-twice.rs
+              mv policy-generated.rs ../generated/evaluation-left-twice.rs
               for machine in ${scannerNames}; do
                 name=$(basename "$machine")
                 bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$machine.json" | rustfmt --edition 2024 > "../generated/$name.rs"
@@ -289,6 +297,8 @@
                   cmp first.rs second.rs
                   diff -u ${../../bootstrap/generated}/"$name.rs" first.rs
                 done
+                bootstrap-codegen ${jsonExports pkgs}/evaluation.json ${jsonExports pkgs}/tests/valid/lowering-left-twice.json | rustfmt --edition 2024 > policy.rs
+                diff -u ${../../bootstrap/generated}/evaluation-left-twice.rs policy.rs
                 for machine in ${scannerNames}; do
                   name=$(basename "$machine")
                   bootstrap-scan-codegen ${jsonExports pkgs}/"$machine.json" | rustfmt --edition 2024 > first.rs

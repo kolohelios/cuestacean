@@ -94,6 +94,10 @@ exported rule DSL to Rust; it does not implement CUE evaluation or rebuild the
 generator from CUE. The value scaffold and generators remain handwritten. The separate
 [unification control program](unify.md) now lowers identity, intersection and
 conflict decisions from CUE into the shared runtime's production unification.
+[Instruction-to-Rust lowering](lowering.md) now interprets CUE-owned recursive
+expression programs instead of a native opcode-emission match. Its generic VM
+and outer module assembly remain native; normal output matches existing goldens.
+Compiler seeds consume freshly exported policy JSON, not committed artifacts.
 
 The first [executable scanner DSL](scanner.md) separately expresses the
 whitespace, decimal, and ASCII identifier scanning in CUE. Its compiler emits

@@ -91,10 +91,15 @@ that rule file yields `40`, demonstrating that rule data controls behavior.
 
 ## Rust generation
 
-The package also includes `bootstrap-codegen <rules.json>`. It emits a Rust
+The package also includes `bootstrap-codegen <rules.json> [lowering.json]`. It emits a Rust
 module to stdout and rejects malformed or unsupported rule documents before
 emitting source. Names are escaped as Rust string literals, and dispatch order
-is deterministic regardless of input object-key order.
+is deterministic regardless of input object-key order. Per-instruction recursion,
+call selection and Result layout come from an interpreted [CUE lowering
+program](../lowering.md), not a native instruction-emission match. The normal
+policy is embedded from fresh upstream-built JSON, including in compiler seeds;
+`generate_with_policy`/the optional CLI path select another trusted policy.
+The VM, typed input validation and outer module assembly remain native.
 
 The [generated modules](../generated/README.md) use the shared native runtime
 rather than the instruction interpreter. Tests compile them, compare values and
