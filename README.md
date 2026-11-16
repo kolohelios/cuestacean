@@ -18,7 +18,8 @@ reference interpreter for seeds and custom policies. The checked renderer,
 policy compiler and safety guards remain native. [Module assembly](bootstrap/module.md)
 now also runs CUE-owned boilerplate and rule-traversal statements. The same
 [lowering machinery now compiles Pratt/primary control](bootstrap/pratt-lowering.md),
-with no native per-control-opcode emitter. Nix builds native generator/VM seeds, regenerates JSON and Rust from the CUE specifications, then compiles and
+with no native per-control-opcode emitter. [Unification-control compilation](bootstrap/unify-lowering.md)
+now uses another policy through that same engine. Nix builds native generator/VM seeds, regenerates JSON and Rust from the CUE specifications, then compiles and
 tests the final executables. A [source frontend](bootstrap/source/README.md)
 now handles a tiny decimal-integer subset with addition, subtraction,
 multiplication, integer division/remainder, unary negation, `true`/`false`, `bool`/`int` constraints,

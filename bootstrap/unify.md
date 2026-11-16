@@ -10,8 +10,9 @@ Both rule-interpreted and rule-generated evaluators use this same policy.
 This is an executable solver boundary, **not full CUE unification or bootstrap
 closure**. Values remain the native `Boolean(bool)`, `Bool`, `Integer(i64)`,
 `Int`, and inclusive `Bounds` scaffold. Projection, tag tests, finite i64
-comparisons, error construction, checked arithmetic, concrete output, compilers
-and interpreters remain Rust. Go CUE still exports specifications. This policy
+comparisons, error construction, checked arithmetic, concrete output, typed
+decoders and generic compiler/interpreter kernels remain Rust. Per-opcode
+[compiler lowering](unify-lowering.md) now lives in a separate CUE policy. Go CUE still exports specifications. This policy
 does not define accepted source syntax.
 
 ## Finite typed control
@@ -35,8 +36,8 @@ candidate stays concrete. Missing endpoints are not clipped to i64 extrema.
 Both `letBounds` initializers see the outer scope; its result sees the newly
 bound pair. The compiler uses simultaneous tuple binding to preserve this rule
 under nested shadowing. Locals are validated even in unselected branches.
-`bootstrap-unify-codegen <control.json>` lowers expressions to real Rust
-branches/blocks. The reference interpreter executes the same validated data.
+`bootstrap-unify-codegen <control.json> [lowering.json]` lowers expressions to
+real Rust branches/blocks through the shared CUE backend. The reference interpreter executes the same validated data.
 
 There are no loops or recursive calls in this DSL, so it needs no fuel counter.
 Documents are limited to 512 JSON nodes and 64 JSON levels, counting the root
@@ -48,10 +49,11 @@ these limits are bootstrap checks, not comprehensive hostile-input hardening.
 Default `source` enables `semantics`; `semantics` makes evaluation and generated
 unification available without the parser. Compiler-only `--no-default-features`
 excludes evaluation entry points and generated semantics entirely. Nix deletes
-staged Rust/JSON, builds five handwritten compilers in that profile, regenerates
+staged Rust/JSON, builds six native compiler/VM seeds in that profile, regenerates
 all modules, and then compiles/tests the normal frontend. There is no seed stub
 or handwritten unification fallback. Generated JSON remains build-only; generated
-Rust remains committed and checked for deterministic drift.
+Rust remains committed and checked for deterministic drift. Seeds interpret the
+CUE compiler policy; production uses its compiled driver under `compiled-lowering`.
 
 Independent expected values/errors cover identity, conflicts, interval shapes,
 infinities, extrema and incompleteness. Sampled meet laws and three-way parity

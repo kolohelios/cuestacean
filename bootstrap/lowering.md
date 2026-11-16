@@ -6,7 +6,9 @@ selects the normal program. CUE chooses runtime calls, constructor layout,
 recursive instruction-field selection, grouping and Result propagation.
 `bootstrap-codegen` no longer contains a per-instruction emission match. The
 [Pratt compiler backend](pratt-lowering.md) now reuses this same machinery for
-numbers, predicates, statements and the generated parser-driver wrapper.
+numbers, predicates, statements and the generated parser-driver wrapper. The
+[unification backend](unify-lowering.md) now also uses it for solver-control
+emission and lexical binding layout.
 
 The production generator now uses a **compiled CUE lowering driver**, not the
 policy interpreter. `bootstrap-lower-codegen` compiles validated policy expressions
@@ -36,6 +38,7 @@ source-language/evaluator behavior is unchanged.
 | `unsigned {field}` | Stream a u64 as exact decimal |
 | `list {field}` | Lower each array child with the selected driver/shared budget |
 | `ifEmpty {field, then, else}` | Select a branch using array emptiness |
+| `select {field, cases}` | Select one trusted expression by string-field value |
 
 The instruction is the current input to every expression; recursive `lower`
 changes that input to the selected child. There is no native sum/product/etc.
@@ -59,6 +62,7 @@ contain arbitrary Rust syntax; it is not subject to the path grammar.
   record fields and case keys; generic JSON maps cannot erase that evidence.
 - A policy has at most 512 JSON nodes and 32 levels, counting the root. It has
   1–64 cases; keys are 1–64 bytes, selectors 1–128 bytes and paths at most 128.
+  Nested `select` maps have the same case/key limits and eager validation.
 - Each instruction lowering shares a budget of 4096 dispatch/expression steps,
   at most 64 instruction levels, 128 combined dispatch/render frames, and 1 MiB
   rendered bytes, including intermediate copies. Duplicate-child expansion cannot reset these budgets.

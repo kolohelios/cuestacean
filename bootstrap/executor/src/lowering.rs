@@ -106,6 +106,11 @@ enum Expr {
     List {
         field: String,
     },
+    Select {
+        field: String,
+        #[serde(deserialize_with = "unique_cases")]
+        cases: BTreeMap<String, Expr>,
+    },
     IfEmpty {
         field: String,
         then: Box<Expr>,
@@ -208,6 +213,12 @@ impl Expr {
                 }
                 Ok(())
             }
+            Self::Select { field, cases } => {
+                if field.is_empty() || field.len() > 128 {
+                    return Err(invalid("selector must contain 1..=128 bytes"));
+                }
+                validate_cases(cases)
+            }
             Self::IfEmpty {
                 field,
                 then,
@@ -233,6 +244,19 @@ impl Expr {
     }
 }
 
+fn validate_cases(cases: &BTreeMap<String, Expr>) -> Result<(), Error> {
+    if cases.is_empty() || cases.len() > 64 {
+        return Err(invalid("policy must contain 1..=64 cases"));
+    }
+    for (key, expr) in cases {
+        if key.is_empty() || key.len() > 64 {
+            return Err(invalid("case key must contain 1..=64 bytes"));
+        }
+        expr.validate()?;
+    }
+    Ok(())
+}
+
 impl Policy {
     /// Decode the original policy text and validate every template before use.
     pub fn parse(input: &str) -> Result<Self, Error> {
@@ -248,15 +272,7 @@ impl Policy {
         if policy.format_version != 1 {
             return Err(invalid("formatVersion 1 required"));
         }
-        if policy.cases.is_empty() || policy.cases.len() > 64 {
-            return Err(invalid("policy must contain 1..=64 cases"));
-        }
-        for (key, expr) in &policy.cases {
-            if key.is_empty() || key.len() > 64 {
-                return Err(invalid("case key must contain 1..=64 bytes"));
-            }
-            expr.validate()?;
-        }
+        validate_cases(&policy.cases)?;
         if let Some(body) = &policy.module {
             crate::module::validate(body)?;
         }
@@ -287,6 +303,10 @@ pub fn instruction_op(node: &Value) -> Result<&str, Error> {
 
 pub fn missing_case(op: &str) -> Error {
     invalid(format!("missing lowering case for {op:?}"))
+}
+
+pub fn missing_selection(tag: &str) -> Error {
+    invalid(format!("missing lowering selection for {tag:?}"))
 }
 
 impl Driver for Policy {
@@ -337,6 +357,12 @@ impl Expr {
             }),
             Self::Unsigned { field } => ctx.unsigned(node, field),
             Self::List { field } => ctx.list(node, field, depth, driver),
+            Self::Select { field, cases } => ctx.select(node, field, |ctx, tag| {
+                cases
+                    .get(tag)
+                    .ok_or_else(|| missing_selection(tag))?
+                    .render(ctx, node, depth, driver)
+            }),
             Self::IfEmpty {
                 field,
                 then,
@@ -454,6 +480,23 @@ impl Context {
         self.expression(|ctx| {
             let empty = array_field(node, field)?.is_empty();
             let rendered = if empty { then(ctx)? } else { otherwise(ctx)? };
+            let mut out = String::new();
+            ctx.budget.append(&mut out, &rendered)?;
+            Ok(out)
+        })
+    }
+    pub fn select(
+        &mut self,
+        node: &Value,
+        field: &str,
+        branch: impl FnOnce(&mut Context, &str) -> Result<String, Error>,
+    ) -> Result<String, Error> {
+        self.expression(|ctx| {
+            let tag = node
+                .get(field)
+                .and_then(Value::as_str)
+                .ok_or_else(|| invalid(format!("field {field:?} must be a string")))?;
+            let rendered = branch(ctx, tag)?;
             let mut out = String::new();
             ctx.budget.append(&mut out, &rendered)?;
             Ok(out)
@@ -635,6 +678,16 @@ impl Expr {
             }
             Self::List { field } => {
                 write!(out, "ctx.list(_node, {field:?}, _depth, self)").expect("write to string")
+            }
+            Self::Select { field, cases } => {
+                write!(out, "ctx.select(_node, {field:?}, |ctx, tag| match tag {{ ")
+                    .expect("write to string");
+                for (tag, expr) in cases {
+                    write!(out, "{tag:?} => ").expect("write to string");
+                    expr.emit(out);
+                    out.push_str(", ");
+                }
+                out.push_str("tag => Err(lowering::missing_selection(tag)), })");
             }
             Self::IfEmpty {
                 field,
@@ -966,6 +1019,84 @@ mod tests {
         )?;
         assert!(generated.contains("ctx.concat(|_parts|"));
         Ok(())
+    }
+
+    #[test]
+    fn selection_validates_and_renders() -> Result<(), Box<dyn std::error::Error>> {
+        let policy = Policy::parse(
+            r#"{"formatVersion":1,"cases":{"root":{"op":"select","field":"tag","cases":{"a":{"op":"lower","field":"child"},"b":{"op":"text","value":"B"}}},"leaf":{"op":"text","value":"ok"}}}"#,
+        )?;
+        assert_eq!(
+            policy.lower(&json!({"op":"root","tag":"a","child":{"op":"leaf"}}))?,
+            "ok"
+        );
+        assert_eq!(policy.lower(&json!({"op":"root","tag":"b"}))?, "B");
+        assert_eq!(
+            policy
+                .lower(&json!({"op":"root","tag":false}))
+                .expect_err("string")
+                .to_string(),
+            "lowering: field \"tag\" must be a string"
+        );
+        assert_eq!(
+            policy
+                .lower(&json!({"op":"root","tag":"missing"}))
+                .expect_err("missing")
+                .to_string(),
+            "lowering: missing lowering selection for \"missing\""
+        );
+        for cases in [
+            r#"{}"#,
+            r#"{"":{"op":"text","value":"x"}}"#,
+            r#"{"a":{"op":"text","value":"x"},"a":{"op":"text","value":"y"}}"#,
+            r#"{"a":{"op":"text","value":"x"},"b":{"op":"path","value":"bad()"}}"#,
+        ] {
+            let text = format!(
+                r#"{{"formatVersion":1,"cases":{{"x":{{"op":"select","field":"tag","cases":{cases}}}}}}}"#
+            );
+            assert!(Policy::parse(&text).is_err(), "{text}");
+        }
+        for size in [0, 129] {
+            let text = json!({"formatVersion":1,"cases":{"x":{"op":"select","field":"x".repeat(size),"cases":{"a":{"op":"text","value":"x"}}}}}).to_string();
+            assert!(Policy::parse(&text).is_err());
+        }
+        let generated = super::generate(
+            r#"{"formatVersion":1,"cases":{"x":{"op":"select","field":"a\"b","cases":{"x\"y":{"op":"text","value":"z"}}}}}"#,
+        )?;
+        assert!(generated.contains(r#"ctx.select(_node, "a\"b", |ctx, tag| match tag"#));
+        assert!(generated.contains(r#""x\"y" => ctx.text("z")"#));
+        Ok(())
+    }
+
+    #[test]
+    fn selection_charges_copy_and_unwinds() {
+        for (remaining, succeeds) in [(2, true), (1, false)] {
+            let mut ctx = Context {
+                budget: Budget {
+                    steps: 0,
+                    bytes: 1024 * 1024 - remaining,
+                    frames: 0,
+                },
+            };
+            let result = ctx.select(&json!({"tag":"a"}), "tag", |ctx, _| ctx.text("x"));
+            assert_eq!(result.is_ok(), succeeds);
+            assert_eq!(ctx.budget.steps, 2);
+            assert_eq!(ctx.budget.frames, 0);
+        }
+        let mut ctx = Context {
+            budget: Budget {
+                steps: 4095,
+                bytes: 0,
+                frames: 0,
+            },
+        };
+        assert!(
+            ctx.select(&json!({"tag":"a"}), "tag", |ctx, _| ctx.text("x"))
+                .expect_err("fuel")
+                .to_string()
+                .contains("4096 steps")
+        );
+        assert_eq!(ctx.budget.frames, 0);
     }
 
     #[test]

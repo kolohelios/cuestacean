@@ -78,7 +78,7 @@ cargo build --manifest-path bootstrap/executor/Cargo.toml --no-default-features 
   --bin bootstrap-ast-codegen --bin bootstrap-pratt-codegen --bin bootstrap-unify-codegen \
   --bin bootstrap-lower-codegen
 set -o pipefail
-for policy in lowering pratt-lowering tests/valid/lowering-left-twice tests/valid/lowering-escaped tests/valid/lowering-reverse tests/valid/lowering-module-escaped tests/valid/lowering-collections; do
+for policy in lowering pratt-lowering unify-lowering tests/valid/lowering-select tests/valid/lowering-left-twice tests/valid/lowering-escaped tests/valid/lowering-reverse tests/valid/lowering-module-escaped tests/valid/lowering-collections; do
   name=$(basename "$policy")
   bootstrap/executor/target/debug/bootstrap-lower-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$policy.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
@@ -124,6 +124,9 @@ for control in unify tests/valid/unify-right tests/valid/unify-scoped; do
   bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
+bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/unify.json" \
+  "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/unify-lowering-permissive.json" \
+  | rustfmt --edition 2024 > bootstrap/generated/unify-permissive-bool.rs
 ```
 
 ## Fresh Nix builds
@@ -147,7 +150,10 @@ independent Nix output built only from CUE sources, not committed artifacts.
    included in the final compiled tests. Drift checks run the final compiled
    default generator and compare its evaluator output to the interpreter-seeded
    artifacts. The shared CUE backend also reproduces every existing Pratt/primary
-   driver; `pratt-no-increment` compiles an alternate compiler policy without
+   driver. Unification emission now uses another shared backend while preserving
+   its previous goldens and scoped tuple semantics; a deliberately permissive
+   compiled unifier checks alternate compiler-policy behavior.
+   `pratt-no-increment` compiles an alternate compiler policy without
    modifying parser-control IR. Normal, alternate and escaped/zero-argument lowering drivers also
    have repeat/drift checks. Reverse traversal additionally regenerates and
    compiles `evaluation-reverse.rs` while normal evaluator goldens stay unchanged. The semantics-only feature check temporarily removes

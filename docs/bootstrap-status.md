@@ -20,6 +20,7 @@ advantages remain a hypothesis, not a measured result.
 
 | Boundary | Specifications and contract | Rust implementation/verification |
 | --- | --- | --- |
+| Unification compiler lowering | `bootstrap/unify-lowering{,-fragments}.cue`, [backend contract](../bootstrap/unify-lowering.md) | Shared select/concat kernel and compiled driver; native typed/scope validation |
 | Pratt/primary compiler lowering | `bootstrap/pratt-lowering{,-fragments}.cue`, [backend contract](../bootstrap/pratt-lowering.md) | Shared lowering compiler/kernel; compiled driver; native typed bridge |
 | Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
 | Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` compiler/reference engine/shared kernel; generated Rust driver; native checked primitives |
@@ -117,6 +118,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#60](https://github.com/kolohelios/cuestacean/pull/60) | Interpreted CUE instruction-to-Rust lowering |
 | [#62](https://github.com/kolohelios/cuestacean/pull/62) | Compiled production lowering with artifact-free interpreter seeds |
 | [#64](https://github.com/kolohelios/cuestacean/pull/64) | CUE evaluator assembly/traversal and reverse compiled evidence |
+| [#66](https://github.com/kolohelios/cuestacean/pull/66) | Shared CUE backend for Pratt/primary compiler emission |
 
 ## Build and validation runbook
 
@@ -165,6 +167,9 @@ workspace's stale exports for changed specifications.
   The Pratt compiler now uses a separate policy through the same lowering engine;
   seeds interpret it and production uses `compiled_pratt_lowering`. Keep this
   driver in the feature-isolation removal set, not only `lowering*.rs`.
+  Unification compilation now has the same arrangement via `unify-lowering.rs`.
+  Its internal typed serialization distinguishes value/endpoint input tags;
+  accepted control wire syntax remains unchanged.
 - Default `source` enables `semantics`. Semantic evaluation/generated unification
   can build without the parser; compiler-only seeds exclude both dependencies,
   with no native unification fallback or stub. The sandbox checks these profiles.
