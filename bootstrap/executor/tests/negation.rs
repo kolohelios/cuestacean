@@ -170,7 +170,7 @@ fn independent_evaluator_trees_and_export() {
         ),
         (
             unary(json!({"kind":"intType"})),
-            "arithmetic requires concrete integer operands",
+            "arithmetic requires compatible concrete operands",
         ),
         (
             unary(binary("unify", integer(1), integer(2))),
@@ -268,7 +268,7 @@ fn source_trees_values_and_cli_are_independent() {
         (
             "incomplete",
             "int",
-            "arithmetic requires concrete integer operands",
+            "arithmetic requires compatible concrete operands",
         ),
         ("conflicts", "child", "conflicting integer"),
     ] {

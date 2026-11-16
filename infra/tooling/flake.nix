@@ -63,6 +63,8 @@
       prattNames = builtins.concatStringsSep " " prattFixtures;
       unifyFixtures = [
         "unify"
+        "sum"
+        "tests/valid/sum-right"
         "tests/valid/unify-right"
         "tests/valid/unify-scoped"
       ];
@@ -97,6 +99,7 @@
         "bounds"
         "booleans"
         "strings"
+        "concatenation"
         "tests/valid/strings-empty"
         "tests/valid/strings-equal"
         "tests/valid/strings-incomplete"
@@ -486,7 +489,7 @@
               }
               ''
                 set -euo pipefail
-                for pair in concrete:strings empty:tests/valid/strings-empty equal:tests/valid/strings-equal; do
+                for pair in concrete:strings empty:tests/valid/strings-empty equal:tests/valid/strings-equal concatenated:concatenation; do
                   property="''${pair%%:*}"
                   fixture="''${pair#*:}"
                   cue export ${../../bootstrap/tests/upstream/strings.cue} -e "$property" --out json | jq -c . > expected

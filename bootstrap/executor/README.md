@@ -53,7 +53,8 @@ interprets that rule's result instruction against the current node:
 - `field` reads the named field as a concrete integer value.
 - `evaluate` selects the named child and recursively dispatches its rule.
 - `sum` executes its left instruction, then its right instruction, against the
-  same current node and adds their integer results.
+  same current node. [CUE binary control](../sum.md) chooses checked integer
+  addition, concrete text concatenation, or operand rejection.
 - `product` executes its left and right instructions in the same order and
   multiplies their integer results using checked arithmetic.
 - `difference` evaluates left before right and subtracts right from left using
@@ -142,7 +143,7 @@ Checked binding/type/use-count facts and the reference interpreter remain native
 
 ## Deliberate limits
 
-- Unification supports concrete i64/booleans, abstract `int`/`bool`, and inclusive
+- Unification supports concrete i64/booleans/text, abstract `int`/`bool`/`string`, and inclusive
   integer-threshold bounds. Conflicts are errors, not first-class bottom
   values. Other types, structs, exclusive bounds, disjunctions, defaults,
   references, and full CUE unification remain unsupported.
@@ -152,7 +153,8 @@ Checked binding/type/use-count facts and the reference interpreter remain native
 - Both documents require `formatVersion: 1`.
 - Concrete numeric values, bound thresholds, and arithmetic results are signed
   64-bit integers. Out-of-range values, non-integer numeric fields, overflow,
-  and underflow are errors. Boolean arithmetic is rejected. No
+  and underflow are errors. Addition also concatenates concrete strings without
+  coercion; other arithmetic remains integer-only. Boolean arithmetic is rejected. No
   wrapping, saturation, or floating-point arithmetic. This is narrower than
   CUE's integer domain and is only a bootstrap limitation. Multiplying `i64::MIN`
   by `-1` is also an overflow error; a later multiplication by zero does not erase

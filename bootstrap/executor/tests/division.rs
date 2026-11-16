@@ -40,7 +40,7 @@ fn both(tree: &Value) -> [Result<i64, Error>; 2] {
 
 const ZERO: &str = "integer division by zero";
 const OVERFLOW: &str = "signed 64-bit integer division overflow";
-const ABSTRACT: &str = "arithmetic requires concrete integer operands";
+const ABSTRACT: &str = "arithmetic requires compatible concrete operands";
 
 #[test]
 fn independent_signs_and_boundaries() {

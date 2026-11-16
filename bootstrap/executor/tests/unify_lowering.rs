@@ -67,7 +67,8 @@ fn unified_backend_matches_reference_and_preserves_wire_inputs() {
         source,
         unification::generate_with_policy(&input, &backend).expect("reference")
     );
-    let tagged = json!({"op":"program", "result":{"op":"inputValue", "input":"left"}});
+    let tagged =
+        json!({"op":"program", "function":"unify", "result":{"op":"inputValue", "input":"left"}});
     assert_eq!(
         policy.lower(&tagged).expect("reference program"),
         compiled_unify_lowering::lower(&tagged).expect("compiled program")
