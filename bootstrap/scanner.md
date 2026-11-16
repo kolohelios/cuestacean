@@ -14,6 +14,8 @@ consume parenthesis tokens. [`bound-prefix.cue`](bound-prefix.cue) and
 `bootstrap-scan-codegen <program.json> [lowering.json]` compiler now uses a
 [shared CUE backend](scan-lowering.md) to lower these programs into Rust control flow. The parser calls generated whitespace, after-operand,
 decimal, identifier, parenthesis, and symbol scanners, not the statement interpreter.
+The [single-line string scanner](strings.md) also selects quoted spans, Unicode
+advancement, escape whitelist and lexical diagnostics before native conversion.
 No Go process runs during source evaluation.
 
 This is more than a byte-class table: CUE defines the loop and branch bodies,

@@ -5,7 +5,7 @@
 - `integer`: an integer `value`.
 - `intType`: the abstract `int` constraint, with no payload.
 - `string` / `stringType`: concrete string `value` or payload-free abstract string;
-  JSON evaluator support only, not source-string parsing.
+  also built by the [bounded CUE source-string profile](strings.md).
 - `true` / `false` / `boolType`: payload-free boolean values and type constraint.
 - `lowerBound`: an inclusive lower threshold in integer `value`.
 - `upperBound`: an inclusive upper threshold in integer `value`.

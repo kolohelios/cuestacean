@@ -20,6 +20,9 @@ mod integer_builder;
 #[path = "../../generated/ast-program.rs"]
 mod program_builder;
 #[cfg(feature = "source")]
+#[path = "../../generated/ast-text.rs"]
+mod text_builder;
+#[cfg(feature = "source")]
 #[path = "../../generated/ast-unary.rs"]
 mod unary_builder;
 
@@ -287,6 +290,11 @@ pub fn program(entry: Value) -> Value {
 pub fn atom(kind: String) -> Value {
     atom_builder::build(kind)
 }
+#[cfg(feature = "source")]
+pub fn text(kind: String, value_field: String, value: String) -> Value {
+    text_builder::build(kind, value_field, value)
+}
+
 #[cfg(feature = "source")]
 pub fn integer(kind: String, value_field: String, value: i64) -> Value {
     integer_builder::build(kind, value_field, value)

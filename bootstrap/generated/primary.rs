@@ -37,14 +37,22 @@ pub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {
                 _frame.parse_bound()?;
             } else {
                 _frame.step()?;
-                _frame.scan_identifier()?;
+                _frame.scan_string()?;
                 _frame.step()?;
-                if _frame.has_identifier()? {
+                if _frame.has_string()? {
                     _frame.step()?;
-                    _frame.parse_atom()?;
+                    _frame.parse_string()?;
                 } else {
                     _frame.step()?;
-                    _frame.parse_integer()?;
+                    _frame.scan_identifier()?;
+                    _frame.step()?;
+                    if _frame.has_identifier()? {
+                        _frame.step()?;
+                        _frame.parse_atom()?;
+                    } else {
+                        _frame.step()?;
+                        _frame.parse_integer()?;
+                    }
                 }
             }
         }

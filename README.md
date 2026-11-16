@@ -42,8 +42,8 @@ including binding-power, associativity and grouping-minimum decisions. Bootstrap
 now uses separate CUE-defined builder expressions compiled to typed Rust functions;
 the native parser no longer assembles JSON maps. [Scalar unification](bootstrap/unify.md)
 executes CUE-defined identity, interval-intersection, scalar equality and typed conflict policy;
-[owned string scalars](docs/string-values.md) now work in JSON evaluation, while
-source string syntax remains outside the source profile;
+[owned string scalars](docs/string-values.md) now work in JSON evaluation and the
+[bounded single-line source-string profile](bootstrap/strings.md);
 value representation and low-level comparisons remain native.
 
 ## CUE all the way down

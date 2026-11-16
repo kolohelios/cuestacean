@@ -145,8 +145,14 @@ fn rejected_sources_and_cli_errors_fail_without_results() {
                 Some("booleans-opposite") => {
                     assert_eq!(stderr, "conflicting boolean values true and false\n")
                 }
-                Some("booleans-type" | "booleans-bounds") => {
+                Some("booleans-type" | "booleans-bounds" | "string-mixed") => {
                     assert_eq!(stderr, "conflicting value types\n")
+                }
+                Some("string-unequal") => {
+                    assert!(
+                        stderr.contains("conflicting string values"),
+                        "{path:?}: {stderr}"
+                    );
                 }
                 _ => assert!(
                     stderr.contains("conflicting integer"),

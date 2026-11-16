@@ -8,7 +8,7 @@ nix run ./infra/tooling#source -- bootstrap/source/valid/nested.cue
 
 It prints `42`. `bootstrap-source <expression.cue>` reads source, parses it into
 the existing version-1 expression tree, then invokes the compiled generated
-evaluator. Success prints an exact JSON integer or boolean and newline; errors print to stderr and
+evaluator. Success prints an exact JSON integer, boolean or string and newline; errors print to stderr and
 exit 2 without a result. No Go process is invoked at runtime.
 
 `../grammar.cue` describes atoms, bound prefixes, infix operators, precedence,
@@ -60,9 +60,18 @@ mixes such as `int & true` and `>=0 & false`. CUE unification control owns these
 decisions before numeric identity. Arithmetic still requires concrete integers:
 no boolean-to-number coercion, logical operators or equality syntax is added.
 See the [executor API/output contract](../executor/README.md) for the preserved
-integer API and JSON scalar APIs. The JSON layer now has owned string values
-([design](../../docs/string-values.md)), but source string syntax stays unsupported.
-Structural/reference graph ownership still requires design; this is not a full CUE lattice.
+integer API and JSON scalar APIs. Strings use owned shared values
+([design](../../docs/string-values.md)); graph ownership still requires design.
+
+### Single-line strings
+
+The [string profile](../strings.md) admits double-quoted raw UTF-8, empty strings,
+the common escapes `\"`, `\\`, `\b`, `\f`, `\n`, `\r`, `\t`, and the abstract `string`
+atom. CUE scanner/primary/builder programs own lexical selection and AST construction;
+native checked conversion decodes the admitted subset. Raw controls/BOM reject.
+Unicode/hex/octal escapes, interpolation, hash/raw/multiline forms and string
+arithmetic remain unsupported. JSON output escape spelling may differ from Go CUE;
+comparisons canonicalize strings only, retaining exact numeric checks.
 
 ### Line comments
 
