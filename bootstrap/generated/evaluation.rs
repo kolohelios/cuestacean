@@ -42,6 +42,8 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "string" => runtime::text(node, "value"),
+        "stringType" => Ok::<_, Error>(runtime::Value::String),
         "subtract" => runtime::difference(
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,

@@ -32,9 +32,9 @@ fn outcome(result: Result<Value, Error>) -> Result<Value, String> {
 fn check(program: &str, left: Value, right: Value, expected: Result<Value, &str>) {
     let expected = expected.map_err(str::to_owned);
     for actual in [
-        generated::unify(left, right),
-        unification::interpret(program, left, right),
-        runtime::unify(left, right),
+        generated::unify(left.clone(), right.clone()),
+        unification::interpret(program, left.clone(), right.clone()),
+        runtime::unify(left.clone(), right.clone()),
     ] {
         assert_eq!(outcome(actual), expected, "{left:?} & {right:?}");
     }
@@ -164,28 +164,32 @@ fn parity_and_algebraic_laws_on_sampled_values() {
         bounds(Some(i64::MAX), None),
         bounds(None, Some(i64::MIN)),
     ];
-    for a in values {
-        assert_eq!(generated::unify(a, a).ok(), Some(a));
-        for b in values {
-            let ab = outcome(generated::unify(a, b));
+    for a in &values {
+        assert_eq!(generated::unify(a.clone(), a.clone()).ok(), Some(a.clone()));
+        for b in &values {
+            let ab = outcome(generated::unify(a.clone(), b.clone()));
             assert_eq!(
                 ab,
-                outcome(unification::interpret(&program, a, b)),
+                outcome(unification::interpret(&program, a.clone(), b.clone())),
                 "{a:?}, {b:?}"
             );
-            assert_eq!(ab, outcome(runtime::unify(a, b)), "{a:?}, {b:?}");
             assert_eq!(
-                generated::unify(a, b).ok(),
-                generated::unify(b, a).ok(),
+                ab,
+                outcome(runtime::unify(a.clone(), b.clone())),
                 "{a:?}, {b:?}"
             );
-            for c in values {
+            assert_eq!(
+                generated::unify(a.clone(), b.clone()).ok(),
+                generated::unify(b.clone(), a.clone()).ok(),
+                "{a:?}, {b:?}"
+            );
+            for c in &values {
                 assert_eq!(
-                    generated::unify(a, b)
-                        .and_then(|v| generated::unify(v, c))
+                    generated::unify(a.clone(), b.clone())
+                        .and_then(|v| generated::unify(v, c.clone()))
                         .ok(),
-                    generated::unify(b, c)
-                        .and_then(|v| generated::unify(a, v))
+                    generated::unify(b.clone(), c.clone())
+                        .and_then(|v| generated::unify(a.clone(), v))
                         .ok(),
                     "{a:?}, {b:?}, {c:?}"
                 );
@@ -203,11 +207,11 @@ fn alternate_program_really_returns_the_right_input() {
         (Value::Int, bounds(None, Some(4))),
     ] {
         assert_eq!(
-            right::unify(left, right_value).expect("generated"),
+            right::unify(left.clone(), right_value.clone()).expect("generated"),
             right_value
         );
         assert_eq!(
-            unification::interpret(&program, left, right_value).expect("interpreted"),
+            unification::interpret(&program, left, right_value.clone()).expect("interpreted"),
             right_value
         );
     }
@@ -277,7 +281,7 @@ fn locals_are_lexical_and_conditions_short_circuit() {
         (Value::Int, bounds(None, None)),
     ] {
         assert_eq!(
-            scoped::unify(left, Value::Int).expect("compiled lexical scope"),
+            scoped::unify(left.clone(), Value::Int).expect("compiled lexical scope"),
             expected
         );
         assert_eq!(

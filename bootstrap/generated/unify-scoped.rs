@@ -4,11 +4,11 @@ pub fn unify(_left: Value, _right: Value) -> Result<Value, Error> {
     {
         let (_lower, _upper) = (
             (Ok::<_, Error>(crate::unification::endpoint(
-                _left,
+                &_left,
                 crate::unification::Endpoint::Lower,
             )))?,
             (Ok::<_, Error>(crate::unification::endpoint(
-                _left,
+                &_left,
                 crate::unification::Endpoint::Upper,
             )))?,
         );
@@ -22,15 +22,15 @@ pub fn unify(_left: Value, _right: Value) -> Result<Value, Error> {
                         crate::unification::Relation::Equal,
                     ))?,
             ))? {
-                crate::unification::fail(crate::unification::Failure::Bounds, _left, _right)
+                crate::unification::fail(crate::unification::Failure::Bounds, &_left, &_right)
             } else {
                 if (Ok::<_, Error>(
                     (Ok::<_, Error>(
                         (Ok::<_, Error>(crate::unification::kind_is(
-                            _left,
+                            &_left,
                             crate::unification::Kind::Int,
                         )))? || (Ok::<_, Error>(crate::unification::kind_is(
-                            _left,
+                            &_left,
                             crate::unification::Kind::Bounds,
                         )))?,
                     ))? || (crate::unification::compare(
@@ -44,7 +44,7 @@ pub fn unify(_left: Value, _right: Value) -> Result<Value, Error> {
                         upper: (Ok::<_, Error>(_upper))?,
                     })
                 } else {
-                    crate::unification::fail(crate::unification::Failure::Bounds, _left, _right)
+                    crate::unification::fail(crate::unification::Failure::Bounds, &_left, &_right)
                 }
             }
         }

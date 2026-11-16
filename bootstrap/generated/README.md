@@ -4,7 +4,7 @@ The evaluator modules are generated from rule JSON by `bootstrap-codegen`,
 whose per-instruction expression lowering runs a [compiled CUE program](../lowering.md).
 Checked rendering/cursor kernels and typed metadata projection remain native;
 [complete driver source emission](../meta-lowering.md) is CUE-owned;
-[module assembly](../module.md) and traversal are now CUE-owned too. Compiler-only seeds use the reference policy interpreter. This lowers our sixteen instruction primitives, not
+[module assembly](../module.md) and traversal are now CUE-owned too. Compiler-only seeds use the reference policy interpreter. This lowers our eighteen instruction primitives, not
 arbitrary CUE source. The interpreter remains the default executable and a
 reference for tests. The normal generated module also runs as a separate CLI:
 
@@ -79,7 +79,8 @@ validation, field access, integer/type values, inclusive bounds, unification,
 and checked integer arithmetic, including `difference`/subtraction. Unification delegates to `unify.rs`, generated
 from the [unification DSL](../unify.md); `unify-right` and `unify-scoped` are
 test-only policies. Intermediate values may be abstract `bool`, `int` or
-bounds. Public `execute_json` requires an exact concrete JSON integer/boolean;
+bounds; JSON evaluation also supports owned strings and abstract `string`.
+Public `execute_json` requires a concrete JSON integer/boolean/string;
 legacy `execute` remains integer-only. The normal module is exposed as
 `bootstrap_executor::generated` under `semantics`; both compiled CLIs reuse it. Tests compare values
 and errors against the interpreter and known expectations. Sharing primitives
@@ -152,7 +153,7 @@ for control in unify tests/valid/unify-right tests/valid/unify-scoped; do
   bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
-bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/unify.json" \
+bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/unify-equality-probe.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/unify-lowering-permissive.json" \
   | rustfmt --edition 2024 > bootstrap/generated/unify-permissive-bool.rs
 ```

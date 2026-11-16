@@ -14,7 +14,7 @@ nix run ./infra/tooling -- result-exports/addition.json result-exports/evaluatio
 ```
 
 Both print `42`. The CLI takes exactly two paths: program JSON, then rule JSON.
-Success prints an exact JSON integer or boolean and newline; errors go to stderr with exit
+Success prints an exact JSON integer, boolean or string and newline; errors go to stderr with exit
 status 2 and no result on stdout.
 
 The generated evaluator is a separate CLI:
@@ -36,7 +36,7 @@ usage messages differ because their argument lists differ.
 
 Library `execute_json(program, rules)` and `generated::execute_json(program)`
 return concrete JSON scalars. Legacy `execute` entry points still return i64:
-booleans report `integer output requires an integer value`, never `0`/`1`.
+concrete booleans/strings report `integer output requires an integer value`.
 The normal generated module is a public, `semantics`-gated library API reused by
 both compiled CLIs; compiler-only seeds omit it entirely.
 
@@ -45,7 +45,8 @@ both compiled CLIs; compiler-only seeds omit it entirely.
 The executor looks up a node's string `kind` in the supplied rule map, then
 interprets that rule's result instruction against the current node:
 
-- `int` / `bool` construct abstract type values.
+- `int` / `bool` / `stringType` construct abstract type values.
+- `text` reads a named string field into owned shared text.
 - `boolean` constructs its literal `value` from rule data, not a node-kind case.
 - `lowerBound` / `upperBound` execute their `value` instruction, require a
   concrete integer threshold, and construct an inclusive one-sided bound.
@@ -69,8 +70,10 @@ interprets that rule's result instruction against the current node:
   `conflicting integer values`. Empty ranges and rejected candidates report
   `conflicting integer bounds`.
 
-The native Copy value scaffold has five variants: concrete i64/boolean,
-abstract `int`/`bool`, and inclusive bounds with optional lower/upper endpoints.
+The owned Clone (not Copy) value scaffold has concrete i64/boolean/shared text,
+abstract `int`/`bool`/`string`, and inclusive bounds. CUE controls string identity,
+content equality/conflict and cross-domain rejection. JSON strings are supported;
+source string syntax is not. See the [ownership design](../../docs/string-values.md).
 `bool & true` is concrete; `bool & bool` reports `non-concrete bool value`.
 Different concrete booleans report `conflicting boolean values`; boolean/numeric
 mixes report `conflicting value types` before numeric identity can apply.

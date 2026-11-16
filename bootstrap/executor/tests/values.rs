@@ -29,9 +29,12 @@ fn samples() -> [Value; 14] {
 #[test]
 fn abstract_int_is_an_identity_for_admitted_integer_values() {
     for value in samples() {
-        assert_eq!(unify(Value::Int, value).expect("left type"), value);
-        assert_eq!(unify(value, Value::Int).expect("right type"), value);
-        assert_eq!(unify(value, value).expect("idempotent"), value);
+        assert_eq!(unify(Value::Int, value.clone()).expect("left type"), value);
+        assert_eq!(unify(value.clone(), Value::Int).expect("right type"), value);
+        assert_eq!(
+            unify(value.clone(), value.clone()).expect("idempotent"),
+            value
+        );
     }
 }
 
@@ -40,11 +43,19 @@ fn intersection_is_commutative_and_associative_for_sampled_values() {
     for a in samples() {
         for b in samples() {
             // Error provenance can depend on order; conflict versus value cannot.
-            assert_eq!(unify(a, b).ok(), unify(b, a).ok(), "{a:?}, {b:?}");
+            assert_eq!(
+                unify(a.clone(), b.clone()).ok(),
+                unify(b.clone(), a.clone()).ok(),
+                "{a:?}, {b:?}"
+            );
             for c in samples() {
                 assert_eq!(
-                    unify(a, b).and_then(|ab| unify(ab, c)).ok(),
-                    unify(b, c).and_then(|bc| unify(a, bc)).ok(),
+                    unify(a.clone(), b.clone())
+                        .and_then(|ab| unify(ab, c.clone()))
+                        .ok(),
+                    unify(b.clone(), c.clone())
+                        .and_then(|bc| unify(a.clone(), bc))
+                        .ok(),
                     "{a:?}, {b:?}, {c:?}"
                 );
             }
@@ -56,14 +67,17 @@ fn intersection_is_commutative_and_associative_for_sampled_values() {
 fn singleton_bounds_remain_abstract_until_given_a_candidate() {
     let lower = lower_bound(Value::Integer(3)).expect("lower");
     let upper = upper_bound(Value::Integer(3)).expect("upper");
-    let singleton = unify(lower, upper).expect("nonempty intersection");
-    assert!(matches!(concrete(singleton), Err(Error::IncompleteBounds)));
+    let singleton = unify(lower.clone(), upper).expect("nonempty intersection");
+    assert!(matches!(
+        concrete(singleton.clone()),
+        Err(Error::IncompleteBounds)
+    ));
     assert_eq!(
-        unify(singleton, Value::Integer(3)).expect("candidate"),
+        unify(singleton.clone(), Value::Integer(3)).expect("candidate"),
         Value::Integer(3)
     );
     assert!(matches!(
-        unify(singleton, Value::Integer(4)),
+        unify(singleton.clone(), Value::Integer(4)),
         Err(Error::BoundsConflict)
     ));
     assert!(matches!(
@@ -83,8 +97,14 @@ fn absent_endpoints_are_infinite_and_thresholds_must_be_concrete() {
         upper_bound(Value::Integer(i64::MIN)),
     ] {
         let bound = bound.expect("bound");
-        assert!(matches!(concrete(bound), Err(Error::IncompleteBounds)));
-        assert!(matches!(lower_bound(bound), Err(Error::BoundThreshold)));
+        assert!(matches!(
+            concrete(bound.clone()),
+            Err(Error::IncompleteBounds)
+        ));
+        assert!(matches!(
+            lower_bound(bound.clone()),
+            Err(Error::BoundThreshold)
+        ));
         assert!(matches!(upper_bound(bound), Err(Error::BoundThreshold)));
     }
     assert!(matches!(

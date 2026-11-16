@@ -46,8 +46,8 @@ Ok(())
             "empty" => ctx.text("Ok::<_, Error>(None::<i64>)"),
             "fail" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("crate::unification::fail(crate::unification::Failure::"))?;
-parts.arg(|ctx| ctx.select(_node, "reason", |ctx, tag| match tag { "booleans" => ctx.text("Booleans"), "bounds" => ctx.text("Bounds"), "integers" => ctx.text("Integers"), "types" => ctx.text("Types"), tag => Err(lowering::missing_selection(tag)), }))?;
-parts.arg(|ctx| ctx.text(", _left, _right)"))?;
+parts.arg(|ctx| ctx.select(_node, "reason", |ctx, tag| match tag { "booleans" => ctx.text("Booleans"), "bounds" => ctx.text("Bounds"), "integers" => ctx.text("Integers"), "strings" => ctx.text("Strings"), "types" => ctx.text("Types"), tag => Err(lowering::missing_selection(tag)), }))?;
+parts.arg(|ctx| ctx.text(", &_left, &_right)"))?;
 Ok(())
 }),
             "hasEndpoint" => ctx.ok(|ctx| ctx.concat(|parts| {
@@ -67,19 +67,23 @@ parts.arg(|ctx| ctx.text(" }"))?;
 Ok(())
 }),
             "inputEndpoint" => ctx.ok(|ctx| ctx.concat(|parts| {
-parts.arg(|ctx| ctx.text("crate::unification::endpoint("))?;
+parts.arg(|ctx| ctx.text("crate::unification::endpoint(&"))?;
 parts.arg(|ctx| ctx.select(_node, "input", |ctx, tag| match tag { "left" => ctx.text("_left"), "right" => ctx.text("_right"), tag => Err(lowering::missing_selection(tag)), }))?;
 parts.arg(|ctx| ctx.text(", crate::unification::Endpoint::"))?;
 parts.arg(|ctx| ctx.select(_node, "endpoint", |ctx, tag| match tag { "lower" => ctx.text("Lower"), "upper" => ctx.text("Upper"), tag => Err(lowering::missing_selection(tag)), }))?;
 parts.arg(|ctx| ctx.text(")"))?;
 Ok(())
 })),
-            "inputValue" => ctx.ok(|ctx| ctx.select(_node, "input", |ctx, tag| match tag { "left" => ctx.text("_left"), "right" => ctx.text("_right"), tag => Err(lowering::missing_selection(tag)), })),
+            "inputValue" => ctx.ok(|ctx| ctx.concat(|parts| {
+parts.arg(|ctx| ctx.select(_node, "input", |ctx, tag| match tag { "left" => ctx.text("_left"), "right" => ctx.text("_right"), tag => Err(lowering::missing_selection(tag)), }))?;
+parts.arg(|ctx| ctx.text(".clone()"))?;
+Ok(())
+})),
             "kindIs" => ctx.ok(|ctx| ctx.concat(|parts| {
-parts.arg(|ctx| ctx.text("crate::unification::kind_is("))?;
+parts.arg(|ctx| ctx.text("crate::unification::kind_is(&"))?;
 parts.arg(|ctx| ctx.select(_node, "input", |ctx, tag| match tag { "left" => ctx.text("_left"), "right" => ctx.text("_right"), tag => Err(lowering::missing_selection(tag)), }))?;
 parts.arg(|ctx| ctx.text(", crate::unification::Kind::"))?;
-parts.arg(|ctx| ctx.select(_node, "kind", |ctx, tag| match tag { "bool" => ctx.text("Bool"), "boolean" => ctx.text("Boolean"), "bounds" => ctx.text("Bounds"), "int" => ctx.text("Int"), "integer" => ctx.text("Integer"), tag => Err(lowering::missing_selection(tag)), }))?;
+parts.arg(|ctx| ctx.select(_node, "kind", |ctx, tag| match tag { "bool" => ctx.text("Bool"), "boolean" => ctx.text("Boolean"), "bounds" => ctx.text("Bounds"), "int" => ctx.text("Int"), "integer" => ctx.text("Integer"), "string" => ctx.text("String"), "text" => ctx.text("Text"), tag => Err(lowering::missing_selection(tag)), }))?;
 parts.arg(|ctx| ctx.text(")"))?;
 Ok(())
 })),

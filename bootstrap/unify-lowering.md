@@ -43,13 +43,15 @@ checks, not merely two engines agreeing on source text.
 `unification::generate` uses `compiled_unify_lowering` by default. No-default
 seeds interpret fresh `unify-lowering.json`; explicit `generate_with_policy` and
 `bootstrap-unify-codegen <control.json> [lowering.json]` also use the reference
-backend. The final compiled compiler reproduces every old unification golden.
+backend. The final compiled compiler matches reference-generated unification goldens.
+Owned values now use borrowed inspection and CUE-emitted clones for selected inputs.
 The feature-isolation removal set includes this backend along with Pratt and
 evaluator drivers. JSON remains build-only, Rust committed, and seeds never read
 committed generated Rust.
 
 A deliberately permissive compiler policy changes `same` to true while leaving
-the semantic control program unchanged. Its actual compiled unifier accepts
+a focused boolean/integer control probe unchanged (not the growing production
+solver). Its actual compiled unifier accepts
 opposite booleans, while mixed-domain/unequal-integer conflicts remain. This is
 an alternate compiler experiment, not production semantics or a compatibility
 claim. An adversarial compiled select policy checks escaped selectors/tags,

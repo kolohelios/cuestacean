@@ -53,10 +53,10 @@ fn boolean_meet_truth_table_and_mixed_domains() {
         (Boolean(true), Boolean(false), None),
     ];
     for (left, right, expected) in cases {
-        let result = runtime::unify(left, right);
+        let result = runtime::unify(left.clone(), right.clone());
         assert_eq!(
             unification::interpret(&export("unify"), left, right).map_err(|e| e.to_string()),
-            result.as_ref().copied().map_err(|e| e.to_string())
+            result.as_ref().cloned().map_err(|e| e.to_string())
         );
         if let Some(expected) = expected {
             assert_eq!(result.expect("boolean meet"), expected);
@@ -80,10 +80,10 @@ fn boolean_meet_truth_table_and_mixed_domains() {
         },
     ];
     for b in [Bool, Boolean(false), Boolean(true)] {
-        for n in numbers {
-            for (left, right) in [(b, n), (n, b)] {
+        for n in numbers.iter().cloned() {
+            for (left, right) in [(b.clone(), n.clone()), (n, b.clone())] {
                 assert!(matches!(
-                    runtime::unify(left, right),
+                    runtime::unify(left.clone(), right.clone()),
                     Err(Error::TypeConflict)
                 ));
                 assert!(matches!(
@@ -100,15 +100,22 @@ fn boolean_meet_truth_table_and_mixed_domains() {
         V::Int,
         V::Integer(0),
         V::Integer(1),
-        numbers[2],
+        numbers[2].clone(),
     ];
-    for a in samples {
-        for b in samples {
-            assert_eq!(runtime::unify(a, b).ok(), runtime::unify(b, a).ok());
-            for c in samples {
+    for a in &samples {
+        for b in &samples {
+            assert_eq!(
+                runtime::unify(a.clone(), b.clone()).ok(),
+                runtime::unify(b.clone(), a.clone()).ok()
+            );
+            for c in &samples {
                 assert_eq!(
-                    runtime::unify(a, b).and_then(|v| runtime::unify(v, c)).ok(),
-                    runtime::unify(b, c).and_then(|v| runtime::unify(a, v)).ok(),
+                    runtime::unify(a.clone(), b.clone())
+                        .and_then(|v| runtime::unify(v, c.clone()))
+                        .ok(),
+                    runtime::unify(b.clone(), c.clone())
+                        .and_then(|v| runtime::unify(a.clone(), v))
+                        .ok(),
                     "{a:?}, {b:?}, {c:?}"
                 );
             }

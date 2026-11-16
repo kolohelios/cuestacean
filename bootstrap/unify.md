@@ -1,15 +1,16 @@
 # CUE-hosted scalar unification
 
 [`unify.cue`](unify.cue) owns the current value-unification algorithm: abstract
-`bool` and `int` identity, concrete equality/conflict, mixed-domain rejection,
+`string`, `bool` and `int` identity, concrete equality/conflict, mixed-domain rejection,
 interval intersection, infinity handling, empty-range rejection and concrete
 candidate selection. Production
 `runtime::unify` calls generated Rust, not a native intersection fallback.
 Both rule-interpreted and rule-generated evaluators use this same policy.
 
 This is an executable solver boundary, **not full CUE unification or bootstrap
-closure**. Values remain the native `Boolean(bool)`, `Bool`, `Integer(i64)`,
-`Int`, and inclusive `Bounds` scaffold. Projection, tag tests, finite i64
+closure**. Values are the native owned `Text(Arc<str>)`/`String`, `Boolean(bool)`/`Bool`,
+`Integer(i64)`/`Int` and inclusive `Bounds` scaffold; `Value` is no longer Copy.
+See the [ownership design](../docs/string-values.md). Projection, tag tests, finite i64
 comparisons, error construction, checked arithmetic, concrete output, typed
 decoders and generic compiler/interpreter kernels remain Rust. Per-opcode
 [compiler lowering](unify-lowering.md) now lives in a separate CUE policy. Go CUE still exports specifications. This policy
@@ -19,12 +20,14 @@ does not define accepted source syntax.
 
 `#UnifyProgram` version 1 contains a `result` expression. Value expressions
 select an input, branch with `if`, bind endpoints with `letBounds`, construct
-bounds, or fail with boolean, type, integer or bounds conflict errors. Endpoint
+bounds, or fail with string, boolean, type, integer or bounds conflict errors. Endpoint
 expressions project an input endpoint, read a lexical local, produce `empty`,
 or `choose` conditionally. Conditions test kinds, endpoint presence, finite
 comparisons, same-value equality, or short-circuit `and` / `or`. Boolean
-identity and equality and all mixed-domain rejection precede numeric identity.
-Projecting an endpoint from a boolean yields no endpoint; that absence does not
+identity/equality follow the string-domain guards; all mixed-domain rejection
+precedes numeric identity. Inspection primitives borrow inputs; selected results
+clone explicitly via CUE compiler policy. Text equality is content-based with no
+normalization. Projecting a string/boolean endpoint yields none; that absence does not
 mean the value is accepted as numeric.
 
 There is no native optional-endpoint maximum/minimum operation: CUE explicitly

@@ -43,15 +43,15 @@ fn unified_backend_matches_reference_and_preserves_wire_inputs() {
     for (node, expected) in [
         (
             json!({"op":"inputValue","input":"left"}),
-            "Ok::<_, Error>(_left)",
+            "Ok::<_, Error>(_left.clone())",
         ),
         (
             json!({"op":"inputValue","input":"right"}),
-            "Ok::<_, Error>(_right)",
+            "Ok::<_, Error>(_right.clone())",
         ),
         (
             json!({"op":"inputEndpoint","input":"right","endpoint":"lower"}),
-            "Ok::<_, Error>(crate::unification::endpoint(_right, crate::unification::Endpoint::Lower))",
+            "Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Lower))",
         ),
     ] {
         assert_eq!(policy.lower(&node).expect("reference"), expected);
@@ -62,7 +62,7 @@ fn unified_backend_matches_reference_and_preserves_wire_inputs() {
     }
     let input = program(json!({"op":"input","input":"left"}));
     let source = unification::generate(&input).expect("wire input");
-    assert!(source.contains("Ok::<_, Error>(_left)"));
+    assert!(source.contains("Ok::<_, Error>(_left.clone())"));
     assert_eq!(
         source,
         unification::generate_with_policy(&input, &backend).expect("reference")
@@ -77,7 +77,8 @@ fn unified_backend_matches_reference_and_preserves_wire_inputs() {
 #[test]
 fn alternate_compiled_policy_changes_only_boolean_equality() {
     let backend = export("tests/valid/unify-lowering-permissive");
-    let input = export("unify");
+    let input = export("tests/valid/unify-equality-probe");
+    assert!(unification::interpret(&input, Value::Boolean(true), Value::Boolean(false)).is_err());
     let source = unification::generate_with_policy(&input, &backend).expect("alternate");
     assert!(source.contains("Ok::<_, Error>(true)"));
     assert_ne!(source, unification::generate(&input).expect("default"));
@@ -109,7 +110,7 @@ fn simultaneous_initializers_keep_outer_scope_and_validation_precedes_policy() {
         upper: Some(1),
     };
     assert_eq!(
-        scoped::unify(left, Value::Int).expect("compiled scoped"),
+        scoped::unify(left.clone(), Value::Int).expect("compiled scoped"),
         expected
     );
     assert_eq!(
