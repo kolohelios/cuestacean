@@ -1,7 +1,7 @@
 //! Checked primitives and policy statements for module assembly.
 use std::{fmt, fmt::Write as _};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::lowering::{self, Context, Driver, Error};
@@ -90,17 +90,22 @@ impl fmt::Write for OutputWriter<'_, '_> {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum Statement {
-    Text { value: String },
+    #[serde(rename(serialize = "moduleText", deserialize = "text"))]
+    Text {
+        value: String,
+    },
     FirstRule {},
     LastRule {},
     NextRule {},
     PreviousRule {},
     Kind {},
     Expression {},
-    WhileRules { body: Vec<Statement> },
+    WhileRules {
+        body: Vec<Statement>,
+    },
 }
 
 pub(crate) fn validate(body: &[Statement]) -> Result<(), Error> {
@@ -156,38 +161,53 @@ pub(crate) fn execute(
     Ok(())
 }
 
-/// Emit only the body of a compiled driver's assembly method.
-pub(crate) fn emit(body: &[Statement], out: &mut String) {
-    for statement in body {
-        match statement {
-            Statement::WhileRules { body } => {
-                out.push_str("while { frame.step()?; frame.has_rule() } {\n");
-                emit(body, out);
-                out.push_str("}\n");
-            }
-            _ => {
-                out.push_str("frame.step()?; ");
-                match statement {
-                    Statement::Text { value } => {
-                        writeln!(out, "frame.text({value:?})?;").expect("write to string")
-                    }
-                    Statement::FirstRule {} => out.push_str("frame.first_rule()?;\n"),
-                    Statement::LastRule {} => out.push_str("frame.last_rule()?;\n"),
-                    Statement::NextRule {} => out.push_str("frame.next_rule()?;\n"),
-                    Statement::PreviousRule {} => out.push_str("frame.previous_rule()?;\n"),
-                    Statement::Kind {} => out.push_str("frame.kind()?;\n"),
-                    Statement::Expression {} => out.push_str("frame.expression(self)?;\n"),
-                    Statement::WhileRules { .. } => unreachable!(),
-                }
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn statement_projection_preserves_nested_data_and_action_tags()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let wire = json!([
+            {"op": "firstRule"}, {"op": "lastRule"},
+            {"op": "nextRule"}, {"op": "previousRule"},
+            {"op": "kind"}, {"op": "expression"},
+            {"op": "whileRules", "body": [
+                {"op": "text", "value": "quote\" slash\\ newline\n雪"},
+                {"op": "whileRules", "body": [{"op": "text", "value": ""}]}
+            ]}
+        ]);
+        let statements: Vec<Statement> = serde_json::from_value(wire)?;
+        validate(&statements)?;
+        let projected = serde_json::to_value(&statements)?;
+        assert_eq!(
+            projected,
+            json!([
+                {"op": "firstRule"}, {"op": "lastRule"},
+                {"op": "nextRule"}, {"op": "previousRule"},
+                {"op": "kind"}, {"op": "expression"},
+                {"op": "whileRules", "body": [
+                    {"op": "moduleText", "value": "quote\" slash\\ newline\n雪"},
+                    {"op": "whileRules", "body": [{"op": "moduleText", "value": ""}]}
+                ]}
+            ])
+        );
+        assert!(serde_json::from_value::<Vec<Statement>>(projected).is_err());
+        assert!(serde_json::from_str::<Statement>(r#"{"op":"moduleText","value":"x"}"#).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn target_module_validation_precedes_compiler_validation() {
+        let target = format!(
+            r#"{{"formatVersion":1,"cases":{{"x":{{"op":"text","value":"x"}}}},"module":[{{"op":"whileRules","body":[{{"op":"text","value":"{}"}}]}}]}}"#,
+            "x".repeat(65537)
+        );
+        let error = lowering::generate_with_policy(&target, "not json")
+            .expect_err("invalid target module must be rejected first");
+        assert!(error.to_string().contains("module text exceeds 64 KiB"));
+    }
 
     fn frame(rules: &[(String, Value)]) -> Frame<'_> {
         Frame {

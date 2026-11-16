@@ -48,7 +48,7 @@ pub mod compiled_ast_lowering;
 #[path = "../../generated/scan-lowering.rs"]
 pub mod compiled_scan_lowering;
 
-/// CUE-owned lowering-expression emitter; the driver shell remains native.
+/// CUE-owned complete lowering-driver compiler over checked native metadata.
 #[cfg(feature = "compiled-lowering")]
 #[path = "../../generated/meta-lowering.rs"]
 pub mod compiled_meta_lowering;

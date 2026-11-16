@@ -1,65 +1,75 @@
-# CUE-defined lowering-expression emitter
+# CUE-defined lowering-driver compiler
 
-`meta-lowering{,-fragments}.cue` emits Rust calls for every expression in the
-[shared lowering DSL](lowering.md). Native `Expr::emit` is removed. The default
-compiled meta driver can regenerate its own expression implementation, byte-exact
-after pinned formatting. This is emission-layer self-regeneration, not a fully
-self-hosted CUE parser/compiler or complete generator bootstrap closure.
+`meta-lowering{,-fragments}.cue` emits complete Rust drivers for the
+[shared lowering DSL](lowering.md): header, dispatch layout, alias arms, expression
+bodies, optional assembly method, module statements and footer. Native `Expr::emit`
+and `module::emit` are removed. The compiled meta driver regenerates its whole
+implementation byte-exact after pinned formatting. This is self-regenerating
+source emission, not a fully self-hosted CUE parser/compiler or bootstrap closure.
 
 ## Bootstrap and native boundary
 
-Six no-default-feature seeds still build without generated Rust. The lowering
-compiler seed interprets fresh Go-CUE-exported `meta-lowering.json`; parsing that
-policy and interpreting expressions does not call the compiler recursively.
-The seed generates `meta-lowering.rs`. Production `compiled-lowering` then uses
-that compiled driver for expression emission, including its own regeneration.
-CUE JSON stays build-only; Rust stays a drift baseline, never a seed input.
+Six no-default-feature seeds build without generated Rust. The lowering compiler
+seed interprets fresh Go-CUE-exported `meta-lowering.json`; parsing/interpreting that
+policy does not recursively call the compiler. It generates `meta-lowering.rs`.
+Production `compiled-lowering` uses that compiled driver for full-module emission,
+including its own regeneration. JSON stays build-only; Rust is a drift baseline,
+never a seed input.
 
-Typed/scoped validation, original-text structural checking, reference DSL execution,
-checked kernels, outer driver header/footer/case assembly, alias grouping, and
-`module::emit` remain native. In particular module-statement compilation has NOT
-moved into CUE in this slice. No native per-expression source fallback remains.
+Typed/scoped validation, original-text structural checking, canonical metadata
+projection, reference DSL execution and checked kernels remain native. The native
+compiler projects data into one `driver` node: ordered cases, canonical-first and
+sorted alias key lists, expression trees, module presence and statements. It emits
+no Rust snippets. CUE chooses traversal, declaration and branch layout, method
+spelling and all source composition; there is no native shell/module fallback.
 
-The validated typed expression serializes into an internal compiler tree. Ordered
-call arguments, concat parts and select entries receive role tags and child values;
-these are data projections, not source snippets. Original accepted expression wire
-syntax is unchanged apart from the new optional identifier operation.
+Call arguments, concat parts and select entries carry role tags and child values.
+Module text serializes as internal `moduleText`, avoiding expression-text ambiguity;
+its original accepted `text` wire tag is unchanged and `moduleText` is rejected on
+input. Absent versus empty module programs remain distinct. These are private
+compiler metadata projections, not a new public policy wire language.
 
-## Reuse without raising policy bounds
+## Reuse and lexical rendering
 
 Optional `aliases` map opcode strings directly to canonical cases. Cases plus
-aliases total at most 64; keys use existing 1..64-byte bounds. Collisions, dangling
-targets, alias chains/cycles, null maps and original-text duplicate keys reject,
-even when unused. Dispatch preserves the original node/opcode and charges the same
-kernel work as direct dispatch. Generated matches group canonical then sorted
-alias keys into one arm. This lets the meta policy share method templates within
-the unchanged 512-JSON-value/32-level guard; its default export uses 354 values.
+aliases total at most 64; keys use 1..64-byte bounds. Collisions, dangling targets,
+chains/cycles, null maps and original-text duplicates reject even when unused.
+Dispatch preserves the original node/opcode and kernel charges. CUE groups the
+canonical then sorted alias keys into one match arm. The unchanged 512-value/32-level
+policy guard still applies; the full default meta export uses 466 JSON values.
 
-`identifier {field, snake?}` validates a 1..64-byte ASCII identifier component
-before writing: first letter/underscore, remaining letters/digits/underscores.
-Optional snake mode lowercases ASCII capitals and inserts an underscore before
-every noninitial capital. Output streams through shared budgets. This is a lexical
-component primitive, not Rust keyword/name/type resolution or arbitrary source
-injection. CUE chooses where to use it and supplies fixed prefixes such as
-`_render_`; downstream Rust still checks the generated program.
+`identifier {field, snake?}` validates a 1..64-byte ASCII component before writing:
+first letter/underscore, remaining letters/digits/underscores. Snake mode lowercases
+capitals and inserts underscores before every noninitial capital. Output streams
+through shared budgets. This is lexical rendering, not keyword/name/type resolution
+or arbitrary source injection. CUE supplies prefixes/syntax; Rust checks the result.
 
-## API, limits and evidence
+## API and whole-driver limits
 
-`lowering::generate(policy)` selects the default meta emitter;
+`lowering::generate(policy)` uses the default meta compiler;
 `generate_with_policy(policy, compiler)` and
 `bootstrap-lower-codegen <policy.json> [compiler.json]` select a custom reference
-compiler policy. Complete target validation precedes compiler-policy validation.
-Each top-level target expression has a fresh shared compiler context: 4096 steps,
-64 instruction levels, 128 combined frames and 1 MiB cumulative rendered bytes.
-Selected strings are bounded at 64 KiB. These are additional emission limits;
-they do not narrow reference execution of an otherwise valid target policy.
-The native surrounding shell/module emission is not charged to this context;
-do not describe the compiler as globally bounded to 1 MiB or fully hardened.
+compiler policy. Full target validation precedes compiler-policy validation.
+Compiler overrides must now handle the complete `driver` metadata root: old
+expression-only overrides fail, rather than receiving an implicit native shell.
 
-Existing backend modules remain byte-exact. Fresh sandbox seeds regenerate them,
-then final compiled generators repeat/drift-check the meta driver too. A deliberate
-alternate meta policy compiles unchanged `lowering-numbers.json` so its actual
-compiled nonzero branch returns `forced` instead of the original interpreter's
-`more`. Tests independently pin templates, alias semantics, lexical safety,
-escaping, self-regeneration and CLI no-partial-output behavior. Shared kernels
-are not independent semantic implementations; performance remains unmeasured.
+One shared compiler Context covers the WHOLE driver: 4096 steps, 64 instruction
+levels, 128 combined frames and 1 MiB cumulative rendered bytes including copies.
+Selected strings remain bounded at 64 KiB. These limits now include shell and module
+emission; there is no per-case reset or uncharged native assembly. Thus individually
+compilable cases or statements can fail when combined. Parsing/metadata projection
+are outside rendering accounting; this is not comprehensive hostile-input hardening.
+Reference execution/assembly retain their separate bounds and are not narrowed.
+CLI failures return no partial stdout.
+
+## Evidence
+
+All previous client/evaluator/frontend goldens remain byte-exact; the expanded
+meta driver self-regenerates from fresh seeds and compiled production. An actual
+compiled alternate meta policy changes unchanged keys-only module IR from next to
+previous traversal: normal compiled/reference assembly emits both quoted keys;
+the altered compiled driver emits only the first. Expression lowering is unchanged.
+The earlier forced-expression adversary also remains covered. Tests pin whole-driver
+case/module budget accumulation, eager validation, absent/empty modules, lexical
+safety, escaping and no native fallback. Shared kernels are not independent semantic
+implementations; performance remains unmeasured and full CUE support is not claimed.

@@ -6,9 +6,11 @@ of the [lowering policy](lowering.md), interpreted for seeds/custom policies and
 compiled into the production driver by the same sixth compiler. There is no
 native header/footer or rule-emission loop in `codegen.rs` anymore.
 
-Native code still validates and serializes typed instructions, stores rules in
-canonical key order, compiles policy syntax, quotes data and guards cursors,
-output and fuel. This is not full generator self-hosting or general CUE support.
+Native code still validates typed instructions/policies, projects canonical data,
+quotes data and guards cursors, output and fuel. The
+[meta compiler](meta-lowering.md) now owns driver shell and module-statement source
+emission too; native `module::emit` is removed. This is not full generator
+self-hosting or general CUE support.
 
 ## Statements and state
 
@@ -32,6 +34,9 @@ it returns `missing module program`, with no native boilerplate fallback.
 An explicit empty list intentionally emits no source; explicit null is invalid.
 All statements, including nested/unexecuted bodies, validate before compilation
 or interpretation. Duplicate/unknown fields use the original policy decoder.
+Compiler metadata serializes module `text` as internal `moduleText` to distinguish
+it from expression text. This is projection only: wire `text` is unchanged and
+wire `moduleText` rejects; no new module-language opcode is admitted.
 
 Literal `text` is trusted implementation code, unlike rule keys/instruction
 strings. It may contain Rust syntax and is not an untrusted compilation sandbox.
@@ -47,6 +52,12 @@ apply. Each assembly has 4096 steps and 1 MiB total output. Every statement cost
 one step; `whileRules` charges every test, including the terminating false test.
 A stalled cursor cannot reset fuel. Rule keys are limited to 64 KiB before
 streaming quoting through the remaining output budget.
+
+Compiling a policy now has a separate whole-driver rendering context, including
+shell and all module statements (4096 steps, 128 frames, 1 MiB including copies).
+Combining individually compilable modules/cases can fail this new global emission
+bound without invalidating reference assembly. See the meta contract for this
+intentional compiler-boundary change and override-root requirements.
 
 Instruction lowering retains its separate shared recursion/work/output limits.
 Its bounded result is charged again when appended to the module; many individually

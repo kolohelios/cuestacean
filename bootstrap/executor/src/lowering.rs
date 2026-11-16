@@ -1153,31 +1153,60 @@ pub fn generate_with_policy(policy_json: &str, compiler_json: &str) -> Result<St
     generate_driver(&policy, &compiler)
 }
 
-// The shell and module emitter remain native. Each expression gets a fresh shared
-// compiler budget; the surrounding shell is not charged to that budget.
+// Project canonical dispatch facts, not Rust snippets. One checked compiler
+// context covers the entire driver, including shell and module statements.
 fn generate_driver(policy: &Policy, compiler: &dyn Driver) -> Result<String, Error> {
-    let mut out = String::from(
-        "// Generated lowering driver. Do not edit.\nuse bootstrap_executor::lowering::{self, Context, Driver, Error};\nuse serde_json::Value;\n\npub struct Compiled;\n\nimpl Driver for Compiled {\n    fn render(&self, ctx: &mut Context, _node: &Value, _depth: usize) -> Result<String, Error> {\n        match lowering::instruction_op(_node)? {\n",
-    );
-    for (op, expr) in &policy.cases {
-        write!(out, "            {op:?}").expect("write to string");
-        for (alias, _) in policy.aliases.iter().filter(|(_, target)| *target == op) {
-            write!(out, " | {alias:?}").expect("write to string");
-        }
-        out.push_str(" => ");
-        let node = serde_json::to_value(expr).context(JsonSnafu)?;
-        out.push_str(&Context::run(&node, compiler)?);
-        out.push_str(",\n");
+    #[derive(Serialize)]
+    struct Key<'a> {
+        op: &'static str,
+        value: &'a str,
     }
-    out.push_str("            op => Err(lowering::missing_case(op)),\n        }\n    }\n");
-    if let Some(body) = &policy.module {
-        let frame = if body.is_empty() { "_frame" } else { "frame" };
-        writeln!(out, "    fn assemble(&self, {frame}: &mut bootstrap_executor::module::Frame<'_>) -> Result<(), Error> {{").expect("write to string");
-        crate::module::emit(body, &mut out);
-        out.push_str("Ok(())\n}\n");
+    #[derive(Serialize)]
+    struct Case<'a> {
+        op: &'static str,
+        keys: Vec<Key<'a>>,
+        expression: &'a Expr,
     }
-    out.push_str("}\n\npub fn lower(node: &Value) -> Result<String, Error> {\n    Context::run(node, &Compiled)\n}\n");
-    Ok(out)
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Program<'a> {
+        op: &'static str,
+        cases: Vec<Case<'a>>,
+        has_module: bool,
+        module: &'a [crate::module::Statement],
+    }
+    let cases = policy
+        .cases
+        .iter()
+        .map(|(op, expression)| {
+            let keys = std::iter::once(op)
+                .chain(
+                    policy
+                        .aliases
+                        .iter()
+                        .filter(|(_, target)| *target == op)
+                        .map(|(alias, _)| alias),
+                )
+                .map(|value| Key {
+                    op: "dispatchKey",
+                    value,
+                })
+                .collect();
+            Case {
+                op: "dispatchCase",
+                keys,
+                expression,
+            }
+        })
+        .collect();
+    let program = Program {
+        op: "driver",
+        cases,
+        has_module: policy.module.is_some(),
+        module: policy.module.as_deref().unwrap_or_default(),
+    };
+    let node = serde_json::to_value(program).context(JsonSnafu)?;
+    Context::run(&node, compiler)
 }
 struct BudgetWriter<'a> {
     budget: &'a mut Budget,
