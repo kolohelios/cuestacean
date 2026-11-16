@@ -10,7 +10,8 @@ Cuestacean targets Rust with executable parser, semantics, solver and generator
 machinery progressively expressed in a CUE-hosted DSL. Merely using CUE to
 configure a permanently handwritten implementation is not the end goal.
 
-Current implementation: a deliberately small boolean/checked-i64 expression subset,
+Current implementation: a deliberately small boolean/checked-i64 source subset
+plus owned string scalars in the JSON evaluator ([design](string-values.md)),
 not full CUE or bootstrap closure. Go CUE still exports specifications. Six
 bootstrap compilers still require native decoders, kernels and policy-compilation
 machinery; increasingly their executable lowering policies live in CUE. Performance
@@ -82,10 +83,12 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   NUL/BOM inside comments are rejected by CUE. Block comments, declarations,
   references, structs/lists, strings, further scalar types, disjunctions/defaults
   and general constraint solving are absent.
-- JSON scalar APIs (`execute_json`, `generated::execute_json`) preserve bools
-  and exact i64s. Legacy `execute` returns i64 and rejects concrete booleans.
+- JSON scalar APIs (`execute_json`, `generated::execute_json`) preserve strings,
+  bools and exact i64s. Legacy `execute` rejects concrete strings/booleans.
+  JSON AST `string`/`stringType` support does not enable source string syntax.
   The public default generated evaluator is gated by `semantics`; fresh seeds
-  omit it, with no stubs. Copy scalar values still need redesign for structures.
+  omit it, with no stubs. Values are Clone, not Copy; shared text uses `Arc<str>`.
+  Structural/reference graph ownership still needs a separate design.
 
 ### Resource and phase invariants
 
@@ -126,6 +129,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#70](https://github.com/kolohelios/cuestacean/pull/70) | Shared CUE backend for AST builders and ownership selection |
 | [#72](https://github.com/kolohelios/cuestacean/pull/72) | Shared CUE backend for scanner source and branch layout |
 | [#74](https://github.com/kolohelios/cuestacean/pull/74) | CUE-defined self-regenerating lowering-expression emitter |
+| [#76](https://github.com/kolohelios/cuestacean/pull/76) | CUE-defined complete lowering-driver/module-statement emission |
 
 ## Build and validation runbook
 
@@ -143,6 +147,8 @@ nix run ./infra/tooling#source -- bootstrap/source/valid/nested.cue
 do not hand-edit the generated justfile/workflow. `cuestacean validate` is the
 required GitHub check. Preflight includes sandbox tests, strict Clippy, feature
 profiles, deterministic exports/goldens and pinned upstream comparisons.
+`bootstrap-values` additionally checks JSON string semantics against Go CUE;
+these probes are not admitted source-parser fixtures.
 
 `CUESTACEAN_BOOTSTRAP_JSON` comes from the devshell/package. **Re-enter the shell
 after CUE edits** to obtain fresh exports. Additional `jj` workspaces need an
@@ -224,8 +230,8 @@ workspace's stale exports for changed specifications.
    current history and live workers instead of relying on that old session state.
 4. Select a meaningful vertical slice and define interfaces before delegation.
    Line-comment handling is now covered by the scanner contract. Structural
-   values and references need a design first: current `Value` is Copy; JSON
-   scalar APIs now exist alongside legacy integer APIs. Do not assume another arithmetic feature is already selected.
+   values and references need a design first: `Value` now owns shared text and is
+   Clone, not Copy. JSON scalars include strings; source string syntax is separate. Do not assume another arithmetic feature is already selected.
 5. Use at most two isolated Herdr workers, clear file ownership and a coordinator
    for integration/fresh generation. Read back reviews, fix findings, validate
    locally, open with `--no-auto-merge`, watch CI and clean up created workers.

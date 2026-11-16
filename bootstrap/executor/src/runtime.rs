@@ -1,6 +1,8 @@
 //! Value primitives shared by interpreted and generated evaluators.
 //! Unification dispatches CUE-generated control; other primitives remain native.
 
+use std::sync::Arc;
+
 use serde_json::Value as JsonValue;
 use snafu::ResultExt;
 
@@ -10,14 +12,16 @@ use crate::{Error, JsonSnafu, Program, VersionSnafu};
 #[path = "../../generated/unify.rs"]
 mod generated_unification;
 
-/// Copy scalar scaffold: `Int`/`Bool` are abstract, not conflicting values.
+/// Owned scalar scaffold; abstract types are not conflicting values.
 /// Concrete integers are still restricted to the bootstrap i64 domain.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Value {
     Integer(i64),
     Int,
     Boolean(bool),
     Bool,
+    Text(Arc<str>),
+    String,
     // Missing endpoints are infinite, not i64::MIN / i64::MAX. Even equal
     // endpoints remain abstract until unified with a concrete candidate.
     Bounds {
@@ -61,6 +65,15 @@ pub fn integer(node: &JsonValue, name: &str) -> Result<Value, Error> {
         })
 }
 
+pub fn text(node: &JsonValue, name: &str) -> Result<Value, Error> {
+    field(node, name)?
+        .as_str()
+        .map(|value| Value::Text(Arc::from(value)))
+        .ok_or_else(|| Error::Text {
+            field: name.to_string(),
+        })
+}
+
 /// Legacy integer output; general scalar consumers should use `concrete_json`.
 pub fn concrete(value: Value) -> Result<i64, Error> {
     match value {
@@ -68,14 +81,17 @@ pub fn concrete(value: Value) -> Result<i64, Error> {
         Value::Int => Err(Error::Incomplete),
         Value::Boolean(_) => Err(Error::IntegerOutput),
         Value::Bool => Err(Error::IncompleteBool),
+        Value::Text(_) => Err(Error::IntegerOutput),
+        Value::String => Err(Error::IncompleteString),
         Value::Bounds { .. } => Err(Error::IncompleteBounds),
     }
 }
 
-/// Preserve exact integer/boolean JSON scalars; reject incomplete values.
+/// Preserve exact concrete JSON scalars; reject incomplete values.
 pub fn concrete_json(value: Value) -> Result<JsonValue, Error> {
     match value {
         Value::Boolean(value) => Ok(JsonValue::Bool(value)),
+        Value::Text(value) => Ok(JsonValue::String(value.as_ref().to_owned())),
         value => concrete(value).map(JsonValue::from),
     }
 }

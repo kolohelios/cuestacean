@@ -1,7 +1,7 @@
 package bootstrap
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #IntegerLiteral | #IntegerType | #BooleanAtom | #LowerBound | #UpperBound | #Addition | #Subtraction | #Multiplication | #Division | #Modulo | #Quotient | #Remainder | #Unification | #Negation
+#Expression: #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #Addition | #Subtraction | #Multiplication | #Division | #Modulo | #Quotient | #Remainder | #Unification | #Negation
 
 #IntegerLiteral: {
 	kind:  "integer"
@@ -10,6 +10,8 @@ package bootstrap
 
 #IntegerType: {kind: "intType"}
 #BooleanAtom: {kind: "true" | "false" | "boolType"}
+#StringLiteral: {kind: "string", value: string}
+#StringType: {kind: "stringType"}
 
 #LowerBound: {
 	kind:  "lowerBound"
@@ -115,14 +117,14 @@ package bootstrap
 #UnifyEndpoint: {op: "input", input: #UnifySide, endpoint: #UnifyEndpointName} | {op: "local", endpoint: #UnifyEndpointName} | {op: "empty"} | {
 	op: "choose", condition: #UnifyCondition, then: #UnifyEndpoint, else: #UnifyEndpoint
 }
-#UnifyCondition: {op: "kindIs", input: #UnifySide, kind: "integer" | "int" | "bounds" | "boolean" | "bool"} | {op: "same"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
+#UnifyCondition: {op: "kindIs", input: #UnifySide, kind: "integer" | "int" | "bounds" | "boolean" | "bool" | "text" | "string"} | {op: "same"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
 	op: "compare", left: #UnifyEndpoint, right: #UnifyEndpoint, relation: "equal" | "less" | "greater"
 } | {op: "and" | "or", left: #UnifyCondition, right: #UnifyCondition}
 #UnifyExpression: {op: "input", input: #UnifySide} | {
 	op: "if", condition: #UnifyCondition, then: #UnifyExpression, else: #UnifyExpression
 } | {
 	op: "letBounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint, result: #UnifyExpression
-} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: "integers" | "bounds" | "booleans" | "types"}
+} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: "integers" | "bounds" | "booleans" | "types" | "strings"}
 #UnifyProgram: {formatVersion: 1, result: #UnifyExpression}
 
 // Expression-parser control flow; native frame operations are explicit intrinsics.
@@ -270,6 +272,8 @@ package bootstrap
 	rules: {
 		intType: result: {op: "int"}
 		boolType: result: {op: "bool"}
+		stringType: result: {op: "stringType"}
+		string: result: {op: "text", field: "value"}
 		"true": result: {op: "boolean", value: bool}
 		"false": result: {op: "boolean", value: bool}
 		lowerBound: result: {op: "lowerBound", value: {op: "field", field: "value"}}

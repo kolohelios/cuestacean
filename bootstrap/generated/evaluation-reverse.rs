@@ -22,6 +22,8 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "stringType" => Ok::<_, Error>(runtime::Value::String),
+        "string" => runtime::text(node, "value"),
         "remainder" => runtime::remainder(
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,

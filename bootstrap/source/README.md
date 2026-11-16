@@ -60,8 +60,9 @@ mixes such as `int & true` and `>=0 & false`. CUE unification control owns these
 decisions before numeric identity. Arithmetic still requires concrete integers:
 no boolean-to-number coercion, logical operators or equality syntax is added.
 See the [executor API/output contract](../executor/README.md) for the preserved
-integer API and new JSON scalar APIs. Structs/strings still require a value-model
-design; this Copy scalar scaffold is not a full CUE lattice.
+integer API and JSON scalar APIs. The JSON layer now has owned string values
+([design](../../docs/string-values.md)), but source string syntax stays unsupported.
+Structural/reference graph ownership still requires design; this is not a full CUE lattice.
 
 ### Line comments
 

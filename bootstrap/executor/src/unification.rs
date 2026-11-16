@@ -32,6 +32,8 @@ pub enum Kind {
     Bounds,
     Boolean,
     Bool,
+    Text,
+    String,
 }
 #[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -79,6 +81,7 @@ pub enum Failure {
     Bounds,
     Booleans,
     Types,
+    Strings,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
@@ -227,17 +230,17 @@ impl Condition {
     }
 }
 // These primitives expose representation and errors, never intersection policy.
-pub fn endpoint(value: Value, end: Endpoint) -> Option<i64> {
+pub fn endpoint(value: &Value, end: Endpoint) -> Option<i64> {
     match value {
-        Value::Integer(n) => Some(n),
-        Value::Int | Value::Bool | Value::Boolean(_) => None,
+        Value::Integer(n) => Some(*n),
+        Value::Int | Value::Bool | Value::Boolean(_) | Value::Text(_) | Value::String => None,
         Value::Bounds { lower, upper } => match end {
-            Endpoint::Lower => lower,
-            Endpoint::Upper => upper,
+            Endpoint::Lower => *lower,
+            Endpoint::Upper => *upper,
         },
     }
 }
-pub fn kind_is(value: Value, kind: Kind) -> bool {
+pub fn kind_is(value: &Value, kind: Kind) -> bool {
     matches!(
         (value, kind),
         (Value::Integer(_), Kind::Integer)
@@ -245,6 +248,8 @@ pub fn kind_is(value: Value, kind: Kind) -> bool {
             | (Value::Bounds { .. }, Kind::Bounds)
             | (Value::Boolean(_), Kind::Boolean)
             | (Value::Bool, Kind::Bool)
+            | (Value::Text(_), Kind::Text)
+            | (Value::String, Kind::String)
     )
 }
 pub fn compare(
@@ -263,22 +268,33 @@ pub fn compare(
         Relation::Greater => left > right,
     })
 }
-pub fn fail(reason: Failure, left: Value, right: Value) -> Result<Value, crate::Error> {
+pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate::Error> {
     match reason {
         Failure::Bounds => Err(crate::Error::BoundsConflict),
         Failure::Types => Err(crate::Error::TypeConflict),
         Failure::Booleans => match (left, right) {
-            (Value::Boolean(left), Value::Boolean(right)) => {
-                Err(crate::Error::BooleanConflict { left, right })
-            }
+            (Value::Boolean(left), Value::Boolean(right)) => Err(crate::Error::BooleanConflict {
+                left: *left,
+                right: *right,
+            }),
             _ => Err(crate::Error::UnificationState {
                 reason: "boolean conflict requires booleans",
             }),
         },
+        Failure::Strings => match (left, right) {
+            (Value::Text(left), Value::Text(right)) => Err(crate::Error::StringConflict {
+                left: left.as_ref().to_owned(),
+                right: right.as_ref().to_owned(),
+            }),
+            _ => Err(crate::Error::UnificationState {
+                reason: "string conflict requires strings",
+            }),
+        },
         Failure::Integers => match (left, right) {
-            (Value::Integer(left), Value::Integer(right)) => {
-                Err(crate::Error::Conflict { left, right })
-            }
+            (Value::Integer(left), Value::Integer(right)) => Err(crate::Error::Conflict {
+                left: *left,
+                right: *right,
+            }),
             _ => Err(crate::Error::UnificationState {
                 reason: "integer conflict requires integers",
             }),
@@ -286,7 +302,7 @@ pub fn fail(reason: Failure, left: Value, right: Value) -> Result<Value, crate::
     }
 }
 impl Side {
-    fn value(self, l: Value, r: Value) -> Value {
+    fn value<'a>(self, l: &'a Value, r: &'a Value) -> &'a Value {
         match self {
             Self::Left => l,
             Self::Right => r,
@@ -304,8 +320,8 @@ impl Endpoint {
 impl End {
     fn eval(
         &self,
-        l: Value,
-        r: Value,
+        l: &Value,
+        r: &Value,
         locals: (Option<i64>, Option<i64>),
     ) -> Result<Option<i64>, crate::Error> {
         Ok(match self {
@@ -329,8 +345,8 @@ impl End {
 impl Condition {
     fn eval(
         &self,
-        l: Value,
-        r: Value,
+        l: &Value,
+        r: &Value,
         locals: (Option<i64>, Option<i64>),
     ) -> Result<bool, crate::Error> {
         Ok(match self {
@@ -354,12 +370,12 @@ impl Condition {
 impl Expr {
     fn eval(
         &self,
-        l: Value,
-        r: Value,
+        l: &Value,
+        r: &Value,
         locals: (Option<i64>, Option<i64>),
     ) -> Result<Value, crate::Error> {
         match self {
-            Self::Input { input } => Ok(input.value(l, r)),
+            Self::Input { input } => Ok(input.value(l, r).clone()),
             Self::If {
                 condition,
                 then,
@@ -416,7 +432,7 @@ fn lower(p: Program, driver: &dyn crate::lowering::Driver) -> Result<String, Err
 /// Execute the same validated control directly, for differential testing.
 pub fn interpret(input: &str, left: Value, right: Value) -> Result<Value, crate::Error> {
     let p = parse(input).map_err(|source| crate::Error::UnificationProgram { source })?;
-    p.result.eval(left, right, (None, None))
+    p.result.eval(&left, &right, (None, None))
 }
 
 #[cfg(test)]

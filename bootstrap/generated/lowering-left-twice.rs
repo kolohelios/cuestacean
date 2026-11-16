@@ -98,6 +98,7 @@ impl Driver for Compiled {
                 })?;
                 Ok(())
             }),
+            "stringType" => ctx.ok(|ctx| ctx.path("runtime::Value::String")),
             "sum" => ctx.call("runtime::sum", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
@@ -105,6 +106,11 @@ impl Driver for Compiled {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
                 })?;
+                Ok(())
+            }),
+            "text" => ctx.call("runtime::text", |call| {
+                call.arg(|ctx| ctx.path("node"))?;
+                call.arg(|ctx| ctx.string(_node, "field"))?;
                 Ok(())
             }),
             "unify" => ctx.call("runtime::unify", |call| {

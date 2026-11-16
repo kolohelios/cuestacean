@@ -8,7 +8,7 @@ and Rust as the execution target. The ambition is full self-hosting, not merely
 using CUE to configure a handwritten Rust compiler.
 
 There is no general CUE implementation yet. The [bootstrap fixtures](bootstrap/README.md)
-define integer/boolean values and constraints, inclusive bounds, arithmetic and unification trees, plus evaluation
+define scalar values and constraints, inclusive bounds, arithmetic and unification trees, plus evaluation
 rules, in CUE and export them to build-only JSON using upstream CUE. A small
 [bootstrap Rust executor](bootstrap/executor/README.md) interprets those rules.
 An initial [rule-to-Rust generator](bootstrap/generated/README.md) lowers the
@@ -41,7 +41,9 @@ and [primary dispatch](bootstrap/primary.md) now run from CUE control statements
 including binding-power, associativity and grouping-minimum decisions. Bootstrap specification evaluation still relies on the upstream Go tool. [AST construction](bootstrap/ast.md)
 now uses separate CUE-defined builder expressions compiled to typed Rust functions;
 the native parser no longer assembles JSON maps. [Scalar unification](bootstrap/unify.md)
-executes CUE-defined identity, interval-intersection, boolean equality and typed conflict policy;
+executes CUE-defined identity, interval-intersection, scalar equality and typed conflict policy;
+[owned string scalars](docs/string-values.md) now work in JSON evaluation, while
+source string syntax remains outside the source profile;
 value representation and low-level comparisons remain native.
 
 ## CUE all the way down

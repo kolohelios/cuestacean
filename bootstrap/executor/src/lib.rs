@@ -79,6 +79,8 @@ pub enum Error {
     MissingField { field: String },
     #[snafu(display("field {field:?} must be a signed 64-bit integer"))]
     Integer { field: String },
+    #[snafu(display("field {field:?} must be a string"))]
+    Text { field: String },
     #[snafu(display("signed 64-bit integer addition overflow"))]
     Overflow,
     #[snafu(display("signed 64-bit integer subtraction overflow"))]
@@ -101,6 +103,10 @@ pub enum Error {
     TypeConflict,
     #[snafu(display("non-concrete bool value"))]
     IncompleteBool,
+    #[snafu(display("non-concrete string value"))]
+    IncompleteString,
+    #[snafu(display("conflicting string values {left:?} and {right:?}"))]
+    StringConflict { left: String, right: String },
     #[snafu(display("integer output requires an integer value"))]
     IntegerOutput,
     #[snafu(display("conflicting integer bounds"))]
@@ -144,6 +150,11 @@ struct Rule {
 enum Instruction {
     Int {},
     Bool {},
+    Text {
+        field: String,
+    },
+    #[serde(rename = "stringType")]
+    StringType {},
     Boolean {
         value: bool,
     },
@@ -207,7 +218,7 @@ pub fn execute(program: &str, rules: &str) -> Result<i64, Error> {
     runtime::concrete(evaluate(&program, &rules.rules)?)
 }
 
-/// Execute to an exact concrete JSON scalar (integer or boolean).
+/// Execute to an exact concrete JSON scalar (integer, boolean or string).
 #[cfg(feature = "semantics")]
 pub fn execute_json(program: &str, rules: &str) -> Result<Value, Error> {
     let program = runtime::program(program)?;
@@ -246,6 +257,8 @@ fn instruction(
         Instruction::Int {} => Ok(runtime::Value::Int),
         Instruction::Bool {} => Ok(runtime::Value::Bool),
         Instruction::Boolean { value } => Ok(runtime::Value::Boolean(*value)),
+        Instruction::Text { field } => runtime::text(node, field),
+        Instruction::StringType {} => Ok(runtime::Value::String),
         Instruction::LowerBound { value } => runtime::lower_bound(instruction(value, node, rules)?),
         Instruction::UpperBound { value } => runtime::upper_bound(instruction(value, node, rules)?),
         Instruction::Field { field: name } => runtime::integer(node, name),

@@ -94,11 +94,18 @@
         "int-constraint"
         "bounds"
         "booleans"
+        "strings"
+        "tests/valid/strings-empty"
+        "tests/valid/strings-equal"
+        "tests/valid/strings-incomplete"
+        "tests/valid/strings-conflict"
+        "tests/valid/strings-mixed"
         "evaluation"
         "grammar"
         "tests/valid/evaluation-left-twice"
         "tests/valid/pratt-lowering-no-increment"
         "tests/valid/unify-lowering-permissive"
+        "tests/valid/unify-equality-probe"
         "tests/valid/ast-lowering-forced"
         "tests/valid/scan-lowering-unicode"
         "tests/valid/meta-lowering-forced"
@@ -270,7 +277,7 @@
                 name=$(basename "$control")
                 bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" | rustfmt --edition 2024 > "../generated/$name.rs"
               done
-              bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/unify.json" "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/unify-lowering-permissive.json" | rustfmt --edition 2024 > ../generated/unify-permissive-bool.rs
+              bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/unify-equality-probe.json" "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/unify-lowering-permissive.json" | rustfmt --edition 2024 > ../generated/unify-permissive-bool.rs
             )
           '';
         });
@@ -406,8 +413,8 @@
                   cmp first.rs second.rs
                   diff -u ${../../bootstrap/generated}/"$name.rs" first.rs
                 done
-                bootstrap-unify-codegen ${jsonExports pkgs}/unify.json ${jsonExports pkgs}/tests/valid/unify-lowering-permissive.json | rustfmt --edition 2024 > unify-alternate.rs
-                bootstrap-unify-codegen ${jsonExports pkgs}/unify.json ${jsonExports pkgs}/tests/valid/unify-lowering-permissive.json | rustfmt --edition 2024 > unify-alternate-second.rs
+                bootstrap-unify-codegen ${jsonExports pkgs}/tests/valid/unify-equality-probe.json ${jsonExports pkgs}/tests/valid/unify-lowering-permissive.json | rustfmt --edition 2024 > unify-alternate.rs
+                bootstrap-unify-codegen ${jsonExports pkgs}/tests/valid/unify-equality-probe.json ${jsonExports pkgs}/tests/valid/unify-lowering-permissive.json | rustfmt --edition 2024 > unify-alternate-second.rs
                 cmp unify-alternate.rs unify-alternate-second.rs
                 diff -u ${../../bootstrap/generated}/unify-permissive-bool.rs unify-alternate.rs
                 touch "$out"
@@ -452,6 +459,54 @@
                   fi
                   test ! -s actual
                   test -s error
+                done
+                touch "$out"
+              '';
+          bootstrap-values =
+            pkgs.runCommand "cuestacean-bootstrap-values"
+              {
+                nativeBuildInputs = [
+                  (executor pkgs)
+                  pkgs.cue
+                  pkgs.jq
+                ];
+              }
+              ''
+                set -euo pipefail
+                for pair in concrete:strings empty:tests/valid/strings-empty equal:tests/valid/strings-equal; do
+                  property="''${pair%%:*}"
+                  fixture="''${pair#*:}"
+                  cue export ${../../bootstrap/tests/upstream/strings.cue} -e "$property" --out json | jq -c . > expected
+                  for binary in bootstrap-executor bootstrap-generated; do
+                    if [ "$binary" = bootstrap-executor ]; then
+                      "$binary" ${jsonExports pkgs}/"$fixture.json" ${jsonExports pkgs}/evaluation.json > actual
+                    else
+                      "$binary" ${jsonExports pkgs}/"$fixture.json" > actual
+                    fi
+                    # Normalize string spelling only; never round numeric scalars.
+                    jq -e 'type == "string"' actual > /dev/null
+                    jq -c . actual > normalized
+                    diff -u expected normalized
+                  done
+                done
+                for fixture in strings-incomplete strings-conflict strings-mixed; do
+                  case "$fixture" in
+                    strings-incomplete) probe=${../../bootstrap/tests/upstream/strings.cue}; field=abstract ;;
+                    strings-conflict) probe=${../../bootstrap/tests/upstream/string-conflict.cue}; field=value ;;
+                    strings-mixed) probe=${../../bootstrap/tests/upstream/string-mixed.cue}; field=value ;;
+                  esac
+                  if cue export "$probe" -e "$field" --out json > expected 2> cue-error; then exit 1; fi
+                  test ! -s expected
+                  test -s cue-error
+                  for binary in bootstrap-executor bootstrap-generated; do
+                    if [ "$binary" = bootstrap-executor ]; then
+                      if "$binary" ${jsonExports pkgs}/tests/valid/"$fixture.json" ${jsonExports pkgs}/evaluation.json > actual 2> error; then exit 1; fi
+                    else
+                      if "$binary" ${jsonExports pkgs}/tests/valid/"$fixture.json" > actual 2> error; then exit 1; fi
+                    fi
+                    test ! -s actual
+                    test -s error
+                  done
                 done
                 touch "$out"
               '';

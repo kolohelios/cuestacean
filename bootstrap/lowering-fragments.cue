@@ -40,6 +40,8 @@ package bootstrap
 	cases: {
 		int: {op: "ok", value: {op: "path", value: "runtime::Value::Int"}}
 		bool: {op: "ok", value: {op: "path", value: "runtime::Value::Bool"}}
+		stringType: {op: "ok", value: {op: "path", value: "runtime::Value::String"}}
+		text: {op: "call", path: "runtime::text", args: [Node, Field]}
 		boolean: {op: "ok", value: {op: "call", path: "runtime::Value::Boolean", args: [{op: "boolean", field: "value"}]}}
 		field: {op: "call", path: "runtime::integer", args: [Node, Field]}
 		evaluate: {op: "call", path: "evaluate", args: [{op: "try", value: {op: "call", path: "runtime::field", args: [Node, Field]}}]}

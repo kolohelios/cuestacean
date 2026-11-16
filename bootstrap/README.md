@@ -1,9 +1,11 @@
 # Bootstrap expression fixtures
 
-`schema.cue` defines a recursive expression tree with sixteen node kinds:
+`schema.cue` defines a recursive expression tree with eighteen node kinds:
 
 - `integer`: an integer `value`.
 - `intType`: the abstract `int` constraint, with no payload.
+- `string` / `stringType`: concrete string `value` or payload-free abstract string;
+  JSON evaluator support only, not source-string parsing.
 - `true` / `false` / `boolType`: payload-free boolean values and type constraint.
 - `lowerBound`: an inclusive lower threshold in integer `value`.
 - `upperBound`: an inclusive upper threshold in integer `value`.
@@ -13,7 +15,7 @@
 - `negate`: an `operand` expression, negated with checked i64 arithmetic.
 - `divide` / `modulo`: Euclidean quotient and nonnegative remainder.
 - `quotient` / `remainder`: truncating quotient and dividend-signed remainder.
-- `unify`: ordered children whose integer/bounds or boolean domains must agree.
+- `unify`: ordered children whose string, integer/bounds or boolean domains must agree.
 
 `#Program` wraps an expression with `formatVersion: 1`. Node definitions reject
 unexpected fields. Missing fields with a single allowed value (such as the
@@ -71,7 +73,7 @@ evaluate the addition tree. The [bootstrap Rust executor](executor/README.md)
 interprets the exported rules in a separate step: the original fixtures produce
 `42`, the mixed multiplication fixture produces `7`, and unification produces
 `3`. The schema constrains
-these sixteen rule shapes and their
+these eighteen rule shapes and their
 field names, not a general-purpose rule language. Validation alone does not
 establish correct evaluation behavior.
 
