@@ -1,10 +1,12 @@
-# CUE-owned instruction-to-Rust lowering
+# CUE-owned IR-to-Rust lowering
 
 [`lowering-fragments.cue`](lowering-fragments.cue) defines executable expression
 lowering for all sixteen evaluation instructions. [`lowering.cue`](lowering.cue)
 selects the normal program. CUE chooses runtime calls, constructor layout,
 recursive instruction-field selection, grouping and Result propagation.
-`bootstrap-codegen` no longer contains a per-instruction emission match.
+`bootstrap-codegen` no longer contains a per-instruction emission match. The
+[Pratt compiler backend](pratt-lowering.md) now reuses this same machinery for
+numbers, predicates, statements and the generated parser-driver wrapper.
 
 The production generator now uses a **compiled CUE lowering driver**, not the
 policy interpreter. `bootstrap-lower-codegen` compiles validated policy expressions
@@ -29,6 +31,11 @@ source-language/evaluator behavior is unchanged.
 | `lower {field}` | Select a child instruction and recursively run this policy |
 | `string {field}` | Read a string and quote it with Rust Debug escaping |
 | `boolean {field}` | Read a bool and emit its literal spelling |
+| `text {value}` | Append trusted target-source text |
+| `concat {parts}` | Ordered concatenation with no separator |
+| `unsigned {field}` | Stream a u64 as exact decimal |
+| `list {field}` | Lower each array child with the selected driver/shared budget |
+| `ifEmpty {field, then, else}` | Select a branch using array emptiness |
 
 The instruction is the current input to every expression; recursive `lower`
 changes that input to the selected child. There is no native sum/product/etc.
@@ -41,7 +48,9 @@ string fields. They allow ASCII identifier segments separated by `::`, not raw
 Rust snippets. This is lexical validation, not Rust name/type resolution;
 the downstream compiler checks those. Policies are executable compiler inputs,
 not a security boundary for compiling untrusted implementation code. Instruction
-strings remain data and cannot become paths or unescaped Rust syntax.
+strings remain data and cannot become paths or unescaped Rust syntax. Fixed
+`text`, like module `text`, is instead trusted implementation source and may
+contain arbitrary Rust syntax; it is not subject to the path grammar.
 
 ## Limits
 

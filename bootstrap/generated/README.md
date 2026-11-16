@@ -78,7 +78,7 @@ cargo build --manifest-path bootstrap/executor/Cargo.toml --no-default-features 
   --bin bootstrap-ast-codegen --bin bootstrap-pratt-codegen --bin bootstrap-unify-codegen \
   --bin bootstrap-lower-codegen
 set -o pipefail
-for policy in lowering tests/valid/lowering-left-twice tests/valid/lowering-escaped tests/valid/lowering-reverse tests/valid/lowering-module-escaped; do
+for policy in lowering pratt-lowering tests/valid/lowering-left-twice tests/valid/lowering-escaped tests/valid/lowering-reverse tests/valid/lowering-module-escaped tests/valid/lowering-collections; do
   name=$(basename "$policy")
   bootstrap/executor/target/debug/bootstrap-lower-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$policy.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
@@ -116,6 +116,9 @@ for control in primary tests/valid/primary-no-atoms tests/valid/primary-high-min
   bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
+bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/pratt.json" \
+  "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/pratt-lowering-no-increment.json" \
+  | rustfmt --edition 2024 > bootstrap/generated/pratt-no-increment.rs
 for control in unify tests/valid/unify-right tests/valid/unify-scoped; do
   name=$(basename "$control")
   bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
@@ -130,7 +133,7 @@ stages, clearing leftover JSON and generated Rust from each staged source copy
 first. This never deletes files in the working tree. CUE JSON exports are an
 independent Nix output built only from CUE sources, not committed artifacts.
 
-1. Export fresh CUE JSON, including the instruction-lowering policy. Compile the
+1. Export fresh CUE JSON, including evaluator and Pratt compiler policies. Compile the
    native evaluator-generator VM, lowering-policy, scanner, AST, Pratt and unification compiler
    seeds with `--no-default-features` and that JSON export directory. This excludes generated frontend and
    semantic dependencies; `source` normally enables `semantics`. Seed tests need generated modules,
@@ -143,7 +146,9 @@ independent Nix output built only from CUE sources, not committed artifacts.
    the alternate-rule golden exactly; that freshly policy-produced module is
    included in the final compiled tests. Drift checks run the final compiled
    default generator and compare its evaluator output to the interpreter-seeded
-   artifacts. Normal, alternate and escaped/zero-argument lowering drivers also
+   artifacts. The shared CUE backend also reproduces every existing Pratt/primary
+   driver; `pratt-no-increment` compiles an alternate compiler policy without
+   modifying parser-control IR. Normal, alternate and escaped/zero-argument lowering drivers also
    have repeat/drift checks. Reverse traversal additionally regenerates and
    compiles `evaluation-reverse.rs` while normal evaluator goldens stay unchanged. The semantics-only feature check temporarily removes
    every generated lowering driver to prove its independence.

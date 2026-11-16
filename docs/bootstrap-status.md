@@ -11,14 +11,16 @@ machinery progressively expressed in a CUE-hosted DSL. Merely using CUE to
 configure a permanently handwritten implementation is not the end goal.
 
 Current implementation: a deliberately small boolean/checked-i64 expression subset,
-not full CUE or bootstrap closure. Go CUE still exports specifications. All six
-DSL compilers and reference interpreters remain handwritten Rust. Performance
+not full CUE or bootstrap closure. Go CUE still exports specifications. Six
+bootstrap compilers still require native decoders, kernels and policy-compilation
+machinery; increasingly their executable lowering policies live in CUE. Performance
 advantages remain a hypothesis, not a measured result.
 
 ### Executable CUE-owned machinery
 
 | Boundary | Specifications and contract | Rust implementation/verification |
 | --- | --- | --- |
+| Pratt/primary compiler lowering | `bootstrap/pratt-lowering{,-fragments}.cue`, [backend contract](../bootstrap/pratt-lowering.md) | Shared lowering compiler/kernel; compiled driver; native typed bridge |
 | Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
 | Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` compiler/reference engine/shared kernel; generated Rust driver; native checked primitives |
 | Evaluation rules | `bootstrap/evaluation.cue`, expression/rule schemas | `src/lib.rs`, `src/codegen.rs`; interpreted and generated rule execution |
@@ -114,6 +116,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#58](https://github.com/kolohelios/cuestacean/pull/58) | Boolean domain, CUE typed unification and JSON scalar APIs |
 | [#60](https://github.com/kolohelios/cuestacean/pull/60) | Interpreted CUE instruction-to-Rust lowering |
 | [#62](https://github.com/kolohelios/cuestacean/pull/62) | Compiled production lowering with artifact-free interpreter seeds |
+| [#64](https://github.com/kolohelios/cuestacean/pull/64) | CUE evaluator assembly/traversal and reverse compiled evidence |
 
 ## Build and validation runbook
 
@@ -159,6 +162,9 @@ workspace's stale exports for changed specifications.
   semantics/source and has its own feature check. The same driver now assembles
   modules with CUE-owned statements; expression-only custom policies cannot
   silently fall back to native assembly. See the module contract for new bounds.
+  The Pratt compiler now uses a separate policy through the same lowering engine;
+  seeds interpret it and production uses `compiled_pratt_lowering`. Keep this
+  driver in the feature-isolation removal set, not only `lowering*.rs`.
 - Default `source` enables `semantics`. Semantic evaluation/generated unification
   can build without the parser; compiler-only seeds exclude both dependencies,
   with no native unification fallback or stub. The sandbox checks these profiles.

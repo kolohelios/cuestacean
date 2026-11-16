@@ -3,7 +3,7 @@
 [`pratt.cue`](pratt.cue) now owns the expression loop: parse a primary, inspect
 an infix candidate, compare its precedence with the frame minimum, adjust the
 right binding power for left associativity, commit the operator, recurse, and
-combine the operands. `bootstrap-pratt-codegen <control.json>` emits real Rust
+combine the operands. `bootstrap-pratt-codegen <control.json> [lowering.json]` emits real Rust
 `while`/`if` control flow and checked frame calls. The production parser executes
 that generated function, not the reference interpreter or a native Pratt loop.
 
@@ -13,7 +13,9 @@ invocation, checked i64 conversion, and safe frame transitions. The separate
 [primary program](primary.md) now owns primary dispatch and grouping control,
 including the group minimum. Right-hand recursion takes its binding power from
 the expression program.
-All compilers and the reference interpreter remain handwritten. Go CUE still
+[Compiler emission](pratt-lowering.md) now runs from a separate compiled CUE
+backend using the shared lowering compiler. Typed decoding, the reference parser
+interpreter and checked rendering/frame kernels remain native. Go CUE still
 exports the specifications; see the [source profile](source/README.md) for
 supported syntax.
 
@@ -65,8 +67,9 @@ exact checks.
 drivers are not sandboxed. Fuel checks are guaranteed by the compiler and
 interpreter for this DSL, not by arbitrary caller-written Rust.
 
-Nix adds the handwritten control compiler to its artifact-free seeds and
-regenerates all drivers before the final default-feature build and full tests.
+Nix builds the native control compiler bridge in its artifact-free seeds, using
+the reference engine of the same CUE compiler policy. It regenerates the compiled
+backend and all parser drivers before final default-feature compilation/tests.
 JSON remains build-only; committed Rust remains a drift baseline. Local checks:
 
 ```sh
