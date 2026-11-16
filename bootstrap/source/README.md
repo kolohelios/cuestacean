@@ -33,9 +33,10 @@ to typed Rust functions, rather than native JSON-map assembly.
 
 The default grammar accepts decimal signed integers, `true`/`false` and `bool`/`int` atoms,
 inclusive bounds (`>=`, `<=`), addition, subtraction, multiplication,
-integer division/remainder (`div`, `mod`, `quo`, `rem`), unification (`&`),
-parentheses and `//` line-comment trivia. Multiplication and integer division/remainder bind more tightly than
-addition/subtraction, which share a precedence and bind more tightly than `&`;
+integer division/remainder (`div`, `mod`, `quo`, `rem`), scalar `==` / `!=`,
+unification (`&`), parentheses and `//` line-comment trivia. Multiplication and integer division/remainder bind more tightly than
+addition/subtraction, which share a precedence and bind more tightly than
+`==` / `!=`, which in turn bind more tightly than `&`;
 binary operators are left-associative, and unary negation binds more tightly.
 These choices live in CUE grammar data, not in the parser algorithm.
 `1 + 2 * 3` produces `7`, while `(1 + 2) * 3` produces `9`.
@@ -58,10 +59,19 @@ there is no native keyword dispatch. `bool & true` and `true & true` produce
 incomplete, not conflicting. `true & false` conflicts, as do all boolean/numeric
 mixes such as `int & true` and `>=0 & false`. CUE unification control owns these
 decisions before numeric identity. Arithmetic still requires concrete integers:
-no boolean-to-number coercion, logical operators or equality syntax is added.
+no boolean-to-number coercion or logical operators are added. Scalar equality
+is described below.
 See the [executor API/output contract](../executor/README.md) for the preserved
 integer API and JSON scalar APIs. Strings use owned shared values
 ([design](../../docs/string-values.md)); graph ownership still requires design.
+
+### Scalar equality
+
+[CUE equality control](../equality.md) compares concrete i64, boolean and text
+values. Concrete mixed types compare unequal; abstract types and bounds reject
+without propagation or coercion. Text equality is content-based, with no Unicode
+normalization. Both children evaluate left-first before the CUE concreteness
+check. These are scalar `==`/`!=`, not structural/reference equality or ordering.
 
 ### Single-line strings
 

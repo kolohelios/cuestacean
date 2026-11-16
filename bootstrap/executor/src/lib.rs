@@ -117,6 +117,8 @@ pub enum Error {
     BoundThreshold,
     #[snafu(display("arithmetic requires compatible concrete operands"))]
     Arithmetic,
+    #[snafu(display("comparison requires concrete operands"))]
+    Comparison,
     #[snafu(display("string concatenation exceeds available capacity"))]
     TextCapacity,
     #[snafu(display("{source}"))]
@@ -202,6 +204,15 @@ enum Instruction {
         right: Box<Instruction>,
     },
     Remainder {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
+    Equal {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
+    #[serde(rename = "notEqual")]
+    NotEqual {
         left: Box<Instruction>,
         right: Box<Instruction>,
     },
@@ -300,6 +311,16 @@ fn instruction(
             let left = instruction(left, node, rules)?;
             let right = instruction(right, node, rules)?;
             runtime::remainder(left, right)
+        }
+        Instruction::Equal { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::equal(left, right)
+        }
+        Instruction::NotEqual { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::not_equal(left, right)
         }
         Instruction::Unify { left, right } => {
             let left = instruction(left, node, rules)?;

@@ -33,6 +33,7 @@ advantages remain a hypothesis, not a measured result.
 | AST construction | `bootstrap/ast-*.cue`, [builder contract](../bootstrap/ast.md) | `src/ast.rs`; typed builders, no native parser JSON-map assembly |
 | Pratt expression loop | `bootstrap/pratt.cue`, [control contract](../bootstrap/pratt.md) | `src/pratt.rs`, checked native frame callbacks in `src/parser.rs` |
 | Primary dispatch | `bootstrap/primary.cue`, [primary contract](../bootstrap/primary.md) | Same control compiler; groups, negation, bounds, atoms, integers |
+| Scalar equality | `bootstrap/{equal,not-equal,equality-fragments}.cue`, [equality control](../bootstrap/equality.md) | Same finite binary compiler; native content equality; generated concreteness/result policy |
 | Scalar addition | `bootstrap/sum.cue`, [binary control](../bootstrap/sum.md) | Same finite control compiler; native checked integer/text kernels; generated policy |
 | Scalar unification | `bootstrap/unify.cue`, [unification contract](../bootstrap/unify.md) | `src/unification.rs`; native `runtime::unify` delegates generated policy |
 
@@ -51,9 +52,10 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 - Single-line quoted UTF-8 strings with seven common escapes; abstract `string`;
   signed decimal integers; `true`/`false`; `bool`/`int`; inclusive literal bounds `>=` / `<=`;
   parentheses; `+`, `-`, `*`, `&`; unary expression negation;
-  `div`, `mod`, `quo`, `rem`; CUE-owned UTF-8 `//` comment trivia.
+  `div`, `mod`, `quo`, `rem`; concrete scalar `==` / `!=`; CUE-owned UTF-8 `//` comment trivia.
 - Binary operators are left-associative by default. `div/mod/quo/rem` share
   multiplication's precedence 20; addition/subtraction use 10, unification 5.
+  Equality uses precedence 7, between unification and addition/subtraction.
   Grammar data controls these choices. `/` is recognized for custom grammar
   configuration but remains unregistered by default: no rational arithmetic.
 - CUE word scanning requires complete keywords and preserves a following minus.
@@ -76,7 +78,8 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   operand/zero checks. Child errors propagate before enclosing arithmetic.
 - Boolean identity/equality and mixed-domain rejection live in CUE unification
   control, before numeric identity. Never let `int & true` return `true`.
-  Native `same` is structural equality, not source-level CUE `==` support.
+  Scalar `==`/`!=` use CUE concreteness guards before native `same`; concrete
+  mixed types compare unequal, while abstract types/bounds reject.
 - `bool`, `int` and bounds may survive intermediate evaluation, but scalar output must
   be concrete. Singleton bounds remain incomplete until given a candidate.
   Missing endpoints are infinite, not clipped to i64 extrema.
@@ -137,6 +140,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#76](https://github.com/kolohelios/cuestacean/pull/76) | CUE-defined complete lowering-driver/module-statement emission |
 | [#78](https://github.com/kolohelios/cuestacean/pull/78) | Owned JSON string scalars and CUE string-domain unification |
 | [#80](https://github.com/kolohelios/cuestacean/pull/80) | CUE-controlled single-line source strings and abstract `string` |
+| [#82](https://github.com/kolohelios/cuestacean/pull/82) | CUE-owned scalar addition dispatch and text concatenation |
 
 ## Build and validation runbook
 

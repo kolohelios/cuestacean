@@ -10,13 +10,13 @@ operands are still rejected rather than propagated or solved backwards.
 Both evaluator paths evaluate the left child and then the right child before
 invoking this policy. Child errors precede enclosing operand validation. Source
 `+` keeps its existing precedence and associativity; JSON addition AST/instruction
-wire forms are unchanged. String equality, identity and unification still belong
-to the separate CUE unifier. No implicit string/numeric/boolean coercion is added.
+wire forms are unchanged. String identity and unification still belong to the
+separate CUE unifier; explicit `==`/`!=` now use [equality control](equality.md). No implicit string/numeric/boolean coercion is added.
 
 ## Reused finite control, checked kernels
 
 The finite unification-control DSL is reused for binary value policies. An optional
-validated `function` enum (`unify` by default, or `sum`) chooses only the compiled
+validated `function` enum (`unify` by default, `sum`, `equal` or `notEqual`) chooses only the compiled
 entry-point name, not runtime behavior. CUE lowering selects that spelling; raw
 metadata cannot inject identifiers. `integerSum` and `textConcat` expressions call
 native borrowed-input primitives. Those primitives validate representations and

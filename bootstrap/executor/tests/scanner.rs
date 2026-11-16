@@ -749,7 +749,7 @@ fn word_infixes_require_complete_non_consuming_keyword_matches() {
 }
 
 #[test]
-fn single_byte_symbols_match_the_supported_ascii_alphabet() {
+fn symbols_match_the_supported_ascii_alphabet() {
     let bound = program("bound-prefix");
     let infix = program("infix");
     for byte in 0_u8..=127 {
@@ -767,10 +767,14 @@ fn single_byte_symbols_match_the_supported_ascii_alphabet() {
             scanner::bound_prefix(&source, 0).expect("bound compiled"),
             expected
         );
-        let flag = matches!(byte, b'+' | b'-' | b'*' | b'/' | b'&');
+        let offset = match byte {
+            b'=' | b'!' => 2,
+            b'+' | b'-' | b'*' | b'/' | b'&' => 1,
+            _ => 0,
+        };
         let expected = Scan {
-            offset: usize::from(flag),
-            flag,
+            offset,
+            flag: offset != 0,
         };
         assert_eq!(
             scanner::interpret(&infix, &source, 0).expect("infix interpreted"),

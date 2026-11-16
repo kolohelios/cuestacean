@@ -67,5 +67,19 @@ package bootstrap
 		rightField:    "right"
 		precedence:    20
 		associativity: "left"
+	}, {
+		token:         "=="
+		kind:          "equal"
+		leftField:     "left"
+		rightField:    "right"
+		precedence:    7
+		associativity: "left"
+	}, {
+		token:         "!="
+		kind:          "notEqual"
+		leftField:     "left"
+		rightField:    "right"
+		precedence:    7
+		associativity: "left"
 	}]
 }

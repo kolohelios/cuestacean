@@ -32,6 +32,15 @@ impl Driver for Compiled {
                 })?;
                 Ok(())
             }),
+            "equal" => ctx.call("runtime::equal", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
+                })?;
+                Ok(())
+            }),
             "evaluate" => ctx.call("evaluate", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| {
@@ -68,6 +77,15 @@ impl Driver for Compiled {
             "negate" => ctx.call("runtime::negate", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
+                })?;
+                Ok(())
+            }),
+            "notEqual" => ctx.call("runtime::not_equal", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
                 })?;
                 Ok(())
             }),

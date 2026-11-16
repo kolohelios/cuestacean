@@ -5,6 +5,8 @@
     "true": {"result": {"value": true, "op": "boolean"}},
     "boolType": {"result": {"op": "bool"}},
     "false": {"result": {"value": false, "op": "boolean"}},
+    "notEqual": {"result": {"op": "notEqual", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
+    "equal": {"result": {"op": "equal", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
     "divide": {"result": {"op": "divide", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
     "modulo": {"result": {"op": "modulo", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
     "quotient": {"result": {"op": "quotient", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},

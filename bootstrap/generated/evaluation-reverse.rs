@@ -32,6 +32,10 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "notEqual" => runtime::not_equal(
+            (evaluate(runtime::field(node, "left")?))?,
+            (evaluate(runtime::field(node, "right")?))?,
+        ),
         "negate" => runtime::negate((evaluate(runtime::field(node, "operand")?))?),
         "multiply" => runtime::product(
             (evaluate(runtime::field(node, "left")?))?,
@@ -45,6 +49,10 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
         "integer" => runtime::integer(node, "value"),
         "intType" => Ok::<_, Error>(runtime::Value::Int),
         "false" => Ok::<_, Error>(runtime::Value::Boolean(false)),
+        "equal" => runtime::equal(
+            (evaluate(runtime::field(node, "left")?))?,
+            (evaluate(runtime::field(node, "right")?))?,
+        ),
         "divide" => runtime::divide(
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
