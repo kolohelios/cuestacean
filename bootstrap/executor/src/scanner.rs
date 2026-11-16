@@ -44,6 +44,10 @@ mod generated_infix;
 #[path = "../../generated/negation-prefix.rs"]
 mod generated_negation_prefix;
 
+#[cfg(feature = "source")]
+#[path = "../../generated/string-literal.rs"]
+mod generated_string_literal;
+
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("invalid scanner JSON: {source}"))]
@@ -452,6 +456,12 @@ pub fn generate_with_policy(input: &str, policy: &str) -> Result<String, Error> 
 fn lower(program: Program, driver: &dyn crate::lowering::Driver) -> Result<String, Error> {
     let node = json!({"op":"program","body":prepare(&program.body,0,None)?});
     crate::lowering::Context::run(&node, driver).map_err(|source| Error::Lowering { source })
+}
+
+/// CUE-selected quoted string span; native conversion does not choose syntax.
+#[cfg(feature = "source")]
+pub fn string_literal(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_string_literal::scan(source, offset)
 }
 
 /// CUE-owned trivia/newline policy selected for word operators by parser control.

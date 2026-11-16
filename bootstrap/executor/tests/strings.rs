@@ -233,10 +233,13 @@ fn json_clis_and_source_boundary() {
     assert_eq!(compiled.status.code(), interpreted.status.code());
     assert_eq!(compiled.stdout, interpreted.stdout);
     assert_eq!(compiled.stderr, interpreted.stderr);
-    for source in ["\"hello\"", "string"] {
-        assert!(
-            parser::parse(source, &export("grammar")).is_err(),
-            "{source}"
+    for (source, expected) in [
+        ("\"hello\"", string("hello")),
+        ("string", atom("stringType")),
+    ] {
+        assert_eq!(
+            parser::parse(source, &export("grammar")).expect("source string"),
+            json!({"formatVersion":1, "entry":expected})
         );
     }
 }

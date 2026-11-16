@@ -133,7 +133,7 @@ package bootstrap
 	left:  #PrattNumber
 	right: #PrattNumber
 }
-#PrattCondition: {op: "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier" | "hasNegation"} | {op: "boolean", value: bool} | {
+#PrattCondition: {op: "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier" | "hasNegation" | "hasString"} | {op: "boolean", value: bool} | {
 	op:    "atLeast"
 	left:  #PrattNumber
 	right: #PrattNumber
@@ -142,7 +142,7 @@ package bootstrap
 	left:  #PrattCondition
 	right: #PrattCondition
 }
-#PrattStatement: {op: "primary" | "afterOperand" | "afterWordOperator" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanNegation" | "advanceNegation" | "buildNegation"} | {
+#PrattStatement: {op: "primary" | "afterOperand" | "afterWordOperator" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanString" | "parseString" | "scanNegation" | "advanceNegation" | "buildNegation"} | {
 	op:      "parseGroup" | "parseNegation"
 	minimum: #PrattNumber
 } | {
@@ -255,6 +255,7 @@ package bootstrap
 		kind:         string & !=""
 		operandField: string & !="" & !="kind"
 	}
+	text?: {kind: string & !="", valueField: string & !="" & !="kind"}
 	group: {open: "(", close: ")"}
 	operators: [#InfixOperator, ...#InfixOperator]
 }

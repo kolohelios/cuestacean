@@ -25,6 +25,7 @@
         "infix"
         "decimal"
         "identifier"
+        "string-literal"
         "tests/valid/scanner-horizontal"
         "tests/valid/scanner-stalled"
         "tests/valid/scanner-advance"
@@ -39,6 +40,7 @@
         "ast-program"
         "ast-atom"
         "ast-integer"
+        "ast-text"
         "ast-binary"
         "ast-unary"
         "tests/valid/ast-program-v2"
@@ -425,6 +427,7 @@
                 nativeBuildInputs = [
                   (executor pkgs)
                   pkgs.cue
+                  pkgs.jq
                 ];
               }
               ''
@@ -436,7 +439,17 @@
                   IFS= read -r scalar < expected
                   if [ "$scalar" = "-0" ]; then printf '0\n' > expected; fi
                   bootstrap-source "$source" > actual
-                  diff -u expected actual
+                  case "$scalar" in
+                    \"*)
+                      # String encoders may differ in JSON escape spelling.
+                      jq -e 'type == "string"' expected > /dev/null
+                      jq -e 'type == "string"' actual > /dev/null
+                      jq -c . expected > normalized-expected
+                      jq -c . actual > normalized-actual
+                      diff -u normalized-expected normalized-actual
+                      ;;
+                    *) diff -u expected actual ;;
+                  esac
                 done
                 for source in ${../../bootstrap/source}/conflicts/*.cue ${../../bootstrap/source}/incomplete/*.cue; do
                   if cue export "$source" --out json > expected 2> cue-error; then

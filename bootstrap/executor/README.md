@@ -72,8 +72,7 @@ interprets that rule's result instruction against the current node:
 
 The owned Clone (not Copy) value scaffold has concrete i64/boolean/shared text,
 abstract `int`/`bool`/`string`, and inclusive bounds. CUE controls string identity,
-content equality/conflict and cross-domain rejection. JSON strings are supported;
-source string syntax is not. See the [ownership design](../../docs/string-values.md).
+content equality/conflict and cross-domain rejection. JSON strings and the [bounded source-string profile](../strings.md) are supported. See the [ownership design](../../docs/string-values.md).
 `bool & true` is concrete; `bool & bool` reports `non-concrete bool value`.
 Different concrete booleans report `conflicting boolean values`; boolean/numeric
 mixes report `conflicting value types` before numeric identity can apply.

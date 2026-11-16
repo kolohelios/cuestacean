@@ -1,9 +1,10 @@
 # Owned string scalar design
 
-This slice expands the **JSON AST evaluator**, not the source-language parser.
-Concrete `string` nodes carry a string `value`; payload-free `stringType` nodes
-represent abstract CUE `string`. Source string spelling/escapes/interpolation,
-structs/lists, references, defaults and general solving remain outside the profile.
+The owned-value foundation first expanded the JSON AST evaluator: concrete `string`
+nodes carry a string `value`; payload-free `stringType` nodes represent abstract
+CUE `string`. A subsequent [source profile](../bootstrap/strings.md) now admits
+single-line literals and common escapes. General string syntax, structs/lists,
+references, defaults and general solving remain outside the profile.
 
 ## Ownership boundary
 
@@ -32,8 +33,8 @@ unification. Unicode data is preserved without normalization or coercion.
 
 `execute_json` and both JSON evaluator CLIs emit exact JSON string scalars; legacy
 integer `execute` rejects concrete strings. Abstract string output is incomplete.
-Ordinary integer/boolean source behavior remains unchanged. No string concatenation,
-comparison operator, source scanning or native source fallback is added here.
+Ordinary integer/boolean source behavior remains unchanged. String concatenation,
+comparison operators and native source-policy fallback remain unsupported.
 
 ## Evidence and bootstrap
 

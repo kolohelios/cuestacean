@@ -13,11 +13,13 @@ package bootstrap
 				op: "if"
 				condition: {op: "hasBound"}
 				then: [{op: "advanceBound"}, {op: "whitespace"}, {op: "parseBound"}]
-				else: [{op: "scanIdentifier"}, {
-					op: "if"
-					condition: {op: "hasIdentifier"}
-					then: [{op: "parseAtom"}]
-					else: [{op: "parseInteger"}]
+				else: [{op: "scanString"}, {
+					op: "if", condition: {op: "hasString"}
+					then: [{op: "parseString"}]
+					else: [{op: "scanIdentifier"}, {
+						op: "if", condition: {op: "hasIdentifier"}
+						then: [{op: "parseAtom"}], else: [{op: "parseInteger"}]
+					}]
 				}]
 			}]
 		}]

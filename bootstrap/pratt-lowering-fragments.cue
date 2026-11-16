@@ -7,10 +7,11 @@ package bootstrap
 	let Calls = {
 		primary:        "primary", afterOperand:            "after_operand", afterWordOperator: "after_word_operator"
 		lookupOperator: "lookup_operator", advanceOperator: "advance_operator"
-		parseRight:     "parse_right", buildBinary:         "build_binary", whitespace:        "whitespace"
-		scanGroup:      "scan_group", advanceGroup:         "advance_group", closeGroup:       "close_group"
-		scanBound:      "scan_bound", advanceBound:         "advance_bound", parseBound:       "parse_bound"
-		scanIdentifier: "scan_identifier", parseAtom:       "parse_atom", parseInteger:        "parse_integer"
+		parseRight:     "parse_right", buildBinary:         "build_binary", whitespace:  "whitespace"
+		scanGroup:      "scan_group", advanceGroup:         "advance_group", closeGroup: "close_group"
+		scanBound:      "scan_bound", advanceBound:         "advance_bound", parseBound: "parse_bound"
+		scanIdentifier: "scan_identifier", parseAtom:       "parse_atom", parseInteger:  "parse_integer"
+		scanString:     "scan_string", parseString:         "parse_string"
 		scanNegation:   "scan_negation", advanceNegation:   "advance_negation", buildNegation: "build_negation"
 	}
 	cases: {
@@ -32,6 +33,7 @@ package bootstrap
 		groupOpen: {op: "text", value: "_frame.group_open()?"}
 		hasBound: {op: "text", value: "_frame.has_bound()?"}
 		hasIdentifier: {op: "text", value: "_frame.has_identifier()?"}
+		hasString: {op: "text", value: "_frame.has_string()?"}
 		hasNegation: {op: "text", value: "_frame.has_negation()?"}
 		boolean: {op: "boolean", field: "value"}
 		atLeast: {op: "concat", parts: [L, {op: "text", value: " >= "}, R]}

@@ -62,6 +62,10 @@ programs for changed policy, escaping, and repeated owned arguments.
 compiler case and returns 99. `lowering-numbers.rs` tests compiled signed extrema,
 escaped joined separators and lazy zero branching.
 
+`string-literal.rs` supplies the [source string lexical subset](../strings.md);
+`ast-text.rs` builds its owned string leaf. Native code only checks spans/stages and
+decodes the already admitted escape subset. Both regenerate in fresh seed builds.
+
 `pratt.rs` is the generated [expression control program](../pratt.md), containing
 the operator loop, binding-power condition and associativity branch. The
 `pratt-right`, `pratt-stalled`, `pratt-invalid-state`, and `pratt-overflow` drivers
@@ -116,7 +120,7 @@ done
 bootstrap/executor/target/debug/bootstrap-codegen "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-reverse.json" \
   | rustfmt --edition 2024 > bootstrap/generated/evaluation-reverse.rs
-for machine in whitespace after-operand after-word-operator group-open group-close negation-prefix bound-prefix infix decimal identifier \
+for machine in whitespace after-operand after-word-operator group-open group-close negation-prefix bound-prefix infix decimal identifier string-literal \
   tests/valid/scanner-horizontal \
   tests/valid/scanner-stalled tests/valid/scanner-advance \
   tests/valid/scanner-decimal-permissive tests/valid/scanner-reject tests/valid/scanner-state \
@@ -128,7 +132,7 @@ done
 bootstrap/executor/target/debug/bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/scanner-advance.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/scan-lowering-unicode.json" \
   | rustfmt --edition 2024 > bootstrap/generated/scan-unicode-advance.rs
-for builder in ast-program ast-atom ast-integer ast-binary ast-unary tests/valid/ast-program-v2 \
+for builder in ast-program ast-atom ast-integer ast-text ast-binary ast-unary tests/valid/ast-program-v2 \
   tests/valid/ast-escaped tests/valid/ast-duplicate; do
   name=$(basename "$builder")
   bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$builder.json" \

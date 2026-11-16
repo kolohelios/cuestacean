@@ -1,7 +1,7 @@
 # CUE-hosted primary dispatch
 
-[`primary.cue`](primary.cue) chooses groups, negation prefixes, bounds, identifiers and
-integers using the same [control DSL](pratt.md) as the expression loop. The
+[`primary.cue`](primary.cue) chooses groups, negation prefixes, bounds, strings,
+identifiers and integers using the same [control DSL](pratt.md) as the expression loop. The
 existing `bootstrap-pratt-codegen` compiler emits its branches and frame calls;
 there is no second compiler or native primary-dispatch fallback.
 
@@ -14,7 +14,8 @@ the selection algorithm in Rust. The primary program explicitly sequences:
 - otherwise `scanNegation` and `hasNegation`, then `advanceNegation`,
   `parseNegation` with CUE minimum 101, and `buildNegation`, or bound handling;
 - `scanBound` and `hasBound`, then `advanceBound`, whitespace and
-  `parseBound`, or identifier handling;
+  `parseBound`, or string handling;
+- `scanString` and `hasString`, then `parseString`, or identifier handling;
 - `scanIdentifier` and `hasIdentifier`, then `parseAtom` or `parseInteger`.
 
 The production group minimum is the CUE literal zero. It is no longer reset
@@ -25,7 +26,7 @@ ignore a candidate (for example by choosing integer parsing for identifiers).
 ## Native boundary and guards
 
 Checked frame operations still perform scanner/builder calls, grammar lookup,
-i64 conversion and recursion with the selected minimum/depth. Native primary
+i64/admitted-string conversion and recursion with the selected minimum/depth. Native primary
 stages track candidates, committed spans, group results and completion. They
 prevent illegal transitions, primary reentry, expression mutations during
 primary dispatch, and returning an unfinished group;

@@ -60,6 +60,8 @@ struct Grammar {
     format_version: u32,
     integer: Integer,
     #[serde(default)]
+    text: Option<Integer>,
+    #[serde(default)]
     atoms: Vec<Atom>,
     #[serde(default)]
     bounds: Vec<BoundPrefix>,
@@ -139,6 +141,14 @@ impl Grammar {
         {
             return GrammarSnafu {
                 reason: "integer constructor and operators required",
+            }
+            .fail();
+        }
+        if let Some(text) = &self.text
+            && (text.kind.is_empty() || !field(&text.value_field))
+        {
+            return GrammarSnafu {
+                reason: "invalid string constructor",
             }
             .fail();
         }
@@ -408,6 +418,7 @@ enum PrimaryState {
     NegationParsed,
     BoundScanned(Option<(usize, usize)>),
     BoundAdvanced(usize),
+    StringScanned(Option<usize>),
     IdentifierScanned(Option<usize>),
     Done,
 }
@@ -659,8 +670,54 @@ impl Frame<'_, '_> {
         self.primary_state = Some(PrimaryState::Done);
         Ok(())
     }
-    pub fn scan_identifier(&mut self) -> Result<(), Error> {
+    pub fn scan_string(&mut self) -> Result<(), Error> {
         if !matches!(self.primary_state, Some(PrimaryState::BoundScanned(_))) {
+            return self.primary_state_error();
+        }
+        let scan = crate::scanner::string_literal(self.parser.source, self.parser.offset)?;
+        let candidate = (scan.flag && self.parser.grammar.text.is_some()).then_some(scan.offset);
+        self.primary_state = Some(PrimaryState::StringScanned(candidate));
+        Ok(())
+    }
+    pub fn has_string(&self) -> Result<bool, Error> {
+        match self.primary_state {
+            Some(PrimaryState::StringScanned(end)) => Ok(end.is_some()),
+            _ => self.primary_state_error(),
+        }
+    }
+    pub fn parse_string(&mut self) -> Result<(), Error> {
+        let Some(PrimaryState::StringScanned(Some(end))) = self.primary_state else {
+            return self.primary_state_error();
+        };
+        let start = self.parser.offset;
+        let Some(slice) = self.parser.source.get(start..end).filter(|_| end > start) else {
+            return self.primary_state_error();
+        };
+        let value = serde_json::from_str::<String>(slice).map_err(|_| Error::Source {
+            offset: start,
+            reason: "invalid string literal".to_owned(),
+        })?;
+        let text = self
+            .parser
+            .grammar
+            .text
+            .as_ref()
+            .ok_or(Error::ControlState {
+                reason: "missing string constructor",
+            })?;
+        let kind = text.kind.clone();
+        let field = text.value_field.clone();
+        self.parser.node()?;
+        self.advance_primary(end)?;
+        self.left = Some(ast::text(kind, field, value));
+        self.primary_state = Some(PrimaryState::Done);
+        Ok(())
+    }
+    pub fn scan_identifier(&mut self) -> Result<(), Error> {
+        if !matches!(
+            self.primary_state,
+            Some(PrimaryState::BoundScanned(_) | PrimaryState::StringScanned(_))
+        ) {
             return self.primary_state_error();
         }
         let scan = crate::scanner::identifier(self.parser.source, self.parser.offset)?;
@@ -777,6 +834,87 @@ impl Frame<'_, '_> {
         ));
         self.consumed = false;
         self.binding = None;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod string_state_tests {
+    use super::*;
+
+    #[test]
+    fn checked_stages_and_spans() -> Result<(), Box<dyn std::error::Error>> {
+        let grammar: Grammar = serde_json::from_str(
+            r#"{
+            "formatVersion":1,"integer":{"kind":"integer","valueField":"value"},
+            "text":{"kind":"string","valueField":"value"},
+            "group":{"open":"(","close":")"},"operators":[]
+        }"#,
+        )?;
+        let mut parser = Parser {
+            source: "\"λ\"",
+            grammar: &grammar,
+            offset: 0,
+            nodes: 0,
+            engine: Engine::Compiled(generated::execute),
+            primary_engine: Engine::Compiled(generated_primary::execute),
+        };
+        let mut frame = Frame {
+            parser: &mut parser,
+            minimum: 0,
+            depth: 0,
+            left: None,
+            right: None,
+            operator: None,
+            token_end: 0,
+            consumed: false,
+            binding: None,
+            fuel: 4096,
+            primary_state: Some(PrimaryState::Start),
+            in_primary: true,
+        };
+        assert!(matches!(
+            frame.has_string(),
+            Err(Error::ControlState { .. })
+        ));
+        assert!(matches!(
+            frame.scan_string(),
+            Err(Error::ControlState { .. })
+        ));
+        assert!(matches!(
+            frame.parse_string(),
+            Err(Error::ControlState { .. })
+        ));
+        for end in [0, 2, 5] {
+            frame.primary_state = Some(PrimaryState::StringScanned(Some(end)));
+            assert!(matches!(
+                frame.parse_string(),
+                Err(Error::ControlState { .. })
+            ));
+            assert_eq!(frame.parser.offset, 0);
+            assert_eq!(frame.parser.nodes, 0);
+        }
+        frame.primary_state = Some(PrimaryState::StringScanned(Some(3)));
+        assert!(matches!(
+            frame.parse_string(),
+            Err(Error::Source { offset: 0, .. })
+        ));
+        assert_eq!(frame.parser.offset, 0);
+        assert_eq!(frame.parser.nodes, 0);
+        frame.primary_state = Some(PrimaryState::StringScanned(Some(4)));
+        assert!(frame.has_string()?);
+        frame.parse_string()?;
+        assert!(matches!(frame.primary_state, Some(PrimaryState::Done)));
+        assert_eq!(frame.parser.nodes, 1);
+        assert_eq!(frame.parser.offset, 4);
+        assert!(matches!(
+            frame.parse_string(),
+            Err(Error::ControlState { .. })
+        ));
+        assert!(matches!(
+            frame.lookup_operator(),
+            Err(Error::ControlState { .. })
+        ));
         Ok(())
     }
 }

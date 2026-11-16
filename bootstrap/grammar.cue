@@ -2,8 +2,9 @@ package bootstrap
 
 #Grammar & {
 	integer: {kind: "integer", valueField: "value"}
+	text: {kind: "string", valueField: "value"}
 	atoms: [{token: "int", kind: "intType"}, {token: "bool", kind: "boolType"},
-		{token: "true", kind: "true"}, {token: "false", kind: "false"}]
+		{token: "true", kind: "true"}, {token: "false", kind: "false"}, {token: "string", kind: "stringType"}]
 	bounds: [
 		{token: ">=", kind: "lowerBound", valueField: "value"},
 		{token: "<=", kind: "upperBound", valueField: "value"},
