@@ -50,7 +50,8 @@ adds `==` and `!=` with CUE-owned concreteness guards and boolean result selecti
 [CUE ordering](bootstrap/ordering.md) adds `<`, `<=`, `>` and `>=` for matching
 concrete integers or text, preserving inclusive prefix bounds.
 [Logical selection](bootstrap/logic.md) adds `&&` / `||`, preserving eager child
-errors and selecting results/types in CUE.
+errors and selecting results/types in CUE. [Unary `!`](bootstrap/logical-not.md)
+uses checked one-operand CUE control and source-prefix dispatch.
 Value representation and low-level primitives remain native.
 
 ## CUE all the way down

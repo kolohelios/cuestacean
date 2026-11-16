@@ -48,6 +48,7 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "logicalNot" => runtime::logical_not((evaluate(runtime::field(node, "operand")?))?),
         "logicalOr" => runtime::logical_or(
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,

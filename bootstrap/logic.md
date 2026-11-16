@@ -23,8 +23,8 @@ Comparison metadata moves from 7 to 8 to leave two distinct logical levels;
 relative precedence of all previously supported operators is unchanged. Existing
 grammar entry order is preserved. CUE scanning recognizes `&&` before single `&`
 and only complete `||`, with guarded flag-based progress to prevent token merging.
-Single `|`, unary `!`, disjunction/defaults and reference/structural logic remain
-unsupported. Parser/scanner/control/compiler budgets are unchanged.
+Single `|`, disjunction/defaults and reference/structural logic remain unsupported.
+[Unary `!`](logical-not.md) now has separate one-operand CUE control. Parser/scanner/control/compiler budgets are unchanged.
 
 Independent truth/type/abstract/error-order oracles, source AST/precedence/token
 checks, CLI atomicity, actual compiled alternate control and pinned Go CUE probes

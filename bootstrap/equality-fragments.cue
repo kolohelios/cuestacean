@@ -8,7 +8,7 @@ package bootstrap
 	}
 }
 
-#EqualityProgram: #UnifyProgram & {
+#EqualityProgram: #BinaryControlProgram & {
 	_same: bool
 	result: {
 		op: "if"

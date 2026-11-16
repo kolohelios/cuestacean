@@ -39,6 +39,11 @@ entry name and emits the `integerSum`/`textConcat` kernel calls used by
 condition; CUE also maps inclusive relation names to fixed Rust variants. Native
 finite/text comparison kernels do not choose allowed source domains.
 Logical control adds two fixed entry names and `booleanIs` literal/side projection.
+Unary logical control adds root `unary` arity facts and serialization-only
+`unaryFail` for an already validated logical failure. CUE chooses a one-input
+header and emits failure without a nonexistent RHS. Original wire still uses
+`fail`; the unary subset rejects all binary/right dependencies before lowering.
+Reusable binary CUE templates explicitly use `#BinaryControlProgram`.
 These are not arbitrary identifier/path inputs. Complete typed/lexical validation precedes any backend execution.
 
 `letBounds` still emits a simultaneous tuple initializer: both initializers see

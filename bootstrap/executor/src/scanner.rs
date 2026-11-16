@@ -43,6 +43,9 @@ mod generated_infix;
 #[cfg(feature = "source")]
 #[path = "../../generated/negation-prefix.rs"]
 mod generated_negation_prefix;
+#[cfg(feature = "source")]
+#[path = "../../generated/not-prefix.rs"]
+mod generated_not_prefix;
 
 #[cfg(feature = "source")]
 #[path = "../../generated/string-literal.rs"]
@@ -518,6 +521,11 @@ pub fn decimal(source: &str, offset: usize) -> Result<Scan, Error> {
 #[cfg(feature = "source")]
 pub fn negation_prefix(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_negation_prefix::scan(source, offset)
+}
+
+#[cfg(feature = "source")]
+pub fn not_prefix(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_not_prefix::scan(source, offset)
 }
 
 /// Recognize an ASCII identifier; the flag indicates a valid first byte.

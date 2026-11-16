@@ -67,7 +67,10 @@ be concrete; only a concrete RHS's type can be ignored if the left determines
 the result (`false && 1` is false). RHS errors and abstract values still fail.
 The default levels are `&` 5, `||` 6, `&&` 7, comparisons 8, `+`/`-` 10 and
 multiplication/division 20. The comparison level moves from 7 to 8 without
-changing any earlier relative precedence. Unary logical `!` is not added.
+changing any earlier relative precedence. [Unary logical `!`](../logical-not.md) now recurses at minimum 101 and requires
+a concrete boolean; abstract/nonboolean operands reject. Its CUE scanner does
+not consume `!=` as a prefix. Optional grammar `logicalNot` metadata can disable
+or rename its constructor without changing minus prefixes or signed literals.
 See the [executor API/output contract](../executor/README.md) for the preserved
 integer API and JSON scalar APIs. Strings use owned shared values
 ([design](../../docs/string-values.md)); graph ownership still requires design.

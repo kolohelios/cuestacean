@@ -1,6 +1,6 @@
 package bootstrap
 
-#LogicProgram: #UnifyProgram & {
+#LogicProgram: #BinaryControlProgram & {
 	_short: bool
 	let Fail = {op: "fail", reason: "logical"}
 	result: {

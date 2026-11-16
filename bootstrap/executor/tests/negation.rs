@@ -454,9 +454,15 @@ fn invalid_negation_transitions_and_unfinished_dispatch_are_guarded() {
         .iter_mut()
         .find(|statement| statement["op"] == "if")
         .expect("group branch");
-    let nested = group["else"]
+    let not_branch = group["else"]
         .as_array_mut()
         .expect("group else")
+        .iter_mut()
+        .find(|statement| statement["op"] == "if" && statement["condition"]["op"] == "hasNot")
+        .expect("not branch");
+    let nested = not_branch["else"]
+        .as_array_mut()
+        .expect("not else")
         .iter_mut()
         .find(|statement| statement["op"] == "if" && statement["condition"]["op"] == "hasNegation")
         .expect("negation branch");

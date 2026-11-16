@@ -55,6 +55,7 @@ fn default_policy_matches_independent_instruction_expressions() {
         ("lowerBound", "lower_bound"),
         ("upperBound", "upper_bound"),
         ("negate", "negate"),
+        ("logicalNot", "logical_not"),
     ] {
         let input = json!({"op":op, "value":field});
         assert_eq!(

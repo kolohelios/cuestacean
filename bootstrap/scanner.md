@@ -166,6 +166,10 @@ partial/extended words leave offset and flag unchanged. A keyword consumes
 exactly three bytes, leaving a following minus for operand parsing. Recognizing
 `/` does not enable rational division: the default grammar has no `/` entry.
 
+The separate `not-prefix` program recognizes unary `!`, excluding `!=` by
+one-byte lookahead. It leaves other starts unchanged; primary CUE control selects
+whether to commit the candidate and recurse. It does not implement inversion.
+
 The native parser looks up complete recognized spans in runtime grammar data.
 It commits an infix span only after the binding-power check, so lookahead does
 not consume lower-precedence operators prematurely. Disabled bounds/operators,

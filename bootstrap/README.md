@@ -1,6 +1,6 @@
 # Bootstrap expression fixtures
 
-`schema.cue` defines a recursive expression tree with twenty-six node kinds:
+`schema.cue` defines a recursive expression tree with twenty-seven node kinds:
 
 - `integer`: an integer `value`.
 - `intType`: the abstract `int` constraint, with no payload.
@@ -18,6 +18,7 @@
 - `multiply`: ordered `left` and `right` expression children.
 - `subtract`: ordered children, subtracting right from left.
 - `negate`: an `operand` expression, negated with checked i64 arithmetic.
+- `logicalNot`: an `operand` expression, inverted through [CUE unary control](logical-not.md).
 - `divide` / `modulo`: Euclidean quotient and nonnegative remainder.
 - `quotient` / `remainder`: truncating quotient and dividend-signed remainder.
 - `unify`: ordered children whose string, integer/bounds or boolean domains must agree.

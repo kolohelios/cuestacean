@@ -1,4 +1,4 @@
-//! Finite CUE-authored binary control for scalar operations and its lowering.
+//! Finite CUE-authored control for scalar operations and its lowering.
 use crate::runtime::Value;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
@@ -58,6 +58,12 @@ enum Function {
     GreaterEqual,
     LogicalAnd,
     LogicalOr,
+    LogicalNot,
+}
+impl Function {
+    fn is_unary(self) -> bool {
+        matches!(self, Self::LogicalNot)
+    }
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -197,9 +203,35 @@ fn parse(input: &str) -> Result<Program, Error> {
         .fail();
     }
     p.result.validate(false)?;
+    if p.function.is_unary() {
+        p.result.validate_unary()?;
+    }
     Ok(p)
 }
 impl Expr {
+    fn validate_unary(&self) -> Result<(), Error> {
+        match self {
+            Self::Input { input: Side::Left }
+            | Self::Boolean { .. }
+            | Self::Fail {
+                reason: Failure::Logical,
+            } => Ok(()),
+            Self::If {
+                condition,
+                then,
+                otherwise,
+            } => {
+                condition.validate_unary()?;
+                then.validate_unary()?;
+                otherwise.validate_unary()
+            }
+            _ => ProgramSnafu {
+                reason: "unary control requires unary expressions",
+            }
+            .fail(),
+        }
+    }
+
     fn validate(&self, bound: bool) -> Result<(), Error> {
         match self {
             Self::Input { .. }
@@ -253,6 +285,25 @@ impl End {
     }
 }
 impl Condition {
+    fn validate_unary(&self) -> Result<(), Error> {
+        match self {
+            Self::KindIs {
+                input: Side::Left, ..
+            }
+            | Self::BooleanIs {
+                input: Side::Left, ..
+            } => Ok(()),
+            Self::And { left, right } | Self::Or { left, right } => {
+                left.validate_unary()?;
+                right.validate_unary()
+            }
+            _ => ProgramSnafu {
+                reason: "unary control requires unary conditions",
+            }
+            .fail(),
+        }
+    }
+
     fn validate(&self, bound: bool) -> Result<(), Error> {
         match self {
             Self::KindIs { .. }
@@ -412,6 +463,26 @@ impl End {
     }
 }
 impl Condition {
+    fn eval_unary(&self, left: &Value) -> Result<bool, crate::Error> {
+        Ok(match self {
+            Self::KindIs {
+                input: Side::Left,
+                kind,
+            } => kind_is(left, *kind),
+            Self::BooleanIs {
+                input: Side::Left,
+                value,
+            } => boolean_is(left, *value)?,
+            Self::And { left: a, right: b } => a.eval_unary(left)? && b.eval_unary(left)?,
+            Self::Or { left: a, right: b } => a.eval_unary(left)? || b.eval_unary(left)?,
+            _ => {
+                return Err(crate::Error::UnificationState {
+                    reason: "invalid unary condition",
+                });
+            }
+        })
+    }
+
     fn eval(
         &self,
         l: &Value,
@@ -439,6 +510,30 @@ impl Condition {
     }
 }
 impl Expr {
+    fn eval_unary(&self, left: &Value) -> Result<Value, crate::Error> {
+        match self {
+            Self::Input { input: Side::Left } => Ok(left.clone()),
+            Self::Boolean { value } => Ok(Value::Boolean(*value)),
+            Self::Fail {
+                reason: Failure::Logical,
+            } => Err(crate::Error::Logical),
+            Self::If {
+                condition,
+                then,
+                otherwise,
+            } => {
+                if condition.eval_unary(left)? {
+                    then.eval_unary(left)
+                } else {
+                    otherwise.eval_unary(left)
+                }
+            }
+            _ => Err(crate::Error::UnificationState {
+                reason: "invalid unary expression",
+            }),
+        }
+    }
+
     fn eval(
         &self,
         l: &Value,
@@ -499,20 +594,127 @@ pub fn generate_with_policy(input: &str, policy: &str) -> Result<String, Error> 
     lower(p, &policy)
 }
 
+// Only validated unary result trees reach this serialization-only projection.
+fn project_unary(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(fields) => {
+            if fields.get("op").and_then(serde_json::Value::as_str) == Some("fail") {
+                fields.insert(
+                    "op".to_owned(),
+                    serde_json::Value::String("unaryFail".to_owned()),
+                );
+            }
+            for child in fields.values_mut() {
+                project_unary(child);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for child in items {
+                project_unary(child);
+            }
+        }
+        _ => {}
+    }
+}
+
 fn lower(p: Program, driver: &dyn crate::lowering::Driver) -> Result<String, Error> {
-    let node = serde_json::json!({"op":"program", "function":p.function, "result":p.result});
+    let unary = p.function.is_unary();
+    let mut result = serde_json::json!(p.result);
+    if unary {
+        project_unary(&mut result);
+    }
+    let node =
+        serde_json::json!({"op":"program", "function":p.function, "unary":unary, "result":result});
     crate::lowering::Context::run(&node, driver).map_err(|source| Error::Lowering { source })
 }
 /// Execute the same validated control directly, for differential testing.
 pub fn interpret(input: &str, left: Value, right: Value) -> Result<Value, crate::Error> {
     let p = parse(input).map_err(|source| crate::Error::UnificationProgram { source })?;
+    if p.function.is_unary() {
+        return Err(crate::Error::UnificationProgram {
+            source: Error::Program {
+                reason: "binary interpreter requires binary control",
+            },
+        });
+    }
     p.result.eval(&left, &right, (None, None))
+}
+
+/// Execute validated unary control without fabricating a second operand.
+pub fn interpret_unary(input: &str, value: Value) -> Result<Value, crate::Error> {
+    let p = parse(input).map_err(|source| crate::Error::UnificationProgram { source })?;
+    if !p.function.is_unary() {
+        return Err(crate::Error::UnificationProgram {
+            source: Error::Program {
+                reason: "unary interpreter requires unary control",
+            },
+        });
+    }
+    p.result.eval_unary(&value)
 }
 
 #[cfg(test)]
 mod tests {
     use super::{limits, parse};
     use serde_json::Value;
+
+    #[test]
+    fn unary_arity_scope_and_interpretation() {
+        use super::{interpret, interpret_unary, project_unary};
+        use crate::runtime::Value as Scalar;
+
+        let control = r#"{"formatVersion":1,"function":"logicalNot","result":{"op":"if","condition":{"op":"kindIs","input":"left","kind":"boolean"},"then":{"op":"if","condition":{"op":"booleanIs","input":"left","value":true},"then":{"op":"boolean","value":false},"else":{"op":"boolean","value":true}},"else":{"op":"fail","reason":"logical"}}}"#;
+        assert_eq!(
+            interpret_unary(control, Scalar::Boolean(true)).ok(),
+            Some(Scalar::Boolean(false))
+        );
+        assert_eq!(
+            interpret_unary(control, Scalar::Boolean(false)).ok(),
+            Some(Scalar::Boolean(true))
+        );
+        assert!(matches!(
+            interpret_unary(control, Scalar::Bool),
+            Err(crate::Error::Logical)
+        ));
+        assert!(matches!(
+            interpret_unary(control, Scalar::Integer(1)),
+            Err(crate::Error::Logical)
+        ));
+        assert!(interpret(control, Scalar::Boolean(true), Scalar::Boolean(false)).is_err());
+        let binary = r#"{"formatVersion":1,"result":{"op":"input","input":"left"}}"#;
+        assert!(interpret_unary(binary, Scalar::Boolean(true)).is_err());
+        for expr in [
+            r#"{"op":"input","input":"right"}"#,
+            r#"{"op":"integerSum"}"#,
+            r#"{"op":"textConcat"}"#,
+            r#"{"op":"bounds","lower":{"op":"empty"},"upper":{"op":"empty"}}"#,
+            r#"{"op":"fail","reason":"types"}"#,
+            r#"{"op":"unaryFail","reason":"logical"}"#,
+        ] {
+            let invalid = format!(
+                r#"{{"formatVersion":1,"function":"logicalNot","result":{{"op":"if","condition":{{"op":"kindIs","input":"left","kind":"boolean"}},"then":{{"op":"boolean","value":true}},"else":{expr}}}}}"#
+            );
+            assert!(parse(&invalid).is_err(), "{expr}");
+        }
+        for condition in [
+            r#"{"op":"same"}"#,
+            r#"{"op":"kindIs","input":"right","kind":"boolean"}"#,
+            r#"{"op":"booleanIs","input":"right","value":true}"#,
+            r#"{"op":"hasEndpoint","value":{"op":"empty"}}"#,
+            r#"{"op":"textCompare","relation":"equal"}"#,
+            r#"{"op":"and","left":{"op":"kindIs","input":"left","kind":"boolean"},"right":{"op":"same"}}"#,
+        ] {
+            let invalid = format!(
+                r#"{{"formatVersion":1,"function":"logicalNot","result":{{"op":"if","condition":{condition},"then":{{"op":"boolean","value":true}},"else":{{"op":"boolean","value":false}}}}}}"#
+            );
+            assert!(parse(&invalid).is_err(), "{condition}");
+        }
+        let p = parse(control).expect("valid unary control");
+        let mut projected = serde_json::to_value(p.result).expect("serialize result");
+        project_unary(&mut projected);
+        assert_eq!(projected["else"]["op"], "unaryFail");
+        assert_eq!(projected["else"]["reason"], "logical");
+    }
 
     #[test]
     fn function_and_new_expression_validation() {

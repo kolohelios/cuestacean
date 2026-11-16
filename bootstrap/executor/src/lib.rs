@@ -211,6 +211,10 @@ enum Instruction {
         left: Box<Instruction>,
         right: Box<Instruction>,
     },
+    #[serde(rename = "logicalNot")]
+    LogicalNot {
+        value: Box<Instruction>,
+    },
     #[serde(rename = "logicalAnd")]
     LogicalAnd {
         left: Box<Instruction>,
@@ -344,6 +348,7 @@ fn instruction(
             let right = instruction(right, node, rules)?;
             runtime::remainder(left, right)
         }
+        Instruction::LogicalNot { value } => runtime::logical_not(instruction(value, node, rules)?),
         Instruction::LogicalAnd { left, right } => {
             let left = instruction(left, node, rules)?;
             let right = instruction(right, node, rules)?;

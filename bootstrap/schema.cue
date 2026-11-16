@@ -1,7 +1,7 @@
 package bootstrap
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #Negation
+#Expression: #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
 
 // Factor the identical recursive shape; separate recursive disjuncts expand
 // combinatorially in the upstream exporter as binary node kinds accumulate.
@@ -31,10 +31,9 @@ package bootstrap
 	value: int
 }
 
-#Negation: {
-	kind:    "negate"
-	operand: #Expression
-}
+#UnaryExpression: {kind: "negate" | "logicalNot", operand: #Expression}
+#Negation: #UnaryExpression & {kind: "negate"}
+#LogicalNot: #UnaryExpression & {kind: "logicalNot"}
 
 #Logical: #BinaryExpression & {kind: "logicalAnd" | "logicalOr"}
 #Ordering: #BinaryExpression & {kind: "less" | "lessEqual" | "greater" | "greaterEqual"}
@@ -90,7 +89,8 @@ package bootstrap
 	op: "choose", condition: #UnifyCondition, then: #UnifyEndpoint, else: #UnifyEndpoint
 }
 #UnifyRelation: "equal" | "less" | "greater" | "lessEqual" | "greaterEqual"
-#UnifyCondition: {op: "booleanIs", input: #UnifySide, value: bool} | {op: "textCompare", relation: #UnifyRelation} | {op: "kindIs", input: #UnifySide, kind: "integer" | "int" | "bounds" | "boolean" | "bool" | "text" | "string"} | {op: "same"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
+#UnifyKind:     "integer" | "int" | "bounds" | "boolean" | "bool" | "text" | "string"
+#UnifyCondition: {op: "booleanIs", input: #UnifySide, value: bool} | {op: "textCompare", relation: #UnifyRelation} | {op: "kindIs", input: #UnifySide, kind: #UnifyKind} | {op: "same"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
 	op: "compare", left: #UnifyEndpoint, right: #UnifyEndpoint, relation: #UnifyRelation
 } | {op: "and" | "or", left: #UnifyCondition, right: #UnifyCondition}
 #UnifyExpression: {op: "boolean", value: bool} | {op: "integerSum" | "textConcat"} | {op: "input", input: #UnifySide} | {
@@ -98,7 +98,11 @@ package bootstrap
 } | {
 	op: "letBounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint, result: #UnifyExpression
 } | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering" | "logical"}
-#UnifyProgram: {formatVersion: 1, function?: "unify" | "sum" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr", result: #UnifyExpression}
+#BinaryControlProgram: {formatVersion: 1, function?: "unify" | "sum" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr", result: #UnifyExpression}
+#UnaryControlCondition: {op: "kindIs", input: "left", kind: #UnifyKind} | {op: "booleanIs", input: "left", value: bool} | {op: "and" | "or", left: #UnaryControlCondition, right: #UnaryControlCondition}
+#UnaryControlExpr: {op: "boolean", value: bool} | {op: "input", input: "left"} | {op: "fail", reason: "logical"} | {op: "if", condition: #UnaryControlCondition, then: #UnaryControlExpr, else: #UnaryControlExpr}
+#UnaryControlProgram: {formatVersion: 1, function: "logicalNot", result: #UnaryControlExpr}
+#UnifyProgram: *#BinaryControlProgram | #UnaryControlProgram
 
 // Expression-parser control flow; native frame operations are explicit intrinsics.
 #PrattNumber: {op: "minimum"} | {op: "precedence"} | {op: "tokenLength"} | {op: "integer", value: uint & <=255} | {
@@ -106,7 +110,7 @@ package bootstrap
 	left:  #PrattNumber
 	right: #PrattNumber
 }
-#PrattCondition: {op: "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier" | "hasNegation" | "hasString"} | {op: "boolean", value: bool} | {
+#PrattCondition: {op: "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier" | "hasNegation" | "hasNot" | "hasString"} | {op: "boolean", value: bool} | {
 	op:    "atLeast"
 	left:  #PrattNumber
 	right: #PrattNumber
@@ -115,8 +119,8 @@ package bootstrap
 	left:  #PrattCondition
 	right: #PrattCondition
 }
-#PrattStatement: {op: "primary" | "afterOperand" | "afterWordOperator" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanString" | "parseString" | "scanNegation" | "advanceNegation" | "buildNegation"} | {
-	op:      "parseGroup" | "parseNegation"
+#PrattStatement: {op: "primary" | "afterOperand" | "afterWordOperator" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanString" | "parseString" | "scanNegation" | "advanceNegation" | "buildNegation" | "scanNot" | "advanceNot" | "buildNot"} | {
+	op:      "parseGroup" | "parseNegation" | "parseNot"
 	minimum: #PrattNumber
 } | {
 	op:    "setBindingPower"
@@ -228,6 +232,7 @@ package bootstrap
 		kind:         string & !=""
 		operandField: string & !="" & !="kind"
 	}
+	logicalNot?: {token: "!", kind: string & !="", operandField: string & !="" & !="kind"}
 	text?: {kind: string & !="", valueField: string & !="" & !="kind"}
 	group: {open: "(", close: ")"}
 	operators: [#InfixOperator, ...#InfixOperator]
@@ -253,6 +258,7 @@ package bootstrap
 		lowerBound: result: {op: "lowerBound", value: {op: "field", field: "value"}}
 		upperBound: result: {op: "upperBound", value: {op: "field", field: "value"}}
 		negate: result: {op: "negate", value: {op: "evaluate", field: "operand"}}
+		logicalNot: result: {op: "logicalNot", value: {op: "evaluate", field: "operand"}}
 		integer: result: {
 			op:    "field"
 			field: "value"

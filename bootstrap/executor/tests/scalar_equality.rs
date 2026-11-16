@@ -258,7 +258,6 @@ fn source_precedence_associativity_and_cli() {
         ("1 ! 1", 2, "unexpected or unsupported syntax"),
         ("1 === 1", 4, "expected signed decimal integer"),
         ("1 !== 1", 4, "expected signed decimal integer"),
-        ("!true", 0, "expected signed decimal integer"),
     ] {
         let expected = format!("source byte {offset}: {reason}");
         for parsed in [

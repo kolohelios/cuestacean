@@ -48,6 +48,7 @@ package bootstrap
 		lowerBound: {op: "call", path: "runtime::lower_bound", args: [V]}
 		upperBound: {op: "call", path: "runtime::upper_bound", args: [V]}
 		negate: {op: "call", path: "runtime::negate", args: [V]}
+		logicalNot: {op: "call", path: "runtime::logical_not", args: [V]}
 		sum: {op: "call", path: "runtime::sum", args: [L, R]}
 		logicalAnd: {op: "call", path: "runtime::logical_and", args: [L, R]}
 		logicalOr: {op: "call", path: "runtime::logical_or", args: [L, R]}

@@ -67,6 +67,8 @@ struct Grammar {
     bounds: Vec<BoundPrefix>,
     #[serde(default)]
     negation: Option<Negation>,
+    #[serde(default)]
+    logical_not: Option<Negation>,
     group: Group,
     operators: Vec<Operator>,
 }
@@ -159,6 +161,16 @@ impl Grammar {
         {
             return GrammarSnafu {
                 reason: "invalid negation configuration",
+            }
+            .fail();
+        }
+        if let Some(logical_not) = &self.logical_not
+            && (logical_not.token != "!"
+                || logical_not.kind.is_empty()
+                || !field(&logical_not.operand_field))
+        {
+            return GrammarSnafu {
+                reason: "invalid logical not configuration",
             }
             .fail();
         }
@@ -428,6 +440,9 @@ enum PrimaryState {
     GroupScanned(Option<usize>),
     GroupAdvanced,
     GroupParsed,
+    NotScanned(Option<usize>),
+    NotAdvanced,
+    NotParsed,
     NegationScanned(Option<usize>),
     NegationAdvanced,
     NegationParsed,
@@ -585,8 +600,67 @@ impl Frame<'_, '_> {
         self.primary_state = Some(PrimaryState::Done);
         Ok(())
     }
-    pub fn scan_negation(&mut self) -> Result<(), Error> {
+    pub fn scan_not(&mut self) -> Result<(), Error> {
         if !matches!(self.primary_state, Some(PrimaryState::GroupScanned(_))) {
+            return self.primary_state_error();
+        }
+        let scan = crate::scanner::not_prefix(self.parser.source, self.parser.offset)?;
+        let candidate =
+            (scan.flag && self.parser.grammar.logical_not.is_some()).then_some(scan.offset);
+        self.primary_state = Some(PrimaryState::NotScanned(candidate));
+        Ok(())
+    }
+    pub fn has_not(&self) -> Result<bool, Error> {
+        match self.primary_state {
+            Some(PrimaryState::NotScanned(end)) => Ok(end.is_some()),
+            _ => self.primary_state_error(),
+        }
+    }
+    pub fn advance_not(&mut self) -> Result<(), Error> {
+        let Some(PrimaryState::NotScanned(Some(end))) = self.primary_state else {
+            return self.primary_state_error();
+        };
+        self.advance_primary(end)?;
+        self.primary_state = Some(PrimaryState::NotAdvanced);
+        Ok(())
+    }
+    pub fn parse_not(&mut self, minimum: u8) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::NotAdvanced)) {
+            return self.primary_state_error();
+        }
+        self.left = Some(self.parser.expression(minimum, self.depth + 1)?);
+        self.primary_state = Some(PrimaryState::NotParsed);
+        Ok(())
+    }
+    pub fn build_not(&mut self) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::NotParsed)) {
+            return self.primary_state_error();
+        }
+        self.parser.node()?;
+        let operand = self.left.take().ok_or(Error::ControlState {
+            reason: "missing logical not operand",
+        })?;
+        let constructor = self
+            .parser
+            .grammar
+            .logical_not
+            .as_ref()
+            .ok_or(Error::ControlState {
+                reason: "missing logical not constructor",
+            })?;
+        self.left = Some(ast::unary(
+            constructor.kind.clone(),
+            constructor.operand_field.clone(),
+            operand,
+        ));
+        self.primary_state = Some(PrimaryState::Done);
+        Ok(())
+    }
+    pub fn scan_negation(&mut self) -> Result<(), Error> {
+        if !matches!(
+            self.primary_state,
+            Some(PrimaryState::GroupScanned(_) | PrimaryState::NotScanned(_))
+        ) {
             return self.primary_state_error();
         }
         let scan = crate::scanner::negation_prefix(self.parser.source, self.parser.offset)?;
@@ -644,7 +718,11 @@ impl Frame<'_, '_> {
     pub fn scan_bound(&mut self) -> Result<(), Error> {
         if !matches!(
             self.primary_state,
-            Some(PrimaryState::GroupScanned(_) | PrimaryState::NegationScanned(_))
+            Some(
+                PrimaryState::GroupScanned(_)
+                    | PrimaryState::NotScanned(_)
+                    | PrimaryState::NegationScanned(_)
+            )
         ) {
             return self.primary_state_error();
         }
@@ -856,6 +934,89 @@ impl Frame<'_, '_> {
 #[cfg(test)]
 mod string_state_tests {
     use super::*;
+
+    #[test]
+    fn logical_not_metadata_and_stages() -> Result<(), Box<dyn std::error::Error>> {
+        let base = serde_json::json!({
+            "formatVersion": 1, "integer": {"kind":"integer", "valueField":"value"},
+            "group": {"open":"(", "close":")"},
+            "operators": [{"token":"+", "kind":"add", "leftField":"left",
+                "rightField":"right", "precedence":10, "associativity":"left"}]
+        });
+        for invalid in [
+            serde_json::json!({"token":"-", "kind":"not", "operandField":"operand"}),
+            serde_json::json!({"token":"!", "kind":"", "operandField":"operand"}),
+            serde_json::json!({"token":"!", "kind":"not", "operandField":"kind"}),
+            serde_json::json!({"token":"!", "kind":"not", "operandField":""}),
+        ] {
+            let mut value = base.clone();
+            value["logicalNot"] = invalid;
+            let grammar: Grammar = serde_json::from_value(value)?;
+            assert!(matches!(grammar.validate(), Err(Error::Grammar { .. })));
+        }
+        let mut value = base;
+        value["logicalNot"] =
+            serde_json::json!({"token":"!", "kind":"not", "operandField":"operand"});
+        let grammar: Grammar = serde_json::from_value(value)?;
+        grammar.validate()?;
+        let mut parser = Parser {
+            source: "!λ",
+            grammar: &grammar,
+            offset: 0,
+            nodes: 0,
+            engine: Engine::Compiled(generated::execute),
+            primary_engine: Engine::Compiled(generated_primary::execute),
+        };
+        let mut frame = Frame {
+            parser: &mut parser,
+            minimum: 0,
+            depth: 0,
+            left: None,
+            right: None,
+            operator: None,
+            token_end: 0,
+            consumed: false,
+            binding: None,
+            fuel: 4096,
+            primary_state: Some(PrimaryState::Start),
+            in_primary: true,
+        };
+        assert!(matches!(frame.has_not(), Err(Error::ControlState { .. })));
+        assert!(matches!(frame.scan_not(), Err(Error::ControlState { .. })));
+        assert!(matches!(
+            frame.advance_not(),
+            Err(Error::ControlState { .. })
+        ));
+        assert!(matches!(
+            frame.parse_not(101),
+            Err(Error::ControlState { .. })
+        ));
+        assert!(matches!(frame.build_not(), Err(Error::ControlState { .. })));
+        for end in [0, 2, 4] {
+            frame.primary_state = Some(PrimaryState::NotScanned(Some(end)));
+            assert!(matches!(
+                frame.advance_not(),
+                Err(Error::ControlState { .. })
+            ));
+            assert_eq!(frame.parser.offset, 0);
+        }
+        frame.primary_state = Some(PrimaryState::GroupScanned(None));
+        frame.scan_not()?;
+        assert!(frame.has_not()?);
+        frame.advance_not()?;
+        assert_eq!(frame.parser.offset, 1);
+        assert!(matches!(frame.build_not(), Err(Error::ControlState { .. })));
+        frame.left = Some(serde_json::json!({"kind":"boolean"}));
+        frame.primary_state = Some(PrimaryState::NotParsed);
+        frame.build_not()?;
+        assert_eq!(
+            frame.left,
+            Some(serde_json::json!({"kind":"not", "operand":{"kind":"boolean"}}))
+        );
+        assert_eq!(frame.parser.nodes, 1);
+        assert!(matches!(frame.build_not(), Err(Error::ControlState { .. })));
+        Ok(())
+    }
 
     #[test]
     fn checked_stages_and_spans() -> Result<(), Box<dyn std::error::Error>> {

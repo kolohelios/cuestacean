@@ -104,6 +104,12 @@ impl Driver for Compiled {
                 })?;
                 Ok(())
             }),
+            "logicalNot" => ctx.call("runtime::logical_not", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
+                })?;
+                Ok(())
+            }),
             "logicalOr" => ctx.call("runtime::logical_or", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
