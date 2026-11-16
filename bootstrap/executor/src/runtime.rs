@@ -1,5 +1,5 @@
 //! Value primitives shared by interpreted and generated evaluators.
-//! Unification dispatches CUE-generated control; other primitives remain native.
+//! Unification and addition dispatch CUE-generated control over native kernels.
 
 use std::sync::Arc;
 
@@ -11,6 +11,10 @@ use crate::{Error, JsonSnafu, Program, VersionSnafu};
 #[cfg(feature = "semantics")]
 #[path = "../../generated/unify.rs"]
 mod generated_unification;
+
+#[cfg(feature = "semantics")]
+#[path = "../../generated/sum.rs"]
+mod generated_sum;
 
 /// Owned scalar scaffold; abstract types are not conflicting values.
 /// Concrete integers are still restricted to the bootstrap i64 domain.
@@ -113,11 +117,40 @@ pub fn negate(value: Value) -> Result<Value, Error> {
         .ok_or(Error::NegationOverflow)
 }
 
-pub fn sum(left: Value, right: Value) -> Result<Value, Error> {
-    let (left, right) = operands(left, right)?;
-    left.checked_add(right)
+/// Checked integer primitive; overload selection belongs to CUE control.
+pub fn integer_sum(left: &Value, right: &Value) -> Result<Value, Error> {
+    let (Value::Integer(left), Value::Integer(right)) = (left, right) else {
+        return Err(Error::Arithmetic);
+    };
+    left.checked_add(*right)
         .map(Value::Integer)
         .ok_or(Error::Overflow)
+}
+
+fn text_buffer(left_len: usize, right_len: usize) -> Result<String, Error> {
+    let capacity = left_len.checked_add(right_len).ok_or(Error::TextCapacity)?;
+    let mut buffer = String::new();
+    buffer
+        .try_reserve_exact(capacity)
+        .map_err(|_| Error::TextCapacity)?;
+    Ok(buffer)
+}
+
+/// Checked text primitive; concatenation preserves the original UTF-8 bytes.
+pub fn text_concat(left: &Value, right: &Value) -> Result<Value, Error> {
+    let (Value::Text(left), Value::Text(right)) = (left, right) else {
+        return Err(Error::Arithmetic);
+    };
+    let mut buffer = text_buffer(left.len(), right.len())?;
+    buffer.push_str(left);
+    buffer.push_str(right);
+    Ok(Value::Text(Arc::from(buffer)))
+}
+
+/// Add using generated CUE policy; compiler-only seeds exclude this API.
+#[cfg(feature = "semantics")]
+pub fn sum(left: Value, right: Value) -> Result<Value, Error> {
+    generated_sum::sum(left, right)
 }
 
 pub fn difference(left: Value, right: Value) -> Result<Value, Error> {
@@ -200,4 +233,44 @@ pub fn upper_bound(value: Value) -> Result<Value, Error> {
 #[cfg(feature = "semantics")]
 pub fn unify(left: Value, right: Value) -> Result<Value, Error> {
     generated_unification::unify(left, right)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Value, integer_sum, text_buffer, text_concat};
+    use crate::Error;
+    use std::sync::Arc;
+
+    #[test]
+    fn checked_sum_and_concat_kernels() {
+        assert_eq!(
+            integer_sum(&Value::Integer(20), &Value::Integer(22)).ok(),
+            Some(Value::Integer(42))
+        );
+        assert!(matches!(
+            integer_sum(&Value::Integer(i64::MAX), &Value::Integer(1)),
+            Err(Error::Overflow)
+        ));
+        let left: Arc<str> = Arc::from("é");
+        let value = Value::Text(Arc::clone(&left));
+        let result = text_concat(&value, &Value::Text(Arc::from("\u{301}")));
+        assert_eq!(result.ok(), Some(Value::Text(Arc::from("é\u{301}"))));
+        assert_eq!(&*left, "é");
+        assert!(matches!(
+            text_concat(&value, &Value::Int),
+            Err(Error::Arithmetic)
+        ));
+        assert!(matches!(
+            integer_sum(&value, &Value::Int),
+            Err(Error::Arithmetic)
+        ));
+        assert!(matches!(
+            text_buffer(usize::MAX, 1),
+            Err(Error::TextCapacity)
+        ));
+        assert!(matches!(
+            text_buffer(usize::MAX, 0),
+            Err(Error::TextCapacity)
+        ));
+    }
 }

@@ -10,8 +10,10 @@ unification are supported. Equality is content-based, without normalization.
 Unicode (`\u`/`\U`), hex/octal and other escapes, interpolation, hash/raw and
 multiline literals remain outside this deliberately small profile. Raw ASCII
 control bytes and embedded BOM reject; raw ordinary Unicode is accepted.
-String concatenation/other string operations are not introduced: arithmetic
-still requires concrete integers. This is not full CUE string syntax or support.
+[CUE addition control](sum.md) now concatenates two concrete strings with `+`;
+all other arithmetic still requires concrete integers. Mixed and abstract operands
+reject without coercion or symbolic propagation. This is not full CUE string syntax
+or support.
 
 ## CUE control and native boundary
 

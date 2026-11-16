@@ -115,8 +115,10 @@ pub enum Error {
     IncompleteBounds,
     #[snafu(display("bound threshold requires a concrete integer"))]
     BoundThreshold,
-    #[snafu(display("arithmetic requires concrete integer operands"))]
+    #[snafu(display("arithmetic requires compatible concrete operands"))]
     Arithmetic,
+    #[snafu(display("string concatenation exceeds available capacity"))]
+    TextCapacity,
     #[snafu(display("{source}"))]
     Lowering { source: lowering::Error },
     #[snafu(display("{source}"))]

@@ -33,6 +33,7 @@ advantages remain a hypothesis, not a measured result.
 | AST construction | `bootstrap/ast-*.cue`, [builder contract](../bootstrap/ast.md) | `src/ast.rs`; typed builders, no native parser JSON-map assembly |
 | Pratt expression loop | `bootstrap/pratt.cue`, [control contract](../bootstrap/pratt.md) | `src/pratt.rs`, checked native frame callbacks in `src/parser.rs` |
 | Primary dispatch | `bootstrap/primary.cue`, [primary contract](../bootstrap/primary.md) | Same control compiler; groups, negation, bounds, atoms, integers |
+| Scalar addition | `bootstrap/sum.cue`, [binary control](../bootstrap/sum.md) | Same finite control compiler; native checked integer/text kernels; generated policy |
 | Scalar unification | `bootstrap/unify.cue`, [unification contract](../bootstrap/unify.md) | `src/unification.rs`; native `runtime::unify` delegates generated policy |
 
 Paths beginning `src/` above are under `bootstrap/executor/`.
@@ -67,6 +68,9 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 - `div/mod` are Euclidean; `quo/rem` truncate toward zero. Do not substitute
   floor division for Euclidean behavior with negative divisors. Quotient
   i64::MIN / -1 overflows; both remainders are zero. Avoid `abs(i64::MIN)`.
+- CUE-owned `+` dispatch adds concrete integers or concatenates two concrete
+  strings. Other arithmetic remains integer-only; no implicit coercion is added.
+  The Arithmetic diagnostic is now `arithmetic requires compatible concrete operands`.
 - Arithmetic requires concrete operands and checks intermediates, with no
   backward constraint propagation. Evaluate children left-first before primitive
   operand/zero checks. Child errors propagate before enclosing arithmetic.
@@ -132,6 +136,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#74](https://github.com/kolohelios/cuestacean/pull/74) | CUE-defined self-regenerating lowering-expression emitter |
 | [#76](https://github.com/kolohelios/cuestacean/pull/76) | CUE-defined complete lowering-driver/module-statement emission |
 | [#78](https://github.com/kolohelios/cuestacean/pull/78) | Owned JSON string scalars and CUE string-domain unification |
+| [#80](https://github.com/kolohelios/cuestacean/pull/80) | CUE-controlled single-line source strings and abstract `string` |
 
 ## Build and validation runbook
 

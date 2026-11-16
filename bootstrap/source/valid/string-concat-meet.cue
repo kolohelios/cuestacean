@@ -1,0 +1,2 @@
+string & ("a" + // join
+"b")

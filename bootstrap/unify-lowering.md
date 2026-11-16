@@ -30,7 +30,10 @@ serializes these internally as `inputValue` versus `inputEndpoint` so a single
 backend can distinguish them. The original wire still accepts only `input`;
 serialized-only aliases are not new control syntax. Native enums serialize side,
 endpoint, kind, relation and failure tags as data; CUE's select maps own their
-Rust spelling. Complete typed/lexical validation precedes any backend execution.
+Rust spelling. The bridge always supplies a validated `function` enum (`unify`
+or `sum`), defaulted for legacy control wire documents. CUE selects the compiled
+entry name and emits the `integerSum`/`textConcat` kernel calls used by
+[addition control](sum.md). These are not arbitrary identifier/path inputs. Complete typed/lexical validation precedes any backend execution.
 
 `letBounds` still emits a simultaneous tuple initializer: both initializers see
 the outer `_lower`/`_upper` binding, then the result sees the new pair. Conditional

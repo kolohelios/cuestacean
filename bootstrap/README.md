@@ -9,7 +9,9 @@
 - `true` / `false` / `boolType`: payload-free boolean values and type constraint.
 - `lowerBound`: an inclusive lower threshold in integer `value`.
 - `upperBound`: an inclusive upper threshold in integer `value`.
-- `add`: ordered `left` and `right` expression children.
+- `add`: ordered `left` and `right` expression children. [CUE control](sum.md)
+  chooses checked integer addition or text concatenation; `concatenation.cue`
+  demonstrates the string case.
 - `multiply`: ordered `left` and `right` expression children.
 - `subtract`: ordered children, subtracting right from left.
 - `negate`: an `operand` expression, negated with checked i64 arithmetic.

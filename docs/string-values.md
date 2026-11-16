@@ -20,8 +20,9 @@ The public unification API still consumes two Values and returns an owned result
 Tag, endpoint and failure primitives inspect `&Value`; only an explicitly selected
 input is cloned for a result. CUE compiler policy owns the emitted borrow/clone
 spelling. The reference solver borrows its immutable input pair while traversing
-control. Arithmetic continues consuming operands, rejecting non-integers after
-left-first child evaluation. Existing copy-dependent tests must clone deliberately.
+control. Arithmetic continues consuming operands after left-first child evaluation.
+[CUE addition control](../bootstrap/sum.md) selects checked integer addition or
+owned text concatenation; other arithmetic remains integer-only. Existing copy-dependent tests must clone deliberately.
 
 ## CUE-owned semantics
 
@@ -33,8 +34,10 @@ unification. Unicode data is preserved without normalization or coercion.
 
 `execute_json` and both JSON evaluator CLIs emit exact JSON string scalars; legacy
 integer `execute` rejects concrete strings. Abstract string output is incomplete.
-Ordinary integer/boolean source behavior remains unchanged. String concatenation,
-comparison operators and native source-policy fallback remain unsupported.
+Ordinary integer/boolean values and arithmetic results remain unchanged; the
+Arithmetic diagnostic now says compatible concrete operands rather than integers.
+Concrete text concatenation uses CUE addition control; comparison operators and
+native source-policy fallback remain unsupported.
 
 ## Evidence and bootstrap
 

@@ -69,8 +69,10 @@ The [string profile](../strings.md) admits double-quoted raw UTF-8, empty string
 the common escapes `\"`, `\\`, `\b`, `\f`, `\n`, `\r`, `\t`, and the abstract `string`
 atom. CUE scanner/primary/builder programs own lexical selection and AST construction;
 native checked conversion decodes the admitted subset. Raw controls/BOM reject.
-Unicode/hex/octal escapes, interpolation, hash/raw/multiline forms and string
-arithmetic remain unsupported. JSON output escape spelling may differ from Go CUE;
+[CUE-owned addition](../sum.md) concatenates two concrete strings using `+`,
+with existing precedence and associativity. No coercion or abstract propagation
+is added. Unicode/hex/octal escapes, interpolation, hash/raw/multiline forms and
+other string arithmetic remain unsupported. JSON output escape spelling may differ from Go CUE;
 comparisons canonicalize strings only, retaining exact numeric checks.
 
 ### Line comments

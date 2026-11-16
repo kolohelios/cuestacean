@@ -82,7 +82,8 @@ shares the handwritten `bootstrap_executor::runtime` primitives for JSON
 validation, field access, integer/type values, inclusive bounds, unification,
 and checked integer arithmetic, including `difference`/subtraction. Unification delegates to `unify.rs`, generated
 from the [unification DSL](../unify.md); `unify-right` and `unify-scoped` are
-test-only policies. Intermediate values may be abstract `bool`, `int` or
+test-only policies. Addition now delegates to `sum.rs` through the same finite
+binary-control DSL ([contract](../sum.md)); `sum-right` is test-only. Intermediate values may be abstract `bool`, `int` or
 bounds; JSON evaluation also supports owned strings and abstract `string`.
 Public `execute_json` requires a concrete JSON integer/boolean/string;
 legacy `execute` remains integer-only. The normal module is exposed as
@@ -152,7 +153,7 @@ done
 bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/pratt.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/pratt-lowering-no-increment.json" \
   | rustfmt --edition 2024 > bootstrap/generated/pratt-no-increment.rs
-for control in unify tests/valid/unify-right tests/valid/unify-scoped; do
+for control in unify sum tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
   name=$(basename "$control")
   bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"

@@ -18,7 +18,12 @@ does not define accepted source syntax.
 
 ## Finite typed control
 
-`#UnifyProgram` version 1 contains a `result` expression. Value expressions
+`#UnifyProgram` version 1 contains a `result` expression. The same finite binary
+control now implements [addition](sum.md): optional `function` is the validated
+compiled entry-name enum `unify` (default) or `sum`, not a runtime behavior mode.
+`integerSum` and `textConcat` call checked borrowed-input kernels; `fail` also
+supports `arithmetic`. The interpreter executes `result` independently of the
+entry-name metadata. There is no native overloaded-addition fallback. Value expressions
 select an input, branch with `if`, bind endpoints with `letBounds`, construct
 bounds, or fail with string, boolean, type, integer or bounds conflict errors. Endpoint
 expressions project an input endpoint, read a lexical local, produce `empty`,

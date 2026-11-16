@@ -112,7 +112,7 @@ fn independent_trees_and_export_exercise_both_evaluators() {
                 result
                     .expect_err("abstract subtraction operand")
                     .to_string(),
-                "arithmetic requires concrete integer operands"
+                "arithmetic requires compatible concrete operands"
             );
         }
     }
@@ -290,12 +290,12 @@ fn malformed_source_and_failed_cli_never_emit_partial_output() {
         (
             "incomplete",
             "int",
-            "arithmetic requires concrete integer operands",
+            "arithmetic requires compatible concrete operands",
         ),
         (
             "incomplete",
             "bound",
-            "arithmetic requires concrete integer operands",
+            "arithmetic requires compatible concrete operands",
         ),
         ("conflicts", "refine", "conflicting integer"),
     ] {
