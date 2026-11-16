@@ -36,6 +36,12 @@ mod generated_less;
 #[cfg(feature = "semantics")]
 #[path = "../../generated/less-equal.rs"]
 mod generated_less_equal;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/logical-and.rs"]
+mod generated_logical_and;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/logical-or.rs"]
+mod generated_logical_or;
 
 /// Owned scalar scaffold; abstract types are not conflicting values.
 /// Concrete integers are still restricted to the bootstrap i64 domain.
@@ -205,6 +211,18 @@ pub fn greater(left: Value, right: Value) -> Result<Value, Error> {
 #[cfg(feature = "semantics")]
 pub fn greater_equal(left: Value, right: Value) -> Result<Value, Error> {
     generated_greater_equal::greater_equal(left, right)
+}
+
+/// Select a logical value using generated CUE policy.
+#[cfg(feature = "semantics")]
+pub fn logical_and(left: Value, right: Value) -> Result<Value, Error> {
+    generated_logical_and::logical_and(left, right)
+}
+
+/// Select a logical value using generated CUE policy.
+#[cfg(feature = "semantics")]
+pub fn logical_or(left: Value, right: Value) -> Result<Value, Error> {
+    generated_logical_or::logical_or(left, right)
 }
 
 pub fn difference(left: Value, right: Value) -> Result<Value, Error> {

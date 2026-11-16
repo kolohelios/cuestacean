@@ -27,7 +27,16 @@ Within this directory, `just validate` checks Nix formatting, flake evaluation,
 whitespace, and the [bootstrap export](../../bootstrap/README.md). The flake's
 `bootstrap-export` check builds the `exports` output: it exports each CUE
 fixture twice, compares the results, and requires malformed expression trees
-and evaluation-rule descriptions to fail export. JSON is not committed. The
+and evaluation-rule descriptions to fail export. JSON is not committed.
+Each fixture loads `schema.cue` plus only its required fragment definitions,
+selected by the explicit closure table in `flake.nix`. CI export processes were killed (exit 137). Narrowed closures alone did not
+resolve this: the recursive AST schema also needed its identical binary shapes
+factored into one tagged definition, retaining constructor aliases and closed
+fields. Both changes were checked against the previous complete JSON output
+and retained identical bytes. When adding a fixture that references a fragment,
+update that table; current invalid fixtures reference schema definitions only.
+Missing-reference diagnostics fail fixture setup rather than count as schema
+rejections. Both repeated exports and all negative-schema checks remain mandatory. The
 `bootstrap-executor` check builds handwritten evaluator/scanner/AST/Pratt/unification compiler seeds
 without intermediate artifacts or the default `source` feature. It then uses
 the fresh exports to regenerate Rust before compiling the final package with

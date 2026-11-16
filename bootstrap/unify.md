@@ -25,7 +25,9 @@ behavior mode. [Scalar equality](equality.md) adds `boolean {value}` constructio
 and `comparison` failure; CUE owns concrete-domain guards and result selection.
 [Ordering](ordering.md) adds four validated entry names, `textCompare` conditions,
 inclusive finite relations and `ordering` failure. Existing unification semantics
-and missing-endpoint guards remain unchanged.
+and missing-endpoint guards remain unchanged. [Logical selection](logic.md) adds
+`logicalAnd` / `logicalOr`, `booleanIs {input, value}` inspection and `logical`
+failure. Eager children and both-value concreteness precede CUE result selection.
 `integerSum` and `textConcat` call checked borrowed-input kernels; `fail` also
 supports `arithmetic`. The interpreter executes `result` independently of the
 entry-name metadata. There is no native overloaded-addition fallback. Value expressions

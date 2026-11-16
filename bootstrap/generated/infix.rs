@@ -17,7 +17,18 @@ pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
         cursor.step()?;
         if matches!(cursor.peek(), Some(38 | 42 | 43 | 45 | 47)) {
             cursor.step()?;
-            cursor.advance()?;
+            if matches!(cursor.peek(), Some(38)) {
+                cursor.step()?;
+                cursor.advance()?;
+                cursor.step()?;
+                if matches!(cursor.peek(), Some(38)) {
+                    cursor.step()?;
+                    cursor.advance()?;
+                }
+            } else {
+                cursor.step()?;
+                cursor.advance()?;
+            }
             cursor.step()?;
             cursor.set_flag(true);
         } else {
@@ -116,6 +127,21 @@ pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
             }
             cursor.step()?;
             cursor.set_flag(true);
+        }
+    }
+    cursor.step()?;
+    if !cursor.flag() {
+        cursor.step()?;
+        if matches!(cursor.peek(), Some(124)) {
+            cursor.step()?;
+            if matches!(cursor.peek_at(1), Some(124)) {
+                cursor.step()?;
+                cursor.advance()?;
+                cursor.step()?;
+                cursor.advance()?;
+                cursor.step()?;
+                cursor.set_flag(true);
+            }
         }
     }
     Ok(cursor.finish())

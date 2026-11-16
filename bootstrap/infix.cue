@@ -21,7 +21,9 @@ let wordContinuationBytes = list.Concat([list.Range(48, 58, 1), list.Range(65, 9
 	else: [{
 		op: "if"
 		condition: {op: "byteIn", bytes: [38, 42, 43, 45, 47]}
-		then: [{op: "advance"}, {op: "setFlag", value: true}]
+		then: [{op: "if", condition: {op: "byteIn", bytes: [38]}
+			then: [{op: "advance"}, {op: "if", condition: {op: "byteIn", bytes: [38]}, then: [{op: "advance"}]}]
+			else: [{op: "advance"}]}, {op: "setFlag", value: true}]
 		else: [
 			{op: "if", condition: {op: "byteIn", bytes: [100]}, then: [// div
 				{op: "if", condition: {op: "byteIn", ahead: 1, bytes: [105]}, then: [
@@ -50,5 +52,12 @@ let wordContinuationBytes = list.Concat([list.Range(48, 58, 1), list.Range(65, 9
 		{op: "advance"},
 		{op: "if", condition: {op: "byteIn", bytes: [61]}, then: [{op: "advance"}]},
 		{op: "setFlag", value: true},
+	]}]
+}, {
+	op: "if", condition: {op: "flagIs", value: false}
+	then: [{op: "if", condition: {op: "byteIn", bytes: [124]}, then: [
+		{op: "if", condition: {op: "byteIn", ahead: 1, bytes: [124]}, then: [
+			{op: "advance"}, {op: "advance"}, {op: "setFlag", value: true},
+		]},
 	]}]
 }]}

@@ -38,11 +38,14 @@ entry name and emits the `integerSum`/`textConcat` kernel calls used by
 [Ordering control](ordering.md) adds four enum-validated names and a `textCompare`
 condition; CUE also maps inclusive relation names to fixed Rust variants. Native
 finite/text comparison kernels do not choose allowed source domains.
+Logical control adds two fixed entry names and `booleanIs` literal/side projection.
 These are not arbitrary identifier/path inputs. Complete typed/lexical validation precedes any backend execution.
 
 `letBounds` still emits a simultaneous tuple initializer: both initializers see
 the outer `_lower`/`_upper` binding, then the result sees the new pair. Conditional
-branches and short-circuit `and`/`or` retain their order and lazy behavior. The
+branches and control-condition `and`/`or` retain their order and lazy behavior.
+This is not source `&&`/`||` child laziness: logical instructions evaluate both
+children before CUE binary policy runs. The
 existing compiled scoped fixture and meet-law/error tests remain independent
 checks, not merely two engines agreeing on source text.
 

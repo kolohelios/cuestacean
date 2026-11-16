@@ -35,9 +35,10 @@ The default grammar accepts decimal signed integers, `true`/`false` and `bool`/`
 inclusive bounds (`>=`, `<=`), addition, subtraction, multiplication,
 integer division/remainder (`div`, `mod`, `quo`, `rem`), scalar comparisons
 (`==`, `!=`, `<`, `<=`, `>`, `>=`),
-unification (`&`), parentheses and `//` line-comment trivia. Multiplication and integer division/remainder bind more tightly than
+logical `&&` / `||`, unification (`&`), parentheses and `//` line-comment trivia. Multiplication and integer division/remainder bind more tightly than
 addition/subtraction, which share a precedence and bind more tightly than
-the comparison operators, which in turn bind more tightly than `&`;
+the comparison operators, which in turn bind more tightly than `&&`, then `||`,
+then `&`;
 binary operators are left-associative, and unary negation binds more tightly.
 These choices live in CUE grammar data, not in the parser algorithm.
 `1 + 2 * 3` produces `7`, while `(1 + 2) * 3` produces `9`.
@@ -60,8 +61,13 @@ there is no native keyword dispatch. `bool & true` and `true & true` produce
 incomplete, not conflicting. `true & false` conflicts, as do all boolean/numeric
 mixes such as `int & true` and `>=0 & false`. CUE unification control owns these
 decisions before numeric identity. Arithmetic still requires concrete integers:
-no boolean-to-number coercion or logical operators are added. Scalar equality
-is described below.
+no boolean-to-number coercion is added. [CUE logical selection](../logic.md)
+now supplies `&&` / `||`. Both children evaluate eagerly, left-first, and must
+be concrete; only a concrete RHS's type can be ignored if the left determines
+the result (`false && 1` is false). RHS errors and abstract values still fail.
+The default levels are `&` 5, `||` 6, `&&` 7, comparisons 8, `+`/`-` 10 and
+multiplication/division 20. The comparison level moves from 7 to 8 without
+changing any earlier relative precedence. Unary logical `!` is not added.
 See the [executor API/output contract](../executor/README.md) for the preserved
 integer API and JSON scalar APIs. Strings use owned shared values
 ([design](../../docs/string-values.md)); graph ownership still requires design.

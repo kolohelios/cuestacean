@@ -44,6 +44,14 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "logicalAnd" => runtime::logical_and(
+            (evaluate(runtime::field(node, "left")?))?,
+            (evaluate(runtime::field(node, "right")?))?,
+        ),
+        "logicalOr" => runtime::logical_or(
+            (evaluate(runtime::field(node, "left")?))?,
+            (evaluate(runtime::field(node, "right")?))?,
+        ),
         "lowerBound" => runtime::lower_bound((runtime::integer(node, "value"))?),
         "modulo" => runtime::modulo(
             (evaluate(runtime::field(node, "left")?))?,

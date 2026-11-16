@@ -66,6 +66,9 @@ interprets that rule's result instruction against the current node:
   `quotient` / `remainder` truncate toward zero with dividend-signed remainder.
   Both children evaluate left-first before concreteness/zero-divisor checks.
   Quotient overflow fails; both remainders of i64::MIN by -1 are zero.
+- `logicalAnd` / `logicalOr` evaluate both children left-first, then use [CUE
+  logical selection](../logic.md). Both values must be concrete; a determining
+  left boolean can ignore a concrete RHS type, but never its evaluation error.
 - `less` / `lessEqual` / `greater` / `greaterEqual` use [CUE ordering](../ordering.md)
   for matching concrete integers or text; other pairs reject. Both children
   evaluate left-first before checks. String order is lexicographic, not normalized.

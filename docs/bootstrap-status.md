@@ -33,6 +33,7 @@ advantages remain a hypothesis, not a measured result.
 | AST construction | `bootstrap/ast-*.cue`, [builder contract](../bootstrap/ast.md) | `src/ast.rs`; typed builders, no native parser JSON-map assembly |
 | Pratt expression loop | `bootstrap/pratt.cue`, [control contract](../bootstrap/pratt.md) | `src/pratt.rs`, checked native frame callbacks in `src/parser.rs` |
 | Primary dispatch | `bootstrap/primary.cue`, [primary contract](../bootstrap/primary.md) | Same control compiler; groups, negation, bounds, atoms, integers |
+| Logical value selection | `bootstrap/{logic-fragments,logical-and,logical-or}.cue`, [logical control](../bootstrap/logic.md) | Same finite binary compiler; native boolean inspection; CUE concreteness/result policy |
 | Scalar ordering | `bootstrap/{ordering-fragments,less,less-equal,greater,greater-equal}.cue`, [ordering control](../bootstrap/ordering.md) | Same finite binary compiler; native finite/text comparisons; generated domain/result policy |
 | Scalar equality | `bootstrap/{equal,not-equal,equality-fragments}.cue`, [equality control](../bootstrap/equality.md) | Same finite binary compiler; native content equality; generated concreteness/result policy |
 | Scalar addition | `bootstrap/sum.cue`, [binary control](../bootstrap/sum.md) | Same finite control compiler; native checked integer/text kernels; generated policy |
@@ -52,11 +53,12 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 
 - Single-line quoted UTF-8 strings with seven common escapes; abstract `string`;
   signed decimal integers; `true`/`false`; `bool`/`int`; inclusive literal bounds `>=` / `<=`;
-  parentheses; `+`, `-`, `*`, `&`; unary expression negation;
+  parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary expression negation;
   `div`, `mod`, `quo`, `rem`; concrete scalar `==` / `!=`; integer/text `<` / `<=` / `>` / `>=`; CUE-owned UTF-8 `//` comment trivia.
 - Binary operators are left-associative by default. `div/mod/quo/rem` share
   multiplication's precedence 20; addition/subtraction use 10, unification 5.
-  Equality and ordering use precedence 7, between unification and addition/subtraction.
+  Default `||` uses 6, `&&` 7, comparisons 8 (previously 7). This preserves all
+  earlier relative precedences while inserting the two logical levels.
   Grammar data controls these choices. `/` is recognized for custom grammar
   configuration but remains unregistered by default: no rational arithmetic.
 - CUE word scanning requires complete keywords and preserves a following minus.
@@ -74,6 +76,10 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 - CUE-owned `+` dispatch adds concrete integers or concatenates two concrete
   strings. Other arithmetic remains integer-only; no implicit coercion is added.
   The Arithmetic diagnostic is now `arithmetic requires compatible concrete operands`.
+- Logical children evaluate left-first, including RHS errors before result
+  selection. Both values must be concrete; CUE can ignore a concrete RHS's type
+  when the left determines the boolean (`false && 1` / `true || "x"`). This is
+  not lazy child evaluation. Abstract/bound operands and selected nonbooleans fail.
 - Arithmetic requires concrete operands and checks intermediates, with no
   backward constraint propagation. Evaluate children left-first before primitive
   operand/zero checks. Child errors propagate before enclosing arithmetic.
@@ -144,6 +150,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#80](https://github.com/kolohelios/cuestacean/pull/80) | CUE-controlled single-line source strings and abstract `string` |
 | [#82](https://github.com/kolohelios/cuestacean/pull/82) | CUE-owned scalar addition dispatch and text concatenation |
 | [#84](https://github.com/kolohelios/cuestacean/pull/84) | CUE-owned concrete scalar equality and inequality |
+| [#86](https://github.com/kolohelios/cuestacean/pull/86) | CUE-owned complete integer/text ordering family |
 
 ## Build and validation runbook
 

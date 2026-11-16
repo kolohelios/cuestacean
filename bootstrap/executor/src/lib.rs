@@ -119,6 +119,8 @@ pub enum Error {
     Arithmetic,
     #[snafu(display("comparison requires concrete operands"))]
     Comparison,
+    #[snafu(display("invalid logical operands"))]
+    Logical,
     #[snafu(display("ordering requires matching concrete integers or strings"))]
     Ordering,
     #[snafu(display("string concatenation exceeds available capacity"))]
@@ -206,6 +208,16 @@ enum Instruction {
         right: Box<Instruction>,
     },
     Remainder {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
+    #[serde(rename = "logicalAnd")]
+    LogicalAnd {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
+    #[serde(rename = "logicalOr")]
+    LogicalOr {
         left: Box<Instruction>,
         right: Box<Instruction>,
     },
@@ -331,6 +343,16 @@ fn instruction(
             let left = instruction(left, node, rules)?;
             let right = instruction(right, node, rules)?;
             runtime::remainder(left, right)
+        }
+        Instruction::LogicalAnd { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::logical_and(left, right)
+        }
+        Instruction::LogicalOr { left, right } => {
+            let left = instruction(left, node, rules)?;
+            let right = instruction(right, node, rules)?;
+            runtime::logical_or(left, right)
         }
         Instruction::Less { left, right } => {
             let left = instruction(left, node, rules)?;

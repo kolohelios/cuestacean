@@ -49,6 +49,8 @@ or concrete string concatenation. [Scalar equality](bootstrap/equality.md)
 adds `==` and `!=` with CUE-owned concreteness guards and boolean result selection.
 [CUE ordering](bootstrap/ordering.md) adds `<`, `<=`, `>` and `>=` for matching
 concrete integers or text, preserving inclusive prefix bounds.
+[Logical selection](bootstrap/logic.md) adds `&&` / `||`, preserving eager child
+errors and selecting results/types in CUE.
 Value representation and low-level primitives remain native.
 
 ## CUE all the way down

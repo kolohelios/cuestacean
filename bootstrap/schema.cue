@@ -1,7 +1,15 @@
 package bootstrap
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #Ordering | #Equality | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #Addition | #Subtraction | #Multiplication | #Division | #Modulo | #Quotient | #Remainder | #Unification | #Negation
+#Expression: #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #Negation
+
+// Factor the identical recursive shape; separate recursive disjuncts expand
+// combinatorially in the upstream exporter as binary node kinds accumulate.
+#BinaryExpression: {
+	kind:  "add" | "subtract" | "multiply" | "divide" | "modulo" | "quotient" | "remainder" | "unify" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr"
+	left:  #Expression
+	right: #Expression
+}
 
 #IntegerLiteral: {
 	kind:  "integer"
@@ -28,57 +36,17 @@ package bootstrap
 	operand: #Expression
 }
 
-#Ordering: {kind: "less" | "lessEqual" | "greater" | "greaterEqual", left: #Expression, right: #Expression}
-
-#Equality: {kind: "equal" | "notEqual", left: #Expression, right: #Expression}
-
-#Addition: {
-	kind:  "add"
-	left:  #Expression
-	right: #Expression
-}
-
-#Subtraction: {
-	kind:  "subtract"
-	left:  #Expression
-	right: #Expression
-}
-
-#Multiplication: {
-	kind:  "multiply"
-	left:  #Expression
-	right: #Expression
-}
-
-#Division: {
-	kind:  "divide"
-	left:  #Expression
-	right: #Expression
-}
-
-#Modulo: {
-	kind:  "modulo"
-	left:  #Expression
-	right: #Expression
-}
-
-#Quotient: {
-	kind:  "quotient"
-	left:  #Expression
-	right: #Expression
-}
-
-#Remainder: {
-	kind:  "remainder"
-	left:  #Expression
-	right: #Expression
-}
-
-#Unification: {
-	kind:  "unify"
-	left:  #Expression
-	right: #Expression
-}
+#Logical: #BinaryExpression & {kind: "logicalAnd" | "logicalOr"}
+#Ordering: #BinaryExpression & {kind: "less" | "lessEqual" | "greater" | "greaterEqual"}
+#Equality: #BinaryExpression & {kind: "equal" | "notEqual"}
+#Addition: #BinaryExpression & {kind: "add"}
+#Subtraction: #BinaryExpression & {kind: "subtract"}
+#Multiplication: #BinaryExpression & {kind: "multiply"}
+#Division: #BinaryExpression & {kind: "divide"}
+#Modulo: #BinaryExpression & {kind: "modulo"}
+#Quotient: #BinaryExpression & {kind: "quotient"}
+#Remainder: #BinaryExpression & {kind: "remainder"}
+#Unification: #BinaryExpression & {kind: "unify"}
 
 #Program: {
 	formatVersion: 1
@@ -122,15 +90,15 @@ package bootstrap
 	op: "choose", condition: #UnifyCondition, then: #UnifyEndpoint, else: #UnifyEndpoint
 }
 #UnifyRelation: "equal" | "less" | "greater" | "lessEqual" | "greaterEqual"
-#UnifyCondition: {op: "textCompare", relation: #UnifyRelation} | {op: "kindIs", input: #UnifySide, kind: "integer" | "int" | "bounds" | "boolean" | "bool" | "text" | "string"} | {op: "same"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
+#UnifyCondition: {op: "booleanIs", input: #UnifySide, value: bool} | {op: "textCompare", relation: #UnifyRelation} | {op: "kindIs", input: #UnifySide, kind: "integer" | "int" | "bounds" | "boolean" | "bool" | "text" | "string"} | {op: "same"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
 	op: "compare", left: #UnifyEndpoint, right: #UnifyEndpoint, relation: #UnifyRelation
 } | {op: "and" | "or", left: #UnifyCondition, right: #UnifyCondition}
 #UnifyExpression: {op: "boolean", value: bool} | {op: "integerSum" | "textConcat"} | {op: "input", input: #UnifySide} | {
 	op: "if", condition: #UnifyCondition, then: #UnifyExpression, else: #UnifyExpression
 } | {
 	op: "letBounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint, result: #UnifyExpression
-} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering"}
-#UnifyProgram: {formatVersion: 1, function?: "unify" | "sum" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual", result: #UnifyExpression}
+} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering" | "logical"}
+#UnifyProgram: {formatVersion: 1, function?: "unify" | "sum" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr", result: #UnifyExpression}
 
 // Expression-parser control flow; native frame operations are explicit intrinsics.
 #PrattNumber: {op: "minimum"} | {op: "precedence"} | {op: "tokenLength"} | {op: "integer", value: uint & <=255} | {
@@ -227,7 +195,7 @@ package bootstrap
 // Pratt configuration: tokens and constructors come from data. #PrattProgram
 // owns expression and primary control flow; grammar lookup stays native.
 #InfixOperator: {
-	token:         string & =~"^([-+*/&<>]|<=|>=|==|!=|div|mod|quo|rem)$"
+	token:         string & =~"^([-+*/&<>]|&&|\\|\\||<=|>=|==|!=|div|mod|quo|rem)$"
 	kind:          string & !=""
 	leftField:     string & !="" & !="kind"
 	rightField:    string & !="" & !="kind" & !=leftField
@@ -324,6 +292,8 @@ package bootstrap
 			left:  #EvaluateChild
 			right: #EvaluateChild
 		}
+		logicalAnd: result: {op: "logicalAnd", left: #EvaluateChild, right: #EvaluateChild}
+		logicalOr: result: {op: "logicalOr", left: #EvaluateChild, right: #EvaluateChild}
 		less: result: {op: "less", left: #EvaluateChild, right: #EvaluateChild}
 		lessEqual: result: {op: "lessEqual", left: #EvaluateChild, right: #EvaluateChild}
 		greater: result: {op: "greater", left: #EvaluateChild, right: #EvaluateChild}

@@ -95,6 +95,24 @@ impl Driver for Compiled {
                 })?;
                 Ok(())
             }),
+            "logicalAnd" => ctx.call("runtime::logical_and", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
+                })?;
+                Ok(())
+            }),
+            "logicalOr" => ctx.call("runtime::logical_or", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
+                })?;
+                Ok(())
+            }),
             "lowerBound" => ctx.call("runtime::lower_bound", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
