@@ -45,6 +45,10 @@ The `ast-program`, `ast-atom`, `ast-integer`, `ast-binary`, and `ast-unary` modu
 the separate [AST construction DSL](../ast.md). They replace native parser map
 assembly. `ast-program-v2`, `ast-escaped`, and `ast-duplicate` are test-only
 programs for changed policy, escaping, and repeated owned arguments.
+`ast-lowering.rs` is their shared [CUE compiler backend](../ast-lowering.md);
+`ast-forced-integer.rs` compiles the same literal-7 input with an altered integer
+compiler case and returns 99. `lowering-numbers.rs` tests compiled signed extrema,
+escaped joined separators and lazy zero branching.
 
 `pratt.rs` is the generated [expression control program](../pratt.md), containing
 the operator loop, binding-power condition and associativity branch. The
@@ -78,7 +82,7 @@ cargo build --manifest-path bootstrap/executor/Cargo.toml --no-default-features 
   --bin bootstrap-ast-codegen --bin bootstrap-pratt-codegen --bin bootstrap-unify-codegen \
   --bin bootstrap-lower-codegen
 set -o pipefail
-for policy in lowering pratt-lowering unify-lowering tests/valid/lowering-select tests/valid/lowering-left-twice tests/valid/lowering-escaped tests/valid/lowering-reverse tests/valid/lowering-module-escaped tests/valid/lowering-collections; do
+for policy in lowering pratt-lowering unify-lowering ast-lowering tests/valid/lowering-numbers tests/valid/lowering-select tests/valid/lowering-left-twice tests/valid/lowering-escaped tests/valid/lowering-reverse tests/valid/lowering-module-escaped tests/valid/lowering-collections; do
   name=$(basename "$policy")
   bootstrap/executor/target/debug/bootstrap-lower-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$policy.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
@@ -108,6 +112,9 @@ for builder in ast-program ast-atom ast-integer ast-binary ast-unary tests/valid
   bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$builder.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
 done
+bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-literal.json" \
+  "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-lowering-forced.json" \
+  | rustfmt --edition 2024 > bootstrap/generated/ast-forced-integer.rs
 for control in primary tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
   tests/valid/primary-cross-phase tests/valid/primary-low-negation \
   pratt tests/valid/pratt-right tests/valid/pratt-stalled \
@@ -152,7 +159,10 @@ independent Nix output built only from CUE sources, not committed artifacts.
    artifacts. The shared CUE backend also reproduces every existing Pratt/primary
    driver. Unification emission now uses another shared backend while preserving
    its previous goldens and scoped tuple semantics; a deliberately permissive
-   compiled unifier checks alternate compiler-policy behavior.
+   compiled unifier checks alternate compiler-policy behavior. AST-builder emission
+   likewise preserves all old goldens while native checked binding/use facts feed
+   CUE-owned layout/clone/move rules; a compiled fixed-integer builder tests altered
+   compiler policy without changing builder IR.
    `pratt-no-increment` compiles an alternate compiler policy without
    modifying parser-control IR. Normal, alternate and escaped/zero-argument lowering drivers also
    have repeat/drift checks. Reverse traversal additionally regenerates and

@@ -8,8 +8,9 @@ The parser's JSON-object assembly now comes from five CUE builder programs:
 - `ast-binary.cue`: nodes with grammar-supplied kind and child field names.
 - `ast-unary.cue`: unary nodes with a dynamic kind and operand field.
 
-`bootstrap-ast-codegen <builder.json>` compiles these pure construction
-expressions into typed Rust functions. The parser calls the generated builders,
+`bootstrap-ast-codegen <builder.json> [lowering.json]` compiles these pure
+construction expressions through the shared [CUE backend](ast-lowering.md) into
+typed Rust functions. The parser calls the generated builders,
 not the interpreter; it no longer assembles JSON maps itself. No Go process or
 builder JSON file is needed during source execution.
 
@@ -17,7 +18,8 @@ These expressions define construction, not control flow; the separate
 [Pratt DSL](pratt.md) now supplies the expression loop and binding-power policy.
 The [primary control program](primary.md) supplies primary dispatch and grouping
 policy. Grammar validation/lookup, checked i64 conversion, frame safety, and
-the builder compiler/interpreter remain handwritten. Specification export
+native builder validation/use-count analysis and the reference construction
+interpreter remain handwritten. CUE owns Rust layout and clone/move selection. Specification export
 still uses upstream Go CUE. Neither the full parser nor its compiler is
 self-hosted yet.
 
@@ -50,7 +52,8 @@ positional JSON arguments dynamically.
 Metadata names never become Rust identifiers: emitted parameters use positional
 names such as `_arg0`. Literal strings/keys are escaped as Rust strings. Owned
 arguments are cloned only when reused, then moved on their final use. Normal
-parser builders use every argument once, avoiding subtree copies.
+parser builders use every argument once, avoiding subtree copies. Compilation also
+obeys the shared lowering string/work/frame/output bounds; see the backend contract.
 
 ## Checks and bootstrap
 

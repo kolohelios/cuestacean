@@ -112,7 +112,9 @@ remain handwritten.
 [AST builders](ast.md) separately define program wrappers, atoms, integer/bound
 leaves, and binary records as CUE construction expressions. Generated typed
 functions replace the parser's native JSON-map assembly while keeping dynamic
-grammar field names. Their compiler/interpreter remain handwritten.
+grammar field names. Their [compiler backend](ast-lowering.md) now uses shared
+CUE layout/ownership rules; checked binding/use-count analysis and the reference
+construction interpreter remain native.
 
 The [Pratt control program](pratt.md) now owns expression repetition,
 binding-power comparison, associativity adjustment and recursive-right sequencing.

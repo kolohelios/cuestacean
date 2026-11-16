@@ -8,7 +8,8 @@ recursive instruction-field selection, grouping and Result propagation.
 [Pratt compiler backend](pratt-lowering.md) now reuses this same machinery for
 numbers, predicates, statements and the generated parser-driver wrapper. The
 [unification backend](unify-lowering.md) now also uses it for solver-control
-emission and lexical binding layout.
+emission and lexical binding layout. The [AST-builder backend](ast-lowering.md)
+also uses it for constructors and ownership selection from checked native facts.
 
 The production generator now uses a **compiled CUE lowering driver**, not the
 policy interpreter. `bootstrap-lower-codegen` compiles validated policy expressions
@@ -36,8 +37,11 @@ source-language/evaluator behavior is unchanged.
 | `text {value}` | Append trusted target-source text |
 | `concat {parts}` | Ordered concatenation with no separator |
 | `unsigned {field}` | Stream a u64 as exact decimal |
+| `signed {field}` | Stream an i64 as exact decimal |
 | `list {field}` | Lower each array child with the selected driver/shared budget |
 | `ifEmpty {field, then, else}` | Select a branch using array emptiness |
+| `join {field, separator}` | Lower array children with trusted separators (≤128 bytes) |
+| `ifZero {field, then, else}` | Select a branch using a u64 zero test |
 | `select {field, cases}` | Select one trusted expression by string-field value |
 
 The instruction is the current input to every expression; recursive `lower`

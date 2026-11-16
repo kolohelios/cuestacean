@@ -5,7 +5,7 @@ use snafu::{ResultExt, Snafu};
 
 #[derive(Debug, Snafu)]
 enum Error {
-    #[snafu(display("usage: bootstrap-ast-codegen <builder.json>"))]
+    #[snafu(display("usage: bootstrap-ast-codegen <builder.json> [lowering.json]"))]
     Usage,
     #[snafu(display("cannot read {}: {source}", path.display()))]
     Read {
@@ -21,11 +21,18 @@ enum Error {
 fn run() -> Result<String, Error> {
     let mut args = std::env::args_os().skip(1);
     let path = PathBuf::from(args.next().ok_or(Error::Usage)?);
+    let policy = args.next().map(PathBuf::from);
     if args.next().is_some() {
         return UsageSnafu.fail();
     }
     let builder = std::fs::read_to_string(&path).context(ReadSnafu { path })?;
-    bootstrap_executor::ast::generate(&builder).context(GenerateSnafu)
+    match policy {
+        Some(path) => {
+            let policy = std::fs::read_to_string(&path).context(ReadSnafu { path })?;
+            bootstrap_executor::ast::generate_with_policy(&builder, &policy).context(GenerateSnafu)
+        }
+        None => bootstrap_executor::ast::generate(&builder).context(GenerateSnafu),
+    }
 }
 
 fn main() -> ExitCode {
