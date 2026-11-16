@@ -95,11 +95,13 @@ The package also includes `bootstrap-codegen <rules.json> [lowering.json]`. It e
 module to stdout and rejects malformed or unsupported rule documents before
 emitting source. Names are escaped as Rust string literals, and dispatch order
 is deterministic regardless of input object-key order. Per-instruction recursion,
-call selection and Result layout come from an interpreted [CUE lowering
-program](../lowering.md), not a native instruction-emission match. The normal
-policy is embedded from fresh upstream-built JSON, including in compiler seeds;
-`generate_with_policy`/the optional CLI path select another trusted policy.
-The VM, typed input validation and outer module assembly remain native.
+call selection and Result layout come from a [CUE lowering program](../lowering.md),
+not a native instruction-emission match. Default `compiled-lowering` uses a
+CUE-generated Rust driver. Compiler-only seeds interpret fresh upstream-built
+JSON instead, as do `generate_with_policy`/the optional CLI policy override.
+`bootstrap-lower-codegen <policy.json>` is the sixth native compiler: it emits
+normal/alternate Rust drivers using the same checked renderer as the interpreter.
+The policy compiler, typed validation, renderer and outer assembly remain native.
 
 The [generated modules](../generated/README.md) use the shared native runtime
 rather than the instruction interpreter. Tests compile them, compare values and
@@ -154,7 +156,7 @@ by the parser; `bootstrap-ast-codegen <builder.json>` is its native compiler.
 code-generator seeds enable a [fresh two-stage build](../generated/README.md),
 then the final package runs Rust formatting, Clippy, and all tests in the
 sandbox. Tests use the real exported
-fixtures, the changed-rule export, integer boundary/error cases, all eight
+fixtures, the changed-rule export, integer boundary/error cases, all nine
 CLIs, the source parser, the scanner DSL, and compiled generated modules. The interpreter and generated CLIs
 must agree byte-for-byte on stdout and stderr, and on exit status, for both
 exported expressions, the complete program-case corpus, malformed JSON, and

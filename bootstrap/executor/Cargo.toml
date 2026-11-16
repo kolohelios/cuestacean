@@ -8,8 +8,9 @@ publish = false
 default-run = "bootstrap-executor"
 
 [features]
-default = ["source"]
+default = ["source", "compiled-lowering"]
 source = ["semantics"]
+compiled-lowering = []
 semantics = []
 
 [[bin]]

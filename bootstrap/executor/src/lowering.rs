@@ -196,112 +196,283 @@ impl Policy {
         })
     }
 
-    /// Lower one instruction with shared recursion, work and output budgets.
+    /// Lower one instruction with fresh, shared budgets.
     pub fn lower(&self, instruction: &Value) -> Result<String, Error> {
-        let mut budget = Budget {
-            steps: 0,
-            bytes: 0,
-            frames: 0,
-        };
-        self.dispatch(instruction, 1, &mut budget)
+        Context::run(instruction, self)
     }
+}
 
-    fn dispatch(
+pub trait Driver {
+    fn render(&self, ctx: &mut Context, node: &Value, depth: usize) -> Result<String, Error>;
+}
+
+pub fn instruction_op(node: &Value) -> Result<&str, Error> {
+    node.get("op")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid("instruction requires string op"))
+}
+
+pub fn missing_case(op: &str) -> Error {
+    invalid(format!("missing lowering case for {op:?}"))
+}
+
+impl Driver for Policy {
+    fn render(&self, ctx: &mut Context, node: &Value, depth: usize) -> Result<String, Error> {
+        let op = instruction_op(node)?;
+        self.cases
+            .get(op)
+            .ok_or_else(|| missing_case(op))?
+            .render(ctx, node, depth, self)
+    }
+}
+
+impl Expr {
+    fn render(
         &self,
-        instruction: &Value,
+        ctx: &mut Context,
+        node: &Value,
         depth: usize,
-        budget: &mut Budget,
+        driver: &dyn Driver,
     ) -> Result<String, Error> {
-        budget.with_frame(|budget| {
-            budget.step()?;
+        match self {
+            Self::Path { value } => ctx.path(value),
+            Self::Call { path, args } => ctx.call(path, |call| {
+                for arg in args {
+                    call.arg(|ctx| arg.render(ctx, node, depth, driver))?;
+                }
+                Ok(())
+            }),
+            Self::Ok { value } => ctx.ok(|ctx| value.render(ctx, node, depth, driver)),
+            Self::Group { value } => ctx.group(|ctx| value.render(ctx, node, depth, driver)),
+            Self::Try { value } => ctx.try_value(|ctx| value.render(ctx, node, depth, driver)),
+            Self::Lower { field } => ctx.child(node, field, depth, driver),
+            Self::String { field } => ctx.string(node, field),
+            Self::Boolean { field } => ctx.boolean(node, field),
+        }
+    }
+}
+
+/// Shared resource and rendering kernel for lowering drivers.
+pub struct Context {
+    budget: Budget,
+}
+impl Context {
+    pub fn run(node: &Value, driver: &dyn Driver) -> Result<String, Error> {
+        let mut ctx = Self {
+            budget: Budget {
+                steps: 0,
+                bytes: 0,
+                frames: 0,
+            },
+        };
+        ctx.dispatch(node, 1, driver)
+    }
+    fn scope<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T, Error>) -> Result<T, Error> {
+        if self.budget.frames >= 128 {
+            return Err(invalid("lowering exceeds 128 combined frames"));
+        }
+        self.budget.frames += 1;
+        let result = f(self);
+        self.budget.frames -= 1;
+        result
+    }
+    fn expression<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T, Error>) -> Result<T, Error> {
+        self.scope(|ctx| {
+            ctx.budget.step()?;
+            f(ctx)
+        })
+    }
+    fn dispatch(
+        &mut self,
+        node: &Value,
+        depth: usize,
+        driver: &dyn Driver,
+    ) -> Result<String, Error> {
+        self.scope(|ctx| {
+            ctx.budget.step()?;
             if depth > 64 {
                 return Err(invalid("instruction depth exceeds 64"));
             }
-            let op = instruction
-                .get("op")
-                .and_then(Value::as_str)
-                .ok_or_else(|| invalid("instruction requires string op"))?;
-            let expr = self
-                .cases
-                .get(op)
-                .ok_or_else(|| invalid(format!("missing lowering case for {op:?}")))?;
-            self.render(expr, instruction, depth, budget)
+            driver.render(ctx, node, depth)
         })
     }
-
-    fn render(
-        &self,
-        expr: &Expr,
-        node: &Value,
-        depth: usize,
-        budget: &mut Budget,
-    ) -> Result<String, Error> {
-        budget.with_frame(|budget| {
-            budget.step()?;
+    pub fn path(&mut self, path: &str) -> Result<String, Error> {
+        self.expression(|ctx| {
             let mut out = String::new();
-            match expr {
-                Expr::Path { value } => budget.append(&mut out, value)?,
-                Expr::Call { path, args } => {
-                    budget.append(&mut out, path)?;
-                    budget.append(&mut out, "(")?;
-                    for (i, arg) in args.iter().enumerate() {
-                        if i != 0 {
-                            budget.append(&mut out, ", ")?;
-                        }
-                        let rendered = self.render(arg, node, depth, budget)?;
-                        budget.append(&mut out, &rendered)?;
-                    }
-                    budget.append(&mut out, ")")?;
-                }
-                Expr::Ok { value } | Expr::Group { value } | Expr::Try { value } => {
-                    let prefix = match expr {
-                        Expr::Ok { .. } => "Ok::<_, Error>(",
-                        Expr::Group { .. } => "(",
-                        _ => "",
-                    };
-                    let suffix = match expr {
-                        Expr::Try { .. } => "?",
-                        _ => ")",
-                    };
-                    budget.append(&mut out, prefix)?;
-                    let rendered = self.render(value, node, depth, budget)?;
-                    budget.append(&mut out, &rendered)?;
-                    budget.append(&mut out, suffix)?;
-                }
-                Expr::Lower { field } => {
-                    let child = node
-                        .get(field)
-                        .ok_or_else(|| invalid(format!("missing instruction field {field:?}")))?;
-                    let rendered = self.dispatch(child, depth + 1, budget)?;
-                    budget.append(&mut out, &rendered)?;
-                }
-                Expr::String { field } => {
-                    let value = node
-                        .get(field)
-                        .and_then(Value::as_str)
-                        .ok_or_else(|| invalid(format!("field {field:?} must be a string")))?;
-                    if value.len() > 64 * 1024 {
-                        return Err(invalid("string field exceeds 64 KiB"));
-                    }
-                    write!(
-                        BudgetWriter {
-                            budget,
-                            output: &mut out
-                        },
-                        "{value:?}"
-                    )
-                    .map_err(|_| invalid("lowering exceeds 1 MiB rendered bytes"))?;
-                }
-                Expr::Boolean { field } => {
-                    let value = node
-                        .get(field)
-                        .and_then(Value::as_bool)
-                        .ok_or_else(|| invalid(format!("field {field:?} must be a boolean")))?;
-                    budget.append(&mut out, if value { "true" } else { "false" })?;
-                }
-            }
+            ctx.budget.append(&mut out, path)?;
             Ok(out)
         })
+    }
+    pub fn string(&mut self, node: &Value, field: &str) -> Result<String, Error> {
+        self.expression(|ctx| {
+            let value = node
+                .get(field)
+                .and_then(Value::as_str)
+                .ok_or_else(|| invalid(format!("field {field:?} must be a string")))?;
+            if value.len() > 64 * 1024 {
+                return Err(invalid("string field exceeds 64 KiB"));
+            }
+            let mut out = String::new();
+            write!(
+                BudgetWriter {
+                    budget: &mut ctx.budget,
+                    output: &mut out
+                },
+                "{value:?}"
+            )
+            .map_err(|_| invalid("lowering exceeds 1 MiB rendered bytes"))?;
+            Ok(out)
+        })
+    }
+    pub fn boolean(&mut self, node: &Value, field: &str) -> Result<String, Error> {
+        self.expression(|ctx| {
+            let value = node
+                .get(field)
+                .and_then(Value::as_bool)
+                .ok_or_else(|| invalid(format!("field {field:?} must be a boolean")))?;
+            let mut out = String::new();
+            ctx.budget
+                .append(&mut out, if value { "true" } else { "false" })?;
+            Ok(out)
+        })
+    }
+    pub fn child(
+        &mut self,
+        node: &Value,
+        field: &str,
+        depth: usize,
+        driver: &dyn Driver,
+    ) -> Result<String, Error> {
+        self.expression(|ctx| {
+            let child = node
+                .get(field)
+                .ok_or_else(|| invalid(format!("missing instruction field {field:?}")))?;
+            let rendered = ctx.dispatch(child, depth + 1, driver)?;
+            let mut out = String::new();
+            ctx.budget.append(&mut out, &rendered)?;
+            Ok(out)
+        })
+    }
+    fn wrap(
+        &mut self,
+        prefix: &str,
+        suffix: &str,
+        f: impl FnOnce(&mut Context) -> Result<String, Error>,
+    ) -> Result<String, Error> {
+        self.expression(|ctx| {
+            let mut out = String::new();
+            ctx.budget.append(&mut out, prefix)?;
+            let rendered = f(ctx)?;
+            ctx.budget.append(&mut out, &rendered)?;
+            ctx.budget.append(&mut out, suffix)?;
+            Ok(out)
+        })
+    }
+    pub fn ok(
+        &mut self,
+        f: impl FnOnce(&mut Context) -> Result<String, Error>,
+    ) -> Result<String, Error> {
+        self.wrap("Ok::<_, Error>(", ")", f)
+    }
+    pub fn group(
+        &mut self,
+        f: impl FnOnce(&mut Context) -> Result<String, Error>,
+    ) -> Result<String, Error> {
+        self.wrap("(", ")", f)
+    }
+    pub fn try_value(
+        &mut self,
+        f: impl FnOnce(&mut Context) -> Result<String, Error>,
+    ) -> Result<String, Error> {
+        self.wrap("", "?", f)
+    }
+    pub fn call(
+        &mut self,
+        path: &str,
+        f: impl FnOnce(&mut Call<'_>) -> Result<(), Error>,
+    ) -> Result<String, Error> {
+        self.expression(|ctx| {
+            let mut out = String::new();
+            ctx.budget.append(&mut out, path)?;
+            ctx.budget.append(&mut out, "(")?;
+            f(&mut Call {
+                ctx,
+                out: &mut out,
+                first: true,
+            })?;
+            ctx.budget.append(&mut out, ")")?;
+            Ok(out)
+        })
+    }
+}
+
+pub struct Call<'a> {
+    ctx: &'a mut Context,
+    out: &'a mut String,
+    first: bool,
+}
+impl Call<'_> {
+    pub fn arg(
+        &mut self,
+        f: impl FnOnce(&mut Context) -> Result<String, Error>,
+    ) -> Result<(), Error> {
+        if !self.first {
+            self.ctx.budget.append(self.out, ", ")?;
+        }
+        self.first = false;
+        let rendered = f(self.ctx)?;
+        self.ctx.budget.append(self.out, &rendered)
+    }
+}
+
+/// Compile a fully validated policy into a standalone lowering driver module.
+pub fn generate(policy_json: &str) -> Result<String, Error> {
+    let policy = Policy::parse(policy_json)?;
+    let mut out = String::from(
+        "// Generated lowering driver. Do not edit.\nuse bootstrap_executor::lowering::{self, Context, Driver, Error};\nuse serde_json::Value;\n\npub struct Compiled;\n\nimpl Driver for Compiled {\n    fn render(&self, ctx: &mut Context, _node: &Value, _depth: usize) -> Result<String, Error> {\n        match lowering::instruction_op(_node)? {\n",
+    );
+    for (op, expr) in &policy.cases {
+        write!(out, "            {op:?} => ").expect("write to string");
+        expr.emit(&mut out);
+        out.push_str(",\n");
+    }
+    out.push_str("            op => Err(lowering::missing_case(op)),\n        }\n    }\n}\n\npub fn lower(node: &Value) -> Result<String, Error> {\n    Context::run(node, &Compiled)\n}\n");
+    Ok(out)
+}
+impl Expr {
+    fn emit(&self, out: &mut String) {
+        match self {
+            Self::Path { value } => write!(out, "ctx.path({value:?})").expect("write to string"),
+            Self::String { field } => {
+                write!(out, "ctx.string(_node, {field:?})").expect("write to string")
+            }
+            Self::Boolean { field } => {
+                write!(out, "ctx.boolean(_node, {field:?})").expect("write to string")
+            }
+            Self::Lower { field } => {
+                write!(out, "ctx.child(_node, {field:?}, _depth, self)").expect("write to string")
+            }
+            Self::Ok { value } | Self::Group { value } | Self::Try { value } => {
+                let method = match self {
+                    Self::Ok { .. } => "ok",
+                    Self::Group { .. } => "group",
+                    _ => "try_value",
+                };
+                write!(out, "ctx.{method}(|ctx| ").expect("write to string");
+                value.emit(out);
+                out.push(')');
+            }
+            Self::Call { path, args } => {
+                let name = if args.is_empty() { "_call" } else { "call" };
+                write!(out, "ctx.call({path:?}, |{name}| {{ ").expect("write to string");
+                for arg in args {
+                    out.push_str("call.arg(|ctx| ");
+                    arg.emit(out);
+                    out.push_str(")?; ");
+                }
+                out.push_str("Ok(()) })");
+            }
+        }
     }
 }
 
@@ -323,15 +494,6 @@ struct Budget {
     frames: usize,
 }
 impl Budget {
-    fn with_frame<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T, Error>) -> Result<T, Error> {
-        if self.frames >= 128 {
-            return Err(invalid("lowering exceeds 128 combined frames"));
-        }
-        self.frames += 1;
-        let result = f(self);
-        self.frames -= 1;
-        result
-    }
     fn step(&mut self) -> Result<(), Error> {
         self.steps += 1;
         if self.steps > 4096 {
@@ -351,7 +513,7 @@ impl Budget {
 
 #[cfg(test)]
 mod tests {
-    use super::{Budget, BudgetWriter, Policy};
+    use super::{Budget, BudgetWriter, Context, Policy};
     use serde_json::json;
     use std::fmt::Write as _;
 
@@ -424,6 +586,72 @@ mod tests {
         assert!(error.to_string().contains("128 combined frames"), "{error}");
         assert_eq!(policy.lower(&json!({"op":"leaf"}))?, "x");
         Ok(())
+    }
+
+    #[test]
+    fn fixed_frame_and_byte_boundaries_preserve_error_precedence() {
+        let policy = Policy::parse(r#"{"formatVersion":1,"cases":{"leaf":{"op":"path","value":"x"},"call":{"op":"call","path":"f","args":[{"op":"path","value":"x"}]},"bad":{"op":"call","path":"f","args":[{"op":"path","value":"x"},{"op":"string","field":"s"}]}}}"#).expect("boundary policy");
+        let mut ctx = Context {
+            budget: Budget {
+                steps: 0,
+                bytes: 0,
+                frames: 126,
+            },
+        };
+        assert_eq!(
+            ctx.dispatch(&json!({"op":"leaf"}), 1, &policy)
+                .expect("128 frames accepted"),
+            "x"
+        );
+        assert_eq!(ctx.budget.frames, 126);
+        ctx.budget.frames = 127;
+        assert_eq!(
+            ctx.dispatch(&json!({"op":"leaf"}), 1, &policy)
+                .expect_err("129th frame")
+                .to_string(),
+            "lowering: lowering exceeds 128 combined frames"
+        );
+        assert_eq!(ctx.budget.frames, 127);
+        for (remaining, expected) in [
+            (5, Ok("f(x)")),
+            (4, Err("lowering: lowering exceeds 1 MiB rendered bytes")),
+        ] {
+            let mut ctx = Context {
+                budget: Budget {
+                    steps: 0,
+                    bytes: 1024 * 1024 - remaining,
+                    frames: 0,
+                },
+            };
+            assert_eq!(
+                ctx.dispatch(&json!({"op":"call"}), 1, &policy)
+                    .map_err(|e| e.to_string()),
+                expected.map(str::to_owned).map_err(str::to_owned)
+            );
+            assert_eq!(ctx.budget.frames, 0);
+        }
+        // f( + x expression + x append + comma-space = six charged bytes.
+        // At exactly the cap the malformed second argument wins; one byte less
+        // rejects its delimiter before the argument is inspected.
+        for (remaining, expected) in [
+            (6, "lowering: field \"s\" must be a string"),
+            (5, "lowering: lowering exceeds 1 MiB rendered bytes"),
+        ] {
+            let mut ctx = Context {
+                budget: Budget {
+                    steps: 0,
+                    bytes: 1024 * 1024 - remaining,
+                    frames: 0,
+                },
+            };
+            assert_eq!(
+                ctx.dispatch(&json!({"op":"bad","s":false}), 1, &policy)
+                    .expect_err("boundary failure")
+                    .to_string(),
+                expected
+            );
+            assert_eq!(ctx.budget.frames, 0);
+        }
     }
 
     #[test]

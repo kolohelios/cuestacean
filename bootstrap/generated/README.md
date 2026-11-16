@@ -1,8 +1,9 @@
 # First Rust generation boundary
 
 The evaluator modules are generated from rule JSON by `bootstrap-codegen`,
-whose per-instruction expression lowering now runs a [CUE-owned program](../lowering.md).
-Its generic VM and outer module assembly remain handwritten Rust. This lowers our sixteen instruction primitives, not
+whose per-instruction expression lowering runs a [compiled CUE program](../lowering.md).
+The policy compiler, checked rendering kernel and outer module assembly remain
+handwritten Rust. Compiler-only seeds use the reference policy interpreter. This lowers our sixteen instruction primitives, not
 arbitrary CUE source. The interpreter remains the default executable and a
 reference for tests. The normal generated module also runs as a separate CLI:
 
@@ -74,8 +75,14 @@ the shell after editing CUE rules so its export directory reflects those edits:
 ```sh
 cargo build --manifest-path bootstrap/executor/Cargo.toml --no-default-features \
   --bin bootstrap-codegen --bin bootstrap-scan-codegen \
-  --bin bootstrap-ast-codegen --bin bootstrap-pratt-codegen --bin bootstrap-unify-codegen
+  --bin bootstrap-ast-codegen --bin bootstrap-pratt-codegen --bin bootstrap-unify-codegen \
+  --bin bootstrap-lower-codegen
 set -o pipefail
+for policy in lowering tests/valid/lowering-left-twice tests/valid/lowering-escaped; do
+  name=$(basename "$policy")
+  bootstrap/executor/target/debug/bootstrap-lower-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$policy.json" \
+    | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
+done
 for rules in "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/evaluation-left-twice.json" \
   bootstrap/executor/tests/fixtures/codegen-escaped-rules.json; do
@@ -121,16 +128,21 @@ first. This never deletes files in the working tree. CUE JSON exports are an
 independent Nix output built only from CUE sources, not committed artifacts.
 
 1. Export fresh CUE JSON, including the instruction-lowering policy. Compile the
-   native evaluator-generator VM, scanner, AST, Pratt and unification compiler
+   native evaluator-generator VM, lowering-policy, scanner, AST, Pratt and unification compiler
    seeds with `--no-default-features` and that JSON export directory. This excludes generated frontend and
    semantic dependencies; `source` normally enables `semantics`. Seed tests need generated modules,
    so they run in the final stage rather than creating a bootstrap cycle.
-2. Use the fresh JSON output and the seeds to regenerate evaluator, scanner,
-   AST-builder, Pratt-control and unification Rust. Compile all binaries with the default `source` feature enabled and
+2. Use the fresh JSON output and the seeds to regenerate lowering drivers,
+   evaluator, scanner, AST-builder, Pratt-control and unification Rust. Compile
+   all binaries with default `source` and `compiled-lowering` features enabled and
    run the complete formatting, Clippy, and test suite against fresh artifacts.
    Normal rules plus the alternate `lowering-left-twice` policy must reproduce
    the alternate-rule golden exactly; that freshly policy-produced module is
-   included in the final compiled tests.
+   included in the final compiled tests. Drift checks run the final compiled
+   default generator and compare its evaluator output to the interpreter-seeded
+   artifacts. Normal, alternate and escaped/zero-argument lowering drivers also
+   have repeat/drift checks. The semantics-only feature check temporarily removes
+   every generated lowering driver to prove its independence.
 
 Committed Rust modules remain reviewable golden files: the Rust generation
 check still rejects drift. JSON has repeatability and schema checks, not a

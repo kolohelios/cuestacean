@@ -11,7 +11,7 @@ machinery progressively expressed in a CUE-hosted DSL. Merely using CUE to
 configure a permanently handwritten implementation is not the end goal.
 
 Current implementation: a deliberately small boolean/checked-i64 expression subset,
-not full CUE or bootstrap closure. Go CUE still exports specifications. All five
+not full CUE or bootstrap closure. Go CUE still exports specifications. All six
 DSL compilers and reference interpreters remain handwritten Rust. Performance
 advantages remain a hypothesis, not a measured result.
 
@@ -19,7 +19,7 @@ advantages remain a hypothesis, not a measured result.
 
 | Boundary | Specifications and contract | Rust implementation/verification |
 | --- | --- | --- |
-| Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` generic interpreter; `src/codegen.rs` native module assembly |
+| Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` compiler/reference engine/shared kernel; generated Rust driver; native module assembly |
 | Evaluation rules | `bootstrap/evaluation.cue`, expression/rule schemas | `src/lib.rs`, `src/codegen.rs`; interpreted and generated rule execution |
 | Token/trivia scanning | `bootstrap/*.cue`, [scanner contract](../bootstrap/scanner.md) | `src/scanner.rs`; generated scanners and reference interpreter |
 | AST construction | `bootstrap/ast-*.cue`, [builder contract](../bootstrap/ast.md) | `src/ast.rs`; typed builders, no native parser JSON-map assembly |
@@ -31,7 +31,7 @@ Paths beginning `src/` above are under `bootstrap/executor/`.
 Generated Rust goldens are under `bootstrap/generated/`.
 
 Native boundaries still include grammar validation/lookup, checked cursor and
-frame operations, generic lowering VM/module assembly, value representation/projection, finite comparison, arithmetic
+frame operations, lowering compiler/rendering kernel/module assembly, value representation/projection, finite comparison, arithmetic
 primitives, JSON handling, concrete output, resource guards, and compiler code.
 Do not describe the full parser/compiler/solver as self-hosted.
 
@@ -111,6 +111,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#53](https://github.com/kolohelios/cuestacean/pull/53) | Integer division/remainder and word operators |
 | [#56](https://github.com/kolohelios/cuestacean/pull/56) | CUE-owned Unicode line comments and word-newline policy |
 | [#58](https://github.com/kolohelios/cuestacean/pull/58) | Boolean domain, CUE typed unification and JSON scalar APIs |
+| [#60](https://github.com/kolohelios/cuestacean/pull/60) | Interpreted CUE instruction-to-Rust lowering |
 
 ## Build and validation runbook
 
@@ -146,11 +147,14 @@ workspace's stale exports for changed specifications.
 - CUE-generated JSON is build-only. Handwritten JSON fixtures remain committed.
 - Generated Rust stays committed for now, explicitly reaffirmed during compiler
   development. It is a review/drift baseline, not a required seed input.
-- Nix deletes staged JSON/Rust, builds five native compiler/VM seeds without
+- Nix deletes staged JSON/Rust, builds six native compiler/VM seeds without
   default features, regenerates everything, then compiles/tests the final package.
   Seeds now embed fresh upstream-exported lowering-policy JSON; exports must not
   depend on seeds or committed artifacts. No native opcode-emission fallback.
-  The policy is interpreted, not yet compiled to replace its VM.
+  Seeds interpret the policy; default `compiled-lowering` uses generated Rust.
+  The reference interpreter remains for explicit custom policies, sharing exact
+  rendering/quoting/resource primitives. `compiled-lowering` is independent of
+  semantics/source and has its own feature check.
 - Default `source` enables `semantics`. Semantic evaluation/generated unification
   can build without the parser; compiler-only seeds exclude both dependencies,
   with no native unification fallback or stub. The sandbox checks these profiles.
