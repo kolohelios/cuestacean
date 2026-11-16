@@ -6,11 +6,13 @@ selects the normal program. CUE chooses runtime calls, constructor layout,
 recursive instruction-field selection, grouping and Result propagation.
 `bootstrap-codegen` no longer contains a per-instruction emission match.
 
-This is an **interpreted generator stage**, not full generator self-hosting.
-The generic policy VM, typed rule decoder, Rust syntax renderer, outer rule-map
-iteration/module assembly, literal escaping and safety guards remain Rust.
-There is not yet a compiler that replaces this VM with generated lowering code.
-Go CUE still exports the policy. Source-language/evaluator behavior is unchanged.
+The production generator now uses a **compiled CUE lowering driver**, not the
+policy interpreter. `bootstrap-lower-codegen` compiles validated policy expressions
+to Rust calls into a shared checked rendering kernel. The reference interpreter
+uses that same kernel for seeds and explicit custom policies. This is not full
+generator self-hosting: the policy compiler, typed decoder, renderer, outer
+module assembly and safety guards remain Rust. Go CUE still exports policies;
+source-language/evaluator behavior is unchanged.
 
 ## Typed policy
 
@@ -57,16 +59,31 @@ strings remain data and cannot become paths or unescaped Rust syntax.
 
 ## API, seeds and evidence
 
-`generate(rules)` uses the embedded, fresh CUE JSON policy.
-`generate_with_policy(rules, policy)` and
-`bootstrap-codegen <rules.json> [lowering.json]` allow explicit policy selection.
-Failures return before the CLI prints any partial source.
+`generate(rules)` uses `compiled_lowering::Compiled` under the default
+`compiled-lowering` feature. `generate_with_policy(rules, policy)` and the optional
+`bootstrap-codegen <rules.json> [lowering.json]` override use the reference engine.
+`lowering::generate(policy)` / `bootstrap-lower-codegen <policy.json>` compile a
+policy to a Rust driver. Both compilers return before printing partial source.
 
-Compiler seeds now depend on **upstream-built policy JSON**. The dependency graph
-is CUE sources → JSON exports → native VM/compiler seeds → generated Rust → final
-package. Exports do not depend on seeds or committed Rust. Sandbox stages still
-delete staged JSON/Rust; there is no handwritten instruction-policy fallback.
-Generated JSON stays build-only and Rust goldens stay committed.
+Generated matches own opcode dispatch and expression sequencing; recursive
+`child` calls retain the selected driver, including alternate policies. The
+shared native `Context`/`Call` kernel owns lexical rendering, field projection,
+quoting, ordered argument append and guards. Interpreted and compiled execution
+charge each dispatch/expression, delimiter and intermediate copy identically.
+
+Six native compiler seeds build with `--no-default-features`, excluding generated
+lowering, semantics and frontend. The seed rule generator interprets fresh
+**upstream-built policy JSON**; it does not contain a handwritten instruction
+policy. Seeds generate normal/alternate lowering drivers and all evaluator/frontend
+Rust before the final default-feature build uses compiled lowering. The final
+compiled generator regenerates the same evaluator bytes in drift checks.
+
+`compiled-lowering` is independent of `semantics`/`source`; semantics-only and
+compiler-only profiles do not require the compiled driver. Sandbox feature
+checks remove all lowering drivers before checking semantics-only binaries.
+Exports depend only
+on CUE sources, never seeds or committed Rust. Both sandbox stages delete staged
+JSON/Rust first. JSON remains build-only and Rust goldens stay committed.
 
 The normal policy reproduces all existing evaluator modules byte-for-byte.
 `lowering-left-twice` changes only sum's right-child selection to lower the left
@@ -75,4 +92,7 @@ instruction twice. Normal rules plus this policy produce exactly the existing
 instead of 42. Nix regenerates, compares and compiles that policy-produced module,
 not merely a string snapshot. Tests also cover all opcodes independently, literal
 escaping, duplicate/unused-invalid rejection, exact structural boundaries,
-shared expansion limits, determinism and CLI policy failures.
+shared expansion limits, determinism and CLI policy failures. A compiled
+adversarial policy checks escaped case/selector strings and empty calls. Fixed
+frame/byte-boundary tests pin acceptance, unwinding and delimiter-vs-field-error
+precedence independently of interpreter/compiled agreement.

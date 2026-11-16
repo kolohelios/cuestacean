@@ -13,8 +13,9 @@ rules, in CUE and export them to build-only JSON using upstream CUE. A small
 [bootstrap Rust executor](bootstrap/executor/README.md) interprets those rules.
 An initial [rule-to-Rust generator](bootstrap/generated/README.md) lowers the
 same rules to compiled evaluator modules. [Instruction-to-Rust lowering](bootstrap/lowering.md)
-now executes CUE-owned recursive expression programs; the generic VM and outer
-module assembly remain native. Nix builds native generator/VM seeds, regenerates JSON and Rust from the CUE specifications, then compiles and
+now compiles CUE-owned recursive expression programs into Rust drivers, with a
+reference interpreter for seeds and custom policies. The checked renderer,
+policy compiler and outer module assembly remain native. Nix builds native generator/VM seeds, regenerates JSON and Rust from the CUE specifications, then compiles and
 tests the final executables. A [source frontend](bootstrap/source/README.md)
 now handles a tiny decimal-integer subset with addition, subtraction,
 multiplication, integer division/remainder, unary negation, `true`/`false`, `bool`/`int` constraints,

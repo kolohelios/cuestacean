@@ -19,8 +19,13 @@ pub mod unification;
 
 pub use codegen::{generate, generate_with_policy};
 
-#[cfg(feature = "semantics")]
+#[cfg(any(feature = "semantics", feature = "compiled-lowering"))]
 extern crate self as bootstrap_executor;
+
+/// Compiled CUE lowering policy. Compiler-only seeds use its reference engine.
+#[cfg(feature = "compiled-lowering")]
+#[path = "../../generated/lowering.rs"]
+pub mod compiled_lowering;
 
 /// Default CUE-generated rules, with integer-only and JSON scalar entry points.
 /// Compiler-only seeds omit this module and all generated semantics.

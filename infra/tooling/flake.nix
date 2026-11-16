@@ -65,6 +65,12 @@
         "tests/valid/unify-scoped"
       ];
       unifyNames = builtins.concatStringsSep " " unifyFixtures;
+      loweringFixtures = [
+        "lowering"
+        "tests/valid/lowering-left-twice"
+        "tests/valid/lowering-escaped"
+      ];
+      loweringNames = builtins.concatStringsSep " " loweringFixtures;
       exportFixtures = [
         "literal"
         "addition"
@@ -77,15 +83,14 @@
         "bounds"
         "booleans"
         "evaluation"
-        "lowering"
-        "tests/valid/lowering-left-twice"
         "grammar"
         "tests/valid/evaluation-left-twice"
       ]
       ++ scannerFixtures
       ++ builderFixtures
       ++ prattFixtures
-      ++ unifyFixtures;
+      ++ unifyFixtures
+      ++ loweringFixtures;
       fixtureNames = builtins.concatStringsSep " " exportFixtures;
       jsonExports =
         pkgs:
@@ -146,7 +151,13 @@
           preCheck = ''
             cargo fmt --check
             cargo clippy --offline --all-targets -- -D warnings
-            cargo check --offline --no-default-features --features semantics --bins
+            (
+              mkdir lowering-profile-save
+              mv ../generated/lowering*.rs lowering-profile-save/
+              trap 'mv lowering-profile-save/*.rs ../generated/; rmdir lowering-profile-save' EXIT
+              cargo check --offline --no-default-features --features semantics --bins
+            )
+            cargo check --offline --no-default-features --features compiled-lowering --bins
             cargo test --offline --no-default-features --lib
           '';
         };
@@ -181,6 +192,8 @@
             "bootstrap-pratt-codegen"
             "--bin"
             "bootstrap-unify-codegen"
+            "--bin"
+            "bootstrap-lower-codegen"
           ];
           postPatch = clearArtifacts;
           # The tests require generated modules. Break that bootstrap cycle here;
@@ -200,6 +213,10 @@
             # Do not leak strict shell options into later stdenv hooks.
             (
               set -euo pipefail
+              for policy in ${loweringNames}; do
+                name=$(basename "$policy")
+                bootstrap-lower-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$policy.json" | rustfmt --edition 2024 > "../generated/$name.rs"
+              done
               for rules in ${jsonExports pkgs}/evaluation.json ${jsonExports pkgs}/tests/valid/evaluation-left-twice.json tests/fixtures/codegen-escaped-rules.json; do
                 name=$(basename "$rules" .json)
                 bootstrap-codegen "$rules" | rustfmt --edition 2024 > "../generated/$name.rs"
@@ -294,6 +311,13 @@
                   name=$(basename "$rules" .json)
                   bootstrap-codegen "$rules" | rustfmt --edition 2024 > first.rs
                   bootstrap-codegen "$rules" | rustfmt --edition 2024 > second.rs
+                  cmp first.rs second.rs
+                  diff -u ${../../bootstrap/generated}/"$name.rs" first.rs
+                done
+                for policy in ${loweringNames}; do
+                  name=$(basename "$policy")
+                  bootstrap-lower-codegen ${jsonExports pkgs}/"$policy.json" | rustfmt --edition 2024 > first.rs
+                  bootstrap-lower-codegen ${jsonExports pkgs}/"$policy.json" | rustfmt --edition 2024 > second.rs
                   cmp first.rs second.rs
                   diff -u ${../../bootstrap/generated}/"$name.rs" first.rs
                 done

@@ -1,0 +1,132 @@
+// Generated lowering driver. Do not edit.
+use bootstrap_executor::lowering::{self, Context, Driver, Error};
+use serde_json::Value;
+
+pub struct Compiled;
+
+impl Driver for Compiled {
+    fn render(&self, ctx: &mut Context, _node: &Value, _depth: usize) -> Result<String, Error> {
+        match lowering::instruction_op(_node)? {
+            "bool" => ctx.ok(|ctx| ctx.path("runtime::Value::Bool")),
+            "boolean" => ctx.ok(|ctx| {
+                ctx.call("runtime::Value::Boolean", |call| {
+                    call.arg(|ctx| ctx.boolean(_node, "value"))?;
+                    Ok(())
+                })
+            }),
+            "difference" => ctx.call("runtime::difference", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
+                })?;
+                Ok(())
+            }),
+            "divide" => ctx.call("runtime::divide", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
+                })?;
+                Ok(())
+            }),
+            "evaluate" => ctx.call("evaluate", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| {
+                        ctx.call("runtime::field", |call| {
+                            call.arg(|ctx| ctx.path("node"))?;
+                            call.arg(|ctx| ctx.string(_node, "field"))?;
+                            Ok(())
+                        })
+                    })
+                })?;
+                Ok(())
+            }),
+            "field" => ctx.call("runtime::integer", |call| {
+                call.arg(|ctx| ctx.path("node"))?;
+                call.arg(|ctx| ctx.string(_node, "field"))?;
+                Ok(())
+            }),
+            "int" => ctx.ok(|ctx| ctx.path("runtime::Value::Int")),
+            "lowerBound" => ctx.call("runtime::lower_bound", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
+                })?;
+                Ok(())
+            }),
+            "modulo" => ctx.call("runtime::modulo", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
+                })?;
+                Ok(())
+            }),
+            "negate" => ctx.call("runtime::negate", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
+                })?;
+                Ok(())
+            }),
+            "product" => ctx.call("runtime::product", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
+                })?;
+                Ok(())
+            }),
+            "quotient" => ctx.call("runtime::quotient", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
+                })?;
+                Ok(())
+            }),
+            "remainder" => ctx.call("runtime::remainder", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
+                })?;
+                Ok(())
+            }),
+            "sum" => ctx.call("runtime::sum", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                Ok(())
+            }),
+            "unify" => ctx.call("runtime::unify", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
+                })?;
+                Ok(())
+            }),
+            "upperBound" => ctx.call("runtime::upper_bound", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
+                })?;
+                Ok(())
+            }),
+            op => Err(lowering::missing_case(op)),
+        }
+    }
+}
+
+pub fn lower(node: &Value) -> Result<String, Error> {
+    Context::run(node, &Compiled)
+}
