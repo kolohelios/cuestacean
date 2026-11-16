@@ -99,8 +99,10 @@ call selection and Result layout come from a [CUE lowering program](../lowering.
 not a native instruction-emission match. Default `compiled-lowering` uses a
 CUE-generated Rust driver. Compiler-only seeds interpret fresh upstream-built
 JSON instead, as do `generate_with_policy`/the optional CLI policy override.
-`bootstrap-lower-codegen <policy.json>` is the sixth native compiler: it emits
-normal/alternate Rust drivers using the same checked renderer as the interpreter.
+`bootstrap-lower-codegen <policy.json> [compiler.json]` is the sixth bootstrap
+compiler. Its [CUE meta emitter](../meta-lowering.md) composes expression source,
+including its own regeneration; seeds interpret fresh JSON and production uses
+compiled meta Rust. Driver shell/module-statement compilation remain native.
 [Module statements](../module.md) now own boilerplate and rule traversal too;
 only typed serialization, canonical storage, the policy compiler, checked
 rendering and cursor/resource guards remain native. Expression-only policies

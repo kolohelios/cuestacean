@@ -91,6 +91,8 @@ package bootstrap
 } | {op: "select", field: string & !="", cases: [string & !=""]: #LoweringExpression} | {
 	op: "join", field: string & !="", separator: string
 } | {
+	op: "identifier", field: string & !="", snake?: bool
+} | {
 	op: "bind", name: string & !="", value: #LoweringExpression, body: #LoweringExpression
 } | {
 	op: "get", name: string & !=""
@@ -102,7 +104,8 @@ package bootstrap
 } | {op: "whileRules", body: [...#ModuleStatement]}
 #LoweringPolicy: {
 	formatVersion: 1
-	cases: [string & !=""]: #LoweringExpression
+	cases: [string & !=""]:    #LoweringExpression
+	aliases?: [string & !=""]: string & !=""
 	module?: [...#ModuleStatement]
 }
 
