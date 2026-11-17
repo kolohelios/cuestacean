@@ -13,6 +13,12 @@ only typed family validation, canonical facts and frame/reference kernels.
 Cross-family operations reject before even a backend that ignores them. Old parser
 programs default to parser and regenerate identical Rust.
 
+The source-list extension factors validated unit statements into canonical
+`{op:"action",action:<wire-name>}` metadata. Return remains separate. CUE selects
+all method names, charging and layout; no native emitter/path is introduced.
+Wire `action` tags/fields reject. This keeps 31 top-level cases (rather than 70)
+under the unchanged 64-case limit; nested method selection is bounded too.
+
 Both backends use the [same lowering compiler/kernel](lowering.md): evaluator
 instruction lowering and parser-control compilation are separate CUE policies,
 not separate handwritten generators. The compiler count remains six.

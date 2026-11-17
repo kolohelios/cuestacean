@@ -28,6 +28,7 @@ package bootstrap
 			boundThreshold: {op: "text", value: "Err(Error::BoundThreshold)"}
 			length: {op: "text", value: "Err(Error::Length)"}
 			listLength: {op: "text", value: "Err(Error::ListLength)"}
+			lengthOperand: {op: "text", value: "Err(Error::LengthOperand)"}
 		}}
 		integerPrimitive: {op: "select", field: "operation", cases: {
 			negate: {op: "text", value: "crate::runtime::integer_negate(&_left)"}

@@ -60,6 +60,7 @@ package bootstrap
 		upperBound: {op: "call", path: "runtime::upper_bound", args: [V]}
 		negate: {op: "call", path: "runtime::negate", args: [V]}
 		logicalNot: {op: "call", path: "runtime::logical_not", args: [V]}
+		length: {op: "call", path: "runtime::length", args: [V]}
 		stringLength: {op: "call", path: "runtime::string_length", args: [V]}
 		listLength: {op: "call", path: "runtime::list_length", args: [V]}
 		sum: {op: "call", path: "runtime::sum", args: [L, R]}

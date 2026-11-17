@@ -41,6 +41,18 @@ mod generated_call_open;
 mod generated_group_close;
 
 #[cfg(feature = "source")]
+#[path = "../../generated/list-open.rs"]
+mod generated_list_open;
+
+#[cfg(feature = "source")]
+#[path = "../../generated/list-close.rs"]
+mod generated_list_close;
+
+#[cfg(feature = "source")]
+#[path = "../../generated/list-tail.rs"]
+mod generated_list_tail;
+
+#[cfg(feature = "source")]
 #[path = "../../generated/bound-prefix.rs"]
 mod generated_bound_prefix;
 
@@ -595,6 +607,24 @@ pub fn call_open(source: &str, offset: usize) -> Result<Scan, Error> {
 #[cfg(feature = "source")]
 pub fn group_close(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_group_close::scan(source, offset)
+}
+
+/// Optionally recognize an opening list token; the flag records recognition.
+#[cfg(feature = "source")]
+pub fn list_open(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_list_open::scan(source, offset)
+}
+
+/// Optionally recognize a closing list token; the flag records recognition.
+#[cfg(feature = "source")]
+pub fn list_close(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_list_close::scan(source, offset)
+}
+
+/// Require a list delimiter; CUE reports comma as false and close as true.
+#[cfg(feature = "source")]
+pub fn list_tail(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_list_tail::scan(source, offset)
 }
 
 /// Recognize a complete inclusive-bound prefix; no match leaves offset unchanged.

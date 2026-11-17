@@ -62,6 +62,8 @@ struct Grammar {
     #[serde(default)]
     text: Option<Integer>,
     #[serde(default)]
+    list: Option<List>,
+    #[serde(default)]
     atoms: Vec<Atom>,
     #[serde(default)]
     calls: Vec<UnaryCall>,
@@ -80,6 +82,13 @@ struct Grammar {
 struct Integer {
     kind: String,
     value_field: String,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct List {
+    kind: String,
+    elements_field: String,
 }
 
 #[derive(Deserialize)]
@@ -170,6 +179,14 @@ impl Grammar {
         {
             return GrammarSnafu {
                 reason: "invalid string constructor",
+            }
+            .fail();
+        }
+        if let Some(list) = &self.list
+            && (list.kind.is_empty() || !field(&list.elements_field))
+        {
+            return GrammarSnafu {
+                reason: "invalid list constructor",
             }
             .fail();
         }
@@ -417,6 +434,7 @@ impl Parser<'_> {
             consumed: false,
             binding: None,
             fuel: 4096,
+            list_elements: Vec::new(),
             primary_state: None,
             in_primary: false,
         };
@@ -512,6 +530,11 @@ enum PrimaryState {
     BoundGroupAdvanced(usize),
     BoundGroupParsed(usize),
     StringScanned(Option<usize>),
+    ListScanned(Option<usize>),
+    ListReady,
+    ListParsed,
+    ListAppended,
+    ListClosed,
     IdentifierScanned(Option<usize>),
     CallAdvanced(usize),
     CallGroupScanned(usize, Option<usize>),
@@ -533,6 +556,7 @@ pub struct Frame<'p, 's> {
     consumed: bool,
     binding: Option<u8>,
     fuel: usize,
+    list_elements: Vec<Value>,
     primary_state: Option<PrimaryState>,
     in_primary: bool,
 }
@@ -622,7 +646,7 @@ impl Frame<'_, '_> {
     pub fn whitespace(&mut self) -> Result<(), Error> {
         if !matches!(
             self.primary_state,
-            Some(PrimaryState::Start | PrimaryState::BoundAdvanced(_))
+            Some(PrimaryState::Start | PrimaryState::BoundAdvanced(_) | PrimaryState::ListReady)
         ) {
             return self.primary_state_error();
         }
@@ -928,10 +952,113 @@ impl Frame<'_, '_> {
         self.primary_state = Some(PrimaryState::Done);
         Ok(())
     }
+    /// Probe a CUE-selected opening span without consuming it.
+    pub fn scan_list(&mut self) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::StringScanned(None))) {
+            return self.primary_state_error();
+        }
+        let scan = crate::scanner::list_open(self.parser.source, self.parser.offset)?;
+        let candidate = (scan.flag && self.parser.grammar.list.is_some()).then_some(scan.offset);
+        self.primary_state = Some(PrimaryState::ListScanned(candidate));
+        Ok(())
+    }
+    pub fn has_list(&self) -> Result<bool, Error> {
+        match self.primary_state {
+            Some(PrimaryState::ListScanned(end)) => Ok(end.is_some()),
+            _ => self.primary_state_error(),
+        }
+    }
+    pub fn advance_list(&mut self) -> Result<(), Error> {
+        let Some(PrimaryState::ListScanned(Some(end))) = self.primary_state else {
+            return self.primary_state_error();
+        };
+        self.advance_primary(end)?;
+        self.list_elements.clear();
+        self.primary_state = Some(PrimaryState::ListReady);
+        Ok(())
+    }
+    pub fn probe_list_end(&mut self) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::ListReady)) {
+            return self.primary_state_error();
+        }
+        let scan = crate::scanner::list_close(self.parser.source, self.parser.offset)?;
+        if scan.flag {
+            self.advance_primary(scan.offset)?;
+            self.primary_state = Some(PrimaryState::ListClosed);
+        }
+        Ok(())
+    }
+    pub fn has_list_element(&self) -> Result<bool, Error> {
+        match self.primary_state {
+            Some(PrimaryState::ListReady) => Ok(true),
+            Some(PrimaryState::ListClosed) => Ok(false),
+            _ => self.primary_state_error(),
+        }
+    }
+    pub fn parse_list_element(&mut self, minimum: u8) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::ListReady)) || self.left.is_some() {
+            return self.primary_state_error();
+        }
+        self.left = Some(self.parser.expression(minimum, self.depth + 1)?);
+        self.primary_state = Some(PrimaryState::ListParsed);
+        Ok(())
+    }
+    pub fn append_list_element(&mut self) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::ListParsed)) {
+            return self.primary_state_error();
+        }
+        if self.list_elements.len() >= 64 {
+            return self.parser.error("list exceeds 64 elements");
+        }
+        let element = self.left.take().ok_or(Error::ControlState {
+            reason: "missing list element",
+        })?;
+        self.list_elements.push(element);
+        self.primary_state = Some(PrimaryState::ListAppended);
+        Ok(())
+    }
+    pub fn advance_list_tail(&mut self) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::ListAppended)) {
+            return self.primary_state_error();
+        }
+        let scan = crate::scanner::list_tail(self.parser.source, self.parser.offset)?;
+        self.advance_primary(scan.offset)?;
+        self.primary_state = Some(if scan.flag {
+            PrimaryState::ListClosed
+        } else {
+            PrimaryState::ListReady
+        });
+        Ok(())
+    }
+    pub fn build_list(&mut self) -> Result<(), Error> {
+        if !matches!(self.primary_state, Some(PrimaryState::ListClosed)) || self.left.is_some() {
+            return self.primary_state_error();
+        }
+        let constructor = self
+            .parser
+            .grammar
+            .list
+            .clone()
+            .ok_or(Error::ControlState {
+                reason: "missing list constructor",
+            })?;
+        self.parser.node()?;
+        self.left = Some(ast::unary(
+            constructor.kind,
+            constructor.elements_field,
+            Value::Array(std::mem::take(&mut self.list_elements)),
+        ));
+        self.primary_state = Some(PrimaryState::Done);
+        Ok(())
+    }
     pub fn scan_identifier(&mut self) -> Result<(), Error> {
         if !matches!(
             self.primary_state,
-            Some(PrimaryState::BoundScanned(_) | PrimaryState::StringScanned(_))
+            Some(
+                PrimaryState::BoundScanned(_)
+                    | PrimaryState::StringScanned(_)
+                    | PrimaryState::ListScanned(_)
+            )
         ) {
             return self.primary_state_error();
         }
@@ -1168,6 +1295,7 @@ mod bound_group_state_tests {
             consumed: false,
             binding: None,
             fuel: 4096,
+            list_elements: Vec::new(),
             primary_state: Some(PrimaryState::BoundAdvanced(0)),
             in_primary: true,
         };
@@ -1232,6 +1360,7 @@ mod bound_group_state_tests {
             consumed: false,
             binding: None,
             fuel: 4096,
+            list_elements: Vec::new(),
             primary_state: Some(PrimaryState::Start),
             in_primary: true,
         };
@@ -1329,6 +1458,100 @@ mod bound_group_state_tests {
                 reason: "unfinished primary at return"
             }
         ));
+    }
+}
+
+#[cfg(test)]
+mod list_state_tests {
+    use super::*;
+
+    #[test]
+    fn list_stages_and_checked_opening() -> Result<(), Box<dyn std::error::Error>> {
+        let grammar: Grammar = serde_json::from_str(
+            r#"{
+            "formatVersion":1,"integer":{"kind":"integer","valueField":"value"},
+            "list":{"kind":"items","elementsField":"children"},
+            "group":{"open":"(","close":")"},
+            "operators":[{"token":"+","kind":"add","leftField":"left",
+                "rightField":"right","precedence":10,"associativity":"left"}]
+        }"#,
+        )?;
+        grammar.validate()?;
+        let mut parser = Parser {
+            source: "[λ]",
+            grammar: &grammar,
+            offset: 0,
+            nodes: 0,
+            engine: Engine::Compiled(generated::execute),
+            primary_engine: Engine::Compiled(generated_primary::execute),
+        };
+        let mut frame = Frame {
+            parser: &mut parser,
+            minimum: 0,
+            depth: 0,
+            left: None,
+            right: None,
+            operator: None,
+            token_end: 0,
+            consumed: false,
+            binding: None,
+            fuel: 4096,
+            list_elements: Vec::new(),
+            primary_state: Some(PrimaryState::Start),
+            in_primary: true,
+        };
+        assert!(frame.scan_list().is_err());
+        assert!(frame.has_list().is_err());
+        assert!(frame.advance_list().is_err());
+        assert!(frame.probe_list_end().is_err());
+        assert!(frame.has_list_element().is_err());
+        assert!(frame.parse_list_element(0).is_err());
+        assert!(frame.append_list_element().is_err());
+        assert!(frame.advance_list_tail().is_err());
+        assert!(frame.build_list().is_err());
+        for end in [0, 2, 5] {
+            frame.primary_state = Some(PrimaryState::ListScanned(Some(end)));
+            assert!(frame.advance_list().is_err());
+            assert_eq!(frame.parser.offset, 0);
+        }
+        frame.primary_state = Some(PrimaryState::StringScanned(None));
+        frame.scan_list()?;
+        assert!(frame.has_list()?);
+        frame.advance_list()?;
+        assert_eq!(frame.parser.offset, 1);
+        assert!(frame.has_list_element()?);
+        frame.whitespace()?;
+        frame.probe_list_end()?;
+        assert!(frame.has_list_element()?);
+        assert!(frame.advance_list_tail().is_err());
+        assert!(frame.build_list().is_err());
+        assert!(frame.lookup_operator().is_err());
+        assert!(frame.primary().is_err());
+        // Seed the child result to isolate buffer ownership from lexical policy.
+        frame.left = Some(serde_json::json!({"kind":"integer","value":1}));
+        frame.primary_state = Some(PrimaryState::ListParsed);
+        frame.append_list_element()?;
+        assert!(frame.left.is_none());
+        assert!(frame.append_list_element().is_err());
+        assert!(frame.parse_list_element(0).is_err());
+        assert!(frame.probe_list_end().is_err());
+        assert!(frame.has_list_element().is_err());
+        frame.parser.offset = 3;
+        frame.advance_list_tail()?;
+        assert!(!frame.has_list_element()?);
+        assert!(frame.advance_list_tail().is_err());
+        assert!(frame.probe_list_end().is_err());
+        frame.build_list()?;
+        assert_eq!(
+            frame.left,
+            Some(serde_json::json!({
+                "kind":"items","children":[{"kind":"integer","value":1}]
+            }))
+        );
+        assert_eq!(frame.parser.nodes, 1);
+        assert!(frame.list_elements.is_empty());
+        assert!(frame.build_list().is_err());
+        Ok(())
     }
 }
 
@@ -1602,6 +1825,7 @@ mod string_state_tests {
             consumed: false,
             binding: None,
             fuel: 4096,
+            list_elements: Vec::new(),
             primary_state: Some(PrimaryState::Start),
             in_primary: true,
         };
@@ -1670,6 +1894,7 @@ mod string_state_tests {
             consumed: false,
             binding: None,
             fuel: 4096,
+            list_elements: Vec::new(),
             primary_state: Some(PrimaryState::Start),
             in_primary: true,
         };

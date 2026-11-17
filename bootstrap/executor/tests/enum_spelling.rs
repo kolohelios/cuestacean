@@ -65,6 +65,7 @@ fn cue_styles_preserve_every_closed_enum_spelling() {
         ("lists", "Lists"),
         ("listLength", "ListLength"),
         ("length", "Length"),
+        ("lengthOperand", "LengthOperand"),
         ("arithmetic", "Arithmetic"),
         ("comparison", "Comparison"),
         ("ordering", "Ordering"),

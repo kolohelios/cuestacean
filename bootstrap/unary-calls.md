@@ -1,9 +1,10 @@
 # CUE-controlled unary source calls
 
-Default source `len(expression)` constructs `stringLength {operand}` and uses
-existing [CUE string-byte-length semantics](string-length.md). Exactly one
-parenthesized expression is supported: empty/multiple arguments, general callees,
-selectors, lists/structs/bytes and other builtins remain outside the profile.
+Default source `len(expression)` now constructs `length {operand}` and uses
+CUE text-byte/list-element dispatch ([source lists](source-lists.md)); the original
+`stringLength` API remains text-only. Exactly one parenthesized expression is
+supported: empty/multiple arguments, general callees, selectors, structs/bytes
+and other builtins remain outside the profile.
 Examples: `len("é🙂") == 6`, `len("a" + "b") == 2`, and `>=(len("abc")) & 3`.
 No coercion, Unicode normalization, lazy child evaluation or new solver domain.
 
@@ -32,7 +33,8 @@ share original 32 recursion levels/64 AST nodes and 4096 steps per frame; all
 scanner/compiler limits and same six fresh-seed/artifact policies remain.
 
 An actual old compiled `primary-no-calls` stays byte-exact; an actual compiled
-`primary-call-high-minimum` changes only argument minimum to 100, rejecting the
+`primary-call-high-minimum` changes argument minimum to 100 (and now list-element
+minimum too, tested separately), rejecting the
 plus in `len("a"+"b")` where production returns 2. Fixed full AST/output/error,
 metadata/isolation, private stage/resource/driver, CLI atomicity and expanded
 pinned upstream Unicode byte-count comparisons establish this slice. Native

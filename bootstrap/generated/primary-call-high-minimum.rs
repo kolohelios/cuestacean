@@ -77,6 +77,39 @@ pub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {
         return Ok(());
     }
     _frame.step()?;
+    _frame.scan_list()?;
+    _frame.step()?;
+    if _frame.has_list()? {
+        _frame.step()?;
+        _frame.advance_list()?;
+        _frame.step()?;
+        _frame.whitespace()?;
+        _frame.step()?;
+        _frame.probe_list_end()?;
+        while {
+            _frame.step()?;
+            _frame.has_list_element()?
+        } {
+            _frame.step()?;
+            _frame.parse_list_element(100u8)?;
+            _frame.step()?;
+            _frame.append_list_element()?;
+            _frame.step()?;
+            _frame.advance_list_tail()?;
+            _frame.step()?;
+            if _frame.has_list_element()? {
+                _frame.step()?;
+                _frame.whitespace()?;
+                _frame.step()?;
+                _frame.probe_list_end()?;
+            }
+        }
+        _frame.step()?;
+        _frame.build_list()?;
+        _frame.step()?;
+        return Ok(());
+    }
+    _frame.step()?;
     _frame.scan_identifier()?;
     _frame.step()?;
     if _frame.has_call()? {

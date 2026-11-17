@@ -15,6 +15,8 @@
 - `listExpression`: an `elements` array of up to 64 child ASTs, traversed and
   admitted per item through [CUE control](list-expressions.md); runtime values
   remain flat/concrete, not nested/open lists.
+- `length`: CUE selects text-byte/list-element counting of one `operand`;
+  [source lists and `len`](source-lists.md) now select these existing ASTs/kernels.
 - `listLength`: one `operand`, admitted by CUE before borrowed list counting.
 - `stringLength`: UTF-8 byte length of an eagerly evaluated `operand`, through
   [CUE concrete-text admission](string-length.md), not general source calls yet.

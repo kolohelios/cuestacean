@@ -53,6 +53,8 @@ enum Condition {
     GroupOpen {},
     HasBound {},
     HasString {},
+    HasList {},
+    HasListElement {},
     HasIdentifier {},
     HasCall {},
     HasNegation {},
@@ -97,6 +99,15 @@ enum Statement {
     ParseBound {},
     ScanString {},
     ParseString {},
+    ScanList {},
+    AdvanceList {},
+    ProbeListEnd {},
+    ParseListElement {
+        minimum: Number,
+    },
+    AppendListElement {},
+    AdvanceListTail {},
+    BuildList {},
     ScanIdentifier {},
     AdvanceCall {},
     ParseAtom {},
@@ -267,6 +278,8 @@ impl Condition {
             Self::GroupOpen {} => frame.group_open()?,
             Self::HasBound {} => frame.has_bound()?,
             Self::HasString {} => frame.has_string()?,
+            Self::HasList {} => frame.has_list()?,
+            Self::HasListElement {} => frame.has_list_element()?,
             Self::HasIdentifier {} => frame.has_identifier()?,
             Self::HasCall {} => frame.has_call()?,
             Self::HasNegation {} => frame.has_negation()?,
@@ -330,6 +343,15 @@ fn execute(
                     Statement::ParseBound {} => frame.parse_bound()?,
                     Statement::ScanString {} => frame.scan_string()?,
                     Statement::ParseString {} => frame.parse_string()?,
+                    Statement::ScanList {} => frame.scan_list()?,
+                    Statement::AdvanceList {} => frame.advance_list()?,
+                    Statement::ProbeListEnd {} => frame.probe_list_end()?,
+                    Statement::ParseListElement { minimum } => {
+                        frame.parse_list_element(minimum.value(frame)?)?
+                    }
+                    Statement::AppendListElement {} => frame.append_list_element()?,
+                    Statement::AdvanceListTail {} => frame.advance_list_tail()?,
+                    Statement::BuildList {} => frame.build_list()?,
                     Statement::ScanIdentifier {} => frame.scan_identifier()?,
                     Statement::AdvanceCall {} => frame.advance_call()?,
                     Statement::ParseAtom {} => frame.parse_atom()?,
@@ -495,6 +517,12 @@ fn project_body(body: &[Statement], tail: bool) -> serde_json::Value {
                         node["else"] = project_body(otherwise, at_tail);
                     }
                     Statement::While { body, .. } => node["body"] = project_body(body, false),
+                    // Validated unit statements share a canonical category;
+                    // CUE alone maps their wire names to checked method names.
+                    _ if node.as_object().is_some_and(|fields| fields.len() == 1) => {
+                        node["action"] = node["op"].clone();
+                        node["op"] = serde_json::json!("action");
+                    }
                     _ => {}
                 }
                 node
@@ -531,6 +559,47 @@ mod target_tests {
             let input = serde_json::json!({"formatVersion":1,"target":target,"body":[
                 {"op":"while","condition":{"op":"and","left":{"op":"boolean","value":false},
                     "right":condition},"body":[]}
+            ]});
+            assert!(parse(&input.to_string()).is_err());
+        }
+    }
+
+    #[test]
+    fn source_list_operations_are_parser_only_and_minimum_is_typed() {
+        for op in [
+            "scanList",
+            "advanceList",
+            "probeListEnd",
+            "parseListElement",
+            "appendListElement",
+            "advanceListTail",
+            "buildList",
+        ] {
+            let mut action = serde_json::json!({"op":op});
+            if op == "parseListElement" {
+                action["minimum"] = serde_json::json!({"op":"integer","value":100});
+            }
+            let mut input = serde_json::json!({"formatVersion":1,"body":[action]});
+            assert!(parse(&input.to_string()).is_ok(), "{op}");
+            input["target"] = serde_json::json!("list");
+            assert!(parse(&input.to_string()).is_err(), "{op}");
+        }
+        for op in ["hasList", "hasListElement"] {
+            let mut input = serde_json::json!({"formatVersion":1,"body":[
+                {"op":"if","condition":{"op":op},"then":[]}
+            ]});
+            assert!(parse(&input.to_string()).is_ok());
+            input["target"] = serde_json::json!("list");
+            assert!(parse(&input.to_string()).is_err());
+        }
+        for minimum in [
+            serde_json::json!({"op":"integer","value":256}),
+            serde_json::json!({"op":"integer","value":-1}),
+            serde_json::json!({"op":"integer","value":"0"}),
+            serde_json::json!({"op":"hasList"}),
+        ] {
+            let input = serde_json::json!({"formatVersion":1,"body":[
+                {"op":"parseListElement","minimum":minimum}
             ]});
             assert!(parse(&input.to_string()).is_err());
         }

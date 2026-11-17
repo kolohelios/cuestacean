@@ -91,8 +91,14 @@ fn opcode_outputs_have_independent_expected_layout() {
         ("scanNegation", "scan_negation"),
         ("advanceNegation", "advance_negation"),
         ("buildNegation", "build_negation"),
+        ("scanList", "scan_list"),
+        ("advanceList", "advance_list"),
+        ("probeListEnd", "probe_list_end"),
+        ("appendListElement", "append_list_element"),
+        ("advanceListTail", "advance_list_tail"),
+        ("buildList", "build_list"),
     ] {
-        let node = json!({"op":op});
+        let node = json!({"op":"action", "action":op});
         let expected = format!("_frame.step()?;\n_frame.{method}()?;\n");
         assert_eq!(p.lower(&node).expect(op), expected);
         assert_eq!(compiled_pratt_lowering::lower(&node).expect(op), expected);
@@ -107,6 +113,8 @@ fn opcode_outputs_have_independent_expected_layout() {
         ("hasBound", "_frame.has_bound()?"),
         ("hasIdentifier", "_frame.has_identifier()?"),
         ("hasNegation", "_frame.has_negation()?"),
+        ("hasList", "_frame.has_list()?"),
+        ("hasListElement", "_frame.has_list_element()?"),
     ] {
         assert_eq!(
             compiled_pratt_lowering::lower(&json!({"op":op})).expect(op),
@@ -117,6 +125,7 @@ fn opcode_outputs_have_independent_expected_layout() {
         ("setBindingPower", "value", "set_binding_power"),
         ("parseGroup", "minimum", "parse_group"),
         ("parseNegation", "minimum", "parse_negation"),
+        ("parseListElement", "minimum", "parse_list_element"),
     ] {
         assert_eq!(
             compiled_pratt_lowering::lower(&json!({"op":op,(field):{"op":"integer","value":255}}))
@@ -124,12 +133,12 @@ fn opcode_outputs_have_independent_expected_layout() {
             format!("_frame.step()?;\n_frame.{method}(255u8)?;\n")
         );
     }
-    let mut node = json!({"op":"if","condition":{"op":"boolean","value":true},"then":[{"op":"primary"}],"else":[]});
+    let mut node = json!({"op":"if","condition":{"op":"boolean","value":true},"then":[{"op":"action","action":"primary"}],"else":[]});
     assert_eq!(
         compiled_pratt_lowering::lower(&node).expect("empty else"),
         "_frame.step()?;\nif true {\n_frame.step()?;\n_frame.primary()?;\n}\n"
     );
-    node["else"] = json!([{"op":"parseInteger"}]);
+    node["else"] = json!([{"op":"action","action":"parseInteger"}]);
     assert_eq!(
         compiled_pratt_lowering::lower(&node).expect("nonempty else"),
         "_frame.step()?;\nif true {\n_frame.step()?;\n_frame.primary()?;\n} else {\n_frame.step()?;\n_frame.parse_integer()?;\n}\n"
@@ -177,6 +186,27 @@ fn optional_cli_policy_controls_generation_and_errors_without_output() {
 
 #[test]
 fn default_compiled_and_reference_backends_lower_programs_identically() {
+    fn actions(body: &Value) -> Value {
+        json!(
+            body.as_array()
+                .expect("statements")
+                .iter()
+                .map(|statement| {
+                    let mut node = statement.clone();
+                    if node.as_object().expect("statement").len() == 1 {
+                        node["action"] = node["op"].clone();
+                        node["op"] = json!("action");
+                    }
+                    for field in ["body", "then", "else"] {
+                        if node[field].is_array() {
+                            node[field] = actions(&node[field]);
+                        }
+                    }
+                    node
+                })
+                .collect::<Vec<_>>()
+        )
+    }
     let policy = Policy::parse(&export("pratt-lowering")).expect("Pratt lowering policy");
     for name in [
         "pratt",
@@ -187,8 +217,7 @@ fn default_compiled_and_reference_backends_lower_programs_identically() {
         let input = export(name);
         let program: Value = serde_json::from_str(&input).expect("program");
         // These return-free bodies have a canonical value-producing footer.
-        let tagged =
-            json!({"op":"program", "body":program["body"], "tail":"value", "target":"parser"});
+        let tagged = json!({"op":"program", "body":actions(&program["body"]), "tail":"value", "target":"parser"});
         assert_eq!(
             policy.lower(&tagged).expect("interpreted lowering"),
             compiled_pratt_lowering::lower(&tagged).expect("compiled lowering"),
@@ -370,6 +399,8 @@ fn generation_validates_original_pratt_json_before_policy_execution() {
     .to_string();
     for input in [
         r#"{"formatVersion":1,"formatVersion":1,"body":[]}"#,
+        r#"{"formatVersion":1,"body":[{"op":"action","action":"scanList"}]}"#,
+        r#"{"formatVersion":1,"body":[{"op":"scanList","action":"scanList"}]}"#,
         r#"{"formatVersion":1,"body":[{"op":"primary","op":"primary"}]}"#,
         r#"{"formatVersion":1,"body":[{"op":"setBindingPower","value":{"op":"integer","value":999}}]}"#,
     ] {
