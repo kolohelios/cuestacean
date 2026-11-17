@@ -161,7 +161,10 @@ are also CUE-defined, along with parenthesis and bound/infix token recognition.
 Checked i64 conversion, grammar validation/lookup,
 and frame safety remain native. The [Pratt control DSL](../pratt.md) owns the
 expression loop and associativity/binding-power decisions; its separate
-[primary program](../primary.md) owns dispatch and grouping control. Existing JSON interfaces remain unchanged.
+[primary program](../primary.md) owns dispatch and grouping control, now including
+[grammar-selected unary calls](../unary-calls.md). Default `len(expression)` uses
+the existing eager string-byte-length rule/control, without a native builtin parser.
+Existing JSON interfaces remain unchanged.
 `bootstrap-scan-codegen <program.json> [lowering.json]` uses a
 [shared CUE backend](../scan-lowering.md) for scanner source/branch layout;
 checked flow/label analysis, cursor and pattern rendering remain native.

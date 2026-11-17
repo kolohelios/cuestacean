@@ -37,6 +37,16 @@ null agrees only with null/top. Bare `_` remains incomplete. Null is concrete
 for scalar equality and ignored logical RHS selection, not arithmetic or ordering.
 These do not introduce bottom values, references, structs or general solving.
 
+[Unary calls](../unary-calls.md) add `len(expression)` for concrete UTF-8 strings;
+length counts decoded bytes, not Unicode scalars/graphemes. Argument evaluation is
+eager and CUE selects minimum 0. Spaces before `(` are allowed; LF/CR after the
+name reject conservatively, including LF through comments. There must be exactly
+one parenthesized expression. Empty/multiple arguments, function values, other
+builtins, selectors and list/struct/bytes length remain outside the profile.
+Optional grammar `calls` metadata selects names/kinds/operand fields or disables
+registration, without native builtin fallback. Calls add one wrapper node and one
+recursive argument level under the unchanged parser limits.
+
 The default grammar accepts signed decimal and [prefixed i64 integers](../radix-literals.md) (0b/0o/0x/0X), `true`/`false` and `bool`/`int` atoms,
 inclusive bounds (`>=`, `<=`), addition, subtraction, multiplication,
 integer division/remainder (`div`, `mod`, `quo`, `rem`), scalar comparisons

@@ -10,7 +10,10 @@ newline-after-operand rule.
 [binary/octal/hexadecimal control](radix-literals.md), using generic `reject` diagnostics.
 [`identifier.cue`](identifier.cue) supplies ASCII identifier start/continuation
 scanning. [`group-open.cue`](group-open.cue) and `group-close.cue` recognize and
-consume parenthesis tokens. [`bound-prefix.cue`](bound-prefix.cue) and
+consume parenthesis tokens. [`call-open.cue`](call-open.cue) composes shared
+trivia with required-opening and conservative LF/CR-after-call-name rejection;
+[unary primary control](unary-calls.md) chooses it for a committed call name.
+[`bound-prefix.cue`](bound-prefix.cue) and
 [`infix.cue`](infix.cue) recognize symbols. The
 `bootstrap-scan-codegen <program.json> [lowering.json]` compiler now uses a
 [shared CUE backend](scan-lowering.md) to lower these programs into Rust control flow. The parser calls generated whitespace, after-operand,

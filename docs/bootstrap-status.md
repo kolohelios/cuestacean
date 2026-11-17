@@ -26,7 +26,7 @@ advantages remain a hypothesis, not a measured result.
 | AST-builder compiler lowering | `bootstrap/ast-lowering{,-fragments}.cue`, [backend contract](../bootstrap/ast-lowering.md) | Native checked binding/use-count facts; CUE layout/clone/move selection; compiled driver |
 | Inclusive bound construction | `bootstrap/{lower,upper}-bound.cue`, [bound control](../bootstrap/bound-control.md) | Unary CUE threshold/domain/layout; checked left-only endpoints, no native constructor fallback |
 | Concrete-output admission | `bootstrap/{json,integer}-output.cue`, [output control](../bootstrap/output-control.md) | Unary CUE domain/incomplete diagnostics; checked native extraction/JSON encoding |
-| Checked identifier styles | [identifier rendering](../bootstrap/identifier-rendering.md), shared kernel/meta policy | CUE-selected snake/initial-capital rendering; 431-value unification backend under unchanged 512 guard |
+| Checked identifier styles | [identifier rendering](../bootstrap/identifier-rendering.md), shared kernel/meta policy | CUE-selected snake/initial-capital rendering; 437-value unification backend under unchanged 512 guard |
 | Unification compiler lowering | `bootstrap/unify-lowering{,-fragments}.cue`, [backend contract](../bootstrap/unify-lowering.md) | Shared select/concat kernel and compiled driver; native typed/scope validation |
 | Pratt/primary compiler lowering | `bootstrap/pratt-lowering{,-fragments}.cue`, [backend contract](../bootstrap/pratt-lowering.md) | Shared lowering compiler/kernel; compiled driver; native typed bridge |
 | Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
@@ -35,7 +35,7 @@ advantages remain a hypothesis, not a measured result.
 | Token/trivia scanning | `bootstrap/*.cue`, [scanner contract](../bootstrap/scanner.md) | `src/scanner.rs`; generated scanners and reference interpreter |
 | AST construction | `bootstrap/ast-*.cue`, [builder contract](../bootstrap/ast.md) | `src/ast.rs`; typed builders, no native parser JSON-map assembly |
 | Pratt expression loop | `bootstrap/pratt.cue`, [control contract](../bootstrap/pratt.md) | `src/pratt.rs`, checked native frame callbacks in `src/parser.rs` |
-| Primary dispatch | `bootstrap/primary.cue`, [primary contract](../bootstrap/primary.md) | Same control compiler; groups, negation, bounds, atoms, integers |
+| Primary dispatch | `bootstrap/primary.cue`, [primary contract](../bootstrap/primary.md) | Same control compiler; groups, prefixes, bounds, strings, grammar-selected unary calls, atoms, integers |
 | Division/remainder policy | `bootstrap/{divide,modulo,quotient,remainder}-control.cue`, [division control](../bootstrap/division-control.md) | CUE domain/zero/mode/unit-divisor selection; native checked division math |
 | Checked integer dispatch | `bootstrap/{negate,difference,product}-control.cue`, [integer control](../bootstrap/integer-control.md) | Same unary/binary compiler; CUE domain/operation policy over borrowed checked kernels |
 | Unary logical not | `bootstrap/logical-not.cue`, [unary control](../bootstrap/logical-not.md) | Checked unary arity/subset; same compiler and generated one-operand policy |
@@ -72,6 +72,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   plus eight-digit scalar `\UXXXXXXXX` ([wide contract](../bootstrap/wide-unicode.md)); abstract `string`;
   signed decimal and prefixed 0b/0o/0x/0X integers ([contract](../bootstrap/radix-literals.md)); `true`/`false`; `bool`/`int`; inclusive bounds `>=` / `<=` with literal or
   [parenthesized computed thresholds](../bootstrap/computed-bounds.md);
+  [source `len(expression)`](../bootstrap/unary-calls.md) for concrete UTF-8 byte length;
   parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary `!` and expression negation;
   `div`, `mod`, `quo`, `rem`; concrete scalar `==` / `!=`; integer/text `<` / `<=` / `>` / `>=`; CUE-owned UTF-8 `//` comment trivia.
 - Binary operators are left-associative by default. `div/mod/quo/rem` share
@@ -192,6 +193,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#112](https://github.com/kolohelios/cuestacean/pull/112) | Checked prefixed integers and inclusive thresholds |
 | [#114](https://github.com/kolohelios/cuestacean/pull/114) | CUE-controlled computed integer bound thresholds |
 | [#116](https://github.com/kolohelios/cuestacean/pull/116) | Early-return control, flat primary dispatch and CI-gated auto-merge |
+| [#118](https://github.com/kolohelios/cuestacean/pull/118) | CUE-owned string UTF-8 byte length and borrowed checked kernel |
 
 ## Build and validation runbook
 

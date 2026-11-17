@@ -33,6 +33,10 @@ mod generated_after_word_operator;
 mod generated_group_open;
 
 #[cfg(feature = "source")]
+#[path = "../../generated/call-open.rs"]
+mod generated_call_open;
+
+#[cfg(feature = "source")]
 #[path = "../../generated/group-close.rs"]
 mod generated_group_close;
 
@@ -578,6 +582,12 @@ pub fn after_operand(source: &str, offset: usize) -> Result<Scan, Error> {
 #[cfg(feature = "source")]
 pub fn group_open(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_group_open::scan(source, offset)
+}
+
+/// Skip call-name trivia and require an opening parenthesis under CUE policy.
+#[cfg(feature = "source")]
+pub fn call_open(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_call_open::scan(source, offset)
 }
 
 /// Skip whitespace, require a closing parenthesis and consume it.

@@ -88,6 +88,10 @@ replaces nested dispatch; `primary-nested` retains the prior compiled algorithm
 byte-exact. `primary-return`, `primary-return-empty` and `pratt-return-loop`
 exercise tail/early return, completion/fuel guards and nested loop unwinding.
 The CUE compiler selects footer and return spelling from checked native flow facts.
+`primary-no-calls` preserves the pre-call flat primary byte-exact;
+`primary-call-high-minimum` changes argument binding to 100; `call-open` owns
+required opening/trivia/newline diagnostics. They use the existing scanner/compiler
+and unary builder, not a native builtin algorithm.
 `primary-no-atoms` and `primary-high-minimum` are
 test-only policies, not production fallbacks. `primary-low-negation` weakens
 the CUE-supplied unary binding power. `primary-bound-high-minimum` weakens only
@@ -110,7 +114,8 @@ use it too, with `less-false` as a compiled test-only alternate.
 `logic-false` is test-only. Both child instructions still evaluate eagerly.
 `string-length-control` adds [UTF-8 byte length](../string-length.md) through
 CUE concrete-text admission and a borrowed checked kernel; `length-zero` is an
-actual compiled input-independent alternate. Source call syntax is a later slice.
+actual compiled input-independent alternate. [Unary source calls](../unary-calls.md)
+now connect `len(...)` through grammar-selected constructors and CUE grouping.
 `logical-not.rs` has a checked one-Value signature; `not-true` is an actual
 compiled alternate and `control-default` preserves omitted-function binary arity.
 `negate-control` / `difference-control` / `product-control` now own integer
@@ -163,7 +168,7 @@ done
 bootstrap/executor/target/debug/bootstrap-codegen "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-reverse.json" \
   | rustfmt --edition 2024 > bootstrap/generated/evaluation-reverse.rs
-for machine in integer-literal tests/valid/string-no-wide tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
+for machine in call-open integer-literal tests/valid/string-no-wide tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
   tests/valid/scanner-horizontal \
   tests/valid/scanner-stalled tests/valid/scanner-advance \
   tests/valid/scanner-decimal-permissive tests/valid/scanner-reject tests/valid/scanner-state \
@@ -184,7 +189,7 @@ done
 bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-literal.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-lowering-forced.json" \
   | rustfmt --edition 2024 > bootstrap/generated/ast-forced-integer.rs
-for control in primary tests/valid/primary-nested tests/valid/primary-return tests/valid/primary-return-empty tests/valid/pratt-return-loop \
+for control in primary tests/valid/primary-no-calls tests/valid/primary-call-high-minimum tests/valid/primary-nested tests/valid/primary-return tests/valid/primary-return-empty tests/valid/pratt-return-loop \
   tests/valid/primary-bound-high-minimum tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
   tests/valid/primary-cross-phase tests/valid/primary-low-negation \
   pratt tests/valid/pratt-right tests/valid/pratt-stalled \

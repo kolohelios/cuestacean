@@ -5,6 +5,7 @@ package bootstrap
 	let L = {op: "lower", field: "left"}
 	let R = {op: "lower", field: "right"}
 	let Calls = {
+		advanceCall:    "advance_call"
 		primary:        "primary", afterOperand:            "after_operand", afterWordOperator: "after_word_operator"
 		lookupOperator: "lookup_operator", advanceOperator: "advance_operator"
 		parseRight:     "parse_right", buildBinary:         "build_binary", whitespace:  "whitespace"
@@ -41,6 +42,7 @@ package bootstrap
 		groupOpen: {op: "text", value: "_frame.group_open()?"}
 		hasBound: {op: "text", value: "_frame.has_bound()?"}
 		hasIdentifier: {op: "text", value: "_frame.has_identifier()?"}
+		hasCall: {op: "text", value: "_frame.has_call()?"}
 		hasString: {op: "text", value: "_frame.has_string()?"}
 		hasNegation: {op: "text", value: "_frame.has_negation()?"}
 		hasNot: {op: "text", value: "_frame.has_not()?"}

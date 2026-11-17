@@ -15,6 +15,7 @@
     }:
     let
       scannerFixtures = [
+        "call-open"
         "whitespace"
         "after-operand"
         "after-word-operator"
@@ -67,6 +68,8 @@
         "tests/valid/primary-return-empty"
         "tests/valid/pratt-return-loop"
         "tests/valid/primary-bound-high-minimum"
+        "tests/valid/primary-no-calls"
+        "tests/valid/primary-call-high-minimum"
         "tests/valid/primary-no-atoms"
         "tests/valid/primary-high-minimum"
         "tests/valid/primary-low-negation"
@@ -234,10 +237,10 @@
               # for a literal can exhaust the CI runner while checking unused CUE.
               fragments=()
               case "$fixture" in
-                primary|tests/valid/primary-bound-high-minimum) fragments=(primary-fragments) ;;
+                primary|tests/valid/primary-bound-high-minimum|tests/valid/primary-call-high-minimum) fragments=(primary-fragments) ;;
                 decimal|integer-literal) fragments=(decimal-fragments) ;;
                 string-literal|tests/valid/string-no-unicode|tests/valid/string-no-wide|tests/valid/string-nested|tests/valid/string-unrolled) fragments=(string-literal-fragments) ;;
-                whitespace|after-operand|after-word-operator|group-close)
+                whitespace|after-operand|after-word-operator|group-close|call-open)
                   fragments=(scanner-fragments) ;;
                 lowering|tests/valid/lowering-left-twice|tests/valid/lowering-reverse)
                   fragments=(lowering-fragments) ;;
@@ -586,7 +589,7 @@
                   test -s error
                 done
                 # These selected domain/syntax rejections must also fail upstream.
-                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/not-integer.cue ${../../bootstrap/source}/rejected/null-conflict.cue ${../../bootstrap/source}/rejected/radix-uppercase-{binary,octal}.cue; do
+                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/call-{domain,arity,empty,name-newline}.cue ${../../bootstrap/source}/rejected/not-integer.cue ${../../bootstrap/source}/rejected/null-conflict.cue ${../../bootstrap/source}/rejected/radix-uppercase-{binary,octal}.cue; do
                   if cue export "$source" --out json > expected 2> cue-error; then exit 1; fi
                   test ! -s expected
                   test -s cue-error

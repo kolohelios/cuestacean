@@ -38,6 +38,8 @@ conservative newline-after-operand rule, bound/infix token recognition, and thei
 diagnostics also live in CUE. Checked i64 conversion, grammar validation/lookup,
 and frame safety remain native. The [Pratt expression loop](bootstrap/pratt.md)
 and [primary dispatch](bootstrap/primary.md) now run from CUE control statements,
+including [grammar-selected unary calls](bootstrap/unary-calls.md) such as
+`len("é🙂")` (UTF-8 byte length 6),
 including binding-power, associativity and grouping-minimum decisions. Bootstrap specification evaluation still relies on the upstream Go tool. [AST construction](bootstrap/ast.md)
 now uses separate CUE-defined builder expressions compiled to typed Rust functions;
 the native parser no longer assembles JSON maps. [Scalar unification](bootstrap/unify.md)

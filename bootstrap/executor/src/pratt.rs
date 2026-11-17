@@ -41,6 +41,7 @@ enum Condition {
     HasBound {},
     HasString {},
     HasIdentifier {},
+    HasCall {},
     HasNegation {},
     HasNot {},
     Boolean {
@@ -76,6 +77,7 @@ enum Statement {
     ScanString {},
     ParseString {},
     ScanIdentifier {},
+    AdvanceCall {},
     ParseAtom {},
     ParseInteger {},
     ParseGroup {
@@ -196,6 +198,7 @@ impl Condition {
             Self::HasBound {} => frame.has_bound()?,
             Self::HasString {} => frame.has_string()?,
             Self::HasIdentifier {} => frame.has_identifier()?,
+            Self::HasCall {} => frame.has_call()?,
             Self::HasNegation {} => frame.has_negation()?,
             Self::HasNot {} => frame.has_not()?,
             Self::Boolean { value } => *value,
@@ -259,6 +262,7 @@ fn execute(
                     Statement::ScanString {} => frame.scan_string()?,
                     Statement::ParseString {} => frame.parse_string()?,
                     Statement::ScanIdentifier {} => frame.scan_identifier()?,
+                    Statement::AdvanceCall {} => frame.advance_call()?,
                     Statement::ParseAtom {} => frame.parse_atom()?,
                     Statement::ParseInteger {} => frame.parse_integer()?,
                     Statement::ParseGroup { minimum } => {

@@ -16,6 +16,7 @@ parts.arg(|ctx| ctx.text(")?"))?;
 Ok(())
 }),
             "advanceBound" => ctx.text("_frame.step()?;\n_frame.advance_bound()?;\n"),
+            "advanceCall" => ctx.text("_frame.step()?;\n_frame.advance_call()?;\n"),
             "advanceGroup" => ctx.text("_frame.step()?;\n_frame.advance_group()?;\n"),
             "advanceNegation" => ctx.text("_frame.step()?;\n_frame.advance_negation()?;\n"),
             "advanceNot" => ctx.text("_frame.step()?;\n_frame.advance_not()?;\n"),
@@ -41,6 +42,7 @@ Ok(())
             "closeGroup" => ctx.text("_frame.step()?;\n_frame.close_group()?;\n"),
             "groupOpen" => ctx.text("_frame.group_open()?"),
             "hasBound" => ctx.text("_frame.has_bound()?"),
+            "hasCall" => ctx.text("_frame.has_call()?"),
             "hasIdentifier" => ctx.text("_frame.has_identifier()?"),
             "hasNegation" => ctx.text("_frame.has_negation()?"),
             "hasNot" => ctx.text("_frame.has_not()?"),
