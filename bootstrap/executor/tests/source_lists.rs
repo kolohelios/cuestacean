@@ -122,7 +122,7 @@ fn independent_complete_trees_values_and_explicit_comma_trivia() {
 }
 
 #[test]
-fn child_and_flat_admission_failures_precede_enclosing_length() {
+fn child_and_abstract_admission_failures_precede_enclosing_length() {
     let grammar = export("grammar");
     for (source, message) in [
         ("[1 div 0]", "integer division by zero"),
@@ -140,7 +140,7 @@ fn child_and_flat_admission_failures_precede_enclosing_length() {
             }
         }
     }
-    for source in ["[[]]", "[int,1 div 0]", "len([[],1 div 0])"] {
+    for source in ["[[_]]", "[int,1 div 0]", "len([int,1 div 0])"] {
         for parsed in parses(source, &grammar) {
             for result in evaluations(&parsed.expect("nested syntax parses")) {
                 assert!(
@@ -413,7 +413,8 @@ fn cli_array_success_and_failures_are_atomic() {
         ("[1+2,null,\"é\"]", Some("[3,null,\"é\"]\n")),
         ("[1,1 div 0]", None),
         ("[1,,2]", None),
-        ("len([[]])", None),
+        ("len([[]])", Some("1\n")),
+        ("len([int])", None),
     ] {
         std::fs::write(&path, source).expect("write source");
         let output = Command::new(env!("CARGO_BIN_EXE_bootstrap-source"))

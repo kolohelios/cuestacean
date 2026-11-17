@@ -1,66 +1,61 @@
-# Closed scalar lists: ownership and first structural boundary
+# Closed lists: ownership and structural boundary
 
-## Decision and deliberately narrow profile
+## Current representation and separate profiles
 
-Add concrete flat lists of at most 64 owned null/boolean/i64/text values. Runtime
-`Value::List(ClosedList)` uses an opaque immutable `ClosedList` backed by
-`Arc<[Value]>`. Its only public construction path validates capacity first, then
-each element, permitting only concrete scalar variants. Storage stays private;
-`as_slice`, `len` and `is_empty` expose immutable inspection. No mutation, unchecked
-constructor, Deserialize bypass, nested lists, abstract elements or references.
+`Value::List(ClosedList)` owns opaque immutable `Arc<[Value]>` storage plus
+private certified shape metadata. The original flat scalar profile is extended
+by the reviewed [nested-value contract](nested-list-values.md): elements may be
+concrete null/boolean/i64/text or already-built validated closed lists. Width is
+at most 64, value depth 32 and logical nodes 4096, counting shared occurrences.
+No mutation, unchecked construction, Deserialize bypass, abstract elements,
+structs or references. Immutable construction forms an acyclic DAG; this does
+not decide future reference/identity/cycle ownership.
 
-This gives content equality and shared ownership without copying child text on
-container clone. Independently allocated equal lists compare equal. Values own
-their contents after input JSON is dropped. Flatness plus the 64-item cap bounds
-element/depth traversal for comparison/drop/encoding, not text-byte work or
-allocations; no recursive value/graph ownership decision
-is smuggled in. Future reference/cycle terms need a separate graph design, not
-strong Arc cycles in this representation. Nested values still need a separate
-design. [Expression-list evaluation](../bootstrap/list-expressions.md) now extends
-construction through explicit CUE traversal without weakening this invariant.
+Container clones share storage; text/list selection retains its own immutable
+child after parent/input drop. Content equality applies to independently
+allocated equal values. Cached child shape prevents subtree traversal during
+parent construction; expanded equality/encoding/drop are structurally bounded,
+not text-byte/allocation/wall-time bounded. `as_slice`, `len` and `is_empty`
+remain immutable inspection; no public metadata setters or larger-limit APIs.
 
-## Wire, kernels and executable CUE boundary
+## Raw literal payloads versus expression evaluation
 
-Version-1 JSON AST adds `{kind:"list", value:[raw JSON scalars...]}`. Its rule
-instruction is `list {field}`. These are literal payloads, not child AST
-expressions; bounded native scalar decoding/encoding is a representation kernel,
-not a hidden expression-evaluation loop. The node consumes one AST visit; payload
-conversion is bounded by 64 items separately. The subsequent `listExpression`
-kind makes CUE own child traversal/evaluation rather than reuse this literal codec.
+Version-1 JSON AST `{kind:"list",value:[raw scalars...]}` / rule `list {field}`
+**stays scalar-only**. Its codec/schema still reject nested raw arrays, objects,
+fractional/out-of-i64 values and abstracts. This compatibility profile charges
+one AST entry; bounded native payload decoding is representation, not hidden
+AST child evaluation.
 
-Capacity rejects before element validation. Errors are `closed list exceeds 64
-elements`, `closed list element {index} requires a concrete scalar`, or the usual
-missing field / `field {field:?} must be an array`. Nested arrays, objects,
-fractional/out-of-i64 numbers and native abstract values reject. Scalars preserve
-exact i64 and UTF-8 content with no normalization/coercion.
+`listExpression {elements:[AST...]}` / rule `listExpression {field}` and
+[source lists](../bootstrap/source-lists.md) now construct nested values through
+[CUE traversal/admission](../bootstrap/list-expressions.md). Each child shares
+the selected evaluator and AST context. Native append checks prospective parent
+shape before later children; final construction independently validates again.
+Capacity checks before elements. Constructor checks concrete type, depth, then
+logical nodes per item; invalid/unfinished values never escape. Errors include:
 
-CUE unification handles top identity first, then null/list isolation before
-numeric identity: equal lists select an input; unequal lists produce `conflicting
-closed list values`; list/non-list conflicts are types, never numeric permission
-from absent endpoints. CUE concrete-domain equality and logical selection admit
-lists; ordering/arithmetic retain their existing unsupported-domain errors.
-CUE JSON-output admission already permits concrete values; the native encoder
-adds bounded array layout. Integer-only output still rejects lists.
+- `closed list exceeds 64 elements`;
+- `closed list element {index} requires a concrete scalar or closed list`;
+- `closed list exceeds 32 value levels`;
+- `closed list exceeds 4096 logical value nodes`.
 
-Unary `listLength {operand}` / rule `listLength {value}` and CUE `list-length-control`
-admit a closed list and call borrowed native `list_count`; other values fail
-`length requires a concrete closed list`. An actual compiled alternate policy
-returns zero independently of input. Existing `stringLength` stays text-only.
-[Source lists](../bootstrap/source-lists.md) now build `listExpression`; default
-`len` selects CUE text/list `length` dispatch without widening the old APIs.
-[Indexing](../bootstrap/list-indexing.md) now clones one selected scalar through
-CUE domain/range guards; text retains shared ownership after parent drop.
-Open/abstract/nested lists, field selectors, structs, list concatenation and
-general list solving remain absent.
+## CUE semantics and explicit native boundaries
 
-## Evidence and bootstrap
+CUE unification checks top identity, null and list isolation before numeric
+identity: equal concrete lists select an input; unequal lists conflict; list
+versus non-list conflicts never gain numeric permission from absent endpoints.
+Equality/logical/output admission already recognizes concrete lists. Ordering
+and arithmetic remain unsupported. Native content comparison and exact JSON
+encoding operate only on certified values; integer-only output still rejects lists.
 
-Pin empty/mixed/extreme/Unicode lists, every mixed domain, equal/unequal/shape
-conflicts, exact JSON, 64/65 and malformed-element boundaries, API/Arc lifetime,
-left-first errors and compiled/reference policies against independent outcomes.
-Pinned CUE JSON marshal produces exact compact expected arrays, including i64
-extrema; never pass numeric list contents through floating-point/jq normalization.
-Same six artifact-free seeds, build-only JSON/committed Rust drift, feature and
-all existing source/evaluation/compiler/scanner limits remain. Native validation,
-representation/codecs/kernels and Go export remain explicit boundaries. This is
-not full lists/CUE, graph ownership, bootstrap closure or measured performance.
+`listLength`/generic source `len` count direct elements. `stringLength` remains
+text-only. [Indexing](../bootstrap/list-indexing.md) clones a selected value,
+including a shared nested list, under CUE domain/range policy. Open/abstract list
+constraints, structs/field selectors, concatenation and general solving remain
+absent. All parser/evaluator/compiler/scanner limits remain separate and unchanged.
+
+Same six fresh artifact-free seeds, exact pinned upstream/independent outcomes,
+feature profiles and deterministic Rust drift apply. JSON is build-only; Rust
+committed, never a seed dependency. Go export/native validation/cursors/counters/
+representation/encoding/compiler kernels remain explicit; no full CUE/bootstrap
+closure or measured performance claim.

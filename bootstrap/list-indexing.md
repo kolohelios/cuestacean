@@ -1,6 +1,7 @@
 # Closed-list indexing
 
-Extend the existing flat/concrete list profile, not its ownership model. JSON AST
+Index the existing concrete list profile; [nested values](../docs/nested-list-values.md)
+now share certified immutable child storage. JSON AST
 `listIndex {left,right}` and binary rule `listIndex` evaluate left then right with
 the same evaluation context before CUE policy. CUE requires a closed list and
 concrete i64, then chooses `0 <= index < count` before checked element extraction.
@@ -9,7 +10,7 @@ Errors: `indexing requires a concrete closed list and integer` (IndexOperands),
 `list index out of range` (IndexRange). Child errors precede those guards.
 
 Native always-available `list_at(&Value,&Value)` defensively checks domains,
-checked i64-to-usize conversion and `.get`, cloning just the selected scalar.
+checked i64-to-usize conversion and `.get`, cloning just the selected value (including a shared nested list).
 Text selection shares its Arc and survives list/input drop. CUE uses existing
 endpoint comparison plus left-only `listCount` endpoint (serialized internally
 as listCountEndpoint, not accepted as wire) for range policy. Existing compiler
@@ -39,6 +40,7 @@ control changes parsing. Independent trees/values/errors cover precedence/chain/
 resource bounds/selected drivers, ownership/64/empty/extrema/domain matrices,
 error order and CLI atomicity, with pinned exact upstream source/AST probes.
 JSON remains build-only, Rust committed, same six artifact-free seeds/features.
-Flat runtime lists still exclude nested/abstract/reference elements. Go export,
+Runtime lists still exclude abstract/reference elements; nested values obey
+separate depth/logical-node bounds. Go export,
 validation/cursor/counter/lookup/builder/encoding/compiler boundaries remain;
 no full CUE/bootstrap closure or measured performance claim.

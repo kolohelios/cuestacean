@@ -51,7 +51,9 @@ extrema guards and unit offsets without wrapping;
 [Closed scalar lists](docs/closed-lists.md) now add immutable owned JSON arrays,
 CUE content unification/equality and list length. [Source lists](bootstrap/source-lists.md)
 now accept computed scalar elements and `len([1,2])`; [indexing](bootstrap/list-indexing.md)
-adds `[10,20][1]` through CUE postfix/range control. Open/nested list values remain absent.
+adds `[10,20][1]` through CUE postfix/range control. [Nested expression values](docs/nested-list-values.md)
+now support `[[10,20],[30]][0][1]` with immutable sharing and bounded shape.
+Open/abstract lists and general solving remain absent.
 [CUE-owned addition control](bootstrap/sum.md) selects checked integer addition
 or concrete string concatenation. [Scalar equality](bootstrap/equality.md)
 adds `==` and `!=` with CUE-owned concreteness guards and boolean result selection.

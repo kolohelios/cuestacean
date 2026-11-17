@@ -38,8 +38,9 @@ for scalar equality and ignored logical RHS selection, not arithmetic or orderin
 These do not introduce bottom values, references, structs or general solving.
 
 [Source lists](../source-lists.md) add `[]` and `[expression,...]` with explicit
-commas (trailing comma allowed), leading/after-comma trivia, and flat concrete
-scalar results. No open/nested list values or implicit comma insertion. The
+commas (trailing comma allowed), leading/after-comma trivia, and concrete results.
+[Nested values](../../docs/nested-list-values.md) use immutable acyclic sharing,
+32 value levels and 4096 logical nodes. No open/abstract lists or implicit commas. The
 container costs one node: 63 scalar leaves fit the unchanged 64-node source limit.
 [Indexing](../list-indexing.md) adds `operand[indexExpression]` with a concrete i64
 index, CUE domain/0-inclusive/count-exclusive bounds, and no negative/from-end or

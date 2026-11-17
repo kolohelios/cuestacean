@@ -69,6 +69,7 @@
       prattFixtures = [
         "list-control"
         "tests/valid/list-control-reverse"
+        "tests/valid/list-control-scalars"
         "tests/valid/list-control-stalled"
         "tests/valid/list-control-unfinished"
         "primary"
@@ -177,6 +178,7 @@
         "lists"
         "list-length"
         "list-expressions"
+        "nested-lists"
         "list-indexing"
         "tests/valid/lists-unify"
         "tests/valid/lists-capacity"
@@ -269,7 +271,7 @@
               fragments=()
               case "$fixture" in
                 pratt|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
-                list-control|tests/valid/list-control-reverse) fragments=(list-control-fragments) ;;
+                list-control|tests/valid/list-control-reverse|tests/valid/list-control-scalars) fragments=(list-control-fragments) ;;
                 primary|tests/valid/primary-bound-high-minimum|tests/valid/primary-call-high-minimum|tests/valid/primary-no-lists) fragments=(primary-fragments) ;;
                 decimal|integer-literal) fragments=(decimal-fragments) ;;
                 string-literal|tests/valid/string-no-unicode|tests/valid/string-no-wide|tests/valid/string-nested|tests/valid/string-unrolled) fragments=(string-literal-fragments) ;;
@@ -659,7 +661,7 @@
               }
               ''
                 set -euo pipefail
-                for fixture in lists list-expressions tests/valid/lists-unify; do
+                for fixture in lists list-expressions nested-lists tests/valid/lists-unify; do
                   probe="''${fixture##*/}"
                   # Marshal in pinned CUE, not jq: keep every i64 exact.
                   printf '%s\n' "$(cue export ${../../bootstrap/tests/upstream}/"$probe.cue" --out text)" > expected

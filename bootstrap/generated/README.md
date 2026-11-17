@@ -129,10 +129,13 @@ CUE selects traversal, per-item scalar admission and construction order for
 [expression lists](../list-expressions.md). `list-control-reverse` observably
 reverses output; stalled/unfinished variants pin fuel and completion guards.
 No native production element-evaluation loop or new seed is introduced.
+`list-control-scalars` preserves that actual earlier admission program byte-exact;
+production now explicitly admits [nested closed values](../../docs/nested-list-values.md).
+Checked native append/final construction enforce cached 32-level/4096-node shape.
 `list-length-control` adds [closed scalar list](../../docs/closed-lists.md) length;
 `list-length-zero` is an actual compiled alternate. Native bounded literal codecs
 supply owned arrays; CUE owns list isolation/equality/logical/output admission.
-General/nested list solving remains absent.
+General/open/abstract list solving remains absent.
 `string-length-control` adds [UTF-8 byte length](../string-length.md) through
 CUE concrete-text admission and a borrowed checked kernel; `length-zero` is an
 actual compiled input-independent alternate. [Unary source calls](../unary-calls.md)
@@ -154,7 +157,8 @@ The four division/remainder `*-control` modules add CUE zero/unit-divisor policy
 left-only choose/literal/empty/projection in compiled code.
 Intermediate values may be abstract `bool`, `int` or
 bounds; JSON evaluation also supports owned strings and abstract `string`.
-Public `execute_json` requires concrete JSON null/integer/boolean/string;
+Public `execute_json` requires concrete JSON null/integer/boolean/string or
+certified closed arrays, including bounded nested expression results;
 abstract top reports `non-concrete value`. [Lattice policy](../lattice-values.md)
 selects top identity and null-domain behavior in CUE;
 legacy `execute` remains integer-only. The normal module is exposed as
@@ -213,7 +217,7 @@ done
 bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-literal.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-lowering-forced.json" \
   | rustfmt --edition 2024 > bootstrap/generated/ast-forced-integer.rs
-for control in tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
+for control in tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
   primary tests/valid/primary-no-calls tests/valid/primary-call-high-minimum tests/valid/primary-nested tests/valid/primary-return tests/valid/primary-return-empty tests/valid/pratt-return-loop \
   tests/valid/primary-bound-high-minimum tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
   tests/valid/primary-cross-phase tests/valid/primary-low-negation \

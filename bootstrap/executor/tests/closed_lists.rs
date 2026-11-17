@@ -148,13 +148,18 @@ fn capacity_precedes_validation_and_bad_elements_are_indexed() {
     for bad in domains()
         .into_iter()
         .filter(|v| matches!(v, V::Top | V::Int | V::Bool | V::String | V::Bounds { .. }))
-        .chain([list(vec![])])
     {
         fails(
             ClosedList::new(vec![V::Null, bad]),
-            "closed list element 1 requires a concrete scalar",
+            "closed list element 1 requires a concrete scalar or closed list",
         );
     }
+    assert_eq!(
+        ClosedList::new(vec![V::Null, list(vec![])])
+            .expect("validated child list")
+            .as_slice(),
+        &[V::Null, list(vec![])]
+    );
     assert!(
         matches!(runtime::list(&json!({}), "value"), Err(Error::MissingField { field }) if field == "value")
     );
@@ -175,7 +180,7 @@ fn capacity_precedes_validation_and_bad_elements_are_indexed() {
         let raw = json!([null, "ok", bad]);
         fails(
             decode(&raw),
-            "closed list element 2 requires a concrete scalar",
+            "closed list element 2 requires a concrete scalar or closed list",
         );
         for result in both(literal(raw)) {
             assert!(matches!(result, Err(Error::ListElement { index: 2 })));
@@ -368,7 +373,7 @@ fn eager_children_precede_length_domain_and_logical_selection() {
         ),
         (
             literal(json!([{}])),
-            "closed list element 0 requires a concrete scalar",
+            "closed list element 0 requires a concrete scalar or closed list",
         ),
         (
             json!({"kind":"unknownTestKind"}),
