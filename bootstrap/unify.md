@@ -13,7 +13,7 @@ null has no numeric endpoints, and top selects its other operand. Values include
 native unit `Null`/`Top` and the owned `Text(Arc<str>)`/`String`, `Boolean(bool)`/`Bool`,
 `Integer(i64)`/`Int` and inclusive `Bounds` scaffold; `Value` is no longer Copy.
 See the [ownership design](../docs/string-values.md). Projection, tag tests, finite i64
-comparisons, error construction, checked arithmetic, concrete output, typed
+comparisons, error construction, checked arithmetic, output extraction/encoding, typed
 decoders and generic compiler/interpreter kernels remain Rust. Per-opcode
 [compiler lowering](unify-lowering.md) now lives in a separate CUE policy. Go CUE still exports specifications. This policy
 does not define accepted source syntax.
@@ -35,13 +35,17 @@ failure. Eager children and both-value concreteness precede CUE result selection
 Omitted function metadata remains binary by default in CUE and native decoding.
 [Checked integer dispatch](integer-control.md) adds a typed `integerPrimitive`
 operation enum and CUE guards for negation/subtraction/multiplication. Unary
-control admits only negation and arithmetic/logical failure; binary primitives
+control admits integer negation and input-independent failure; binary primitives
 remain forbidden in the one-input subset. Entry names remain enum-validated;
 CUE's checked identifier/snake operation emits their spelling.
 [Division control](division-control.md) extends that enum with four binary
 primitives, `divisionByZero` failure and checked-i64 `integer {value}` literals
 in value/endpoint positions. Literals need no input or scope; unary control may
 construct values but still rejects endpoints, binary primitives and zero failure.
+[Output admission](output-control.md) adds unary `jsonOutput` / `integerOutput`
+names and six input-independent output/incomplete failure tags, usable in either
+arity. Endpoint conditions and pair-dependent failures still reject in unary
+programs. Native output encoders do not select incomplete diagnostics.
 `integerSum` and `textConcat` call checked borrowed-input kernels; `fail` also
 supports `arithmetic`. The interpreter executes `result` independently of the
 entry-name metadata. There is no native overloaded-addition fallback. Value expressions

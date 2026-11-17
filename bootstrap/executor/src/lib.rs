@@ -111,6 +111,8 @@ pub enum Error {
     StringConflict { left: String, right: String },
     #[snafu(display("integer output requires an integer value"))]
     IntegerOutput,
+    #[snafu(display("output policy returned an unsupported value"))]
+    OutputPolicy,
     #[snafu(display("conflicting integer bounds"))]
     BoundsConflict,
     #[snafu(display("non-concrete integer bounds"))]

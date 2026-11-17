@@ -39,7 +39,8 @@ identifier rendering now owns their regular Rust spelling, replacing repetitive
 select maps. Full native enum validation still precedes rendering; raw metadata
 is not a sandbox. The [identifier contract](identifier-rendering.md) pins lexical
 bounds and style semantics; backend export shrinks from 503 to 410 values under
-the unchanged 512 guard, with identical solver output. The bridge always supplies a validated `function` enum (`unify`,
+the unchanged 512 guard, with identical solver output. The subsequent output
+admission extension adds six unary failure cases, reaching 428 values. The bridge always supplies a validated `function` enum (`unify`,
 `sum`, comparison/logical and integer-control names), defaulted for legacy
 control wire documents. CUE's checked `identifier` with snake conversion emits
 the compiled entry name and emits the `integerSum`/`textConcat` kernel calls used by
@@ -50,7 +51,9 @@ condition; CUE also renders inclusive relation names as Rust variants. Native
 finite/text comparison kernels do not choose allowed source domains.
 Logical control adds two fixed entry names and `booleanIs` literal/side projection.
 Unary logical control adds root `unary` arity facts and serialization-only
-`unaryFail` for an already validated logical/arithmetic failure. CUE chooses a one-input
+`unaryFail` for an already validated input-independent logical/arithmetic or
+output/incomplete failure. [Output control](output-control.md) keeps the legacy
+`incompleteInt` → `Error::Incomplete` exception explicit in CUE. CUE chooses a one-input
 header and emits failure without a nonexistent RHS. Original wire still uses
 `fail`; the unary subset rejects all binary/right dependencies before lowering.
 Reusable binary CUE templates explicitly use `#BinaryControlProgram`.

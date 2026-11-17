@@ -31,7 +31,12 @@ after changing CUE rules, regenerate the committed Rust modules so their drift
 check passes. The default Nix entry point remains the
 interpreter.
 
-Both evaluators use the same output and evaluation-error conventions. Their
+Both evaluators use the same output and evaluation-error conventions.
+[CUE output admission](../output-control.md) now chooses accepted domains and
+incomplete diagnostics. Checked native `encode_integer` / `encode_json` only
+extract/encode admitted representations; other values yield defensive
+`OutputPolicy`, not a native incomplete-policy fallback. Output facades are
+semantics-gated; compiler-only seeds retain the checked encoders. Their
 usage messages differ because their argument lists differ.
 
 Library `execute_json(program, rules)` and `generated::execute_json(program)`

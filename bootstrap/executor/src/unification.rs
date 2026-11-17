@@ -61,6 +61,8 @@ enum Function {
     LogicalAnd,
     LogicalOr,
     LogicalNot,
+    IntegerOutput,
+    JsonOutput,
     Negate,
     Difference,
     Product,
@@ -71,7 +73,10 @@ enum Function {
 }
 impl Function {
     fn is_unary(self) -> bool {
-        matches!(self, Self::LogicalNot | Self::Negate)
+        matches!(
+            self,
+            Self::LogicalNot | Self::Negate | Self::IntegerOutput | Self::JsonOutput
+        )
     }
 }
 #[derive(Deserialize)]
@@ -144,6 +149,12 @@ pub enum Failure {
     Comparison,
     Ordering,
     Logical,
+    IncompleteInt,
+    IncompleteValue,
+    IncompleteBool,
+    IncompleteString,
+    IncompleteBounds,
+    IntegerOutput,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
@@ -250,7 +261,15 @@ impl Expr {
                 operation: IntegerOperation::Negate,
             }
             | Self::Fail {
-                reason: Failure::Logical | Failure::Arithmetic,
+                reason:
+                    Failure::Logical
+                    | Failure::Arithmetic
+                    | Failure::IncompleteInt
+                    | Failure::IncompleteValue
+                    | Failure::IncompleteBool
+                    | Failure::IncompleteString
+                    | Failure::IncompleteBounds
+                    | Failure::IntegerOutput,
             } => Ok(()),
             Self::If {
                 condition,
@@ -439,6 +458,12 @@ pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate
         Failure::Comparison => Err(crate::Error::Comparison),
         Failure::Ordering => Err(crate::Error::Ordering),
         Failure::Logical => Err(crate::Error::Logical),
+        Failure::IncompleteInt => Err(crate::Error::Incomplete),
+        Failure::IncompleteValue => Err(crate::Error::IncompleteValue),
+        Failure::IncompleteBool => Err(crate::Error::IncompleteBool),
+        Failure::IncompleteString => Err(crate::Error::IncompleteString),
+        Failure::IncompleteBounds => Err(crate::Error::IncompleteBounds),
+        Failure::IntegerOutput => Err(crate::Error::IntegerOutput),
         Failure::Booleans => match (left, right) {
             (Value::Boolean(left), Value::Boolean(right)) => Err(crate::Error::BooleanConflict {
                 left: *left,
@@ -569,6 +594,24 @@ impl Expr {
             Self::Fail {
                 reason: Failure::Arithmetic,
             } => Err(crate::Error::Arithmetic),
+            Self::Fail {
+                reason: Failure::IncompleteInt,
+            } => Err(crate::Error::Incomplete),
+            Self::Fail {
+                reason: Failure::IncompleteValue,
+            } => Err(crate::Error::IncompleteValue),
+            Self::Fail {
+                reason: Failure::IncompleteBool,
+            } => Err(crate::Error::IncompleteBool),
+            Self::Fail {
+                reason: Failure::IncompleteString,
+            } => Err(crate::Error::IncompleteString),
+            Self::Fail {
+                reason: Failure::IncompleteBounds,
+            } => Err(crate::Error::IncompleteBounds),
+            Self::Fail {
+                reason: Failure::IntegerOutput,
+            } => Err(crate::Error::IntegerOutput),
             Self::IntegerPrimitive {
                 operation: IntegerOperation::Negate,
             } => crate::runtime::integer_negate(left),
@@ -805,6 +848,53 @@ mod tests {
         project_unary(&mut projected);
         assert_eq!(projected["else"]["op"], "unaryFail");
         assert_eq!(projected["else"]["reason"], "logical");
+    }
+
+    #[test]
+    fn output_control_arity_and_failures() {
+        use super::{interpret, interpret_unary, project_unary};
+        use crate::runtime::Value as Scalar;
+
+        for function in ["integerOutput", "jsonOutput"] {
+            let identity = format!(
+                r#"{{"formatVersion":1,"function":"{function}","result":{{"op":"input","input":"left"}}}}"#
+            );
+            assert_eq!(
+                interpret_unary(&identity, Scalar::Null).ok(),
+                Some(Scalar::Null)
+            );
+            assert!(interpret(&identity, Scalar::Null, Scalar::Top).is_err());
+            for (reason, expected) in [
+                ("incompleteInt", "non-concrete int value"),
+                ("incompleteValue", "non-concrete value"),
+                ("incompleteBool", "non-concrete bool value"),
+                ("incompleteString", "non-concrete string value"),
+                ("incompleteBounds", "non-concrete integer bounds"),
+                ("integerOutput", "integer output requires an integer value"),
+            ] {
+                let result = format!(r#"{{"op":"fail","reason":"{reason}"}}"#);
+                let unary =
+                    format!(r#"{{"formatVersion":1,"function":"{function}","result":{result}}}"#);
+                assert_eq!(
+                    interpret_unary(&unary, Scalar::Null)
+                        .expect_err("unary failure")
+                        .to_string(),
+                    expected
+                );
+                let p = parse(&unary).expect("valid unary failure");
+                let mut projected = serde_json::json!(p.result);
+                project_unary(&mut projected);
+                assert_eq!(projected["op"], "unaryFail");
+                assert_eq!(projected["reason"], reason);
+                let binary = format!(r#"{{"formatVersion":1,"result":{result}}}"#);
+                assert_eq!(
+                    interpret(&binary, Scalar::Null, Scalar::Top)
+                        .expect_err("binary failure")
+                        .to_string(),
+                    expected
+                );
+            }
+        }
     }
 
     #[test]

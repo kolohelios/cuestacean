@@ -17,7 +17,9 @@ whose kind/boolean predicates inspect the left input (including `and`/`or`).
 Every branch is checked, even unused ones. Right references, same-pair tests,
 endpoints and binary arithmetic/concatenation fail validation. The
 [integer-control extension](integer-control.md) adds `negate` unary arity alongside
-`logicalNot`; metadata names do not enforce operator semantics. Binary and unary
+`logicalNot`; [output control](output-control.md) adds two unary admission
+entries and six input-independent output/incomplete failures. Metadata names do
+not enforce operator semantics. Binary and unary
 reference entry points reject the wrong program arity. No dummy right value,
 new compiler, callbacks or native logical-not policy is introduced.
 

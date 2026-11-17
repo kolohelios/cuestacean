@@ -52,6 +52,12 @@ mod generated_greater;
 #[path = "../../generated/greater-equal.rs"]
 mod generated_greater_equal;
 #[cfg(feature = "semantics")]
+#[path = "../../generated/integer-output.rs"]
+mod generated_integer_output;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/json-output.rs"]
+mod generated_json_output;
+#[cfg(feature = "semantics")]
 #[path = "../../generated/less.rs"]
 mod generated_less;
 #[cfg(feature = "semantics")]
@@ -131,28 +137,34 @@ pub fn text(node: &JsonValue, name: &str) -> Result<Value, Error> {
         })
 }
 
-/// Legacy integer output; general scalar consumers should use `concrete_json`.
+/// Legacy integer output admitted by generated CUE policy.
+#[cfg(feature = "semantics")]
 pub fn concrete(value: Value) -> Result<i64, Error> {
+    encode_integer(generated_integer_output::integer_output(value)?)
+}
+
+/// Preserve exact JSON scalars admitted by generated CUE policy.
+#[cfg(feature = "semantics")]
+pub fn concrete_json(value: Value) -> Result<JsonValue, Error> {
+    encode_json(generated_json_output::json_output(value)?)
+}
+
+/// Extract an admitted integer; unsupported representations indicate a policy error.
+pub fn encode_integer(value: Value) -> Result<i64, Error> {
     match value {
-        Value::Null => Err(Error::IntegerOutput),
-        Value::Top => Err(Error::IncompleteValue),
         Value::Integer(value) => Ok(value),
-        Value::Int => Err(Error::Incomplete),
-        Value::Boolean(_) => Err(Error::IntegerOutput),
-        Value::Bool => Err(Error::IncompleteBool),
-        Value::Text(_) => Err(Error::IntegerOutput),
-        Value::String => Err(Error::IncompleteString),
-        Value::Bounds { .. } => Err(Error::IncompleteBounds),
+        _ => Err(Error::OutputPolicy),
     }
 }
 
-/// Preserve exact concrete JSON scalars; reject incomplete values.
-pub fn concrete_json(value: Value) -> Result<JsonValue, Error> {
+/// Encode admitted JSON scalars without choosing incomplete-value diagnostics.
+pub fn encode_json(value: Value) -> Result<JsonValue, Error> {
     match value {
         Value::Null => Ok(JsonValue::Null),
+        Value::Integer(value) => Ok(JsonValue::from(value)),
         Value::Boolean(value) => Ok(JsonValue::Bool(value)),
         Value::Text(value) => Ok(JsonValue::String(value.as_ref().to_owned())),
-        value => concrete(value).map(JsonValue::from),
+        _ => Err(Error::OutputPolicy),
     }
 }
 
@@ -401,6 +413,7 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
+    #[cfg(feature = "semantics")]
     fn null_and_top_output() {
         assert!(matches!(
             super::concrete(Value::Null),
@@ -418,6 +431,65 @@ mod tests {
             super::concrete_json(Value::Top),
             Err(Error::IncompleteValue)
         ));
+    }
+
+    #[test]
+    fn checked_output_encoders() {
+        for value in [i64::MIN, 0, i64::MAX] {
+            assert_eq!(
+                super::encode_integer(Value::Integer(value)).ok(),
+                Some(value)
+            );
+            assert_eq!(
+                super::encode_json(Value::Integer(value)).ok(),
+                Some(serde_json::Value::from(value))
+            );
+        }
+        assert_eq!(
+            super::encode_json(Value::Null).ok(),
+            Some(serde_json::Value::Null)
+        );
+        for value in [false, true] {
+            assert_eq!(
+                super::encode_json(Value::Boolean(value)).ok(),
+                Some(serde_json::Value::Bool(value))
+            );
+        }
+        let text: Arc<str> = Arc::from("é\n\"\\");
+        assert_eq!(
+            super::encode_json(Value::Text(Arc::clone(&text))).ok(),
+            Some(serde_json::Value::String("é\n\"\\".to_owned()))
+        );
+        assert_eq!(Arc::strong_count(&text), 1);
+        for value in [
+            Value::Top,
+            Value::Int,
+            Value::Bool,
+            Value::String,
+            Value::Bounds {
+                lower: Some(0),
+                upper: Some(0),
+            },
+        ] {
+            assert!(matches!(
+                super::encode_json(value.clone()),
+                Err(Error::OutputPolicy)
+            ));
+            assert!(matches!(
+                super::encode_integer(value),
+                Err(Error::OutputPolicy)
+            ));
+        }
+        for value in [Value::Null, Value::Boolean(false), Value::Text(text)] {
+            assert!(matches!(
+                super::encode_integer(value),
+                Err(Error::OutputPolicy)
+            ));
+        }
+        assert_eq!(
+            Error::OutputPolicy.to_string(),
+            "output policy returned an unsupported value"
+        );
     }
 
     #[test]
