@@ -30,7 +30,9 @@ atom/integer order, threshold-group minimum and all frame calls. An actual old
 nested primary from main `a6960ab0` (`bootstrap/generated/primary.rs`) remains
 compiled and reference-executable for fixed/full-corpus
 AST and diagnostic comparisons; the existing threshold-minimum alternate uses
-the flat template. No source language, value/solver or grammar change is implied.
+the flat template. This refactor did not change source language, values or grammar.
+Subsequent [unary calls](unary-calls.md) extend dispatch; historical comparisons
+now disable call registration to retain the original language boundary.
 
 Tests pin nested loop/if return, current-invocation scope, unfinished-primary
 rejection, validation/forged metadata rejection, shared fuel and independent

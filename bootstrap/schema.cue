@@ -123,7 +123,7 @@ package bootstrap
 	left:  #PrattNumber
 	right: #PrattNumber
 }
-#PrattCondition: {op: "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier" | "hasNegation" | "hasNot" | "hasString"} | {op: "boolean", value: bool} | {
+#PrattCondition: {op: "hasCall" | "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier" | "hasNegation" | "hasNot" | "hasString"} | {op: "boolean", value: bool} | {
 	op:    "atLeast"
 	left:  #PrattNumber
 	right: #PrattNumber
@@ -132,7 +132,7 @@ package bootstrap
 	left:  #PrattCondition
 	right: #PrattCondition
 }
-#PrattStatement: {op: "return" | "primary" | "afterOperand" | "afterWordOperator" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanString" | "parseString" | "scanNegation" | "advanceNegation" | "buildNegation" | "scanNot" | "advanceNot" | "buildNot"} | {
+#PrattStatement: {op: "advanceCall" | "return" | "primary" | "afterOperand" | "afterWordOperator" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanString" | "parseString" | "scanNegation" | "advanceNegation" | "buildNegation" | "scanNot" | "advanceNot" | "buildNot"} | {
 	op:      "parseGroup" | "parseNegation" | "parseNot"
 	minimum: #PrattNumber
 } | {
@@ -228,6 +228,12 @@ package bootstrap
 	kind:  string & !=""
 }
 
+#UnaryCall: {
+	token:        string & =~"^[a-zA-Z_][a-zA-Z0-9_]*$"
+	kind:         string & !=""
+	operandField: string & !="" & !="kind"
+}
+
 // Literal bounds accept signed decimal/radix i64s; optional metadata enables
 // parenthesized expression thresholds through the existing unary builder.
 #BoundPrefix: {
@@ -244,6 +250,7 @@ package bootstrap
 		valueField: string & !="" & !="kind"
 	}
 	atoms: *[] | [...#Atom]
+	calls: *[] | [...#UnaryCall]
 	bounds: *[] | [...#BoundPrefix]
 	negation?: {
 		token:        "-"

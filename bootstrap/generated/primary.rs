@@ -79,6 +79,21 @@ pub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {
     _frame.step()?;
     _frame.scan_identifier()?;
     _frame.step()?;
+    if _frame.has_call()? {
+        _frame.step()?;
+        _frame.advance_call()?;
+        _frame.step()?;
+        _frame.scan_group()?;
+        _frame.step()?;
+        _frame.advance_group()?;
+        _frame.step()?;
+        _frame.parse_group(0u8)?;
+        _frame.step()?;
+        _frame.close_group()?;
+        _frame.step()?;
+        return Ok(());
+    }
+    _frame.step()?;
     if _frame.has_identifier()? {
         _frame.step()?;
         _frame.parse_atom()?;

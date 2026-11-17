@@ -26,6 +26,7 @@ remain explicit boundaries, not full CUE/compiler closure or performance claims.
 
 Independent AST/exact JSON, domain/error/arity/ownership/extrema tests, an actual
 compiled alternate policy and pinned direct AST-versus-upstream comparisons
-establish this slice. Source calls are deliberately a separate next slice: this
-adds the executable value/rule/control boundary first, not a partial native call
-parser. Lists/structs/bytes and their `len` semantics are outside this profile.
+establish this value/rule/control boundary. The subsequent
+[unary-call slice](unary-calls.md) connects source `len(expression)` through CUE
+primary control and grammar-selected constructors, not a native builtin parser.
+Lists/structs/bytes and their `len` semantics remain outside this profile.

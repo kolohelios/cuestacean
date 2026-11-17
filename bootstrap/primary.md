@@ -1,7 +1,7 @@
 # CUE-hosted primary dispatch
 
 [`primary.cue`](primary.cue), using `primary-fragments.cue`, chooses groups, negation prefixes, bounds, strings,
-identifiers and integers using the same [control DSL](pratt.md) as the expression loop. The
+registered unary calls, atoms and integers using the same [control DSL](pratt.md) as the expression loop. The
 existing `bootstrap-pratt-codegen` compiler emits its branches and frame calls;
 there is no second compiler or native primary-dispatch fallback.
 
@@ -22,7 +22,9 @@ The primary program explicitly sequences:
   an enabled threshold group uses `advanceGroup`/`parseGroup`/`closeGroup`,
   otherwise `parseBound` keeps literal construction; or string handling;
 - `scanString` and `hasString`, then `parseString`, or identifier handling;
-- `scanIdentifier` and `hasIdentifier`, then `parseAtom` or `parseInteger`.
+- `scanIdentifier` and `hasCall`, then `advanceCall` and the existing group
+  scan/advance/parse/close sequence at CUE argument minimum 0, followed by return;
+- otherwise `hasIdentifier`, then `parseAtom` or `parseInteger`.
 
 The production group minimum is the CUE literal zero. It is no longer reset
 inside a native group-parsing algorithm. Scanner results and grammar lookup
@@ -34,7 +36,7 @@ ignore a candidate (for example by choosing integer parsing for identifiers).
 Checked frame operations still perform scanner/builder calls, grammar lookup,
 i64/admitted-string conversion and recursion with the selected minimum/depth. Native primary
 stages track candidates, committed spans, group results and completion. Ordinary
-and bound-group stages are distinct: bound groups retain their constructor index
+and bound/call-group stages are distinct: those groups retain their constructor index
 and close through the existing unary AST builder. Optional per-bound expression
 metadata controls admission and constructor names; old metadata/policies stay valid.
 See [computed bounds](computed-bounds.md) for eager evaluation and unchanged limits.
@@ -62,7 +64,11 @@ specifications and JSON remains a build-only artifact.
 `primary-nested` preserves the actual prior compiled algorithm byte-exact.
 Whole-corpus compiled/reference comparisons cover old nested versus flat primary,
 while fixed return fixtures test loop/if unwinding, invocation scope, fuel and
-unfinished-primary rejection. No source syntax or semantic capability changes.
+unfinished-primary rejection. The return refactor added no source syntax.
+Historical whole-corpus comparisons disable subsequent call registration to test
+the old language; [unary calls](unary-calls.md) add source `len(...)` separately.
+`primary-no-calls` preserves the later flat pre-call algorithm byte-exact, and
+`primary-call-high-minimum` pins CUE-selected argument binding and driver propagation.
 
 Tests assert independent complete trees and exact diagnostics, alongside
 compiled/interpreted parity over the full source corpus. Runtime grammar tests
