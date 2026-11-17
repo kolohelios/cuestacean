@@ -12,6 +12,9 @@ pub fn execute_json(input: &str) -> Result<Value, Error> {
 
 fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
     match runtime::kind(node)? {
+        "upperBoundExpression" => {
+            runtime::upper_bound((evaluate(runtime::field(node, "operand")?))?)
+        }
         "upperBound" => runtime::upper_bound((runtime::integer(node, "value"))?),
         "unify" => runtime::unify(
             (evaluate(runtime::field(node, "left")?))?,
@@ -47,6 +50,9 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "lowerBoundExpression" => {
+            runtime::lower_bound((evaluate(runtime::field(node, "operand")?))?)
+        }
         "lowerBound" => runtime::lower_bound((runtime::integer(node, "value"))?),
         "logicalOr" => runtime::logical_or(
             (evaluate(runtime::field(node, "left")?))?,

@@ -85,7 +85,9 @@ are test-only programs. Frame operations remain native. `primary.rs` uses the
 same compiler for [primary dispatch](../primary.md), group commitment, recursive
 minimum and closing order. `primary-no-atoms` and `primary-high-minimum` are
 test-only policies, not production fallbacks. `primary-low-negation` weakens
-the CUE-supplied unary binding power. `negation-prefix` is a generated scanner
+the CUE-supplied unary binding power. `primary-bound-high-minimum` weakens only
+threshold-group recursion; it shares `primary-fragments.cue` with production and
+uses the existing group operations, without a new compiler opcode. `negation-prefix` is a generated scanner
 that distinguishes signed decimal literals from expression negation. `primary-cross-phase` deliberately
 attempts expression operations inside primary dispatch to exercise state guards.
 
@@ -174,7 +176,7 @@ done
 bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-literal.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-lowering-forced.json" \
   | rustfmt --edition 2024 > bootstrap/generated/ast-forced-integer.rs
-for control in primary tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
+for control in primary tests/valid/primary-bound-high-minimum tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
   tests/valid/primary-cross-phase tests/valid/primary-low-negation \
   pratt tests/valid/pratt-right tests/valid/pratt-stalled \
   tests/valid/pratt-invalid-state tests/valid/pratt-overflow; do

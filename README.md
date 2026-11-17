@@ -65,6 +65,8 @@ pairs through CUE-only scanner policy. [Eight-digit scalar escapes](bootstrap/wi
 now use CUE admission with a checked native bridge to JSON conversion.
 [Prefixed integers](bootstrap/radix-literals.md) use CUE sign/prefix/digit control
 and checked i64 conversion, including signed MIN and inclusive thresholds.
+[Computed bounds](bootstrap/computed-bounds.md) add parenthesized expression
+thresholds, evaluated eagerly before the existing i64-only admission policy.
 [Bound construction](bootstrap/bound-control.md) also delegates threshold admission
 and inclusive endpoint layout to checked left-only unary CUE control.
 Value representation and low-level primitives remain native.

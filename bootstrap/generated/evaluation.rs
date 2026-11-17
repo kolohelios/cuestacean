@@ -54,6 +54,9 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "right")?))?,
         ),
         "lowerBound" => runtime::lower_bound((runtime::integer(node, "value"))?),
+        "lowerBoundExpression" => {
+            runtime::lower_bound((evaluate(runtime::field(node, "operand")?))?)
+        }
         "modulo" => runtime::modulo(
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
@@ -89,6 +92,9 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "right")?))?,
         ),
         "upperBound" => runtime::upper_bound((runtime::integer(node, "value"))?),
+        "upperBoundExpression" => {
+            runtime::upper_bound((evaluate(runtime::field(node, "operand")?))?)
+        }
         kind => Err(Error::MissingRule {
             kind: kind.to_string(),
         }),

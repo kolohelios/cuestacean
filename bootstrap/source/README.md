@@ -189,11 +189,14 @@ materialize a singleton from bounds alone. Adding `& 3` makes it concrete.
 Missing endpoints are infinite, not clipped to i64: `int & >=9223372036854775807`
 is still incomplete.
 
-Bound operands are signed i64 literals, decimal or supported explicit radix forms. Spaces/newlines may
-separate a prefix from its literal. Bounds bind before binary operators;
-`>=1 + 2` tries arithmetic on an abstract bound and cannot produce a result.
-Exclusive bounds, fractional thresholds, and general bound operands such as
-`>=(1 + 2)` are outside this source subset.
+Bound operands are signed i64 literals (decimal or supported radix forms), or
+[parenthesized expressions](../computed-bounds.md) evaluating to concrete i64s.
+Spaces/newlines may separate a prefix from its operand. `>=(1 + 2) & 3` yields 3;
+`>=1 + 2` keeps its old literal-bound parse and arithmetic rejection. Child errors
+precede threshold admission; abstract/noninteger thresholds reject without backward
+propagation. Grouped thresholds use CUE's recursive minimum and existing unary AST
+builder; each adds one wrapper node as well as child nodes/recursion. Literal-bound
+ASTs remain unchanged. Exclusive and fractional bounds remain unsupported.
 
 Unification supports concrete integers/booleans, abstract `int`/`bool`, and
 inclusive bounds, but no other types, general symbolic constraints, or

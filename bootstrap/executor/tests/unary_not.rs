@@ -271,8 +271,9 @@ fn selected_control_propagates_through_not_and_incomplete_stages_reject() {
         json!(true)
     );
     let mut high: Json = serde_json::from_str(&primary).expect("primary");
-    operation_mut(&mut high, "parseGroup").expect("group recursion")["minimum"]["value"] =
-        json!(100);
+    // Scope the edit to ordinary grouping, not the bound-group branch in else.
+    operation_mut(&mut high["body"][2]["then"], "parseGroup").expect("ordinary group recursion")
+        ["minimum"]["value"] = json!(100);
     assert!(
         parser::parse_interpreted_with_primary(
             "!(true && false)",

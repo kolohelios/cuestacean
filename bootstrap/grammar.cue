@@ -6,8 +6,8 @@ package bootstrap
 	atoms: [{token: "int", kind: "intType"}, {token: "bool", kind: "boolType"},
 		{token: "true", kind: "true"}, {token: "false", kind: "false"}, {token: "string", kind: "stringType"}, {token: "null", kind: "null"}, {token: "_", kind: "top"}]
 	bounds: [
-		{token: ">=", kind: "lowerBound", valueField: "value"},
-		{token: "<=", kind: "upperBound", valueField: "value"},
+		{token: ">=", kind: "lowerBound", valueField: "value", expression: {kind: "lowerBoundExpression", operandField: "operand"}},
+		{token: "<=", kind: "upperBound", valueField: "value", expression: {kind: "upperBoundExpression", operandField: "operand"}},
 	]
 	negation: {token: "-", kind: "negate", operandField: "operand"}
 	logicalNot: {token: "!", kind: "logicalNot", operandField: "operand"}

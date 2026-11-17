@@ -93,6 +93,15 @@ struct BoundPrefix {
     token: String,
     kind: String,
     value_field: String,
+    #[serde(default)]
+    expression: Option<BoundExpression>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct BoundExpression {
+    kind: String,
+    operand_field: String,
 }
 
 #[derive(Deserialize)]
@@ -198,6 +207,9 @@ impl Grammar {
                 || !bounds.insert(&bound.token)
                 || bound.kind.is_empty()
                 || !field(&bound.value_field)
+                || bound.expression.as_ref().is_some_and(|expression| {
+                    expression.kind.is_empty() || !field(&expression.operand_field)
+                })
             {
                 return GrammarSnafu {
                     reason: "invalid or ambiguous bound configuration",
@@ -470,6 +482,9 @@ enum PrimaryState {
     NegationParsed,
     BoundScanned(Option<(usize, usize)>),
     BoundAdvanced(usize),
+    BoundGroupScanned(usize, Option<usize>),
+    BoundGroupAdvanced(usize),
+    BoundGroupParsed(usize),
     StringScanned(Option<usize>),
     IdentifierScanned(Option<usize>),
     Done,
@@ -584,41 +599,77 @@ impl Frame<'_, '_> {
         self.parser.whitespace()
     }
     pub fn scan_group(&mut self) -> Result<(), Error> {
-        if !matches!(self.primary_state, Some(PrimaryState::Start)) {
-            return self.primary_state_error();
-        }
+        let bound = match self.primary_state {
+            Some(PrimaryState::Start) => None,
+            Some(PrimaryState::BoundAdvanced(index)) => Some(index),
+            _ => return self.primary_state_error(),
+        };
         let scan = crate::scanner::group_open(self.parser.source, self.parser.offset)?;
-        self.primary_state = Some(PrimaryState::GroupScanned(scan.flag.then_some(scan.offset)));
+        self.primary_state = Some(match bound {
+            Some(index) => PrimaryState::BoundGroupScanned(
+                index,
+                (scan.flag && self.parser.grammar.bounds[index].expression.is_some())
+                    .then_some(scan.offset),
+            ),
+            None => PrimaryState::GroupScanned(scan.flag.then_some(scan.offset)),
+        });
         Ok(())
     }
     pub fn group_open(&self) -> Result<bool, Error> {
         match self.primary_state {
-            Some(PrimaryState::GroupScanned(end)) => Ok(end.is_some()),
+            Some(PrimaryState::GroupScanned(end) | PrimaryState::BoundGroupScanned(_, end)) => {
+                Ok(end.is_some())
+            }
             _ => self.primary_state_error(),
         }
     }
     pub fn advance_group(&mut self) -> Result<(), Error> {
-        let Some(PrimaryState::GroupScanned(Some(end))) = self.primary_state else {
-            return self.primary_state_error();
+        let (end, next) = match self.primary_state {
+            Some(PrimaryState::GroupScanned(Some(end))) => (end, PrimaryState::GroupAdvanced),
+            Some(PrimaryState::BoundGroupScanned(index, Some(end))) => {
+                (end, PrimaryState::BoundGroupAdvanced(index))
+            }
+            _ => return self.primary_state_error(),
         };
         self.advance_primary(end)?;
-        self.primary_state = Some(PrimaryState::GroupAdvanced);
+        self.primary_state = Some(next);
         Ok(())
     }
     pub fn parse_group(&mut self, minimum: u8) -> Result<(), Error> {
-        if !matches!(self.primary_state, Some(PrimaryState::GroupAdvanced)) {
-            return self.primary_state_error();
-        }
+        let next = match self.primary_state {
+            Some(PrimaryState::GroupAdvanced) => PrimaryState::GroupParsed,
+            Some(PrimaryState::BoundGroupAdvanced(index)) => PrimaryState::BoundGroupParsed(index),
+            _ => return self.primary_state_error(),
+        };
         self.left = Some(self.parser.expression(minimum, self.depth + 1)?);
-        self.primary_state = Some(PrimaryState::GroupParsed);
+        self.primary_state = Some(next);
         Ok(())
     }
     pub fn close_group(&mut self) -> Result<(), Error> {
-        if !matches!(self.primary_state, Some(PrimaryState::GroupParsed)) {
-            return self.primary_state_error();
-        }
+        let bound = match self.primary_state {
+            Some(PrimaryState::GroupParsed) => None,
+            Some(PrimaryState::BoundGroupParsed(index)) => Some(index),
+            _ => return self.primary_state_error(),
+        };
         let scan = crate::scanner::group_close(self.parser.source, self.parser.offset)?;
         self.parser.offset = scan.offset;
+        if let Some(index) = bound {
+            self.parser.node()?;
+            let operand = self.left.take().ok_or(Error::ControlState {
+                reason: "missing bound operand",
+            })?;
+            let expression = self.parser.grammar.bounds[index]
+                .expression
+                .as_ref()
+                .ok_or(Error::ControlState {
+                    reason: "missing bound expression constructor",
+                })?;
+            self.left = Some(ast::unary(
+                expression.kind.clone(),
+                expression.operand_field.clone(),
+                operand,
+            ));
+        }
         self.primary_state = Some(PrimaryState::Done);
         Ok(())
     }
@@ -775,8 +826,11 @@ impl Frame<'_, '_> {
         Ok(())
     }
     pub fn parse_bound(&mut self) -> Result<(), Error> {
-        let Some(PrimaryState::BoundAdvanced(index)) = self.primary_state else {
-            return self.primary_state_error();
+        let index = match self.primary_state {
+            Some(
+                PrimaryState::BoundAdvanced(index) | PrimaryState::BoundGroupScanned(index, None),
+            ) => index,
+            _ => return self.primary_state_error(),
         };
         let bound = self.parser.grammar.bounds[index].clone();
         let value = self.parser.integer_literal()?;
@@ -999,6 +1053,109 @@ fn decode_string_literal(slice: &str) -> Option<String> {
         offset = end;
     }
     serde_json::from_str(&json).ok()
+}
+
+#[cfg(test)]
+mod bound_group_state_tests {
+    use super::*;
+
+    const GRAMMAR: &str = r#"{
+        "formatVersion":1,"integer":{"kind":"integer","valueField":"value"},
+        "bounds":[{"token":">=","kind":"lowerBound","valueField":"value",
+            "expression":{"kind":"threshold","operandField":"child"}}],
+        "group":{"open":"(","close":")"},
+        "operators":[{"token":"+","kind":"add","leftField":"left",
+            "rightField":"right","precedence":10,"associativity":"left"}]
+    }"#;
+
+    #[test]
+    fn bound_group_stages_and_checked_commit() -> Result<(), Box<dyn std::error::Error>> {
+        let grammar: Grammar = serde_json::from_str(GRAMMAR)?;
+        grammar.validate()?;
+        let mut parser = Parser {
+            source: "(λ)",
+            grammar: &grammar,
+            offset: 0,
+            nodes: 0,
+            engine: Engine::Compiled(generated::execute),
+            primary_engine: Engine::Compiled(generated_primary::execute),
+        };
+        let mut frame = Frame {
+            parser: &mut parser,
+            minimum: 0,
+            depth: 0,
+            left: None,
+            right: None,
+            operator: None,
+            token_end: 0,
+            consumed: false,
+            binding: None,
+            fuel: 4096,
+            primary_state: Some(PrimaryState::BoundAdvanced(0)),
+            in_primary: true,
+        };
+        frame.scan_group()?;
+        assert!(frame.group_open()?);
+        assert!(frame.parse_bound().is_err());
+        assert!(frame.parse_group(0).is_err());
+        assert!(frame.close_group().is_err());
+        assert!(frame.whitespace().is_err());
+        assert!(frame.scan_bound().is_err());
+        for end in [0, 2, 5] {
+            frame.primary_state = Some(PrimaryState::BoundGroupScanned(0, Some(end)));
+            assert!(frame.advance_group().is_err());
+            assert_eq!(frame.parser.offset, 0);
+        }
+        frame.primary_state = Some(PrimaryState::BoundGroupScanned(0, Some(1)));
+        frame.advance_group()?;
+        assert!(matches!(
+            frame.primary_state,
+            Some(PrimaryState::BoundGroupAdvanced(0))
+        ));
+        assert!(frame.close_group().is_err());
+        assert!(frame.scan_group().is_err());
+        frame.left = Some(serde_json::json!({"kind":"integer","value":3}));
+        frame.primary_state = Some(PrimaryState::BoundGroupParsed(0));
+        assert!(frame.lookup_operator().is_err());
+        assert!(frame.primary().is_err());
+        assert!(frame.close_group().is_err()); // Missing close never builds a wrapper.
+        assert_eq!(frame.parser.nodes, 0);
+        frame.parser.offset = 3;
+        frame.close_group()?;
+        assert_eq!(
+            frame.left,
+            Some(serde_json::json!({
+                "kind":"threshold","child":{"kind":"integer","value":3}
+            }))
+        );
+        assert_eq!(frame.parser.nodes, 1);
+        assert!(frame.close_group().is_err());
+        Ok(())
+    }
+
+    fn unfinished(frame: &mut Frame<'_, '_>) -> Result<(), Error> {
+        if frame.depth > 0 {
+            return generated_primary::execute(frame);
+        }
+        frame.scan_group()?;
+        frame.scan_bound()?;
+        frame.advance_bound()?;
+        frame.scan_group()?;
+        frame.advance_group()?;
+        frame.parse_group(0)
+    }
+
+    #[test]
+    fn unfinished_bound_group_is_not_an_expression_result() {
+        let error = parse_with_drivers(">=(1)", GRAMMAR, generated::execute, unfinished)
+            .expect_err("unfinished bound group must fail");
+        assert!(matches!(
+            error,
+            Error::ControlState {
+                reason: "unfinished primary at return"
+            }
+        ));
+    }
 }
 
 #[cfg(test)]

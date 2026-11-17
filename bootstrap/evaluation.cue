@@ -10,6 +10,8 @@ package bootstrap
 		"false": result: {op: "boolean", value: false}
 		lowerBound: result: {op: "lowerBound", value: {op: "field", field: "value"}}
 		upperBound: result: {op: "upperBound", value: {op: "field", field: "value"}}
+		lowerBoundExpression: result: {op: "lowerBound", value: {op: "evaluate", field: "operand"}}
+		upperBoundExpression: result: {op: "upperBound", value: {op: "evaluate", field: "operand"}}
 		integer: result: {op: "field", field: "value"}
 		logicalNot: result: {op: "logicalNot", value: {op: "evaluate", field: "operand"}}
 		negate: result: {op: "negate", value: {op: "evaluate", field: "operand"}}

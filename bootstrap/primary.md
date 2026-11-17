@@ -1,6 +1,6 @@
 # CUE-hosted primary dispatch
 
-[`primary.cue`](primary.cue) chooses groups, negation prefixes, bounds, strings,
+[`primary.cue`](primary.cue), using `primary-fragments.cue`, chooses groups, negation prefixes, bounds, strings,
 identifiers and integers using the same [control DSL](pratt.md) as the expression loop. The
 existing `bootstrap-pratt-codegen` compiler emits its branches and frame calls;
 there is no second compiler or native primary-dispatch fallback.
@@ -15,8 +15,9 @@ the selection algorithm in Rust. The primary program explicitly sequences:
   minimum 101 and `buildNot`, or negation handling;
 - `scanNegation` and `hasNegation`, then `advanceNegation`,
   `parseNegation` with CUE minimum 101, and `buildNegation`, or bound handling;
-- `scanBound` and `hasBound`, then `advanceBound`, whitespace and
-  `parseBound`, or string handling;
+- `scanBound` and `hasBound`, then `advanceBound`, whitespace and `scanGroup`;
+  an enabled threshold group uses `advanceGroup`/`parseGroup`/`closeGroup`,
+  otherwise `parseBound` keeps literal construction; or string handling;
 - `scanString` and `hasString`, then `parseString`, or identifier handling;
 - `scanIdentifier` and `hasIdentifier`, then `parseAtom` or `parseInteger`.
 
@@ -29,7 +30,11 @@ ignore a candidate (for example by choosing integer parsing for identifiers).
 
 Checked frame operations still perform scanner/builder calls, grammar lookup,
 i64/admitted-string conversion and recursion with the selected minimum/depth. Native primary
-stages track candidates, committed spans, group results and completion. They
+stages track candidates, committed spans, group results and completion. Ordinary
+and bound-group stages are distinct: bound groups retain their constructor index
+and close through the existing unary AST builder. Optional per-bound expression
+metadata controls admission and constructor names; old metadata/policies stay valid.
+See [computed bounds](computed-bounds.md) for eager evaluation and unchanged limits. They
 prevent illegal transitions, primary reentry, expression mutations during
 primary dispatch, and returning an unfinished group;
 private state cannot be mutated by control documents. Committing a primary token
@@ -68,7 +73,12 @@ cover reentry, unfinished groups, inactive primary operations, invalid stage
 ordering, shared compiled/interpreted fuel, and unchanged source resource limits.
 Existing exact CLI diagnostics and pinned-upstream comparisons remain in force.
 
-Nix regenerates all five primary drivers with the existing handwritten seed
+`primary-bound-high-minimum` changes only the threshold group's minimum to 100,
+so `>=(1+2)&3` rejects at byte 4 while ordinary groups/literal bounds are unchanged.
+Fixed outcomes on compiled/reference paths and nested/RHS propagation tests prove
+that CUE owns threshold recursion, not a native expression-bound algorithm.
+
+Nix regenerates all primary drivers with the existing handwritten seed
 before compiling/testing the final frontend, and checks committed Rust drift.
 See [regeneration instructions](generated/README.md). Focused local test:
 
