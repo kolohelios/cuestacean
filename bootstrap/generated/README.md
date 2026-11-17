@@ -153,7 +153,7 @@ done
 bootstrap/executor/target/debug/bootstrap-codegen "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-reverse.json" \
   | rustfmt --edition 2024 > bootstrap/generated/evaluation-reverse.rs
-for machine in tests/valid/string-no-wide tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
+for machine in integer-literal tests/valid/string-no-wide tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
   tests/valid/scanner-horizontal \
   tests/valid/scanner-stalled tests/valid/scanner-advance \
   tests/valid/scanner-decimal-permissive tests/valid/scanner-reject tests/valid/scanner-state \
@@ -200,6 +200,11 @@ bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_J
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/division-kernel-alternate.json" \
   | rustfmt --edition 2024 > bootstrap/generated/divide-as-quotient.rs
 ```
+
+`integer-literal.rs` adds [prefixed numeric scanning](../radix-literals.md) for
+source primaries and bounds; `decimal.rs` remains byte-identical after shared
+fragment factoring. Checked signed i64 conversion stays native; no new compiler
+or AST/rule wire is introduced.
 
 ## Fresh Nix builds
 

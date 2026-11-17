@@ -25,6 +25,7 @@
         "bound-prefix"
         "infix"
         "decimal"
+        "integer-literal"
         "identifier"
         "string-literal"
         "tests/valid/string-no-unicode"
@@ -187,6 +188,7 @@
               [
                 ../../bootstrap/schema.cue
                 ../../bootstrap/scanner-fragments.cue
+                ../../bootstrap/decimal-fragments.cue
                 ../../bootstrap/string-literal-fragments.cue
                 ../../bootstrap/equality-fragments.cue
                 ../../bootstrap/ordering-fragments.cue
@@ -223,6 +225,7 @@
               # for a literal can exhaust the CI runner while checking unused CUE.
               fragments=()
               case "$fixture" in
+                decimal|integer-literal) fragments=(decimal-fragments) ;;
                 string-literal|tests/valid/string-no-unicode|tests/valid/string-no-wide|tests/valid/string-nested|tests/valid/string-unrolled) fragments=(string-literal-fragments) ;;
                 whitespace|after-operand|after-word-operator|group-close)
                   fragments=(scanner-fragments) ;;
@@ -572,8 +575,8 @@
                   test ! -s actual
                   test -s error
                 done
-                # These rejected operand domains must also fail upstream.
-                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/not-integer.cue ${../../bootstrap/source}/rejected/null-conflict.cue; do
+                # These selected domain/syntax rejections must also fail upstream.
+                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/not-integer.cue ${../../bootstrap/source}/rejected/null-conflict.cue ${../../bootstrap/source}/rejected/radix-uppercase-{binary,octal}.cue; do
                   if cue export "$source" --out json > expected 2> cue-error; then exit 1; fi
                   test ! -s expected
                   test -s cue-error

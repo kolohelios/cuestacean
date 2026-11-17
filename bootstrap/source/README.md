@@ -37,7 +37,7 @@ null agrees only with null/top. Bare `_` remains incomplete. Null is concrete
 for scalar equality and ignored logical RHS selection, not arithmetic or ordering.
 These do not introduce bottom values, references, structs or general solving.
 
-The default grammar accepts decimal signed integers, `true`/`false` and `bool`/`int` atoms,
+The default grammar accepts signed decimal and [prefixed i64 integers](../radix-literals.md) (0b/0o/0x/0X), `true`/`false` and `bool`/`int` atoms,
 inclusive bounds (`>=`, `<=`), addition, subtraction, multiplication,
 integer division/remainder (`div`, `mod`, `quo`, `rem`), scalar comparisons
 (`==`, `!=`, `<`, `<=`, `>`, `>=`),
@@ -50,7 +50,7 @@ These choices live in CUE grammar data, not in the parser algorithm.
 `1 + 2 * 3` produces `7`, while `(1 + 2) * 3` produces `9`.
 `1 + 2 & 3` produces `3`; `3 & 4` fails without printing a result.
 `int & 3` produces `3`, `(int & 3) + 1` produces `4`, and bare `int` is incomplete.
-A digit-adjacent minus stays part of a signed decimal literal. Other minus
+A digit-adjacent minus stays part of a signed integer literal, including radix prefixes. Other minus
 prefixes use expression negation, allowing spaces or newlines after the sign.
 Spaces and tabs are allowed;
 line breaks can precede operands or follow an opening parenthesis, but cannot
@@ -132,7 +132,7 @@ remain unsupported; pinned upstream CUE also rejects block-comment syntax.
 ### Checked subtraction
 
 `50 - 8` produces `42`; `10-3-2` produces `5`, while `10-(3-2)` produces `9`.
-Binary minus and signed decimal primaries are distinct parsing contexts, so
+Binary minus and signed integer primaries are distinct parsing contexts, so
 `1--2` produces `3` and `-2-3` produces `-5`. The CUE infix scanner recognizes
 minus; the existing CUE grammar, Pratt control and AST builder supply its meaning.
 No special subtraction branch is added to parser control.
@@ -168,7 +168,7 @@ zero is printed canonically as `0`, even where upstream CUE spells it `-0`.
 `-(1+2)` produces `-3`, `-(1+2)*3` produces `-9`, and `--1` produces `1`.
 CUE primary control selects the prefix, recursively parses with minimum 101
 (above the grammar's maximum binary precedence 100), then builds a unary AST.
-The separate CUE prefix scanner leaves digit-adjacent minus to decimal parsing,
+The separate CUE prefix scanner leaves digit-adjacent minus to integer parsing,
 so `-9223372036854775808` remains a valid literal without constructing its
 out-of-range positive magnitude. Negating that value as an expression overflows.
 The native `negate` primitive uses checked i64 negation; abstract operands still
@@ -189,7 +189,7 @@ materialize a singleton from bounds alone. Adding `& 3` makes it concrete.
 Missing endpoints are infinite, not clipped to i64: `int & >=9223372036854775807`
 is still incomplete.
 
-Bound operands are signed decimal i64 literals only. Spaces/newlines may
+Bound operands are signed i64 literals, decimal or supported explicit radix forms. Spaces/newlines may
 separate a prefix from its literal. Bounds bind before binary operators;
 `>=1 + 2` tries arithmetic on an abstract bound and cannot produce a result.
 Exclusive bounds, fractional thresholds, and general bound operands such as
@@ -200,7 +200,7 @@ inclusive bounds, but no other types, general symbolic constraints, or
 first-class bottom values.
 Only scalar output requires concreteness. Arithmetic requires concrete operands,
 so `int + 1` cannot produce a result. Full declarations, packages,
-references, other number spellings/operators, and other unary operators
+references, unsupported number spellings/operators, and other unary operators
 are unsupported. Concrete numeric values, thresholds, and arithmetic results are bounded
 to i64, narrower than upstream CUE's concrete integer domain. The parser limits
 a source to 64 AST nodes and 32 recursive parsing levels; these are bootstrap

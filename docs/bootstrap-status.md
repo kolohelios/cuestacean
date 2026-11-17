@@ -69,7 +69,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 - Single-line quoted UTF-8 strings with seven common escapes, four-digit
   `\uXXXX` and valid UTF-16 surrogate pairs ([contract](../bootstrap/unicode-escapes.md)),
   plus eight-digit scalar `\UXXXXXXXX` ([wide contract](../bootstrap/wide-unicode.md)); abstract `string`;
-  signed decimal integers; `true`/`false`; `bool`/`int`; inclusive literal bounds `>=` / `<=`;
+  signed decimal and prefixed 0b/0o/0x/0X integers ([contract](../bootstrap/radix-literals.md)); `true`/`false`; `bool`/`int`; inclusive literal bounds `>=` / `<=`;
   parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary `!` and expression negation;
   `div`, `mod`, `quo`, `rem`; concrete scalar `==` / `!=`; integer/text `<` / `<=` / `>` / `>=`; CUE-owned UTF-8 `//` comment trivia.
 - Binary operators are left-associative by default. `div/mod/quo/rem` share
@@ -81,7 +81,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 - CUE word scanning requires complete keywords and preserves a following minus.
   Partial/extended words do not advance. `7quo-3` is valid; `quo2` is not a token.
 - Unary prefix selection uses CUE lookahead. Digit-adjacent minus stays on the
-  signed-decimal path: `-9223372036854775808` must never be parsed as negating
+  signed-integer path: `-9223372036854775808` must never be parsed as negating
   an out-of-range positive literal. Other prefixes recurse at CUE minimum 101,
   above the maximum configurable binary precedence 100.
 - `!` uses CUE prefix/primary control and the unary AST builder, at minimum 101.
@@ -186,6 +186,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#104](https://github.com/kolohelios/cuestacean/pull/104) | CUE-only four-digit Unicode escape and surrogate-pair admission |
 | [#106](https://github.com/kolohelios/cuestacean/pull/106) | Bounded composable scanner predicates and Unicode control compaction |
 | [#108](https://github.com/kolohelios/cuestacean/pull/108) | Bounded repeat control and counted Unicode digit validation |
+| [#110](https://github.com/kolohelios/cuestacean/pull/110) | Eight-digit Unicode scalar admission and checked JSON bridge |
 
 ## Build and validation runbook
 

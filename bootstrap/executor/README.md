@@ -149,7 +149,9 @@ alternate behavior. `bootstrap-generated` runs the normal generated module;
 `bootstrap-source <expression.cue>` parses the [documented source subset](../source/README.md)
 using compiled-in CUE grammar data, then invokes the generated evaluator. From
 the repository root, `nix run ./infra/tooling#source -- bootstrap/source/valid/nested.cue`
-prints `42`. It does not invoke Go at runtime. Whitespace, decimal, and ASCII
+prints `42`. It does not invoke Go at runtime. [Integer spellings](../radix-literals.md)
+now include checked 0b/0o/0x/0X literals and thresholds; the old decimal scanner
+remains a compiled baseline. Whitespace, integer, and ASCII
 identifier scanning are compiled from the [scanner DSL](../scanner.md).
 Decimal lexical validation, operand-newline policy, and diagnostic reasons
 are also CUE-defined, along with parenthesis and bound/infix token recognition.

@@ -5,8 +5,9 @@ statements used by [`whitespace.cue`](whitespace.cue),
 [`group-close.cue`](group-close.cue), and [`after-operand.cue`](after-operand.cue).
 The latter owns the conservative
 newline-after-operand rule.
-[`decimal.cue`](decimal.cue) supplies optional-minus/digit scanning and lexical
-validation, using a generic `reject` instruction for diagnostics.
+[`decimal.cue`](decimal.cue) retains optional-minus/decimal lexical validation.
+[`integer-literal.cue`](integer-literal.cue) extends shared decimal fragments with
+[binary/octal/hexadecimal control](radix-literals.md), using generic `reject` diagnostics.
 [`identifier.cue`](identifier.cue) supplies ASCII identifier start/continuation
 scanning. [`group-open.cue`](group-open.cue) and `group-close.cue` recognize and
 consume parenthesis tokens. [`bound-prefix.cue`](bound-prefix.cue) and
@@ -108,10 +109,13 @@ program; fragment definitions are not separate JSON artifacts.
 ## Decimal lexical validation, not conversion
 
 The decimal program consumes an optional ASCII `-` followed by ASCII digits.
-Its flag records whether a minus was consumed. Both integer literals and bound
-thresholds call this generated scanner. CUE branches reject missing digits and
+Its flag records whether a minus was consumed. Production integer literals and
+bound thresholds now call the extended integer-literal scanner; decimal stays a
+byte-exact compiled/reference baseline. CUE branches reject missing digits and
 leading zeroes; the parser no longer implements those decisions. This does not
-add `+`, Unicode digits, or other numeric spellings.
+add `+` or Unicode digits. The [prefixed profile](radix-literals.md) separately
+adds lowercase 0b/0o and 0x/0X through CUE-selected digit classes; native checked
+radix conversion does not choose lexical acceptance.
 
 A missing digit is reported at the current cursor (after the minus, if any).
 A leading-zero run is consumed fully before rejection, preserving the previous
