@@ -295,7 +295,7 @@ fn source_ast_precedence_bounds_and_scanner() {
         }
     }
     let path = std::env::temp_dir().join(format!("ordering-{}.cue", std::process::id()));
-    for (source, offset) in [("1 <== 2", 4), ("1 >== 2", 4), (">1", 0)] {
+    for (source, offset) in [("1 <== 2", 4), ("1 >== 2", 4), (">", 1)] {
         let expected = format!("source byte {offset}: expected signed decimal integer");
         for parsed in [
             parser::parse(source, &grammar),

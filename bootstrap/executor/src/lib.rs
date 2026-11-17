@@ -139,6 +139,10 @@ pub enum Error {
     IncompleteBounds,
     #[snafu(display("bound threshold requires a concrete integer"))]
     BoundThreshold,
+    #[snafu(display("exclusive bound is empty in the signed 64-bit integer domain"))]
+    EmptyBound,
+    #[snafu(display("signed 64-bit integer endpoint offset overflow"))]
+    EndpointOffsetOverflow,
     #[snafu(display("arithmetic requires compatible concrete operands"))]
     Arithmetic,
     #[snafu(display("comparison requires concrete operands"))]
@@ -211,6 +215,14 @@ enum Instruction {
     },
     #[serde(rename = "lowerBound")]
     LowerBound {
+        value: Box<Instruction>,
+    },
+    #[serde(rename = "lowerExclusiveBound")]
+    LowerExclusiveBound {
+        value: Box<Instruction>,
+    },
+    #[serde(rename = "upperExclusiveBound")]
+    UpperExclusiveBound {
         value: Box<Instruction>,
     },
     #[serde(rename = "upperBound")]
@@ -384,6 +396,12 @@ fn instruction(
             })
         }
         Instruction::StringType {} => Ok(runtime::Value::String),
+        Instruction::LowerExclusiveBound { value } => {
+            runtime::lower_exclusive_bound(instruction(value, node, rules, context)?)
+        }
+        Instruction::UpperExclusiveBound { value } => {
+            runtime::upper_exclusive_bound(instruction(value, node, rules, context)?)
+        }
         Instruction::LowerBound { value } => {
             runtime::lower_bound(instruction(value, node, rules, context)?)
         }

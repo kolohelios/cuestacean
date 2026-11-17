@@ -1,14 +1,9 @@
 package bootstrap
 
-// Check the full token before consuming anything; partial matches are untouched.
+// Longest match: consume a comparison glyph and its optional adjacent equals.
 #ScanProgram & {
-	body: [{
-		op: "if"
-		condition: {op: "byteIn", bytes: [60, 62]}
-		then: [{
-			op: "if"
-			condition: {op: "byteIn", bytes: [61], ahead: 1}
-			then: [{op: "advance"}, {op: "advance"}, {op: "setFlag", value: true}]
-		}]
-	}]
+	body: [{op: "if", condition: {op: "byteIn", bytes: [60, 62]}, then: [
+		{op: "advance"}, {op: "if", condition: {op: "byteIn", bytes: [61]}, then: [{op: "advance"}]},
+		{op: "setFlag", value: true},
+	]}]
 }

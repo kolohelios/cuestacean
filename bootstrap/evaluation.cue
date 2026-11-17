@@ -8,6 +8,10 @@ package bootstrap
 		boolType: result: {op: "bool"}
 		"true": result: {op: "boolean", value: true}
 		"false": result: {op: "boolean", value: false}
+		lowerExclusiveBound: result: {op: "lowerExclusiveBound", value: {op: "field", field: "value"}}
+		upperExclusiveBound: result: {op: "upperExclusiveBound", value: {op: "field", field: "value"}}
+		lowerExclusiveBoundExpression: result: {op: "lowerExclusiveBound", value: {op: "evaluate", field: "operand"}}
+		upperExclusiveBoundExpression: result: {op: "upperExclusiveBound", value: {op: "evaluate", field: "operand"}}
 		lowerBound: result: {op: "lowerBound", value: {op: "field", field: "value"}}
 		upperBound: result: {op: "upperBound", value: {op: "field", field: "value"}}
 		lowerBoundExpression: result: {op: "lowerBound", value: {op: "evaluate", field: "operand"}}

@@ -146,6 +146,9 @@ The four division/remainder `*-control` modules add CUE zero/unit-divisor policy
 `integer-literals` checks actual compiled signed extrema in both literal roles.
 `json-output` / `integer-output` own [output admission](../output-control.md);
 `output-zero` is an actual compiled alternate producing JSON 0 instead of false.
+`lower-exclusive-bound` / `upper-exclusive-bound` add [exclusive i64 bounds](../exclusive-bounds.md).
+`exclusive-reversed` changes guard/direction/layout with the same unary name;
+`bound-inclusive-only` preserves the actual earlier scanner byte-exact.
 `lower-bound` / `upper-bound` use [unary bound control](../bound-control.md);
 `bound-reversed` flips endpoint placement and `unary-bound-endpoints` executes
 left-only choose/literal/empty/projection in compiled code.
@@ -189,7 +192,7 @@ done
 bootstrap/executor/target/debug/bootstrap-codegen "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-reverse.json" \
   | rustfmt --edition 2024 > bootstrap/generated/evaluation-reverse.rs
-for machine in index-close list-open list-close list-tail call-open integer-literal tests/valid/string-no-wide tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
+for machine in tests/valid/bound-inclusive-only index-close list-open list-close list-tail call-open integer-literal tests/valid/string-no-wide tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
   tests/valid/scanner-horizontal \
   tests/valid/scanner-stalled tests/valid/scanner-advance \
   tests/valid/scanner-decimal-permissive tests/valid/scanner-reject tests/valid/scanner-state \
@@ -223,7 +226,7 @@ done
 bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/pratt.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/pratt-lowering-no-increment.json" \
   | rustfmt --edition 2024 > bootstrap/generated/pratt-no-increment.rs
-for control in list-index tests/valid/list-index-zero length-control list-length-control tests/valid/list-length-zero string-length-control tests/valid/length-zero lower-bound upper-bound tests/valid/bound-reversed tests/valid/unary-bound-endpoints json-output integer-output tests/valid/output-zero divide-control modulo-control quotient-control remainder-control tests/valid/integer-literals negate-control difference-control product-control unify sum equal not-equal less less-equal greater greater-equal logical-and logical-or logical-not tests/valid/not-true tests/valid/control-default tests/valid/unary-conditions tests/valid/logic-false tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
+for control in lower-exclusive-bound upper-exclusive-bound tests/valid/exclusive-reversed list-index tests/valid/list-index-zero length-control list-length-control tests/valid/list-length-zero string-length-control tests/valid/length-zero lower-bound upper-bound tests/valid/bound-reversed tests/valid/unary-bound-endpoints json-output integer-output tests/valid/output-zero divide-control modulo-control quotient-control remainder-control tests/valid/integer-literals negate-control difference-control product-control unify sum equal not-equal less less-equal greater greater-equal logical-and logical-or logical-not tests/valid/not-true tests/valid/control-default tests/valid/unary-conditions tests/valid/logic-false tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
   name=$(basename "$control")
   bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"

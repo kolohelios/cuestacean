@@ -30,6 +30,10 @@ while native counters enforce bounds. It is separate from lowering/compiler fuel
 `#LoweringPolicy` version 1 maps opcode strings to expressions. Optional one-hop
 `aliases` reuse canonical cases without modifying the input node; collisions,
 unknown targets/chains/duplicates reject eagerly. Cases plus aliases total ≤64.
+The exclusive-bound extension factors nine unary runtime calls through one
+canonical template plus aliases and `select(op)`. CUE owns all fixed method
+names/grouping/Result layout; old rendered Rust stays unchanged. This avoids
+exceeding the unchanged 512-original-JSON-value policy guard.
 
 | Operation | Meaning |
 | --- | --- |

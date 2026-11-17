@@ -1,9 +1,9 @@
 [
   {"file":"symbol-division", "offset":2, "reason":"unexpected or unsupported syntax"},
-  {"file":"symbol-partial-lower", "offset":0, "reason":"expected signed decimal integer"},
-  {"file":"symbol-partial-upper", "offset":0, "reason":"expected signed decimal integer"},
-  {"file":"symbol-spaced-prefix", "offset":0, "reason":"expected signed decimal integer"},
+  {"file":"symbol-partial-lower", "offset":2, "reason":"expected signed decimal integer"},
+  {"file":"symbol-partial-upper", "offset":2, "reason":"expected signed decimal integer"},
+  {"file":"symbol-spaced-prefix", "offset":2, "reason":"expected signed decimal integer"},
   {"file":"symbol-extra-equals", "offset":2, "reason":"expected signed decimal integer"},
-  {"file":"symbol-unicode-bound", "offset":0, "reason":"expected signed decimal integer"},
+  {"file":"symbol-unicode-bound", "offset":1, "reason":"expected signed decimal integer"},
   {"file":"symbol-trailing-infix", "offset":4, "reason":"expected signed decimal integer"}
 ]

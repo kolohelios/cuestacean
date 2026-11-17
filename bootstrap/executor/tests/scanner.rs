@@ -674,7 +674,7 @@ struct SymbolCase {
 }
 
 #[test]
-fn symbol_scanners_preserve_spans_without_consuming_partial_matches() {
+fn symbol_scanners_preserve_spans_and_longest_matches() {
     let cases: Vec<SymbolCase> = serde_json::from_str(
         &std::fs::read_to_string("tests/fixtures/symbol-scanner-cases.json").expect("cases"),
     )
@@ -787,8 +787,8 @@ fn symbols_match_the_supported_ascii_alphabet() {
         for first in [b'<', b'>'] {
             let source = String::from_utf8(vec![first, byte]).expect("ASCII");
             let expected = Scan {
-                offset: if byte == b'=' { 2 } else { 0 },
-                flag: byte == b'=',
+                offset: if byte == b'=' { 2 } else { 1 },
+                flag: true,
             };
             assert_eq!(
                 scanner::interpret(&bound, &source, 0).expect("lookahead interpreted"),

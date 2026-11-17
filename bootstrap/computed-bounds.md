@@ -7,8 +7,9 @@ one `operand` expression, sharing the existing closed unary shape. Their CUE
 evaluation rules evaluate the child before calling existing unary bound control.
 Thresholds must evaluate to concrete checked i64s; there is no backward
 propagation, deferred reference evaluation or wider numeric/string-bound domain.
-Child errors precede threshold admission. Bounds remain inclusive/infinite and
-incomplete even when singleton. Existing integer arithmetic/overflow applies.
+Child errors precede threshold admission. The original bounds remain inclusive/infinite and incomplete even when singleton.
+[Exclusive `>`/`<`](exclusive-bounds.md) now reuse this same group control with
+separate CUE threshold/extrema/unit-offset rules; no parser fallback is added. Existing integer arithmetic/overflow applies.
 
 CUE primary control selects a threshold group after committing a bound prefix,
 using existing scanGroup/groupOpen/advanceGroup/parseGroup/closeGroup operations.

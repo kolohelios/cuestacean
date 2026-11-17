@@ -29,16 +29,16 @@ import "list"
 #StringType: {kind: "stringType"}
 
 #LowerBound: {
-	kind:  "lowerBound"
+	kind:  "lowerBound" | "lowerExclusiveBound"
 	value: int
 }
 
 #UpperBound: {
-	kind:  "upperBound"
+	kind:  "upperBound" | "upperExclusiveBound"
 	value: int
 }
 
-#UnaryExpression: {kind: "length" | "listLength" | "stringLength" | "negate" | "logicalNot" | "lowerBoundExpression" | "upperBoundExpression", operand: #Expression}
+#UnaryExpression: {kind: "length" | "listLength" | "stringLength" | "negate" | "logicalNot" | "lowerBoundExpression" | "upperBoundExpression" | "lowerExclusiveBoundExpression" | "upperExclusiveBoundExpression", operand: #Expression}
 #LowerBoundExpression: #UnaryExpression & {kind: "lowerBoundExpression"}
 #UpperBoundExpression: #UnaryExpression & {kind: "upperBoundExpression"}
 #Negation: #UnaryExpression & {kind: "negate"}
@@ -98,7 +98,7 @@ import "list"
 #UnifySide:         "left" | "right"
 #UnifyEndpointName: "lower" | "upper"
 #ControlInteger: {op: "integer", value: int & >=-9223372036854775808 & <=9223372036854775807}
-#UnifyEndpoint: {op: "listCount"} | #ControlInteger | {op: "input", input: #UnifySide, endpoint: #UnifyEndpointName} | {op: "local", endpoint: #UnifyEndpointName} | {op: "empty"} | {
+#UnifyEndpoint: {op: "offset", value: #UnifyEndpoint, delta: -1 | 1} | {op: "listCount"} | #ControlInteger | {op: "input", input: #UnifySide, endpoint: #UnifyEndpointName} | {op: "local", endpoint: #UnifyEndpointName} | {op: "empty"} | {
 	op: "choose", condition: #UnifyCondition, then: #UnifyEndpoint, else: #UnifyEndpoint
 }
 #UnifyRelation: "equal" | "less" | "greater" | "lessEqual" | "greaterEqual"
@@ -112,14 +112,14 @@ import "list"
 	op: "if", condition: #UnifyCondition, then: #UnifyExpression, else: #UnifyExpression
 } | {
 	op: "letBounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint, result: #UnifyExpression
-} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: #OutputFailure | "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering" | "logical" | "divisionByZero" | "boundThreshold" | "length" | "lists" | "listLength" | "lengthOperand" | "indexOperands" | "indexRange"}
+} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: #OutputFailure | "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering" | "logical" | "divisionByZero" | "boundThreshold" | "length" | "lists" | "listLength" | "lengthOperand" | "indexOperands" | "indexRange" | "emptyBound"}
 #BinaryControlProgram: {formatVersion: 1, function?: "listIndex" | "unify" | "sum" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr" | "difference" | "product" | "divide" | "modulo" | "quotient" | "remainder", result: #UnifyExpression}
-#UnaryControlCondition: {op: "kindIs", input: "left", kind: #UnifyKind} | {op: "booleanIs", input: "left", value: bool} | {op: "and" | "or", left: #UnaryControlCondition, right: #UnaryControlCondition}
-#UnaryControlEndpoint: #ControlInteger | {op: "input", input: "left", endpoint: #UnifyEndpointName} | {op: "empty"} | {
+#UnaryControlCondition: {op: "compare", left: #UnaryControlEndpoint, right: #UnaryControlEndpoint, relation: #UnifyRelation} | {op: "kindIs", input: "left", kind: #UnifyKind} | {op: "booleanIs", input: "left", value: bool} | {op: "and" | "or", left: #UnaryControlCondition, right: #UnaryControlCondition}
+#UnaryControlEndpoint: {op: "offset", value: #UnaryControlEndpoint, delta: -1 | 1} | #ControlInteger | {op: "input", input: "left", endpoint: #UnifyEndpointName} | {op: "empty"} | {
 	op: "choose", condition: #UnaryControlCondition, then: #UnaryControlEndpoint, else: #UnaryControlEndpoint
 }
-#UnaryControlExpr: {op: "textLength" | "listCount"} | {op: "bounds", lower: #UnaryControlEndpoint, upper: #UnaryControlEndpoint} | #ControlInteger | {op: "integerPrimitive", operation: "negate"} | {op: "boolean", value: bool} | {op: "input", input: "left"} | {op: "fail", reason: #OutputFailure | "logical" | "arithmetic" | "boundThreshold" | "length" | "listLength" | "lengthOperand"} | {op: "if", condition: #UnaryControlCondition, then: #UnaryControlExpr, else: #UnaryControlExpr}
-#UnaryControlProgram: {formatVersion: 1, function: "length" | "listLength" | "stringLength" | "logicalNot" | "negate" | "jsonOutput" | "integerOutput" | "lowerBound" | "upperBound", result: #UnaryControlExpr}
+#UnaryControlExpr: {op: "textLength" | "listCount"} | {op: "bounds", lower: #UnaryControlEndpoint, upper: #UnaryControlEndpoint} | #ControlInteger | {op: "integerPrimitive", operation: "negate"} | {op: "boolean", value: bool} | {op: "input", input: "left"} | {op: "fail", reason: #OutputFailure | "logical" | "arithmetic" | "boundThreshold" | "length" | "listLength" | "lengthOperand" | "emptyBound"} | {op: "if", condition: #UnaryControlCondition, then: #UnaryControlExpr, else: #UnaryControlExpr}
+#UnaryControlProgram: {formatVersion: 1, function: "length" | "listLength" | "stringLength" | "logicalNot" | "negate" | "jsonOutput" | "integerOutput" | "lowerBound" | "upperBound" | "lowerExclusiveBound" | "upperExclusiveBound", result: #UnaryControlExpr}
 #UnifyProgram: *#BinaryControlProgram | #UnaryControlProgram
 
 // Expression-parser control flow; native frame operations are explicit intrinsics.
@@ -253,7 +253,7 @@ import "list"
 // Literal bounds accept signed decimal/radix i64s; optional metadata enables
 // parenthesized expression thresholds through the existing unary builder.
 #BoundPrefix: {
-	token:      ">=" | "<="
+	token:      ">=" | "<=" | ">" | "<"
 	kind:       string & !=""
 	valueField: string & !="" & !="kind"
 	expression?: {kind: string & !="", operandField: string & !="" & !="kind"}
@@ -300,6 +300,10 @@ import "list"
 		string: result: {op: "text", field: "value"}
 		"true": result: {op: "boolean", value: bool}
 		"false": result: {op: "boolean", value: bool}
+		lowerExclusiveBound: result: {op: "lowerExclusiveBound", value: {op: "field", field: "value"}}
+		upperExclusiveBound: result: {op: "upperExclusiveBound", value: {op: "field", field: "value"}}
+		lowerExclusiveBoundExpression: result: {op: "lowerExclusiveBound", value: {op: "evaluate", field: "operand"}}
+		upperExclusiveBoundExpression: result: {op: "upperExclusiveBound", value: {op: "evaluate", field: "operand"}}
 		lowerBound: result: {op: "lowerBound", value: {op: "field", field: "value"}}
 		upperBound: result: {op: "upperBound", value: {op: "field", field: "value"}}
 		lowerBoundExpression: result: {op: "lowerBound", value: {op: "evaluate", field: "operand"}}

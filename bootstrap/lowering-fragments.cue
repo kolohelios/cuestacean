@@ -10,6 +10,12 @@ package bootstrap
 	// The alternate policy overrides only sum's default right-child selection.
 	let R = {op: "try", value: {op: "group", value: {op: "lower", field: *"right" | "left"}}}
 	let V = {op: "try", value: {op: "group", value: {op: "lower", field: "value"}}}
+	let Unary = {
+		lowerExclusiveBound: "lower_exclusive_bound", upperExclusiveBound: "upper_exclusive_bound"
+		lowerBound:          "lower_bound", upperBound:                    "upper_bound", negate:  "negate"
+		logicalNot:          "logical_not", length:                        "length", stringLength: "string_length", listLength: "list_length"
+	}
+	aliases: {for name, _ in Unary {"\(name)": "unaryRuntime"}}
 	module: [{
 		op: "text"
 		value: """
@@ -56,13 +62,10 @@ package bootstrap
 		boolean: {op: "ok", value: {op: "call", path: "runtime::Value::Boolean", args: [{op: "boolean", field: "value"}]}}
 		field: {op: "call", path: "runtime::integer", args: [Node, Field]}
 		evaluate: {op: "call", path: "evaluate", args: [{op: "try", value: {op: "call", path: "runtime::field", args: [Node, Field]}}, Context]}
-		lowerBound: {op: "call", path: "runtime::lower_bound", args: [V]}
-		upperBound: {op: "call", path: "runtime::upper_bound", args: [V]}
-		negate: {op: "call", path: "runtime::negate", args: [V]}
-		logicalNot: {op: "call", path: "runtime::logical_not", args: [V]}
-		length: {op: "call", path: "runtime::length", args: [V]}
-		stringLength: {op: "call", path: "runtime::string_length", args: [V]}
-		listLength: {op: "call", path: "runtime::list_length", args: [V]}
+		unaryRuntime: {op: "concat", parts: [
+			{op: "select", field: "op", cases: {for name, method in Unary {"\(name)": {op: "text", value: "runtime::\(method)"}}}},
+			{op: "text", value: "("}, V, {op: "text", value: ")"},
+		]}
 		listIndex: {op: "call", path: "runtime::list_index", args: [L, R]}
 		sum: {op: "call", path: "runtime::sum", args: [L, R]}
 		logicalAnd: {op: "call", path: "runtime::logical_and", args: [L, R]}

@@ -5,14 +5,14 @@ pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
     cursor.step()?;
     if matches!(cursor.peek(), Some(60 | 62)) {
         cursor.step()?;
-        if matches!(cursor.peek_at(1), Some(61)) {
+        cursor.advance()?;
+        cursor.step()?;
+        if matches!(cursor.peek(), Some(61)) {
             cursor.step()?;
             cursor.advance()?;
-            cursor.step()?;
-            cursor.advance()?;
-            cursor.step()?;
-            cursor.set_flag(true);
         }
+        cursor.step()?;
+        cursor.set_flag(true);
     }
     Ok(cursor.finish())
 }

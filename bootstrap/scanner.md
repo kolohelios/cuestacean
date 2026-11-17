@@ -166,9 +166,11 @@ newlines; that does not expand the parser's conservative source subset.
 
 ## Symbol recognition, not grammar meaning
 
-The bound-prefix program checks `>=` or `<=` with one-byte lookahead before
-advancing. A partial match such as `>`, `> x`, or `>λ` leaves both offset and
-flag unchanged. The infix program recognizes a byte from `+`, `-`, `*`, `/`, `&`
+The bound-prefix program now consumes `<`/`>` and an optional adjacent `=`,
+longest first, for [exclusive/inclusive i64 bounds](exclusive-bounds.md).
+Threshold syntax/domain remains separate. `bound-inclusive-only` preserves the
+actual earlier non-consuming single-glyph behavior byte-exact. The infix
+program recognizes a byte from `+`, `-`, `*`, `/`, `&`
 or a complete `==`, `!=`, `div`, `mod`, `quo`, `rem` token.
 Bare `=` or `!` does not advance; equality tokens consume exactly two bytes.
 If no earlier infix matched, CUE recognizes `<`/`>` and an optional adjacent `=`.

@@ -114,6 +114,14 @@ Ok(())
             "listCountEndpoint" => ctx.text("crate::runtime::list_count(&_left).map(|value| crate::unification::endpoint(&value, crate::unification::Endpoint::Lower))"),
             "listElement" => ctx.text("crate::runtime::list_at(&_left, &_right)"),
             "local" => ctx.ok(|ctx| ctx.select(_node, "endpoint", |ctx, tag| match tag { "lower" => ctx.text("_lower"), "upper" => ctx.text("_upper"), tag => Err(lowering::missing_selection(tag)), })),
+            "offset" => ctx.concat(|parts| {
+parts.arg(|ctx| ctx.text("crate::unification::offset_endpoint(("))?;
+parts.arg(|ctx| ctx.child(_node, "value", _depth, self))?;
+parts.arg(|ctx| ctx.text(")?, "))?;
+parts.arg(|ctx| ctx.signed(_node, "delta"))?;
+parts.arg(|ctx| ctx.text(")"))?;
+Ok(())
+}),
             "or" => ctx.ok(|ctx| ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("("))?;
 parts.arg(|ctx| ctx.child(_node, "left", _depth, self))?;
@@ -139,7 +147,7 @@ Ok(())
 }),
             "textConcat" => ctx.text("crate::runtime::text_concat(&_left, &_right)"),
             "textLength" => ctx.text("crate::runtime::text_length(&_left)"),
-            "unaryFail" => ctx.select(_node, "reason", |ctx, tag| match tag { "arithmetic" => ctx.text("Err(Error::Arithmetic)"), "boundThreshold" => ctx.text("Err(Error::BoundThreshold)"), "incompleteBool" => ctx.text("Err(Error::IncompleteBool)"), "incompleteBounds" => ctx.text("Err(Error::IncompleteBounds)"), "incompleteInt" => ctx.text("Err(Error::Incomplete)"), "incompleteString" => ctx.text("Err(Error::IncompleteString)"), "incompleteValue" => ctx.text("Err(Error::IncompleteValue)"), "integerOutput" => ctx.text("Err(Error::IntegerOutput)"), "length" => ctx.text("Err(Error::Length)"), "lengthOperand" => ctx.text("Err(Error::LengthOperand)"), "listLength" => ctx.text("Err(Error::ListLength)"), "logical" => ctx.text("Err(Error::Logical)"), tag => Err(lowering::missing_selection(tag)), }),
+            "unaryFail" => ctx.select(_node, "reason", |ctx, tag| match tag { "arithmetic" => ctx.text("Err(Error::Arithmetic)"), "boundThreshold" => ctx.text("Err(Error::BoundThreshold)"), "emptyBound" => ctx.text("Err(Error::EmptyBound)"), "incompleteBool" => ctx.text("Err(Error::IncompleteBool)"), "incompleteBounds" => ctx.text("Err(Error::IncompleteBounds)"), "incompleteInt" => ctx.text("Err(Error::Incomplete)"), "incompleteString" => ctx.text("Err(Error::IncompleteString)"), "incompleteValue" => ctx.text("Err(Error::IncompleteValue)"), "integerOutput" => ctx.text("Err(Error::IntegerOutput)"), "length" => ctx.text("Err(Error::Length)"), "lengthOperand" => ctx.text("Err(Error::LengthOperand)"), "listLength" => ctx.text("Err(Error::ListLength)"), "logical" => ctx.text("Err(Error::Logical)"), tag => Err(lowering::missing_selection(tag)), }),
             op => Err(lowering::missing_case(op)),
         }
     }

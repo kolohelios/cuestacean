@@ -92,8 +92,14 @@ mod generated_logical_or;
 #[path = "../../generated/lower-bound.rs"]
 mod generated_lower_bound;
 #[cfg(feature = "semantics")]
+#[path = "../../generated/lower-exclusive-bound.rs"]
+mod generated_lower_exclusive_bound;
+#[cfg(feature = "semantics")]
 #[path = "../../generated/upper-bound.rs"]
 mod generated_upper_bound;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/upper-exclusive-bound.rs"]
+mod generated_upper_exclusive_bound;
 
 /// Per-invocation AST entry budget, not a bound on all evaluator work.
 /// Recursive entries must reuse the callback's context.
@@ -788,6 +794,18 @@ pub fn lower_bound(value: Value) -> Result<Value, Error> {
 #[cfg(feature = "semantics")]
 pub fn upper_bound(value: Value) -> Result<Value, Error> {
     generated_upper_bound::upper_bound(value)
+}
+
+/// Construct an exclusive lower bound using CUE domain/extrema/offset policy.
+#[cfg(feature = "semantics")]
+pub fn lower_exclusive_bound(value: Value) -> Result<Value, Error> {
+    generated_lower_exclusive_bound::lower_exclusive_bound(value)
+}
+
+/// Construct an exclusive upper bound using CUE domain/extrema/offset policy.
+#[cfg(feature = "semantics")]
+pub fn upper_exclusive_bound(value: Value) -> Result<Value, Error> {
+    generated_upper_exclusive_bound::upper_exclusive_bound(value)
 }
 
 /// Unify using the generated CUE policy; compiler-only seeds exclude this API.

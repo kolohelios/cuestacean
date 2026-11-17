@@ -70,6 +70,8 @@ enum Function {
     JsonOutput,
     LowerBound,
     UpperBound,
+    LowerExclusiveBound,
+    UpperExclusiveBound,
     Negate,
     Difference,
     Product,
@@ -91,6 +93,8 @@ impl Function {
                 | Self::JsonOutput
                 | Self::LowerBound
                 | Self::UpperBound
+                | Self::LowerExclusiveBound
+                | Self::UpperExclusiveBound
         )
     }
 }
@@ -164,6 +168,7 @@ pub enum Failure {
     ListLength,
     Lists,
     BoundThreshold,
+    EmptyBound,
     Integers,
     Bounds,
     Booleans,
@@ -197,6 +202,10 @@ enum End {
     },
     Local {
         endpoint: Endpoint,
+    },
+    Offset {
+        value: Box<End>,
+        delta: i64,
     },
     Empty {},
     Choose {
@@ -296,6 +305,7 @@ impl Expr {
                     | Failure::ListLength
                     | Failure::LengthOperand
                     | Failure::BoundThreshold
+                    | Failure::EmptyBound
                     | Failure::Arithmetic
                     | Failure::IncompleteInt
                     | Failure::IncompleteValue
@@ -369,6 +379,10 @@ impl End {
             }
             | Self::Integer { .. }
             | Self::Empty {} => Ok(()),
+            Self::Offset { value, delta } => {
+                validate_delta(*delta)?;
+                value.validate_unary()
+            }
             Self::Choose {
                 condition,
                 then,
@@ -387,6 +401,10 @@ impl End {
 
     fn validate(&self, bound: bool) -> Result<(), Error> {
         match self {
+            Self::Offset { value, delta } => {
+                validate_delta(*delta)?;
+                value.validate(bound)
+            }
             Self::Local { .. } if !bound => ProgramSnafu {
                 reason: "local endpoint outside letBounds",
             }
@@ -413,6 +431,10 @@ impl Condition {
             | Self::BooleanIs {
                 input: Side::Left, ..
             } => Ok(()),
+            Self::Compare { left, right, .. } => {
+                left.validate_unary()?;
+                right.validate_unary()
+            }
             Self::And { left, right } | Self::Or { left, right } => {
                 left.validate_unary()?;
                 right.validate_unary()
@@ -442,7 +464,28 @@ impl Condition {
         }
     }
 }
+fn validate_delta(delta: i64) -> Result<(), Error> {
+    if matches!(delta, -1 | 1) {
+        Ok(())
+    } else {
+        ProgramSnafu {
+            reason: "endpoint offset delta must be -1 or 1",
+        }
+        .fail()
+    }
+}
 // These primitives expose representation and errors, never intersection policy.
+/// Checked endpoint addition; missing endpoints remain infinite.
+/// The control DSL separately restricts offsets to unit deltas.
+pub fn offset_endpoint(value: Option<i64>, delta: i64) -> Result<Option<i64>, crate::Error> {
+    value
+        .map(|value| {
+            value
+                .checked_add(delta)
+                .ok_or(crate::Error::EndpointOffsetOverflow)
+        })
+        .transpose()
+}
 pub fn endpoint(value: &Value, end: Endpoint) -> Option<i64> {
     match value {
         Value::Integer(n) => Some(*n),
@@ -523,6 +566,7 @@ pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate
         Failure::ListLength => Err(crate::Error::ListLength),
         Failure::Lists => Err(crate::Error::ListConflict),
         Failure::BoundThreshold => Err(crate::Error::BoundThreshold),
+        Failure::EmptyBound => Err(crate::Error::EmptyBound),
         Failure::Bounds => Err(crate::Error::BoundsConflict),
         Failure::Types => Err(crate::Error::TypeConflict),
         Failure::Arithmetic => Err(crate::Error::Arithmetic),
@@ -588,6 +632,7 @@ impl End {
                 input: Side::Left,
                 endpoint: end,
             } => endpoint(left, *end),
+            Self::Offset { value, delta } => offset_endpoint(value.eval_unary(left)?, *delta)?,
             Self::Integer { value } => Some(*value),
             Self::Empty {} => None,
             Self::Choose {
@@ -621,6 +666,7 @@ impl End {
             Self::Integer { value } => Some(*value),
             Self::Local { endpoint } => endpoint.value(locals),
             Self::Empty {} => None,
+            Self::Offset { value, delta } => offset_endpoint(value.eval(l, r, locals)?, *delta)?,
             Self::Choose {
                 condition,
                 then,
@@ -646,6 +692,11 @@ impl Condition {
                 input: Side::Left,
                 value,
             } => boolean_is(left, *value)?,
+            Self::Compare {
+                left: a,
+                right: b,
+                relation,
+            } => compare(a.eval_unary(left)?, b.eval_unary(left)?, *relation)?,
             Self::And { left: a, right: b } => a.eval_unary(left)? && b.eval_unary(left)?,
             Self::Or { left: a, right: b } => a.eval_unary(left)? || b.eval_unary(left)?,
             _ => {
@@ -704,6 +755,9 @@ impl Expr {
             Self::Fail {
                 reason: Failure::BoundThreshold,
             } => Err(crate::Error::BoundThreshold),
+            Self::Fail {
+                reason: Failure::EmptyBound,
+            } => Err(crate::Error::EmptyBound),
             Self::Integer { value } => Ok(Value::Integer(*value)),
             Self::Boolean { value } => Ok(Value::Boolean(*value)),
             Self::Fail {
@@ -888,6 +942,85 @@ mod tests {
     use serde_json::Value;
 
     #[test]
+    fn checked_offsets_and_recursive_execution() {
+        use super::{End, offset_endpoint};
+        use crate::runtime::Value as Scalar;
+
+        for (value, delta, expected) in [
+            (None, 1, None),
+            (None, -1, None),
+            (Some(i64::MIN), 1, Some(i64::MIN + 1)),
+            (Some(i64::MAX), -1, Some(i64::MAX - 1)),
+            (Some(7), 3, Some(10)),
+        ] {
+            assert_eq!(offset_endpoint(value, delta).ok(), Some(expected));
+        }
+        for (value, delta) in [(i64::MAX, 1), (i64::MIN, -1)] {
+            assert!(matches!(
+                offset_endpoint(Some(value), delta),
+                Err(crate::Error::EndpointOffsetOverflow)
+            ));
+        }
+        let end = End::Offset {
+            value: Box::new(End::Offset {
+                value: Box::new(End::Integer { value: 7 }),
+                delta: 1,
+            }),
+            delta: -1,
+        };
+        assert_eq!(end.eval_unary(&Scalar::Null).ok(), Some(Some(7)));
+        assert_eq!(
+            end.eval(&Scalar::Null, &Scalar::Top, (None, None)).ok(),
+            Some(Some(7))
+        );
+    }
+
+    #[test]
+    fn offset_units_and_unary_compare_scope() {
+        use super::{Condition, End, Relation};
+        use crate::runtime::Value as Scalar;
+
+        for delta in [i64::MIN, -2, -1, 0, 1, 2, i64::MAX] {
+            let end = End::Offset {
+                value: Box::new(End::Empty {}),
+                delta,
+            };
+            assert_eq!(end.validate(false).is_ok(), matches!(delta, -1 | 1));
+            assert_eq!(end.validate_unary().is_ok(), matches!(delta, -1 | 1));
+        }
+        for end in [
+            r#"{"op":"integer","value":7}"#,
+            r#"{"op":"input","input":"left","endpoint":"lower"}"#,
+            r#"{"op":"input","input":"right","endpoint":"lower"}"#,
+            r#"{"op":"local","endpoint":"lower"}"#,
+        ] {
+            let condition: Condition = serde_json::from_str(&format!(
+                r#"{{"op":"compare","left":{{"op":"offset","value":{end},"delta":1}},"right":{{"op":"integer","value":8}},"relation":"equal"}}"#
+            ))
+            .expect("valid condition shape");
+            let allowed = !end.contains("right") && !end.contains("local");
+            assert_eq!(condition.validate_unary().is_ok(), allowed);
+            if allowed {
+                assert_eq!(condition.eval_unary(&Scalar::Integer(7)).ok(), Some(true));
+            }
+            let choose = End::Choose {
+                condition: Box::new(Condition::Compare {
+                    left: End::Integer { value: 0 },
+                    right: End::Integer { value: 0 },
+                    relation: Relation::Equal,
+                }),
+                then: Box::new(End::Empty {}),
+                otherwise: Box::new(End::Choose {
+                    condition: Box::new(condition),
+                    then: Box::new(End::Empty {}),
+                    otherwise: Box::new(End::Empty {}),
+                }),
+            };
+            assert_eq!(choose.validate_unary().is_ok(), allowed);
+        }
+    }
+
+    #[test]
     fn null_and_top_representation() {
         use super::{Endpoint, Kind, endpoint, kind_is};
         use crate::runtime::Value as Scalar;
@@ -1041,7 +1174,14 @@ mod tests {
         use super::{interpret, interpret_unary, project_unary};
         use crate::runtime::Value as Scalar;
 
-        for function in ["integerOutput", "jsonOutput", "lowerBound", "upperBound"] {
+        for function in [
+            "integerOutput",
+            "jsonOutput",
+            "lowerBound",
+            "upperBound",
+            "lowerExclusiveBound",
+            "upperExclusiveBound",
+        ] {
             let identity = format!(
                 r#"{{"formatVersion":1,"function":"{function}","result":{{"op":"input","input":"left"}}}}"#
             );
@@ -1057,6 +1197,10 @@ mod tests {
                 ("incompleteString", "non-concrete string value"),
                 ("incompleteBounds", "non-concrete integer bounds"),
                 ("integerOutput", "integer output requires an integer value"),
+                (
+                    "emptyBound",
+                    "exclusive bound is empty in the signed 64-bit integer domain",
+                ),
                 (
                     "boundThreshold",
                     "bound threshold requires a concrete integer",

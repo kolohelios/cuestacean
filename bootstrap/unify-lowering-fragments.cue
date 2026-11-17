@@ -26,6 +26,7 @@ package bootstrap
 			incompleteBounds: {op: "text", value: "Err(Error::IncompleteBounds)"}
 			integerOutput: {op: "text", value: "Err(Error::IntegerOutput)"}
 			boundThreshold: {op: "text", value: "Err(Error::BoundThreshold)"}
+			emptyBound: {op: "text", value: "Err(Error::EmptyBound)"}
 			length: {op: "text", value: "Err(Error::Length)"}
 			listLength: {op: "text", value: "Err(Error::ListLength)"}
 			lengthOperand: {op: "text", value: "Err(Error::LengthOperand)"}
@@ -47,6 +48,9 @@ package bootstrap
 		textLength: {op: "text", value: "crate::runtime::text_length(&_left)"}
 		listCount: {op: "text", value: "crate::runtime::list_count(&_left)"}
 		listElement: {op: "text", value: "crate::runtime::list_at(&_left, &_right)"}
+		offset: {op: "concat", parts: [{op: "text", value: "crate::unification::offset_endpoint(("},
+			{op: "lower", field: "value"}, {op: "text", value: ")?, "},
+			{op: "signed", field: "delta"}, {op: "text", value: ")"}]}
 		listCountEndpoint: {op: "text", value: "crate::runtime::list_count(&_left).map(|value| crate::unification::endpoint(&value, crate::unification::Endpoint::Lower))"}
 		inputValue: {op: "ok", value: {op: "concat", parts: [Side, {op: "text", value: ".clone()"}]}}
 		inputEndpoint: {op: "ok", value: {op: "concat", parts: [{op: "text", value: "crate::unification::endpoint(&"}, Side,

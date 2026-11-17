@@ -81,6 +81,10 @@ fn evaluate_node(
         "lowerBoundExpression" => {
             runtime::lower_bound((evaluate(runtime::field(node, "operand")?, _context))?)
         }
+        "lowerExclusiveBound" => runtime::lower_exclusive_bound((runtime::integer(node, "value"))?),
+        "lowerExclusiveBoundExpression" => {
+            runtime::lower_exclusive_bound((evaluate(runtime::field(node, "operand")?, _context))?)
+        }
         "modulo" => runtime::modulo(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,
@@ -121,6 +125,10 @@ fn evaluate_node(
         "upperBound" => runtime::upper_bound((runtime::integer(node, "value"))?),
         "upperBoundExpression" => {
             runtime::upper_bound((evaluate(runtime::field(node, "operand")?, _context))?)
+        }
+        "upperExclusiveBound" => runtime::upper_exclusive_bound((runtime::integer(node, "value"))?),
+        "upperExclusiveBoundExpression" => {
+            runtime::upper_exclusive_bound((evaluate(runtime::field(node, "operand")?, _context))?)
         }
         kind => Err(Error::MissingRule {
             kind: kind.to_string(),

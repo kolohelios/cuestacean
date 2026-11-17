@@ -78,12 +78,6 @@ impl Driver for Compiled {
                 Ok(())
             }),
             "int" => ctx.ok(|ctx| ctx.path("runtime::Value::Int")),
-            "length" => ctx.call("runtime::length", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
-                })?;
-                Ok(())
-            }),
             "less" => ctx.call("runtime::less", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
@@ -123,24 +117,12 @@ impl Driver for Compiled {
                 })?;
                 Ok(())
             }),
-            "listLength" => ctx.call("runtime::list_length", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
-                })?;
-                Ok(())
-            }),
             "logicalAnd" => ctx.call("runtime::logical_and", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
                 })?;
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
-                })?;
-                Ok(())
-            }),
-            "logicalNot" => ctx.call("runtime::logical_not", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
                 })?;
                 Ok(())
             }),
@@ -153,24 +135,12 @@ impl Driver for Compiled {
                 })?;
                 Ok(())
             }),
-            "lowerBound" => ctx.call("runtime::lower_bound", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
-                })?;
-                Ok(())
-            }),
             "modulo" => ctx.call("runtime::modulo", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
                 })?;
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
-                })?;
-                Ok(())
-            }),
-            "negate" => ctx.call("runtime::negate", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
                 })?;
                 Ok(())
             }),
@@ -211,12 +181,6 @@ impl Driver for Compiled {
                 })?;
                 Ok(())
             }),
-            "stringLength" => ctx.call("runtime::string_length", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
-                })?;
-                Ok(())
-            }),
             "stringType" => ctx.ok(|ctx| ctx.path("runtime::Value::String")),
             "sum" => ctx.call("runtime::sum", |call| {
                 call.arg(|ctx| {
@@ -233,18 +197,43 @@ impl Driver for Compiled {
                 Ok(())
             }),
             "top" => ctx.ok(|ctx| ctx.path("runtime::Value::Top")),
+            "unaryRuntime"
+            | "length"
+            | "listLength"
+            | "logicalNot"
+            | "lowerBound"
+            | "lowerExclusiveBound"
+            | "negate"
+            | "stringLength"
+            | "upperBound"
+            | "upperExclusiveBound" => ctx.concat(|parts| {
+                parts.arg(|ctx| {
+                    ctx.select(_node, "op", |ctx, tag| match tag {
+                        "length" => ctx.text("runtime::length"),
+                        "listLength" => ctx.text("runtime::list_length"),
+                        "logicalNot" => ctx.text("runtime::logical_not"),
+                        "lowerBound" => ctx.text("runtime::lower_bound"),
+                        "lowerExclusiveBound" => ctx.text("runtime::lower_exclusive_bound"),
+                        "negate" => ctx.text("runtime::negate"),
+                        "stringLength" => ctx.text("runtime::string_length"),
+                        "upperBound" => ctx.text("runtime::upper_bound"),
+                        "upperExclusiveBound" => ctx.text("runtime::upper_exclusive_bound"),
+                        tag => Err(lowering::missing_selection(tag)),
+                    })
+                })?;
+                parts.arg(|ctx| ctx.text("("))?;
+                parts.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
+                })?;
+                parts.arg(|ctx| ctx.text(")"))?;
+                Ok(())
+            }),
             "unify" => ctx.call("runtime::unify", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
                 })?;
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
-                })?;
-                Ok(())
-            }),
-            "upperBound" => ctx.call("runtime::upper_bound", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
                 })?;
                 Ok(())
             }),

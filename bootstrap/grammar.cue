@@ -11,6 +11,8 @@ package bootstrap
 	bounds: [
 		{token: ">=", kind: "lowerBound", valueField: "value", expression: {kind: "lowerBoundExpression", operandField: "operand"}},
 		{token: "<=", kind: "upperBound", valueField: "value", expression: {kind: "upperBoundExpression", operandField: "operand"}},
+		{token: ">", kind: "lowerExclusiveBound", valueField: "value", expression: {kind: "lowerExclusiveBoundExpression", operandField: "operand"}},
+		{token: "<", kind: "upperExclusiveBound", valueField: "value", expression: {kind: "upperExclusiveBoundExpression", operandField: "operand"}},
 	]
 	negation: {token: "-", kind: "negate", operandField: "operand"}
 	logicalNot: {token: "!", kind: "logicalNot", operandField: "operand"}
