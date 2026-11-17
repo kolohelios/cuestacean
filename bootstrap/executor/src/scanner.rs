@@ -14,6 +14,10 @@ mod generated;
 mod generated_decimal;
 
 #[cfg(feature = "source")]
+#[path = "../../generated/integer-literal.rs"]
+mod generated_integer_literal;
+
+#[cfg(feature = "source")]
 #[path = "../../generated/identifier.rs"]
 mod generated_identifier;
 
@@ -602,7 +606,14 @@ pub fn decimal(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_decimal::scan(source, offset)
 }
 
-/// Recognize minus before a non-digit; signed decimal literals stay atomic.
+/// Validate the integer spelling selected by CUE, not its magnitude.
+/// The result flag records whether the optional minus was consumed.
+#[cfg(feature = "source")]
+pub fn integer_literal(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_integer_literal::scan(source, offset)
+}
+
+/// Recognize minus before a non-digit; signed integer literals stay atomic.
 #[cfg(feature = "source")]
 pub fn negation_prefix(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_negation_prefix::scan(source, offset)

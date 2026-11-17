@@ -27,7 +27,7 @@ now uses CUE layout/clone/move policy with native checked binding/use-count fact
 layout, with explicit native flow facts and bounded pattern rendering.
 Nix builds native generator/VM seeds, regenerates JSON and Rust from the CUE specifications, then compiles and
 tests the final executables. A [source frontend](bootstrap/source/README.md)
-now handles a tiny decimal-integer subset with addition, subtraction,
+now handles a tiny checked-integer subset (decimal and 0b/0o/0x/0X literals) with addition, subtraction,
 multiplication, integer division/remainder, unary negation, `true`/`false`, `bool`/`int` constraints,
 inclusive bounds, unification, parentheses, and Unicode `//` comment trivia
 without Go at runtime.
@@ -63,6 +63,8 @@ incomplete diagnostics in unary CUE control, with native extraction/JSON encodin
 [Unicode escapes](bootstrap/unicode-escapes.md) add `\uXXXX` and valid surrogate
 pairs through CUE-only scanner policy. [Eight-digit scalar escapes](bootstrap/wide-unicode.md)
 now use CUE admission with a checked native bridge to JSON conversion.
+[Prefixed integers](bootstrap/radix-literals.md) use CUE sign/prefix/digit control
+and checked i64 conversion, including signed MIN and inclusive thresholds.
 [Bound construction](bootstrap/bound-control.md) also delegates threshold admission
 and inclusive endpoint layout to checked left-only unary CUE control.
 Value representation and low-level primitives remain native.

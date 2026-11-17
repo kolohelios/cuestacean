@@ -242,7 +242,7 @@ impl Grammar {
     }
 }
 
-/// Parse the documented decimal-integer subset into a version-1 expression tree.
+/// Parse the documented integer-literal subset into a version-1 expression tree.
 /// Limits: at most 64 AST nodes and 32 recursive parsing levels.
 pub fn parse(source: &str, grammar: &str) -> Result<Value, Error> {
     parse_with_drivers(
@@ -414,23 +414,45 @@ impl Parser<'_> {
         Ok(ast::atom(kind))
     }
 
-    fn decimal(&mut self) -> Result<i64, Error> {
+    fn integer_literal(&mut self) -> Result<i64, Error> {
         let start = self.offset;
-        let scan = crate::scanner::decimal(self.source, start)?;
+        let scan = crate::scanner::integer_literal(self.source, start)?;
         self.offset = scan.offset;
-        self.source[start..self.offset]
-            .parse::<i64>()
+        decode_integer_literal(&self.source[start..self.offset])
             .context(IntegerSnafu { offset: start })
     }
 
     fn integer(&mut self) -> Result<Value, Error> {
-        let value = self.decimal()?;
+        let value = self.integer_literal()?;
         self.node()?;
         Ok(ast::integer(
             self.grammar.integer.kind.clone(),
             self.grammar.integer.value_field.clone(),
             value,
         ))
+    }
+}
+
+/// Convert a CUE-selected spelling; lexical admission belongs to the scanner.
+fn decode_integer_literal(text: &str) -> Result<i64, std::num::ParseIntError> {
+    let (negative, unsigned) = match text.strip_prefix('-') {
+        Some(unsigned) => (true, unsigned),
+        None => (false, text),
+    };
+    let prefixed = unsigned
+        .strip_prefix("0x")
+        .or_else(|| unsigned.strip_prefix("0X"))
+        .map(|digits| (digits, 16))
+        .or_else(|| unsigned.strip_prefix("0b").map(|digits| (digits, 2)))
+        .or_else(|| unsigned.strip_prefix("0o").map(|digits| (digits, 8)));
+    let Some((digits, radix)) = prefixed else {
+        return text.parse::<i64>();
+    };
+    if negative {
+        // Parse the signed digits directly so MIN never needs a positive i64.
+        i64::from_str_radix(&format!("-{digits}"), radix)
+    } else {
+        i64::from_str_radix(digits, radix)
     }
 }
 
@@ -757,7 +779,7 @@ impl Frame<'_, '_> {
             return self.primary_state_error();
         };
         let bound = self.parser.grammar.bounds[index].clone();
-        let value = self.parser.decimal()?;
+        let value = self.parser.integer_literal()?;
         self.parser.node()?;
         self.left = Some(ast::integer(bound.kind, bound.value_field, value));
         self.primary_state = Some(PrimaryState::Done);
@@ -977,6 +999,108 @@ fn decode_string_literal(slice: &str) -> Option<String> {
         offset = end;
     }
     serde_json::from_str(&json).ok()
+}
+
+#[cfg(test)]
+mod integer_codec_tests {
+    use super::decode_integer_literal;
+    use std::num::IntErrorKind;
+
+    #[test]
+    fn fixed_radix_values_and_signed_extrema() -> Result<(), std::num::ParseIntError> {
+        for (source, expected) in [
+            ("0b101010", 42),
+            ("0o52", 42),
+            ("0x2a", 42),
+            ("0X2A", 42),
+            ("-0b101010", -42),
+            ("-0o52", -42),
+            ("-0x2A", -42),
+            ("-0X2a", -42),
+            ("0b0", 0),
+            ("-0b0", 0),
+            ("0o0", 0),
+            ("-0o0", 0),
+            ("0x0", 0),
+            ("-0X0", 0),
+            (
+                "0b111111111111111111111111111111111111111111111111111111111111111",
+                i64::MAX,
+            ),
+            (
+                "-0b1000000000000000000000000000000000000000000000000000000000000000",
+                i64::MIN,
+            ),
+            ("0o777777777777777777777", i64::MAX),
+            ("-0o1000000000000000000000", i64::MIN),
+            ("0x7fffffffffffffff", i64::MAX),
+            ("-0x8000000000000000", i64::MIN),
+            ("0X7FFFFFFFFFFFFFFF", i64::MAX),
+            ("-0X8000000000000000", i64::MIN),
+        ] {
+            assert_eq!(decode_integer_literal(source)?, expected, "{source}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn standard_range_and_digit_errors() {
+        for (source, expected) in [
+            (
+                "0b1000000000000000000000000000000000000000000000000000000000000000",
+                IntErrorKind::PosOverflow,
+            ),
+            (
+                "-0b1000000000000000000000000000000000000000000000000000000000000001",
+                IntErrorKind::NegOverflow,
+            ),
+            ("0o1000000000000000000000", IntErrorKind::PosOverflow),
+            ("-0o1000000000000000000001", IntErrorKind::NegOverflow),
+            ("0x8000000000000000", IntErrorKind::PosOverflow),
+            ("-0x8000000000000001", IntErrorKind::NegOverflow),
+            ("0X8000000000000000", IntErrorKind::PosOverflow),
+            ("-0X8000000000000001", IntErrorKind::NegOverflow),
+            ("0b2", IntErrorKind::InvalidDigit),
+            ("0o8", IntErrorKind::InvalidDigit),
+            ("0xg", IntErrorKind::InvalidDigit),
+            ("0B1", IntErrorKind::InvalidDigit),
+            ("0O1", IntErrorKind::InvalidDigit),
+            ("0x１", IntErrorKind::InvalidDigit),
+            ("0b1_0", IntErrorKind::InvalidDigit),
+            ("0x", IntErrorKind::Empty),
+            ("-0o", IntErrorKind::InvalidDigit),
+        ] {
+            let error = decode_integer_literal(source).expect_err(source);
+            assert_eq!(error.kind(), &expected, "{source}");
+        }
+    }
+
+    #[test]
+    fn decimal_conversion_remains_the_standard_fast_path() {
+        // Conversion deliberately does not replace CUE lexical policy.
+        for source in [
+            "0",
+            "-0",
+            "42",
+            "-42",
+            "01",
+            "+1",
+            "",
+            "-",
+            "１",
+            "1_0",
+            "9223372036854775807",
+            "-9223372036854775808",
+            "9223372036854775808",
+            "-9223372036854775809",
+        ] {
+            assert_eq!(
+                decode_integer_literal(source),
+                source.parse::<i64>(),
+                "{source}"
+            );
+        }
+    }
 }
 
 #[cfg(test)]
