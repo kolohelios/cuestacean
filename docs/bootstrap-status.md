@@ -139,6 +139,8 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   Limits: 64 statements, 16 nesting levels, 128 predicate bytes. Pure `and`/`or`
   trees have separate whole-program bounds of 128 predicate nodes/16 levels;
   CUE owns normal/De Morgan emission ([contract](../bootstrap/scanner-predicates.md)).
+  Literal repeat counts 0..64 share the same structural/fuel limits; CUE emits
+  counted/once/zero forms ([contract](../bootstrap/scanner-repeat.md)).
 - AST builders: typed/scoped parameters and bounded expressions; repeated owned
   arguments clone only before their final use, which moves.
 - Unification control: finite expressions, no loops/fuel; 512 JSON nodes,
@@ -181,6 +183,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#100](https://github.com/kolohelios/cuestacean/pull/100) | Unary CUE concrete-output admission and diagnostics |
 | [#102](https://github.com/kolohelios/cuestacean/pull/102) | Unary CUE inclusive bound construction and checked left-only endpoints |
 | [#104](https://github.com/kolohelios/cuestacean/pull/104) | CUE-only four-digit Unicode escape and surrogate-pair admission |
+| [#106](https://github.com/kolohelios/cuestacean/pull/106) | Bounded composable scanner predicates and Unicode control compaction |
 
 ## Build and validation runbook
 

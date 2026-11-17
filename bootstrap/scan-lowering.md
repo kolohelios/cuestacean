@@ -23,6 +23,9 @@ to predicate reads without revisiting this contract. For `and`/`or`, native
 metadata propagates the desired inversion bit to both children; CUE chooses
 normal/De Morgan operators and operand grouping. There is no native boolean
 source-emission map, and each bounded compound read still uses one test step.
+[Repeat control](scanner-repeat.md) adds count/once/possible-break facts. CUE
+chooses zero omission, for loops or once-blocks, adding labels only when needed;
+repeat entry/iteration charges remain explicit without lint suppression.
 
 `bytePattern` and `charPattern` are bounded native rendering primitives, not CUE
 algorithms: they require 1..128 values, sort/deduplicate, and stream output through
@@ -46,7 +49,7 @@ checked primitives; there is no global Context binding state or budget reset.
 Copies, comparisons' operands and enclosing results retain existing work/frame/byte
 accounting. Pattern validation precedes rendering. Existing 512-node/32-level policy,
 4096-step/128-frame/1-MiB output guards remain unchanged; the default policy uses
-369 JSON values. Generation now has shared rendering limits as well as scanner
+438 JSON values. Generation now has shared rendering limits as well as scanner
 validation bounds, unlike the construction interpreter's execution-only contract.
 
 ## Pipeline and proof

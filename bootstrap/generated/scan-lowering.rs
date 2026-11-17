@@ -97,6 +97,31 @@ parts.arg(|ctx| ctx.string(_node, "reason"))?;
 parts.arg(|ctx| ctx.text(")?;\n"))?;
 Ok(())
 }),
+            "repeat" => ctx.concat(|parts| {
+parts.arg(|ctx| ctx.text("cursor.step()?;\n"))?;
+parts.arg(|ctx| ctx.if_zero(_node, "count", |ctx| ctx.text(""), |ctx| ctx.if_true(_node, "once", |ctx| ctx.concat(|parts| {
+parts.arg(|ctx| ctx.if_true(_node, "labeled", |ctx| ctx.concat(|parts| {
+parts.arg(|ctx| ctx.text("'scan"))?;
+parts.arg(|ctx| ctx.unsigned(_node, "depth"))?;
+parts.arg(|ctx| ctx.text(": "))?;
+Ok(())
+}), |ctx| ctx.text("")))?;
+parts.arg(|ctx| ctx.text("{\n"))?;
+parts.arg(|ctx| ctx.text("cursor.step()?;\n"))?;
+parts.arg(|ctx| ctx.list(_node, "body", _depth, self))?;
+parts.arg(|ctx| ctx.text("}\n"))?;
+Ok(())
+}), |ctx| ctx.concat(|parts| {
+parts.arg(|ctx| ctx.text("for _ in 0.."))?;
+parts.arg(|ctx| ctx.unsigned(_node, "count"))?;
+parts.arg(|ctx| ctx.text(" {\n"))?;
+parts.arg(|ctx| ctx.text("cursor.step()?;\n"))?;
+parts.arg(|ctx| ctx.list(_node, "body", _depth, self))?;
+parts.arg(|ctx| ctx.text("}\n"))?;
+Ok(())
+}))))?;
+Ok(())
+}),
             "setFlag" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("cursor.step()?;\n"))?;
 parts.arg(|ctx| ctx.text("cursor.set_flag("))?;

@@ -47,36 +47,16 @@ pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
                                 cursor.reject("unexpected low surrogate escape")?;
                             }
                             cursor.step()?;
-                            if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
+                            for _ in 0..4 {
                                 cursor.step()?;
-                                cursor.advance()?;
-                            } else {
                                 cursor.step()?;
-                                cursor.reject("invalid Unicode escape")?;
-                            }
-                            cursor.step()?;
-                            if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
-                                cursor.step()?;
-                                cursor.advance()?;
-                            } else {
-                                cursor.step()?;
-                                cursor.reject("invalid Unicode escape")?;
-                            }
-                            cursor.step()?;
-                            if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
-                                cursor.step()?;
-                                cursor.advance()?;
-                            } else {
-                                cursor.step()?;
-                                cursor.reject("invalid Unicode escape")?;
-                            }
-                            cursor.step()?;
-                            if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
-                                cursor.step()?;
-                                cursor.advance()?;
-                            } else {
-                                cursor.step()?;
-                                cursor.reject("invalid Unicode escape")?;
+                                if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
+                                    cursor.step()?;
+                                    cursor.advance()?;
+                                } else {
+                                    cursor.step()?;
+                                    cursor.reject("invalid Unicode escape")?;
+                                }
                             }
                             cursor.step()?;
                             if cursor.flag() {
@@ -97,36 +77,19 @@ pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
                                     && (matches!(cursor.peek_at(1), Some(67..=70 | 99..=102)))
                                 {
                                     cursor.step()?;
-                                    if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
+                                    for _ in 0..4 {
                                         cursor.step()?;
-                                        cursor.advance()?;
-                                    } else {
                                         cursor.step()?;
-                                        cursor.reject("invalid Unicode escape")?;
-                                    }
-                                    cursor.step()?;
-                                    if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
-                                        cursor.step()?;
-                                        cursor.advance()?;
-                                    } else {
-                                        cursor.step()?;
-                                        cursor.reject("invalid Unicode escape")?;
-                                    }
-                                    cursor.step()?;
-                                    if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
-                                        cursor.step()?;
-                                        cursor.advance()?;
-                                    } else {
-                                        cursor.step()?;
-                                        cursor.reject("invalid Unicode escape")?;
-                                    }
-                                    cursor.step()?;
-                                    if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
-                                        cursor.step()?;
-                                        cursor.advance()?;
-                                    } else {
-                                        cursor.step()?;
-                                        cursor.reject("invalid Unicode escape")?;
+                                        if matches!(
+                                            cursor.peek(),
+                                            Some(48..=57 | 65..=70 | 97..=102)
+                                        ) {
+                                            cursor.step()?;
+                                            cursor.advance()?;
+                                        } else {
+                                            cursor.step()?;
+                                            cursor.reject("invalid Unicode escape")?;
+                                        }
                                     }
                                 } else {
                                     cursor.step()?;

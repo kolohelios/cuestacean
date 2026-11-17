@@ -187,7 +187,8 @@ package bootstrap
 #ScanFlagIs: {op: "flagIs", value: bool}
 #ScanHasByte: {op: "hasByte"}
 
-#ScanStatement: #ScanWhile | #ScanIf | #ScanAdvance | #ScanAdvanceChar | #ScanBreak | #ScanSetFlag | #ScanReject
+#ScanRepeat: {op: "repeat", count: uint & <=64, body: [...#ScanStatement]}
+#ScanStatement: #ScanRepeat | #ScanWhile | #ScanIf | #ScanAdvance | #ScanAdvanceChar | #ScanBreak | #ScanSetFlag | #ScanReject
 #ScanWhile: {
 	op:        "while"
 	condition: #ScanPredicate
