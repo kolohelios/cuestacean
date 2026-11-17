@@ -16,11 +16,23 @@ mod generated_unification;
 #[path = "../../generated/difference-control.rs"]
 mod generated_difference;
 #[cfg(feature = "semantics")]
+#[path = "../../generated/divide-control.rs"]
+mod generated_divide;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/modulo-control.rs"]
+mod generated_modulo;
+#[cfg(feature = "semantics")]
 #[path = "../../generated/negate-control.rs"]
 mod generated_negate;
 #[cfg(feature = "semantics")]
 #[path = "../../generated/product-control.rs"]
 mod generated_product;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/quotient-control.rs"]
+mod generated_quotient;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/remainder-control.rs"]
+mod generated_remainder;
 #[cfg(feature = "semantics")]
 #[path = "../../generated/sum.rs"]
 mod generated_sum;
@@ -141,13 +153,6 @@ pub fn concrete_json(value: Value) -> Result<JsonValue, Error> {
         Value::Boolean(value) => Ok(JsonValue::Bool(value)),
         Value::Text(value) => Ok(JsonValue::String(value.as_ref().to_owned())),
         value => concrete(value).map(JsonValue::from),
-    }
-}
-
-fn operands(left: Value, right: Value) -> Result<(i64, i64), Error> {
-    match (left, right) {
-        (Value::Integer(left), Value::Integer(right)) => Ok((left, right)),
-        _ => Err(Error::Arithmetic),
     }
 }
 
@@ -287,44 +292,78 @@ pub fn integer_product(left: &Value, right: &Value) -> Result<Value, Error> {
         .ok_or(Error::ProductOverflow)
 }
 
-fn division_operands(left: Value, right: Value) -> Result<(i64, i64), Error> {
-    let (left, right) = operands(left, right)?;
-    if right == 0 {
+/// Divide using generated CUE policy.
+#[cfg(feature = "semantics")]
+pub fn divide(left: Value, right: Value) -> Result<Value, Error> {
+    generated_divide::divide(left, right)
+}
+
+/// Compute Euclidean remainder using generated CUE policy.
+#[cfg(feature = "semantics")]
+pub fn modulo(left: Value, right: Value) -> Result<Value, Error> {
+    generated_modulo::modulo(left, right)
+}
+
+/// Compute truncating quotient using generated CUE policy.
+#[cfg(feature = "semantics")]
+pub fn quotient(left: Value, right: Value) -> Result<Value, Error> {
+    generated_quotient::quotient(left, right)
+}
+
+/// Compute truncating remainder using generated CUE policy.
+#[cfg(feature = "semantics")]
+pub fn remainder(left: Value, right: Value) -> Result<Value, Error> {
+    generated_remainder::remainder(left, right)
+}
+
+/// Checked Euclidean division primitive; dispatch belongs to CUE control.
+pub fn integer_divide(left: &Value, right: &Value) -> Result<Value, Error> {
+    let (Value::Integer(left), Value::Integer(right)) = (left, right) else {
+        return Err(Error::Arithmetic);
+    };
+    if *right == 0 {
         return Err(Error::DivisionByZero);
     }
-    Ok((left, right))
-}
-
-pub fn divide(left: Value, right: Value) -> Result<Value, Error> {
-    let (left, right) = division_operands(left, right)?;
-    left.checked_div_euclid(right)
+    left.checked_div_euclid(*right)
         .map(Value::Integer)
         .ok_or(Error::DivisionOverflow)
 }
 
-pub fn modulo(left: Value, right: Value) -> Result<Value, Error> {
-    let (left, right) = division_operands(left, right)?;
-    if right == -1 {
-        return Ok(Value::Integer(0));
+/// Checked Euclidean remainder primitive; unit-divisor policy belongs to CUE.
+pub fn integer_modulo(left: &Value, right: &Value) -> Result<Value, Error> {
+    let (Value::Integer(left), Value::Integer(right)) = (left, right) else {
+        return Err(Error::Arithmetic);
+    };
+    if *right == 0 {
+        return Err(Error::DivisionByZero);
     }
-    left.checked_rem_euclid(right)
+    left.checked_rem_euclid(*right)
         .map(Value::Integer)
         .ok_or(Error::DivisionOverflow)
 }
 
-pub fn quotient(left: Value, right: Value) -> Result<Value, Error> {
-    let (left, right) = division_operands(left, right)?;
-    left.checked_div(right)
-        .map(Value::Integer)
-        .ok_or(Error::DivisionOverflow)
-}
-
-pub fn remainder(left: Value, right: Value) -> Result<Value, Error> {
-    let (left, right) = division_operands(left, right)?;
-    if right == -1 {
-        return Ok(Value::Integer(0));
+/// Checked truncating division primitive; dispatch belongs to CUE control.
+pub fn integer_quotient(left: &Value, right: &Value) -> Result<Value, Error> {
+    let (Value::Integer(left), Value::Integer(right)) = (left, right) else {
+        return Err(Error::Arithmetic);
+    };
+    if *right == 0 {
+        return Err(Error::DivisionByZero);
     }
-    left.checked_rem(right)
+    left.checked_div(*right)
+        .map(Value::Integer)
+        .ok_or(Error::DivisionOverflow)
+}
+
+/// Checked truncating remainder primitive; unit-divisor policy belongs to CUE.
+pub fn integer_remainder(left: &Value, right: &Value) -> Result<Value, Error> {
+    let (Value::Integer(left), Value::Integer(right)) = (left, right) else {
+        return Err(Error::Arithmetic);
+    };
+    if *right == 0 {
+        return Err(Error::DivisionByZero);
+    }
+    left.checked_rem(*right)
         .map(Value::Integer)
         .ok_or(Error::DivisionOverflow)
 }
@@ -421,6 +460,56 @@ mod tests {
                 integer_product(&Value::Integer(1), &value),
                 Err(Error::Arithmetic)
             ));
+        }
+    }
+
+    #[test]
+    fn checked_division_kernels() {
+        use super::{integer_divide, integer_modulo, integer_quotient, integer_remainder};
+
+        for (kernel, expected) in [
+            (
+                integer_divide as fn(&Value, &Value) -> Result<Value, Error>,
+                -3,
+            ),
+            (integer_modulo, 2),
+            (integer_quotient, -2),
+            (integer_remainder, -1),
+        ] {
+            assert_eq!(
+                kernel(&Value::Integer(-7), &Value::Integer(3)).ok(),
+                Some(Value::Integer(expected))
+            );
+            assert!(matches!(
+                kernel(&Value::Integer(i64::MIN), &Value::Integer(-1)),
+                Err(Error::DivisionOverflow)
+            ));
+            assert!(matches!(
+                kernel(&Value::Integer(1), &Value::Integer(0)),
+                Err(Error::DivisionByZero)
+            ));
+            for value in [
+                Value::Null,
+                Value::Top,
+                Value::Int,
+                Value::Bool,
+                Value::Boolean(false),
+                Value::String,
+                Value::Text(Arc::from("x")),
+                Value::Bounds {
+                    lower: Some(0),
+                    upper: Some(0),
+                },
+            ] {
+                assert!(matches!(
+                    kernel(&value, &Value::Integer(0)),
+                    Err(Error::Arithmetic)
+                ));
+                assert!(matches!(
+                    kernel(&Value::Integer(1), &value),
+                    Err(Error::Arithmetic)
+                ));
+            }
         }
     }
 

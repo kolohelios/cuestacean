@@ -56,6 +56,8 @@ uses checked one-operand CUE control and source-prefix dispatch.
 with CUE-owned identity, null-domain and concreteness guards.
 [Checked integer dispatch](bootstrap/integer-control.md) also routes negation,
 subtraction and multiplication through CUE over native checked primitives.
+[Division policy](bootstrap/division-control.md) extends this to zero checks,
+Euclidean/truncating primitive selection and the remainder unit-divisor case.
 Value representation and low-level primitives remain native.
 
 ## CUE all the way down

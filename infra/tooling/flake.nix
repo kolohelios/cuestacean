@@ -77,9 +77,14 @@
         "negate-control"
         "difference-control"
         "product-control"
+        "divide-control"
+        "modulo-control"
+        "quotient-control"
+        "remainder-control"
         "tests/valid/not-true"
         "tests/valid/control-default"
         "tests/valid/unary-conditions"
+        "tests/valid/integer-literals"
         "tests/valid/logic-false"
         "tests/valid/less-false"
         "tests/valid/equal-false"
@@ -141,6 +146,7 @@
         "tests/valid/pratt-lowering-no-increment"
         "tests/valid/unify-lowering-permissive"
         "tests/valid/integer-kernel-alternate"
+        "tests/valid/division-kernel-alternate"
         "tests/valid/unify-equality-probe"
         "tests/valid/ast-lowering-forced"
         "tests/valid/scan-lowering-unicode"
@@ -167,6 +173,7 @@
                 ../../bootstrap/ordering-fragments.cue
                 ../../bootstrap/logic-fragments.cue
                 ../../bootstrap/integer-control-fragments.cue
+                ../../bootstrap/division-control-fragments.cue
                 ../../bootstrap/lowering-fragments.cue
                 ../../bootstrap/pratt-lowering-fragments.cue
                 ../../bootstrap/unify-lowering-fragments.cue
@@ -200,7 +207,7 @@
                 lowering|tests/valid/lowering-left-twice|tests/valid/lowering-reverse)
                   fragments=(lowering-fragments) ;;
                 pratt-lowering|tests/valid/pratt-lowering-*) fragments=(pratt-lowering-fragments) ;;
-                unify-lowering|tests/valid/unify-lowering-*|tests/valid/integer-kernel-alternate) fragments=(unify-lowering-fragments) ;;
+                unify-lowering|tests/valid/unify-lowering-*|tests/valid/integer-kernel-alternate|tests/valid/division-kernel-alternate) fragments=(unify-lowering-fragments) ;;
                 ast-lowering|tests/valid/ast-lowering-*) fragments=(ast-lowering-fragments) ;;
                 scan-lowering|tests/valid/scan-lowering-*) fragments=(scan-lowering-fragments) ;;
                 meta-lowering|tests/valid/meta-lowering-*|tests/valid/meta-driver-previous)
@@ -209,6 +216,7 @@
                 less|less-equal|greater|greater-equal) fragments=(ordering-fragments) ;;
                 logical-and|logical-or) fragments=(equality-fragments logic-fragments) ;;
                 difference-control|product-control) fragments=(integer-control-fragments) ;;
+                divide-control|modulo-control|quotient-control|remainder-control) fragments=(division-control-fragments) ;;
               esac
               inputs=(${cueSources}/schema.cue)
               for fragment in "''${fragments[@]}"; do inputs+=("${cueSources}/$fragment.cue"); done
@@ -346,6 +354,7 @@
               done
               bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/unify-equality-probe.json" "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/unify-lowering-permissive.json" | rustfmt --edition 2024 > ../generated/unify-permissive-bool.rs
               bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/difference-control.json" "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/integer-kernel-alternate.json" | rustfmt --edition 2024 > ../generated/difference-as-product.rs
+              bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/divide-control.json" "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/division-kernel-alternate.json" | rustfmt --edition 2024 > ../generated/divide-as-quotient.rs
             )
           '';
         });
@@ -489,6 +498,10 @@
                 bootstrap-unify-codegen ${jsonExports pkgs}/difference-control.json ${jsonExports pkgs}/tests/valid/integer-kernel-alternate.json | rustfmt --edition 2024 > integer-alternate-second.rs
                 cmp integer-alternate.rs integer-alternate-second.rs
                 diff -u ${../../bootstrap/generated}/difference-as-product.rs integer-alternate.rs
+                bootstrap-unify-codegen ${jsonExports pkgs}/divide-control.json ${jsonExports pkgs}/tests/valid/division-kernel-alternate.json | rustfmt --edition 2024 > division-alternate.rs
+                bootstrap-unify-codegen ${jsonExports pkgs}/divide-control.json ${jsonExports pkgs}/tests/valid/division-kernel-alternate.json | rustfmt --edition 2024 > division-alternate-second.rs
+                cmp division-alternate.rs division-alternate-second.rs
+                diff -u ${../../bootstrap/generated}/divide-as-quotient.rs division-alternate.rs
                 touch "$out"
               '';
           bootstrap-source =
