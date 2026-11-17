@@ -33,6 +33,11 @@ failure. Eager children and both-value concreteness precede CUE result selection
 [Unary logical not](logical-not.md) adds a separate checked one-input subset and
 `interpret_unary`; wrong-arity API calls and even unused binary dependencies fail.
 Omitted function metadata remains binary by default in CUE and native decoding.
+[Checked integer dispatch](integer-control.md) adds a typed `integerPrimitive`
+operation enum and CUE guards for negation/subtraction/multiplication. Unary
+control admits only negation and arithmetic/logical failure; binary primitives
+remain forbidden in the one-input subset. Entry names remain enum-validated;
+CUE's checked identifier/snake operation emits their spelling.
 `integerSum` and `textConcat` call checked borrowed-input kernels; `fail` also
 supports `arithmetic`. The interpreter executes `result` independently of the
 entry-name metadata. There is no native overloaded-addition fallback. Value expressions

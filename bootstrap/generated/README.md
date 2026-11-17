@@ -90,7 +90,9 @@ use it too, with `less-false` as a compiled test-only alternate.
 `logical-and.rs` / `logical-or.rs` use [CUE logical selection](../logic.md);
 `logic-false` is test-only. Both child instructions still evaluate eagerly.
 `logical-not.rs` has a checked one-Value signature; `not-true` is an actual
-compiled alternate and `control-default` preserves omitted-function binary arity. Intermediate values may be abstract `bool`, `int` or
+compiled alternate and `control-default` preserves omitted-function binary arity.
+`negate-control` / `difference-control` / `product-control` now own integer
+operator dispatch; `difference-as-product` is a test-only alternate compiler mapping. Intermediate values may be abstract `bool`, `int` or
 bounds; JSON evaluation also supports owned strings and abstract `string`.
 Public `execute_json` requires concrete JSON null/integer/boolean/string;
 abstract top reports `non-concrete value`. [Lattice policy](../lattice-values.md)
@@ -162,7 +164,7 @@ done
 bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/pratt.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/pratt-lowering-no-increment.json" \
   | rustfmt --edition 2024 > bootstrap/generated/pratt-no-increment.rs
-for control in unify sum equal not-equal less less-equal greater greater-equal logical-and logical-or logical-not tests/valid/not-true tests/valid/control-default tests/valid/unary-conditions tests/valid/logic-false tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
+for control in negate-control difference-control product-control unify sum equal not-equal less less-equal greater greater-equal logical-and logical-or logical-not tests/valid/not-true tests/valid/control-default tests/valid/unary-conditions tests/valid/logic-false tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
   name=$(basename "$control")
   bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
@@ -170,6 +172,9 @@ done
 bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/unify-equality-probe.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/unify-lowering-permissive.json" \
   | rustfmt --edition 2024 > bootstrap/generated/unify-permissive-bool.rs
+bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/difference-control.json" \
+  "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/integer-kernel-alternate.json" \
+  | rustfmt --edition 2024 > bootstrap/generated/difference-as-product.rs
 ```
 
 ## Fresh Nix builds

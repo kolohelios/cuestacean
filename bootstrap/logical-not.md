@@ -11,10 +11,13 @@ minimum 101, like expression negation, above all configurable binary levels.
 
 The existing compiler gains a validated `logicalNot` entry with a one-Value Rust
 signature. Native arity facts feed CUE header layout. Unary programs allow only
-boolean results, left-input selection, logical failure and conditional branches
+boolean results, left-input selection, logical/arithmetic failure, checked integer
+negation and conditional branches
 whose kind/boolean predicates inspect the left input (including `and`/`or`).
 Every branch is checked, even unused ones. Right references, same-pair tests,
-endpoints and binary arithmetic/concatenation fail validation. Binary and unary
+endpoints and binary arithmetic/concatenation fail validation. The
+[integer-control extension](integer-control.md) adds `negate` unary arity alongside
+`logicalNot`; metadata names do not enforce operator semantics. Binary and unary
 reference entry points reject the wrong program arity. No dummy right value,
 new compiler, callbacks or native logical-not policy is introduced.
 
