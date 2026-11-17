@@ -13,73 +13,79 @@ pub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {
         _frame.parse_group(0u8)?;
         _frame.step()?;
         _frame.close_group()?;
-    } else {
         _frame.step()?;
-        _frame.scan_not()?;
+        return Ok(());
+    }
+    _frame.step()?;
+    _frame.scan_not()?;
+    _frame.step()?;
+    if _frame.has_not()? {
         _frame.step()?;
-        if _frame.has_not()? {
+        _frame.advance_not()?;
+        _frame.step()?;
+        _frame.parse_not(101u8)?;
+        _frame.step()?;
+        _frame.build_not()?;
+        _frame.step()?;
+        return Ok(());
+    }
+    _frame.step()?;
+    _frame.scan_negation()?;
+    _frame.step()?;
+    if _frame.has_negation()? {
+        _frame.step()?;
+        _frame.advance_negation()?;
+        _frame.step()?;
+        _frame.parse_negation(101u8)?;
+        _frame.step()?;
+        _frame.build_negation()?;
+        _frame.step()?;
+        return Ok(());
+    }
+    _frame.step()?;
+    _frame.scan_bound()?;
+    _frame.step()?;
+    if _frame.has_bound()? {
+        _frame.step()?;
+        _frame.advance_bound()?;
+        _frame.step()?;
+        _frame.whitespace()?;
+        _frame.step()?;
+        _frame.scan_group()?;
+        _frame.step()?;
+        if _frame.group_open()? {
             _frame.step()?;
-            _frame.advance_not()?;
+            _frame.advance_group()?;
             _frame.step()?;
-            _frame.parse_not(101u8)?;
+            _frame.parse_group(0u8)?;
             _frame.step()?;
-            _frame.build_not()?;
+            _frame.close_group()?;
         } else {
             _frame.step()?;
-            _frame.scan_negation()?;
-            _frame.step()?;
-            if _frame.has_negation()? {
-                _frame.step()?;
-                _frame.advance_negation()?;
-                _frame.step()?;
-                _frame.parse_negation(101u8)?;
-                _frame.step()?;
-                _frame.build_negation()?;
-            } else {
-                _frame.step()?;
-                _frame.scan_bound()?;
-                _frame.step()?;
-                if _frame.has_bound()? {
-                    _frame.step()?;
-                    _frame.advance_bound()?;
-                    _frame.step()?;
-                    _frame.whitespace()?;
-                    _frame.step()?;
-                    _frame.scan_group()?;
-                    _frame.step()?;
-                    if _frame.group_open()? {
-                        _frame.step()?;
-                        _frame.advance_group()?;
-                        _frame.step()?;
-                        _frame.parse_group(0u8)?;
-                        _frame.step()?;
-                        _frame.close_group()?;
-                    } else {
-                        _frame.step()?;
-                        _frame.parse_bound()?;
-                    }
-                } else {
-                    _frame.step()?;
-                    _frame.scan_string()?;
-                    _frame.step()?;
-                    if _frame.has_string()? {
-                        _frame.step()?;
-                        _frame.parse_string()?;
-                    } else {
-                        _frame.step()?;
-                        _frame.scan_identifier()?;
-                        _frame.step()?;
-                        if _frame.has_identifier()? {
-                            _frame.step()?;
-                            _frame.parse_atom()?;
-                        } else {
-                            _frame.step()?;
-                            _frame.parse_integer()?;
-                        }
-                    }
-                }
-            }
+            _frame.parse_bound()?;
         }
+        _frame.step()?;
+        return Ok(());
     }
+    _frame.step()?;
+    _frame.scan_string()?;
+    _frame.step()?;
+    if _frame.has_string()? {
+        _frame.step()?;
+        _frame.parse_string()?;
+        _frame.step()?;
+        return Ok(());
+    }
+    _frame.step()?;
+    _frame.scan_identifier()?;
+    _frame.step()?;
+    if _frame.has_identifier()? {
+        _frame.step()?;
+        _frame.parse_atom()?;
+    } else {
+        _frame.step()?;
+        _frame.parse_integer()?;
+    }
+    _frame.step()?;
     Ok(())
 }

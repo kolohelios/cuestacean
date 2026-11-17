@@ -32,6 +32,11 @@ bounds, not comprehensive hostile-input hardening or a sandbox for native driver
 
 Native code validates complete typed control IR, retains the reference parser
 interpreter and serializes the statement body as a tagged `program` node.
+[Early return](parser-return.md) adds checked canonical root `tail` and return
+`position` facts, never accepted wire fields. CUE chooses charged explicit-return
+or tail-expression source and the wrapper footer, with no lint suppression or
+native Rust emitter. Both-arm flow facts avoid unreachable/needless-return code;
+loops do not inherit function-tail context.
 Original-text typed decoding now rejects duplicate control fields rather than
 silently accepting a generic JSON map's overwritten value. The existing control
 JSON structural guard is unchanged; it is not the policy's streaming checker.

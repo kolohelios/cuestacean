@@ -238,10 +238,9 @@ fn primary_scope_rejects_expression_actions_and_invalid_transitions() {
         } else {
             json!({"op":op})
         };
-        control["body"]
-            .as_array_mut()
-            .expect("body")
-            .push(statement);
+        let body = control["body"].as_array_mut().expect("body");
+        // Reach the phase guard before the final return, not unreachable validation.
+        body.insert(body.len() - 1, statement);
         assert!(
             matches!(
                 interpreted("1", &grammar, &control.to_string()),

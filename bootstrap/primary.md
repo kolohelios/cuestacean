@@ -7,7 +7,10 @@ there is no second compiler or native primary-dispatch fallback.
 
 The expression program's `primary` instruction dispatches this generated
 program. It is wiring between two CUE programs, not an intrinsic that implements
-the selection algorithm in Rust. The primary program explicitly sequences:
+the selection algorithm in Rust. Production uses sequential guarded clauses with
+[early return](parser-return.md) after each completed primary, instead of nested
+`else` dispatch. Original JSON depth drops from 15 to 8; no limit is raised.
+The primary program explicitly sequences:
 
 - `whitespace`, `scanGroup`, and a `groupOpen` condition;
 - `advanceGroup`, `parseGroup` with a CUE-supplied `minimum`, then `closeGroup`;
@@ -34,8 +37,9 @@ stages track candidates, committed spans, group results and completion. Ordinary
 and bound-group stages are distinct: bound groups retain their constructor index
 and close through the existing unary AST builder. Optional per-bound expression
 metadata controls admission and constructor names; old metadata/policies stay valid.
-See [computed bounds](computed-bounds.md) for eager evaluation and unchanged limits. They
-prevent illegal transitions, primary reentry, expression mutations during
+See [computed bounds](computed-bounds.md) for eager evaluation and unchanged limits.
+These guards also apply after early return: they prevent illegal transitions,
+primary reentry, expression mutations during
 primary dispatch, and returning an unfinished group;
 private state cannot be mutated by control documents. Committing a primary token
 requires forward progress and a valid in-bounds UTF-8 boundary.
@@ -54,6 +58,11 @@ checks, interpreters and compilers remain handwritten. Go CUE still exports
 specifications and JSON remains a build-only artifact.
 
 ## Evidence
+
+`primary-nested` preserves the actual prior compiled algorithm byte-exact.
+Whole-corpus compiled/reference comparisons cover old nested versus flat primary,
+while fixed return fixtures test loop/if unwinding, invocation scope, fuel and
+unfinished-primary rejection. No source syntax or semantic capability changes.
 
 Tests assert independent complete trees and exact diagnostics, alongside
 compiled/interpreted parity over the full source corpus. Runtime grammar tests
