@@ -3,11 +3,13 @@
 This continuation connects [owned JSON strings](../docs/string-values.md) to the
 source parser through executable CUE scanner, primary control and AST builders.
 Supported literals are single-line double-quoted raw UTF-8 with common escapes:
-`\"`, `\\`, `\b`, `\f`, `\n`, `\r`, `\t`. The complete `string` atom denotes the
+`\"`, `\\`, `\b`, `\f`, `\n`, `\r`, `\t`, plus four-digit `\uXXXX`
+and valid UTF-16 surrogate pairs ([Unicode contract](unicode-escapes.md)).
+The complete `string` atom denotes the
 abstract type. Empty strings, grouping, comments around strings and scalar
 unification are supported. Equality is content-based, without normalization.
 
-Unicode (`\u`/`\U`), hex/octal and other escapes, interpolation, hash/raw and
+Eight-digit Unicode (`\U`), hex/octal and other escapes, interpolation, hash/raw and
 multiline literals remain outside this deliberately small profile. Raw ASCII
 control bytes and embedded BOM reject; raw ordinary Unicode is accepted.
 [CUE addition control](sum.md) now concatenates two concrete strings with `+`;
@@ -17,10 +19,11 @@ or support.
 
 ## CUE control and native boundary
 
-`string-literal.cue` chooses recognition, character advancement, escape whitelist,
+`string-literal{,-fragments}.cue` chooses recognition, character advancement, escape whitelist,
 closing detection and lexical diagnostics. It returns an unchanged span/false flag
 for a nonquote start, or a completed span/true flag. It never splits UTF-8. Unknown
-or truncated escapes reject at the byte following the backslash; raw unsupported
+non-Unicode or truncated common escapes reject at the byte following the
+backslash. Unicode digit/pair diagnostics follow the linked contract; raw unsupported
 characters reject at their current byte; EOF before closure rejects at EOF.
 
 The primary program scans strings after bounds and before identifiers. A matching

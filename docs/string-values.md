@@ -3,7 +3,8 @@
 The owned-value foundation first expanded the JSON AST evaluator: concrete `string`
 nodes carry a string `value`; payload-free `stringType` nodes represent abstract
 CUE `string`. A subsequent [source profile](../bootstrap/strings.md) now admits
-single-line literals and common escapes. General string syntax, structs/lists,
+single-line literals, common escapes and [four-digit Unicode escapes with valid
+surrogate pairs](../bootstrap/unicode-escapes.md). General string syntax, structs/lists,
 references, defaults and general solving remain outside the profile.
 
 ## Ownership boundary
