@@ -10,10 +10,15 @@ pub fn not_equal(_left: Value, _right: Value) -> Result<Value, Error> {
                 (Ok::<_, Error>(crate::unification::kind_is(
                     &_left,
                     crate::unification::Kind::Boolean,
-                )))? || (Ok::<_, Error>(crate::unification::kind_is(
-                    &_left,
-                    crate::unification::Kind::Text,
-                )))?,
+                )))? || (Ok::<_, Error>(
+                    (Ok::<_, Error>(crate::unification::kind_is(
+                        &_left,
+                        crate::unification::Kind::Text,
+                    )))? || (Ok::<_, Error>(crate::unification::kind_is(
+                        &_left,
+                        crate::unification::Kind::Null,
+                    )))?,
+                ))?,
             ))?,
         ))? && (Ok::<_, Error>(
             (Ok::<_, Error>(crate::unification::kind_is(
@@ -23,10 +28,15 @@ pub fn not_equal(_left: Value, _right: Value) -> Result<Value, Error> {
                 (Ok::<_, Error>(crate::unification::kind_is(
                     &_right,
                     crate::unification::Kind::Boolean,
-                )))? || (Ok::<_, Error>(crate::unification::kind_is(
-                    &_right,
-                    crate::unification::Kind::Text,
-                )))?,
+                )))? || (Ok::<_, Error>(
+                    (Ok::<_, Error>(crate::unification::kind_is(
+                        &_right,
+                        crate::unification::Kind::Text,
+                    )))? || (Ok::<_, Error>(crate::unification::kind_is(
+                        &_right,
+                        crate::unification::Kind::Null,
+                    )))?,
+                ))?,
             ))?,
         ))?,
     ))? {

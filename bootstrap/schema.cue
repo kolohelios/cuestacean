@@ -1,7 +1,7 @@
 package bootstrap
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
+#Expression: #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
 
 // Factor the identical recursive shape; separate recursive disjuncts expand
 // combinatorially in the upstream exporter as binary node kinds accumulate.
@@ -16,6 +16,8 @@ package bootstrap
 	value: int
 }
 
+#NullLiteral: {kind: "null"}
+#TopType: {kind: "top"}
 #IntegerType: {kind: "intType"}
 #BooleanAtom: {kind: "true" | "false" | "boolType"}
 #StringLiteral: {kind: "string", value: string}
@@ -89,7 +91,7 @@ package bootstrap
 	op: "choose", condition: #UnifyCondition, then: #UnifyEndpoint, else: #UnifyEndpoint
 }
 #UnifyRelation: "equal" | "less" | "greater" | "lessEqual" | "greaterEqual"
-#UnifyKind:     "integer" | "int" | "bounds" | "boolean" | "bool" | "text" | "string"
+#UnifyKind:     "null" | "top" | "integer" | "int" | "bounds" | "boolean" | "bool" | "text" | "string"
 #UnifyCondition: {op: "booleanIs", input: #UnifySide, value: bool} | {op: "textCompare", relation: #UnifyRelation} | {op: "kindIs", input: #UnifySide, kind: #UnifyKind} | {op: "same"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
 	op: "compare", left: #UnifyEndpoint, right: #UnifyEndpoint, relation: #UnifyRelation
 } | {op: "and" | "or", left: #UnifyCondition, right: #UnifyCondition}
@@ -249,6 +251,8 @@ package bootstrap
 #EvaluationRules: {
 	formatVersion: 1
 	rules: {
+		"null": result: {op: "null"}
+		top: result: {op: "top"}
 		intType: result: {op: "int"}
 		boolType: result: {op: "bool"}
 		stringType: result: {op: "stringType"}

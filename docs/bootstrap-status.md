@@ -10,7 +10,7 @@ Cuestacean targets Rust with executable parser, semantics, solver and generator
 machinery progressively expressed in a CUE-hosted DSL. Merely using CUE to
 configure a permanently handwritten implementation is not the end goal.
 
-Current implementation: a deliberately small boolean/checked-i64/string expression
+Current implementation: a deliberately small null/top/boolean/checked-i64/string expression
 subset ([string syntax](../bootstrap/strings.md), [ownership](string-values.md)),
 not full CUE or bootstrap closure. Go CUE still exports specifications. Six
 bootstrap compilers still require native decoders, kernels and policy-compilation
@@ -38,6 +38,7 @@ advantages remain a hypothesis, not a measured result.
 | Scalar ordering | `bootstrap/{ordering-fragments,less,less-equal,greater,greater-equal}.cue`, [ordering control](../bootstrap/ordering.md) | Same finite binary compiler; native finite/text comparisons; generated domain/result policy |
 | Scalar equality | `bootstrap/{equal,not-equal,equality-fragments}.cue`, [equality control](../bootstrap/equality.md) | Same finite binary compiler; native content equality; generated concreteness/result policy |
 | Scalar addition | `bootstrap/sum.cue`, [binary control](../bootstrap/sum.md) | Same finite control compiler; native checked integer/text kernels; generated policy |
+| Null/top boundaries | `bootstrap/unify.cue`, [lattice values](../bootstrap/lattice-values.md) | Native scalar representation/output; CUE identity, domain and concreteness policy |
 | Scalar unification | `bootstrap/unify.cue`, [unification contract](../bootstrap/unify.md) | `src/unification.rs`; native `runtime::unify` delegates generated policy |
 
 Paths beginning `src/` above are under `bootstrap/executor/`.
@@ -52,6 +53,9 @@ Do not describe the full parser/compiler/solver as self-hosted.
 
 See the [source profile](../bootstrap/source/README.md) for exact limits.
 
+- Concrete `null` and abstract top `_`, using existing CUE atom construction.
+  Top is unification identity before domain guards; null agrees only with null
+  or top. Null is concrete for equality and logical selection, never numeric.
 - Single-line quoted UTF-8 strings with seven common escapes; abstract `string`;
   signed decimal integers; `true`/`false`; `bool`/`int`; inclusive literal bounds `>=` / `<=`;
   parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary `!` and expression negation;
@@ -103,8 +107,8 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   NUL/BOM inside comments are rejected by CUE. Block comments, declarations,
   references, structs/lists, general string syntax, further scalar types, disjunctions/defaults
   and general constraint solving are absent.
-- JSON scalar APIs (`execute_json`, `generated::execute_json`) preserve strings,
-  bools and exact i64s. Legacy `execute` rejects concrete strings/booleans.
+- JSON scalar APIs (`execute_json`, `generated::execute_json`) preserve null,
+  strings, bools and exact i64s. Top output is `non-concrete value`. Legacy `execute` rejects concrete strings/booleans.
   JSON AST `string`/`stringType` now also come from the bounded CUE source-string profile.
   The public default generated evaluator is gated by `semantics`; fresh seeds
   omit it, with no stubs. Values are Clone, not Copy; shared text uses `Arc<str>`.
@@ -156,6 +160,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#84](https://github.com/kolohelios/cuestacean/pull/84) | CUE-owned concrete scalar equality and inequality |
 | [#86](https://github.com/kolohelios/cuestacean/pull/86) | CUE-owned complete integer/text ordering family |
 | [#88](https://github.com/kolohelios/cuestacean/pull/88) | CUE-owned logical selection and export-schema resource fixes |
+| [#90](https://github.com/kolohelios/cuestacean/pull/90) | CUE-owned unary logical not and checked one-operand control |
 
 ## Build and validation runbook
 

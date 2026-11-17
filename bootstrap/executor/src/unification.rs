@@ -27,6 +27,8 @@ pub enum Endpoint {
 #[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Kind {
+    Null,
+    Top,
     Integer,
     Int,
     Bounds,
@@ -326,7 +328,13 @@ impl Condition {
 pub fn endpoint(value: &Value, end: Endpoint) -> Option<i64> {
     match value {
         Value::Integer(n) => Some(*n),
-        Value::Int | Value::Bool | Value::Boolean(_) | Value::Text(_) | Value::String => None,
+        Value::Null
+        | Value::Top
+        | Value::Int
+        | Value::Bool
+        | Value::Boolean(_)
+        | Value::Text(_)
+        | Value::String => None,
         Value::Bounds { lower, upper } => match end {
             Endpoint::Lower => *lower,
             Endpoint::Upper => *upper,
@@ -336,7 +344,9 @@ pub fn endpoint(value: &Value, end: Endpoint) -> Option<i64> {
 pub fn kind_is(value: &Value, kind: Kind) -> bool {
     matches!(
         (value, kind),
-        (Value::Integer(_), Kind::Integer)
+        (Value::Null, Kind::Null)
+            | (Value::Top, Kind::Top)
+            | (Value::Integer(_), Kind::Integer)
             | (Value::Int, Kind::Int)
             | (Value::Bounds { .. }, Kind::Bounds)
             | (Value::Boolean(_), Kind::Boolean)
@@ -657,6 +667,32 @@ pub fn interpret_unary(input: &str, value: Value) -> Result<Value, crate::Error>
 mod tests {
     use super::{limits, parse};
     use serde_json::Value;
+
+    #[test]
+    fn null_and_top_representation() {
+        use super::{Endpoint, Kind, endpoint, kind_is};
+        use crate::runtime::Value as Scalar;
+
+        for (value, kind, other) in [
+            (Scalar::Null, Kind::Null, Kind::Top),
+            (Scalar::Top, Kind::Top, Kind::Null),
+        ] {
+            assert!(kind_is(&value, kind));
+            assert!(!kind_is(&value, other));
+            assert_eq!(endpoint(&value, Endpoint::Lower), None);
+            assert_eq!(endpoint(&value, Endpoint::Upper), None);
+        }
+        assert_eq!(
+            serde_json::to_string(&Kind::Null).ok().as_deref(),
+            Some("\"null\"")
+        );
+        assert_eq!(
+            serde_json::to_string(&Kind::Top).ok().as_deref(),
+            Some("\"top\"")
+        );
+        assert!(serde_json::from_str::<Kind>("\"null\"").is_ok());
+        assert!(serde_json::from_str::<Kind>("\"top\"").is_ok());
+    }
 
     #[test]
     fn unary_arity_scope_and_interpretation() {

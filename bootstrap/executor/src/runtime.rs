@@ -50,6 +50,8 @@ mod generated_logical_or;
 /// Concrete integers are still restricted to the bootstrap i64 domain.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Value {
+    Null,
+    Top,
     Integer(i64),
     Int,
     Boolean(bool),
@@ -111,6 +113,8 @@ pub fn text(node: &JsonValue, name: &str) -> Result<Value, Error> {
 /// Legacy integer output; general scalar consumers should use `concrete_json`.
 pub fn concrete(value: Value) -> Result<i64, Error> {
     match value {
+        Value::Null => Err(Error::IntegerOutput),
+        Value::Top => Err(Error::IncompleteValue),
         Value::Integer(value) => Ok(value),
         Value::Int => Err(Error::Incomplete),
         Value::Boolean(_) => Err(Error::IntegerOutput),
@@ -124,6 +128,7 @@ pub fn concrete(value: Value) -> Result<i64, Error> {
 /// Preserve exact concrete JSON scalars; reject incomplete values.
 pub fn concrete_json(value: Value) -> Result<JsonValue, Error> {
     match value {
+        Value::Null => Ok(JsonValue::Null),
         Value::Boolean(value) => Ok(JsonValue::Bool(value)),
         Value::Text(value) => Ok(JsonValue::String(value.as_ref().to_owned())),
         value => concrete(value).map(JsonValue::from),
@@ -321,6 +326,26 @@ mod tests {
     use super::{Value, integer_sum, text_buffer, text_concat};
     use crate::Error;
     use std::sync::Arc;
+
+    #[test]
+    fn null_and_top_output() {
+        assert!(matches!(
+            super::concrete(Value::Null),
+            Err(Error::IntegerOutput)
+        ));
+        assert!(matches!(
+            super::concrete(Value::Top),
+            Err(Error::IncompleteValue)
+        ));
+        assert_eq!(
+            super::concrete_json(Value::Null).ok(),
+            Some(serde_json::Value::Null)
+        );
+        assert!(matches!(
+            super::concrete_json(Value::Top),
+            Err(Error::IncompleteValue)
+        ));
+    }
 
     #[test]
     fn checked_sum_and_concat_kernels() {

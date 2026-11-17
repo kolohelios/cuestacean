@@ -149,6 +149,7 @@ impl Driver for Compiled {
                 })?;
                 Ok(())
             }),
+            "null" => ctx.ok(|ctx| ctx.path("runtime::Value::Null")),
             "product" => ctx.call("runtime::product", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
@@ -191,6 +192,7 @@ impl Driver for Compiled {
                 call.arg(|ctx| ctx.string(_node, "field"))?;
                 Ok(())
             }),
+            "top" => ctx.ok(|ctx| ctx.path("runtime::Value::Top")),
             "unify" => ctx.call("runtime::unify", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))

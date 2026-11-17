@@ -38,6 +38,8 @@ package bootstrap
 		value: "kind => Err(Error::MissingRule { kind: kind.to_string() }),\n}\n}\n"
 	}]
 	cases: {
+		"null": {op: "ok", value: {op: "path", value: "runtime::Value::Null"}}
+		top: {op: "ok", value: {op: "path", value: "runtime::Value::Top"}}
 		int: {op: "ok", value: {op: "path", value: "runtime::Value::Int"}}
 		bool: {op: "ok", value: {op: "path", value: "runtime::Value::Bool"}}
 		stringType: {op: "ok", value: {op: "path", value: "runtime::Value::String"}}

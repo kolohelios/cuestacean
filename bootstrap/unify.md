@@ -1,14 +1,16 @@
 # CUE-hosted scalar unification
 
 [`unify.cue`](unify.cue) owns the current value-unification algorithm: abstract
-`string`, `bool` and `int` identity, concrete equality/conflict, mixed-domain rejection,
+top (`_`), `string`, `bool` and `int` identity, null-domain isolation, concrete equality/conflict, mixed-domain rejection,
 interval intersection, infinity handling, empty-range rejection and concrete
 candidate selection. Production
 `runtime::unify` calls generated Rust, not a native intersection fallback.
 Both rule-interpreted and rule-generated evaluators use this same policy.
 
 This is an executable solver boundary, **not full CUE unification or bootstrap
-closure**. Values are the native owned `Text(Arc<str>)`/`String`, `Boolean(bool)`/`Bool`,
+closure**. [Null/top boundaries](lattice-values.md) precede other domains;
+null has no numeric endpoints, and top selects its other operand. Values include
+native unit `Null`/`Top` and the owned `Text(Arc<str>)`/`String`, `Boolean(bool)`/`Bool`,
 `Integer(i64)`/`Int` and inclusive `Bounds` scaffold; `Value` is no longer Copy.
 See the [ownership design](../docs/string-values.md). Projection, tag tests, finite i64
 comparisons, error construction, checked arithmetic, concrete output, typed

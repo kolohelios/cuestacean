@@ -2,6 +2,8 @@ package bootstrap
 
 #EvaluationRules & {
 	rules: {
+		"null": result: {op: "null"}
+		top: result: {op: "top"}
 		intType: result: {op: "int"}
 		boolType: result: {op: "bool"}
 		"true": result: {op: "boolean", value: true}

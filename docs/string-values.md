@@ -9,7 +9,8 @@ references, defaults and general solving remain outside the profile.
 ## Ownership boundary
 
 `runtime::Value` stops being `Copy`. Concrete text uses `Text(Arc<str>)`; abstract
-string uses `String`. Integer, boolean and bound payloads remain unchanged.
+string uses `String`. [Null/top](../bootstrap/lattice-values.md) are unit variants
+without new graph/identity ownership decisions. Integer, boolean and bound payloads remain unchanged.
 `Clone` is explicit and cheap for shared text, with content-based equality—not
 pointer identity. Values own their text independently of the parsed JSON document;
 no borrowed input can escape an execution call. No unsafe arena or global interner

@@ -4,7 +4,7 @@ package bootstrap
 	integer: {kind: "integer", valueField: "value"}
 	text: {kind: "string", valueField: "value"}
 	atoms: [{token: "int", kind: "intType"}, {token: "bool", kind: "boolType"},
-		{token: "true", kind: "true"}, {token: "false", kind: "false"}, {token: "string", kind: "stringType"}]
+		{token: "true", kind: "true"}, {token: "false", kind: "false"}, {token: "string", kind: "stringType"}, {token: "null", kind: "null"}, {token: "_", kind: "top"}]
 	bounds: [
 		{token: ">=", kind: "lowerBound", valueField: "value"},
 		{token: "<=", kind: "upperBound", valueField: "value"},

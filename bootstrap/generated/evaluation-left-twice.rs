@@ -67,6 +67,7 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "null" => Ok::<_, Error>(runtime::Value::Null),
         "quotient" => runtime::quotient(
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
@@ -81,6 +82,7 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "top" => Ok::<_, Error>(runtime::Value::Top),
         "true" => Ok::<_, Error>(runtime::Value::Boolean(true)),
         "unify" => runtime::unify(
             (evaluate(runtime::field(node, "left")?))?,

@@ -18,6 +18,7 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "right")?))?,
         ),
         "true" => Ok::<_, Error>(runtime::Value::Boolean(true)),
+        "top" => Ok::<_, Error>(runtime::Value::Top),
         "subtract" => runtime::difference(
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
@@ -32,6 +33,7 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
         ),
+        "null" => Ok::<_, Error>(runtime::Value::Null),
         "notEqual" => runtime::not_equal(
             (evaluate(runtime::field(node, "left")?))?,
             (evaluate(runtime::field(node, "right")?))?,
