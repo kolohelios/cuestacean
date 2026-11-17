@@ -289,7 +289,7 @@ fn new_operations_remain_binary_even_when_unused() {
     reject("negate", json!({"op":"fail","reason":"divisionByZero"}));
     reject(
         "negate",
-        json!({"op":"if","condition":{"op":"compare","relation":"equal","left":literal(0),"right":literal(0)},"then":literal(1),"else":literal(2)}),
+        json!({"op":"if","condition":{"op":"compare","relation":"equal","left":literal(0),"right":{"op":"input","input":"right","endpoint":"lower"}},"then":literal(1),"else":literal(2)}),
     );
     let failure = program("divide", json!({"op":"fail","reason":"divisionByZero"}));
     assert!(matches!(

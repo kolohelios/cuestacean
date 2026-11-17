@@ -1,6 +1,10 @@
 {
   "rules": {
     "listExpression": {"result": {"op": "listExpression", "field": "elements"}},
+    "lowerExclusiveBound": {"result": {"op": "lowerExclusiveBound", "value": {"op": "field", "field": "value"}}},
+    "upperExclusiveBound": {"result": {"op": "upperExclusiveBound", "value": {"op": "field", "field": "value"}}},
+    "lowerExclusiveBoundExpression": {"result": {"op": "lowerExclusiveBound", "value": {"op": "evaluate", "field": "operand"}}},
+    "upperExclusiveBoundExpression": {"result": {"op": "upperExclusiveBound", "value": {"op": "evaluate", "field": "operand"}}},
     "listIndex": {"result": {"op": "listIndex", "left": {"op": "evaluate", "field": "left"}, "right": {"op": "evaluate", "field": "right"}}},
     "length": {"result": {"op": "length", "value": {"op": "evaluate", "field": "operand"}}},
     "listLength": {"result": {"op": "listLength", "value": {"op": "evaluate", "field": "operand"}}},

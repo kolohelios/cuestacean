@@ -267,7 +267,7 @@ impl Grammar {
         }
         let mut bounds = BTreeSet::new();
         for bound in &self.bounds {
-            if !matches!(bound.token.as_str(), ">=" | "<=")
+            if !matches!(bound.token.as_str(), ">=" | "<=" | ">" | "<")
                 || !bounds.insert(&bound.token)
                 || bound.kind.is_empty()
                 || !field(&bound.value_field)

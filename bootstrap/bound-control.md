@@ -6,14 +6,16 @@ BoundThreshold. Literal rules read scalar fields. New
 [expression-bound rules](computed-bounds.md) eagerly evaluate an operand child
 before the same admission policy, with compiled/reference child-error evidence.
 Existing literal wire and i64/infinity semantics remain unchanged; new unary AST
-kinds add parenthesized source thresholds. Exclusive bounds remain unsupported;
+kinds add parenthesized source thresholds. [Exclusive bounds](exclusive-bounds.md)
+now add CUE extrema guards and checked unit offsets within the i64 domain;
 missing endpoints remain infinite, not extrema, and singleton bounds incomplete.
 
 Unary control now admits `bounds` with a checked left-only endpoint subset:
 left input projection, integer literals, empty and choose. Choose uses existing
 left-only kind/boolean conditions; both arms validate eagerly. Right projection
-and locals are forbidden even in unused arms. Endpoint conditions, letBounds,
-pair tests and binary arithmetic remain excluded from unary programs. The
+and locals are forbidden even in unused arms. Unary compare now admits only
+these left-only endpoints, and offset recursively validates its unit delta/value.
+Presence/pair tests, letBounds and binary arithmetic remain excluded from unary programs. The
 reference engine evaluates endpoints on one input, never a fabricated RHS.
 Existing serialization-only endpoint aliases and CUE compiler layout are reused.
 

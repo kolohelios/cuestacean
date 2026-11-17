@@ -24,6 +24,10 @@ fn evaluate_node(
     _context: &mut runtime::EvaluationContext,
 ) -> Result<runtime::Value, Error> {
     match runtime::kind(node)? {
+        "upperExclusiveBoundExpression" => {
+            runtime::upper_exclusive_bound((evaluate(runtime::field(node, "operand")?, _context))?)
+        }
+        "upperExclusiveBound" => runtime::upper_exclusive_bound((runtime::integer(node, "value"))?),
         "upperBoundExpression" => {
             runtime::upper_bound((evaluate(runtime::field(node, "operand")?, _context))?)
         }
@@ -65,6 +69,10 @@ fn evaluate_node(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,
         ),
+        "lowerExclusiveBoundExpression" => {
+            runtime::lower_exclusive_bound((evaluate(runtime::field(node, "operand")?, _context))?)
+        }
+        "lowerExclusiveBound" => runtime::lower_exclusive_bound((runtime::integer(node, "value"))?),
         "lowerBoundExpression" => {
             runtime::lower_bound((evaluate(runtime::field(node, "operand")?, _context))?)
         }

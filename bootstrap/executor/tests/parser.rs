@@ -469,7 +469,7 @@ fn runtime_grammar_validation_and_resource_limits_are_explicit() {
         ("/atoms/0/token", "".into()),
         ("/atoms/0/token", "1int".into()),
         ("/atoms/0/kind", "".into()),
-        ("/bounds/0/token", ">".into()),
+        ("/bounds/0/token", ">==".into()),
         ("/bounds/0/kind", "".into()),
         ("/bounds/0/valueField", "kind".into()),
         ("/operators/0/token", "++".into()),

@@ -202,7 +202,6 @@ fn unary_endpoint_subset_checks_both_endpoints_and_unused_branches() {
         json!({"op":"local","endpoint":"lower"}),
         json!({"op":"local","endpoint":"upper"}),
         json!({"op":"choose","condition":{"op":"hasEndpoint","value":left},"then":empty,"else":empty}),
-        json!({"op":"choose","condition":{"op":"compare","left":{"op":"integer","value":0},"right":{"op":"integer","value":1},"relation":"less"},"then":empty,"else":empty}),
         json!({"op":"choose","condition":{"op":"same"},"then":empty,"else":empty}),
         json!({"op":"choose","condition":{"op":"booleanIs","input":"right","value":true},"then":empty,"else":empty}),
     ] {

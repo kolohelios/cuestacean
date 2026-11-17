@@ -251,7 +251,7 @@ fn source_semantic_failures_and_missing_close_diagnostics() {
         ("<=(3", 4, "expected closing parenthesis"),
         (">=()", 3, "expected signed decimal integer"),
         (">=(unknown)", 3, "unknown atom"),
-        ("> =3", 0, "expected signed decimal integer"),
+        ("> =3", 2, "expected signed decimal integer"),
     ] {
         for result in parses(source, &grammar) {
             source_error(result, offset, reason);

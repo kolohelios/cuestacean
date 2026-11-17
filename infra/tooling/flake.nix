@@ -15,6 +15,7 @@
     }:
     let
       scannerFixtures = [
+        "tests/valid/bound-inclusive-only"
         "index-close"
         "list-open"
         "list-close"
@@ -93,6 +94,9 @@
       ];
       prattNames = builtins.concatStringsSep " " prattFixtures;
       unifyFixtures = [
+        "lower-exclusive-bound"
+        "upper-exclusive-bound"
+        "tests/valid/exclusive-reversed"
         "list-index"
         "tests/valid/list-index-zero"
         "length-control"
@@ -166,6 +170,7 @@
         "unification"
         "int-constraint"
         "bounds"
+        "exclusive-bounds"
         "booleans"
         "strings"
         "string-length"
@@ -234,6 +239,7 @@
                 ../../bootstrap/division-control-fragments.cue
                 ../../bootstrap/output-control-fragments.cue
                 ../../bootstrap/bound-control-fragments.cue
+                ../../bootstrap/exclusive-bound-fragments.cue
                 ../../bootstrap/lowering-fragments.cue
                 ../../bootstrap/pratt-lowering-fragments.cue
                 ../../bootstrap/unify-lowering-fragments.cue
@@ -281,6 +287,7 @@
                 less|less-equal|greater|greater-equal) fragments=(ordering-fragments) ;;
                 logical-and|logical-or) fragments=(equality-fragments logic-fragments) ;;
                 json-output|integer-output) fragments=(output-control-fragments) ;;
+                lower-exclusive-bound|upper-exclusive-bound|tests/valid/exclusive-reversed) fragments=(exclusive-bound-fragments) ;;
                 lower-bound|upper-bound|tests/valid/bound-reversed) fragments=(bound-control-fragments) ;;
                 difference-control|product-control) fragments=(integer-control-fragments) ;;
                 divide-control|modulo-control|quotient-control|remainder-control) fragments=(division-control-fragments) ;;
@@ -626,7 +633,7 @@
                   test -s error
                 done
                 # These selected domain/syntax rejections must also fail upstream.
-                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/call-{domain,arity,empty,name-newline}.cue ${../../bootstrap/source}/rejected/list-index-{range,negative,type,close}.cue ${../../bootstrap/source}/rejected/not-integer.cue ${../../bootstrap/source}/rejected/null-conflict.cue ${../../bootstrap/source}/rejected/radix-uppercase-{binary,octal}.cue; do
+                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/call-{domain,arity,empty,name-newline}.cue ${../../bootstrap/source}/rejected/list-index-{range,negative,type,close}.cue ${../../bootstrap/source}/rejected/bounds-exclusive-domain.cue ${../../bootstrap/source}/rejected/not-integer.cue ${../../bootstrap/source}/rejected/null-conflict.cue ${../../bootstrap/source}/rejected/radix-uppercase-{binary,octal}.cue; do
                   if cue export "$source" --out json > expected 2> cue-error; then exit 1; fi
                   test ! -s expected
                   test -s cue-error
@@ -665,7 +672,7 @@
                     diff -u expected actual
                   done
                 done
-                for fixture in list-length lists-equal list-indexing; do
+                for fixture in list-length lists-equal list-indexing exclusive-bounds; do
                   cue export ${../../bootstrap/tests/upstream}/"$fixture.cue" --out json > expected
                   if [ "$fixture" = lists-equal ]; then input=tests/valid/$fixture; else input=$fixture; fi
                   bootstrap-executor ${jsonExports pkgs}/"$input.json" ${jsonExports pkgs}/evaluation.json > actual

@@ -56,7 +56,8 @@ registration, without native builtin fallback. Calls add one wrapper node and on
 recursive argument level under the unchanged parser limits.
 
 The default grammar accepts signed decimal and [prefixed i64 integers](../radix-literals.md) (0b/0o/0x/0X), `true`/`false` and `bool`/`int` atoms,
-inclusive bounds (`>=`, `<=`), addition, subtraction, multiplication,
+[inclusive/exclusive i64 bounds](../exclusive-bounds.md) (`>=`, `<=`, `>`, `<`),
+addition, subtraction, multiplication,
 integer division/remainder (`div`, `mod`, `quo`, `rem`), scalar comparisons
 (`==`, `!=`, `<`, `<=`, `>`, `>=`),
 logical `&&` / `||`, unification (`&`), parentheses and `//` line-comment trivia. Multiplication and integer division/remainder bind more tightly than

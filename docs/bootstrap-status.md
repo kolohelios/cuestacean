@@ -24,9 +24,10 @@ advantages remain a hypothesis, not a measured result.
 | Lowering-driver compiler | `bootstrap/meta-lowering{,-fragments}.cue`, [meta contract](../bootstrap/meta-lowering.md) | Self-regenerating full source emitter; native decoder, metadata projection and checked VM/kernels |
 | Scanner compiler lowering | `bootstrap/scan-lowering{,-fragments}.cue`, [backend contract](../bootstrap/scan-lowering.md) | Native flow/label facts and bounded patterns; CUE source/branch layout; compiled driver |
 | AST-builder compiler lowering | `bootstrap/ast-lowering{,-fragments}.cue`, [backend contract](../bootstrap/ast-lowering.md) | Native checked binding/use-count facts; CUE layout/clone/move selection; compiled driver |
+| Exclusive i64 bound construction | `bootstrap/{lower,upper}-exclusive-bound.cue`, [contract](../bootstrap/exclusive-bounds.md) | CUE domain/extrema/direction/layout; checked native unit offset |
 | Inclusive bound construction | `bootstrap/{lower,upper}-bound.cue`, [bound control](../bootstrap/bound-control.md) | Unary CUE threshold/domain/layout; checked left-only endpoints, no native constructor fallback |
 | Concrete-output admission | `bootstrap/{json,integer}-output.cue`, [output control](../bootstrap/output-control.md) | Unary CUE domain/incomplete diagnostics; checked native extraction/JSON encoding |
-| Checked identifier styles | [identifier rendering](../bootstrap/identifier-rendering.md), shared kernel/meta policy | CUE-selected snake/initial-capital rendering; 443-value unification backend under unchanged 512 guard |
+| Checked identifier styles | [identifier rendering](../bootstrap/identifier-rendering.md), shared kernel/meta policy | CUE-selected snake/initial-capital rendering; unification backend under unchanged 512-value guard |
 | Unification compiler lowering | `bootstrap/unify-lowering{,-fragments}.cue`, [backend contract](../bootstrap/unify-lowering.md) | Shared select/concat kernel and compiled driver; native typed/scope validation |
 | Pratt/primary compiler lowering | `bootstrap/pratt-lowering{,-fragments}.cue`, [backend contract](../bootstrap/pratt-lowering.md) | Shared lowering compiler/kernel; compiled driver; native typed bridge |
 | Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
@@ -72,8 +73,10 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 - Single-line quoted UTF-8 strings with seven common escapes, four-digit
   `\uXXXX` and valid UTF-16 surrogate pairs ([contract](../bootstrap/unicode-escapes.md)),
   plus eight-digit scalar `\UXXXXXXXX` ([wide contract](../bootstrap/wide-unicode.md)); abstract `string`;
-  signed decimal and prefixed 0b/0o/0x/0X integers ([contract](../bootstrap/radix-literals.md)); `true`/`false`; `bool`/`int`; inclusive bounds `>=` / `<=` with literal or
+  signed decimal and prefixed 0b/0o/0x/0X integers ([contract](../bootstrap/radix-literals.md)); `true`/`false`; `bool`/`int`; inclusive/exclusive bounds `>=` / `<=` / `>` / `<` with literal or
   [parenthesized computed thresholds](../bootstrap/computed-bounds.md);
+  [exclusive i64 bounds](../bootstrap/exclusive-bounds.md) reject empty `>MAX`/`<MIN`
+  only within the bounded implementation domain, not all CUE integers;
   [source lists and `len(expression)`](../bootstrap/source-lists.md) for concrete
   flat arrays and text-byte/list-element length;
   [closed-list indexing](../bootstrap/list-indexing.md) with computed i64 indices;
@@ -218,6 +221,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#124](https://github.com/kolohelios/cuestacean/pull/124) | Opaque closed scalar list values and CUE domain/length policies |
 | [#126](https://github.com/kolohelios/cuestacean/pull/126) | CUE element evaluation and validated list control target |
 | [#128](https://github.com/kolohelios/cuestacean/pull/128) | CUE source-list iteration and text/list length dispatch |
+| [#130](https://github.com/kolohelios/cuestacean/pull/130) | CUE closed-list domain/range and postfix index control |
 
 ## Build and validation runbook
 
