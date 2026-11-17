@@ -101,6 +101,13 @@ impl Driver for Compiled {
                 call.arg(|ctx| ctx.string(_node, "field"))?;
                 Ok(())
             }),
+            "listExpression" => ctx.call("runtime::list_expression", |call| {
+                call.arg(|ctx| ctx.path("node"))?;
+                call.arg(|ctx| ctx.string(_node, "field"))?;
+                call.arg(|ctx| ctx.path("_context"))?;
+                call.arg(|ctx| ctx.path("evaluate"))?;
+                Ok(())
+            }),
             "listLength" => ctx.call("runtime::list_length", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))

@@ -57,6 +57,7 @@ fn evaluate_node(
             (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "list" => runtime::list(node, "value"),
+        "listExpression" => runtime::list_expression(node, "elements", _context, evaluate),
         "listLength" => {
             runtime::list_length((evaluate(runtime::field(node, "operand")?, _context))?)
         }

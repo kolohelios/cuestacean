@@ -187,7 +187,8 @@ fn default_compiled_and_reference_backends_lower_programs_identically() {
         let input = export(name);
         let program: Value = serde_json::from_str(&input).expect("program");
         // These return-free bodies have a canonical value-producing footer.
-        let tagged = json!({"op":"program", "body":program["body"], "tail":"value"});
+        let tagged =
+            json!({"op":"program", "body":program["body"], "tail":"value", "target":"parser"});
         assert_eq!(
             policy.lower(&tagged).expect("interpreted lowering"),
             compiled_pratt_lowering::lower(&tagged).expect("compiled lowering"),

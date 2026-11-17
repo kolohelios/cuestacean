@@ -16,7 +16,16 @@ pub enum Error {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Program {
     format_version: u32,
+    #[serde(default)]
+    target: Target,
     body: Vec<Statement>,
+}
+#[derive(Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+enum Target {
+    #[default]
+    Parser,
+    List,
 }
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
@@ -35,6 +44,10 @@ enum Number {
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum Condition {
+    HasItem {},
+    ItemKindIs {
+        kind: crate::unification::Kind,
+    },
     HasOperator {},
     LeftAssociative {},
     GroupOpen {},
@@ -59,6 +72,14 @@ enum Condition {
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum Statement {
+    FirstItem {},
+    LastItem {},
+    EvaluateItem {},
+    AppendItem {},
+    NextItem {},
+    PreviousItem {},
+    RejectItem {},
+    FinishList {},
     Return {},
     Primary {},
     AfterOperand {},
@@ -142,8 +163,56 @@ pub(crate) fn parse(input: &str) -> Result<Program, Error> {
         }
         .fail();
     }
+    validate_family(&program.body, program.target)?;
     definite_return(&program.body)?;
     Ok(program)
+}
+
+fn validate_family(body: &[Statement], target: Target) -> Result<(), Error> {
+    fn condition_valid(condition: &Condition, target: Target) -> bool {
+        match condition {
+            Condition::Boolean { .. } => true,
+            Condition::And { left, right } => {
+                condition_valid(left, target) && condition_valid(right, target)
+            }
+            Condition::HasItem {} | Condition::ItemKindIs { .. } => target == Target::List,
+            _ => target == Target::Parser,
+        }
+    }
+    for statement in body {
+        let valid = match statement {
+            Statement::Return {} => true,
+            Statement::If {
+                condition,
+                then,
+                otherwise,
+            } => {
+                validate_family(then, target)?;
+                validate_family(otherwise, target)?;
+                condition_valid(condition, target)
+            }
+            Statement::While { condition, body } => {
+                validate_family(body, target)?;
+                condition_valid(condition, target)
+            }
+            Statement::FirstItem {}
+            | Statement::LastItem {}
+            | Statement::EvaluateItem {}
+            | Statement::AppendItem {}
+            | Statement::NextItem {}
+            | Statement::PreviousItem {}
+            | Statement::RejectItem {}
+            | Statement::FinishList {} => target == Target::List,
+            _ => target == Target::Parser,
+        };
+        if !valid {
+            return ProgramSnafu {
+                reason: "operation does not match control target",
+            }
+            .fail();
+        }
+    }
+    Ok(())
 }
 
 // Validate every block without folding conditions or assuming loops terminate.
@@ -192,6 +261,7 @@ impl Condition {
     #[cfg(feature = "source")]
     fn test(&self, frame: &crate::parser::Frame<'_, '_>) -> Result<bool, crate::parser::Error> {
         Ok(match self {
+            Self::HasItem {} | Self::ItemKindIs { .. } => unreachable!("validated parser target"),
             Self::HasOperator {} => frame.has_operator(),
             Self::LeftAssociative {} => frame.left_associative()?,
             Self::GroupOpen {} => frame.group_open()?,
@@ -207,7 +277,6 @@ impl Condition {
         })
     }
 }
-#[cfg(feature = "source")]
 #[derive(PartialEq, Eq)]
 enum Flow {
     Continue,
@@ -286,6 +355,7 @@ fn execute(
                         }
                     }
                     Statement::While { .. } => unreachable!(),
+                    _ => unreachable!("validated parser target"),
                 }
             }
         }
@@ -297,8 +367,87 @@ pub(crate) fn interpret(
     program: &Program,
     frame: &mut crate::parser::Frame<'_, '_>,
 ) -> Result<(), crate::parser::Error> {
+    if program.target != Target::Parser {
+        return Err(crate::parser::Error::ControlState {
+            reason: "parser control target required",
+        });
+    }
     execute(&program.body, frame).map(|_| ())
 }
+/// Execute validated list control using the reference VM.
+pub fn interpret_list(
+    input: &str,
+    frame: &mut crate::runtime::ListFrame<'_>,
+) -> Result<(), crate::Error> {
+    let program = parse(input).map_err(|source| crate::Error::ControlProgram { source })?;
+    if program.target != Target::List {
+        return Err(crate::Error::ListState {
+            reason: "list control target required",
+        });
+    }
+    execute_list(&program.body, frame).map(|_| ())
+}
+
+fn list_test(
+    condition: &Condition,
+    frame: &crate::runtime::ListFrame<'_>,
+) -> Result<bool, crate::Error> {
+    Ok(match condition {
+        Condition::Boolean { value } => *value,
+        Condition::And { left, right } => list_test(left, frame)? && list_test(right, frame)?,
+        Condition::HasItem {} => frame.has_item()?,
+        Condition::ItemKindIs { kind } => frame.item_kind_is(*kind)?,
+        _ => unreachable!("validated list target"),
+    })
+}
+
+fn execute_list(
+    body: &[Statement],
+    frame: &mut crate::runtime::ListFrame<'_>,
+) -> Result<Flow, crate::Error> {
+    for statement in body {
+        if let Statement::While { condition, body } = statement {
+            while {
+                frame.step()?;
+                list_test(condition, frame)?
+            } {
+                if execute_list(body, frame)? == Flow::Return {
+                    return Ok(Flow::Return);
+                }
+            }
+            continue;
+        }
+        frame.step()?;
+        match statement {
+            Statement::Return {} => return Ok(Flow::Return),
+            Statement::FirstItem {} => frame.first_item()?,
+            Statement::LastItem {} => frame.last_item()?,
+            Statement::EvaluateItem {} => frame.evaluate_item()?,
+            Statement::AppendItem {} => frame.append_item()?,
+            Statement::NextItem {} => frame.next_item()?,
+            Statement::PreviousItem {} => frame.previous_item()?,
+            Statement::RejectItem {} => frame.reject_item()?,
+            Statement::FinishList {} => frame.finish_list()?,
+            Statement::If {
+                condition,
+                then,
+                otherwise,
+            } => {
+                let branch = if list_test(condition, frame)? {
+                    then
+                } else {
+                    otherwise
+                };
+                if execute_list(branch, frame)? == Flow::Return {
+                    return Ok(Flow::Return);
+                }
+            }
+            _ => unreachable!("validated list target"),
+        }
+    }
+    Ok(Flow::Continue)
+}
+
 /// Compile parser control through the shared CUE-owned lowering backend.
 pub fn generate(input: &str) -> Result<String, Error> {
     #[cfg(feature = "compiled-lowering")]
@@ -358,8 +507,42 @@ fn lower(program: Program, driver: &dyn crate::lowering::Driver) -> Result<Strin
     let returns = definite_return(&program.body)?;
     let body = project_body(&program.body, returns);
     let tail = if returns { "return" } else { "value" };
-    let node = serde_json::json!({"op":"program", "body":body, "tail":tail});
+    let node =
+        serde_json::json!({"op":"program", "body":body, "tail":tail, "target":program.target});
     crate::lowering::Context::run(&node, driver).map_err(|source| Error::Lowering { source })
+}
+
+#[cfg(test)]
+mod target_tests {
+    use super::parse;
+
+    #[test]
+    fn family_validation_visits_dead_branches_and_nested_conditions() {
+        for (target, op) in [("list", "primary"), ("parser", "firstItem")] {
+            let input = serde_json::json!({"formatVersion":1,"target":target,"body":[
+                {"op":"if","condition":{"op":"boolean","value":false},"then":[{"op":op}]}
+            ]});
+            assert!(parse(&input.to_string()).is_err());
+        }
+        for (target, condition) in [
+            ("parser", serde_json::json!({"op":"hasItem"})),
+            ("list", serde_json::json!({"op":"hasOperator"})),
+        ] {
+            let input = serde_json::json!({"formatVersion":1,"target":target,"body":[
+                {"op":"while","condition":{"op":"and","left":{"op":"boolean","value":false},
+                    "right":condition},"body":[]}
+            ]});
+            assert!(parse(&input.to_string()).is_err());
+        }
+    }
+
+    #[test]
+    fn target_defaults_and_strict_wire_are_preserved() {
+        assert!(parse(r#"{"formatVersion":1,"body":[{"op":"primary"}]}"#).is_ok());
+        assert!(parse(r#"{"formatVersion":1,"target":"list","body":[{"op":"return"}]}"#).is_ok());
+        assert!(parse(r#"{"formatVersion":1,"target":"List","body":[]}"#).is_err());
+        assert!(parse(r#"{"formatVersion":1,"target":"list","extra":0,"body":[]}"#).is_err());
+    }
 }
 
 #[cfg(all(test, feature = "source"))]

@@ -31,6 +31,7 @@ advantages remain a hypothesis, not a measured result.
 | Pratt/primary compiler lowering | `bootstrap/pratt-lowering{,-fragments}.cue`, [backend contract](../bootstrap/pratt-lowering.md) | Shared lowering compiler/kernel; compiled driver; native typed bridge |
 | Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
 | Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` compiler/reference engine/shared kernel; generated Rust driver; native checked primitives |
+| List element evaluation | `bootstrap/list-control{,-fragments}.cue`, [contract](../bootstrap/list-expressions.md) | Typed list target of existing control compiler; native checked cursor/callback/buffer |
 | Evaluation rules | `bootstrap/evaluation.cue`, expression/rule schemas | `src/lib.rs`, `src/codegen.rs`; interpreted and generated rule execution |
 | Token/trivia scanning | `bootstrap/*.cue`, [scanner contract](../bootstrap/scanner.md) | `src/scanner.rs`; generated scanners and reference interpreter |
 | AST construction | `bootstrap/ast-*.cue`, [builder contract](../bootstrap/ast.md) | `src/ast.rs`; typed builders, no native parser JSON-map assembly |
@@ -154,6 +155,10 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   CUE owns normal/De Morgan emission ([contract](../bootstrap/scanner-predicates.md)).
   Literal repeat counts 0..64 share the same structural/fuel limits; CUE emits
   counted/once/zero forms ([contract](../bootstrap/scanner-repeat.md)).
+- Expression lists: CUE list control has 4096 steps per frame, separate from
+  shared AST visits/depth. Capacity 64 checks before children; default CUE admits
+  each scalar result before advancing. Result count/completion, cursor and final
+  opaque-list invariants remain native safety checks, not traversal policy.
 - AST builders: typed/scoped parameters and bounded expressions; repeated owned
   arguments clone only before their final use, which moves.
 - Unification control: finite expressions, no loops/fuel; 512 JSON nodes,
@@ -205,6 +210,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#118](https://github.com/kolohelios/cuestacean/pull/118) | CUE-owned string UTF-8 byte length and borrowed checked kernel |
 | [#120](https://github.com/kolohelios/cuestacean/pull/120) | CUE-controlled unary source calls and grammar-selected `len` |
 | [#122](https://github.com/kolohelios/cuestacean/pull/122) | Shared AST evaluation visit/depth budget with CUE-owned wiring |
+| [#124](https://github.com/kolohelios/cuestacean/pull/124) | Opaque closed scalar list values and CUE domain/length policies |
 
 ## Build and validation runbook
 

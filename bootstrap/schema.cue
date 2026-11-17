@@ -3,7 +3,7 @@ package bootstrap
 import "list"
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
+#Expression: #ListExpression | #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
 
 // Factor the identical recursive shape; separate recursive disjuncts expand
 // combinatorially in the upstream exporter as binary node kinds accumulate.
@@ -14,6 +14,7 @@ import "list"
 }
 
 #ListLiteral: {kind: "list", value: [...(null | bool | int | string)] & list.MaxItems(64)}
+#ListExpression: {kind: "listExpression", elements: [...#Expression] & list.MaxItems(64)}
 
 #IntegerLiteral: {
 	kind:  "integer"
@@ -152,7 +153,18 @@ import "list"
 	then: [...#PrattStatement]
 	else: *[] | [...#PrattStatement]
 }
-#PrattProgram: {formatVersion: 1, body: [...#PrattStatement]}
+#ListControlCondition: {op: "hasItem"} | {op: "itemKindIs", kind: #UnifyKind} | {op: "boolean", value: bool} | {op: "and", left: #ListControlCondition, right: #ListControlCondition}
+#ListControlStatement: {op: "firstItem" | "lastItem" | "evaluateItem" | "appendItem" | "nextItem" | "previousItem" | "rejectItem" | "finishList" | "return"} | {
+	op: "while", condition: #ListControlCondition, body: [...#ListControlStatement]
+} | {
+	op: "if", condition: #ListControlCondition, then: [...#ListControlStatement], else: *[] | [...#ListControlStatement]
+}
+#PrattProgram: {
+	formatVersion: 1
+	target:        *"parser" | "list"
+	if target == "parser" {body: [...#PrattStatement]}
+	if target == "list" {body: [...#ListControlStatement]}
+}
 
 // Typed JSON construction expressions used by the parser's AST builders.
 #BuildParameter: {
@@ -294,6 +306,7 @@ import "list"
 		logicalNot: result: {op: "logicalNot", value: {op: "evaluate", field: "operand"}}
 		stringLength: result: {op: "stringLength", value: {op: "evaluate", field: "operand"}}
 		list: result: {op: "list", field: "value"}
+		listExpression: result: {op: "listExpression", field: "elements"}
 		listLength: result: {op: "listLength", value: {op: "evaluate", field: "operand"}}
 		integer: result: {
 			op:    "field"

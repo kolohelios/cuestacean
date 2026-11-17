@@ -15,8 +15,9 @@ their contents after input JSON is dropped. Flatness plus the 64-item cap bounds
 element/depth traversal for comparison/drop/encoding, not text-byte work or
 allocations; no recursive value/graph ownership decision
 is smuggled in. Future reference/cycle terms need a separate graph design, not
-strong Arc cycles in this representation. Future nested or expression-valued
-lists need an explicit extension/design, not silently weakening this invariant.
+strong Arc cycles in this representation. Nested values still need a separate
+design. [Expression-list evaluation](../bootstrap/list-expressions.md) now extends
+construction through explicit CUE traversal without weakening this invariant.
 
 ## Wire, kernels and executable CUE boundary
 
@@ -24,8 +25,8 @@ Version-1 JSON AST adds `{kind:"list", value:[raw JSON scalars...]}`. Its rule
 instruction is `list {field}`. These are literal payloads, not child AST
 expressions; bounded native scalar decoding/encoding is a representation kernel,
 not a hidden expression-evaluation loop. The node consumes one AST visit; payload
-conversion is bounded by 64 items separately. A future expression-list kind must
-make CUE own child traversal/evaluation rather than reuse this literal codec.
+conversion is bounded by 64 items separately. The subsequent `listExpression`
+kind makes CUE own child traversal/evaluation rather than reuse this literal codec.
 
 Capacity rejects before element validation. Errors are `closed list exceeds 64
 elements`, `closed list element {index} requires a concrete scalar`, or the usual
@@ -45,7 +46,8 @@ Unary `listLength {operand}` / rule `listLength {value}` and CUE `list-length-co
 admit a closed list and call borrowed native `list_count`; other values fail
 `length requires a concrete closed list`. An actual compiled alternate policy
 returns zero independently of input. Existing `stringLength` and source `len`
-stay text-only. Source list syntax, computed elements, open/abstract/nested lists,
+stay text-only. Computed JSON elements now use `listExpression`; source list
+syntax, open/abstract/nested lists,
 selectors, structs, list concatenation and general list solving remain absent.
 
 ## Evidence and bootstrap
