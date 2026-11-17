@@ -20,7 +20,10 @@ generator self-hosting: [complete driver source emission is CUE-owned](meta-lowe
 but typed decoding, canonical metadata projection, reference execution, checked
 rendering and safety guards remain Rust. The policy's [module statement program](module.md) now owns
 outer boilerplate and rule traversal as well. Go CUE still exports policies;
-source-language/evaluator behavior is unchanged.
+the original compiler migration preserved source-language/evaluator behavior.
+The subsequent [shared AST evaluation budget](evaluation-budget.md) deliberately
+adds runtime visit/depth limits: CUE owns entry-wrapper/context propagation source,
+while native counters enforce bounds. It is separate from lowering/compiler fuel.
 
 ## Typed policy
 

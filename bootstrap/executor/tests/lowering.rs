@@ -53,7 +53,7 @@ fn default_policy_matches_independent_instruction_expressions() {
         ),
         (
             left.clone(),
-            "evaluate(runtime::field(node, \"left\")?)".to_owned(),
+            "evaluate(runtime::field(node, \"left\")?, _context)".to_owned(),
         ),
     ];
     for (input, expected) in cases {
@@ -93,7 +93,7 @@ fn default_policy_matches_independent_instruction_expressions() {
         assert_eq!(
             lower(&policy, input),
             format!(
-                "runtime::{function}((evaluate(runtime::field(node, \"left\")?))?, (evaluate(runtime::field(node, \"right\")?))?)"
+                "runtime::{function}((evaluate(runtime::field(node, \"left\")?, _context))?, (evaluate(runtime::field(node, \"right\")?, _context))?)"
             )
         );
     }

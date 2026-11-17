@@ -131,6 +131,12 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 
 ### Resource and phase invariants
 
+- Default reference/generated AST evaluation shares one per-invocation context:
+  4096 cumulative AST entries and 64 active AST nodes including root. Repeated
+  child evaluation charges again; Result errors restore active depth, never visits.
+  These [new evaluator bounds](../bootstrap/evaluation-budget.md) are not total
+  instruction/byte/allocation/JSON-work bounds or comprehensive hardening.
+
 - Source parser: 64 AST nodes, 32 recursive expression levels, 4096 steps per
   expression frame shared with primary dispatch. Grouping adds depth but no AST
   node; unary construction adds one node. Both selected drivers propagate into
@@ -194,6 +200,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#114](https://github.com/kolohelios/cuestacean/pull/114) | CUE-controlled computed integer bound thresholds |
 | [#116](https://github.com/kolohelios/cuestacean/pull/116) | Early-return control, flat primary dispatch and CI-gated auto-merge |
 | [#118](https://github.com/kolohelios/cuestacean/pull/118) | CUE-owned string UTF-8 byte length and borrowed checked kernel |
+| [#120](https://github.com/kolohelios/cuestacean/pull/120) | CUE-controlled unary source calls and grammar-selected `len` |
 
 ## Build and validation runbook
 

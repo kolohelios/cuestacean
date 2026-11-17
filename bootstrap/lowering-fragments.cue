@@ -4,6 +4,7 @@ package bootstrap
 #InstructionLowering: #LoweringPolicy & {
 	let Node = {op: "path", value: "node"}
 	let Field = {op: "string", field: "field"}
+	let Context = {op: "path", value: "_context"}
 	let L = {op: "try", value: {op: "group", value: {op: "lower", field: "left"}}}
 
 	// The alternate policy overrides only sum's default right-child selection.
@@ -17,14 +18,20 @@ package bootstrap
 			use serde_json::Value;
 
 			pub fn execute(input: &str) -> Result<i64, Error> {
-			runtime::concrete(evaluate(&runtime::program(input)?)?)
+			let mut _context = runtime::EvaluationContext::default();
+			runtime::concrete(evaluate(&runtime::program(input)?, &mut _context)?)
 			}
 
 			pub fn execute_json(input: &str) -> Result<Value, Error> {
-			runtime::concrete_json(evaluate(&runtime::program(input)?)?)
+			let mut _context = runtime::EvaluationContext::default();
+			runtime::concrete_json(evaluate(&runtime::program(input)?, &mut _context)?)
 			}
 
-			fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
+			fn evaluate(node: &Value, _context: &mut runtime::EvaluationContext) -> Result<runtime::Value, Error> {
+			_context.visit(|_context| evaluate_node(node, _context))
+			}
+
+			fn evaluate_node(node: &Value, _context: &mut runtime::EvaluationContext) -> Result<runtime::Value, Error> {
 			match runtime::kind(node)? {
 			""" + "\n"
 	}, {
@@ -46,7 +53,7 @@ package bootstrap
 		text: {op: "call", path: "runtime::text", args: [Node, Field]}
 		boolean: {op: "ok", value: {op: "call", path: "runtime::Value::Boolean", args: [{op: "boolean", field: "value"}]}}
 		field: {op: "call", path: "runtime::integer", args: [Node, Field]}
-		evaluate: {op: "call", path: "evaluate", args: [{op: "try", value: {op: "call", path: "runtime::field", args: [Node, Field]}}]}
+		evaluate: {op: "call", path: "evaluate", args: [{op: "try", value: {op: "call", path: "runtime::field", args: [Node, Field]}}, Context]}
 		lowerBound: {op: "call", path: "runtime::lower_bound", args: [V]}
 		upperBound: {op: "call", path: "runtime::upper_bound", args: [V]}
 		negate: {op: "call", path: "runtime::negate", args: [V]}

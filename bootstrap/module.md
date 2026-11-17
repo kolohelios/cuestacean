@@ -44,6 +44,17 @@ Rule keys always use budget-aware Rust quoting; instruction fields retain the
 lowering kernel's checked literal rendering. Raw rule data cannot become module
 text or paths.
 
+## Runtime AST entry budget
+
+The default CUE module now creates one `runtime::EvaluationContext` per public
+execution and emits a checked `evaluate` wrapper plus private `evaluate_node`
+dispatch body. Recursive instruction lowering passes that same context back to
+`evaluate`. The [runtime contract](evaluation-budget.md) bounds AST visits and
+active AST depth, not every instruction, allocation or native stack frame.
+Native code only manages counters; it does not emit this wiring or node dispatch.
+Custom trusted modules must provide their own coherent wiring; there is no native
+fallback or promise to constrain arbitrary compiler policy text.
+
 ## Bounds and bootstrap
 
 A module has at most 64 statements and 16 statement levels, with each literal
