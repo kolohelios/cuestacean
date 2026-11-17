@@ -281,7 +281,7 @@ fn primary_and_expression_share_the_same_finite_step_budget() {
         .as_array_mut()
         .expect("body")
         .iter_mut()
-        .find(|statement| statement["op"] == "while")
+        .find(|statement| statement["condition"]["left"]["op"] == "hasOperator")
         .expect("loop")["body"]
         .as_array_mut()
         .expect("loop body");

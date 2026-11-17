@@ -111,6 +111,8 @@ parts.arg(|ctx| ctx.text(" }"))?;
 Ok(())
 }),
             "listCount" => ctx.text("crate::runtime::list_count(&_left)"),
+            "listCountEndpoint" => ctx.text("crate::runtime::list_count(&_left).map(|value| crate::unification::endpoint(&value, crate::unification::Endpoint::Lower))"),
+            "listElement" => ctx.text("crate::runtime::list_at(&_left, &_right)"),
             "local" => ctx.ok(|ctx| ctx.select(_node, "endpoint", |ctx, tag| match tag { "lower" => ctx.text("_lower"), "upper" => ctx.text("_upper"), tag => Err(lowering::missing_selection(tag)), })),
             "or" => ctx.ok(|ctx| ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("("))?;

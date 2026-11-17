@@ -8,7 +8,7 @@ import "list"
 // Factor the identical recursive shape; separate recursive disjuncts expand
 // combinatorially in the upstream exporter as binary node kinds accumulate.
 #BinaryExpression: {
-	kind:  "add" | "subtract" | "multiply" | "divide" | "modulo" | "quotient" | "remainder" | "unify" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr"
+	kind:  "listIndex" | "add" | "subtract" | "multiply" | "divide" | "modulo" | "quotient" | "remainder" | "unify" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr"
 	left:  #Expression
 	right: #Expression
 }
@@ -98,7 +98,7 @@ import "list"
 #UnifySide:         "left" | "right"
 #UnifyEndpointName: "lower" | "upper"
 #ControlInteger: {op: "integer", value: int & >=-9223372036854775808 & <=9223372036854775807}
-#UnifyEndpoint: #ControlInteger | {op: "input", input: #UnifySide, endpoint: #UnifyEndpointName} | {op: "local", endpoint: #UnifyEndpointName} | {op: "empty"} | {
+#UnifyEndpoint: {op: "listCount"} | #ControlInteger | {op: "input", input: #UnifySide, endpoint: #UnifyEndpointName} | {op: "local", endpoint: #UnifyEndpointName} | {op: "empty"} | {
 	op: "choose", condition: #UnifyCondition, then: #UnifyEndpoint, else: #UnifyEndpoint
 }
 #UnifyRelation: "equal" | "less" | "greater" | "lessEqual" | "greaterEqual"
@@ -108,12 +108,12 @@ import "list"
 } | {op: "and" | "or", left: #UnifyCondition, right: #UnifyCondition}
 #IntegerOperation: "negate" | "difference" | "product" | "divide" | "modulo" | "quotient" | "remainder"
 #OutputFailure:    "incompleteInt" | "incompleteValue" | "incompleteBool" | "incompleteString" | "incompleteBounds" | "integerOutput"
-#UnifyExpression: #ControlInteger | {op: "integerPrimitive", operation: #IntegerOperation} | {op: "boolean", value: bool} | {op: "integerSum" | "textConcat" | "textLength" | "listCount"} | {op: "input", input: #UnifySide} | {
+#UnifyExpression: #ControlInteger | {op: "integerPrimitive", operation: #IntegerOperation} | {op: "boolean", value: bool} | {op: "integerSum" | "textConcat" | "textLength" | "listCount" | "listElement"} | {op: "input", input: #UnifySide} | {
 	op: "if", condition: #UnifyCondition, then: #UnifyExpression, else: #UnifyExpression
 } | {
 	op: "letBounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint, result: #UnifyExpression
-} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: #OutputFailure | "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering" | "logical" | "divisionByZero" | "boundThreshold" | "length" | "lists" | "listLength" | "lengthOperand"}
-#BinaryControlProgram: {formatVersion: 1, function?: "unify" | "sum" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr" | "difference" | "product" | "divide" | "modulo" | "quotient" | "remainder", result: #UnifyExpression}
+} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: #OutputFailure | "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering" | "logical" | "divisionByZero" | "boundThreshold" | "length" | "lists" | "listLength" | "lengthOperand" | "indexOperands" | "indexRange"}
+#BinaryControlProgram: {formatVersion: 1, function?: "listIndex" | "unify" | "sum" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr" | "difference" | "product" | "divide" | "modulo" | "quotient" | "remainder", result: #UnifyExpression}
 #UnaryControlCondition: {op: "kindIs", input: "left", kind: #UnifyKind} | {op: "booleanIs", input: "left", value: bool} | {op: "and" | "or", left: #UnaryControlCondition, right: #UnaryControlCondition}
 #UnaryControlEndpoint: #ControlInteger | {op: "input", input: "left", endpoint: #UnifyEndpointName} | {op: "empty"} | {
 	op: "choose", condition: #UnaryControlCondition, then: #UnaryControlEndpoint, else: #UnaryControlEndpoint
@@ -128,7 +128,7 @@ import "list"
 	left:  #PrattNumber
 	right: #PrattNumber
 }
-#PrattCondition: {op: "hasList" | "hasListElement" | "hasCall" | "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier" | "hasNegation" | "hasNot" | "hasString"} | {op: "boolean", value: bool} | {
+#PrattCondition: {op: "hasIndex" | "hasList" | "hasListElement" | "hasCall" | "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier" | "hasNegation" | "hasNot" | "hasString"} | {op: "boolean", value: bool} | {
 	op:    "atLeast"
 	left:  #PrattNumber
 	right: #PrattNumber
@@ -137,8 +137,8 @@ import "list"
 	left:  #PrattCondition
 	right: #PrattCondition
 }
-#PrattStatement: {op: "scanList" | "advanceList" | "probeListEnd" | "appendListElement" | "advanceListTail" | "buildList" | "advanceCall" | "return" | "primary" | "afterOperand" | "afterWordOperator" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanString" | "parseString" | "scanNegation" | "advanceNegation" | "buildNegation" | "scanNot" | "advanceNot" | "buildNot"} | {
-	op:      "parseListElement" | "parseGroup" | "parseNegation" | "parseNot"
+#PrattStatement: {op: "scanIndex" | "advanceIndex" | "closeIndex" | "scanList" | "advanceList" | "probeListEnd" | "appendListElement" | "advanceListTail" | "buildList" | "advanceCall" | "return" | "primary" | "afterOperand" | "afterWordOperator" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanString" | "parseString" | "scanNegation" | "advanceNegation" | "buildNegation" | "scanNot" | "advanceNot" | "buildNot"} | {
+	op:      "parseIndex" | "parseListElement" | "parseGroup" | "parseNegation" | "parseNot"
 	minimum: #PrattNumber
 } | {
 	op:    "setBindingPower"
@@ -276,6 +276,7 @@ import "list"
 	logicalNot?: {token: "!", kind: string & !="", operandField: string & !="" & !="kind"}
 	text?: {kind: string & !="", valueField: string & !="" & !="kind"}
 	list?: {kind: string & !="", elementsField: string & !="" & !="kind"}
+	index?: {kind: string & !="", leftField: string & !="" & !="kind", rightField: string & !="" & !="kind" & !=leftField}
 	group: {open: "(", close: ")"}
 	operators: [#InfixOperator, ...#InfixOperator]
 }
@@ -310,6 +311,7 @@ import "list"
 		list: result: {op: "list", field: "value"}
 		listExpression: result: {op: "listExpression", field: "elements"}
 		listLength: result: {op: "listLength", value: {op: "evaluate", field: "operand"}}
+		listIndex: result: {op: "listIndex", left: #EvaluateChild, right: #EvaluateChild}
 		integer: result: {
 			op:    "field"
 			field: "value"

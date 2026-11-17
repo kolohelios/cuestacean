@@ -151,6 +151,10 @@ pub enum Error {
     Length,
     #[snafu(display("length requires a concrete string or closed list"))]
     LengthOperand,
+    #[snafu(display("indexing requires a concrete closed list and integer"))]
+    IndexOperands,
+    #[snafu(display("list index out of range"))]
+    IndexRange,
     #[snafu(display("string byte length exceeds signed 64-bit integer range"))]
     TextLengthOverflow,
     #[snafu(display("string concatenation exceeds available capacity"))]
@@ -221,6 +225,11 @@ enum Instruction {
     },
     Negate {
         value: Box<Instruction>,
+    },
+    #[serde(rename = "listIndex")]
+    ListIndex {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
     },
     Sum {
         left: Box<Instruction>,
@@ -422,6 +431,10 @@ fn instruction(
             runtime::remainder(left, right)
         }
         Instruction::Length { value } => runtime::length(instruction(value, node, rules, context)?),
+        Instruction::ListIndex { left, right } => runtime::list_index(
+            instruction(left, node, rules, context)?,
+            instruction(right, node, rules, context)?,
+        ),
         Instruction::StringLength { value } => {
             runtime::string_length(instruction(value, node, rules, context)?)
         }

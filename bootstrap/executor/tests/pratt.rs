@@ -196,7 +196,13 @@ fn validation_limits_and_compiler_cli_are_checked() {
             .contains("32 JSON levels")
     );
     let mut pending: Value = serde_json::from_str(&export("pratt")).expect("program");
-    let advance = pending["body"][3]["body"]
+    let binary_loop = pending["body"]
+        .as_array()
+        .expect("body")
+        .iter()
+        .position(|statement| statement["condition"]["left"]["op"] == "hasOperator")
+        .expect("binary loop");
+    let advance = pending["body"][binary_loop]["body"]
         .as_array()
         .expect("loop body")
         .iter()
@@ -204,7 +210,7 @@ fn validation_limits_and_compiler_cli_are_checked() {
         .expect("advance")
         .clone();
     let body = pending["body"].as_array_mut().expect("body");
-    body.truncate(3);
+    body.truncate(binary_loop);
     body.push(advance);
     assert!(matches!(
         parser::parse_interpreted(

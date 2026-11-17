@@ -64,6 +64,7 @@ enum Function {
     LogicalNot,
     StringLength,
     ListLength,
+    ListIndex,
     Length,
     IntegerOutput,
     JsonOutput,
@@ -141,6 +142,7 @@ enum Expr {
     TextConcat {},
     TextLength {},
     ListCount {},
+    ListElement {},
     #[serde(rename(serialize = "integerValue", deserialize = "integer"))]
     Integer {
         value: i64,
@@ -155,6 +157,8 @@ enum Expr {
 #[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Failure {
+    IndexOperands,
+    IndexRange,
     LengthOperand,
     Length,
     ListLength,
@@ -180,6 +184,8 @@ pub enum Failure {
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum End {
+    #[serde(rename(serialize = "listCountEndpoint", deserialize = "listCount"))]
+    ListCount {},
     #[serde(rename(serialize = "inputEndpoint", deserialize = "input"))]
     Input {
         input: Side,
@@ -325,6 +331,7 @@ impl Expr {
             | Self::IntegerSum {}
             | Self::IntegerPrimitive { .. }
             | Self::TextConcat {}
+            | Self::ListElement {}
             | Self::TextLength {}
             | Self::ListCount {}
             | Self::Integer { .. }
@@ -509,6 +516,8 @@ pub fn text_compare(left: &Value, right: &Value, relation: Relation) -> Result<b
 }
 pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate::Error> {
     match reason {
+        Failure::IndexOperands => Err(crate::Error::IndexOperands),
+        Failure::IndexRange => Err(crate::Error::IndexRange),
         Failure::LengthOperand => Err(crate::Error::LengthOperand),
         Failure::Length => Err(crate::Error::Length),
         Failure::ListLength => Err(crate::Error::ListLength),
@@ -607,6 +616,7 @@ impl End {
         locals: (Option<i64>, Option<i64>),
     ) -> Result<Option<i64>, crate::Error> {
         Ok(match self {
+            Self::ListCount {} => endpoint(&crate::runtime::list_count(l)?, Endpoint::Lower),
             Self::Input { input, endpoint: e } => endpoint(input.value(l, r), *e),
             Self::Integer { value } => Some(*value),
             Self::Local { endpoint } => endpoint.value(locals),
@@ -778,6 +788,7 @@ impl Expr {
                 IntegerOperation::Quotient => crate::runtime::integer_quotient(l, r),
                 IntegerOperation::Remainder => crate::runtime::integer_remainder(l, r),
             },
+            Self::ListElement {} => crate::runtime::list_at(l, r),
             Self::TextConcat {} => crate::runtime::text_concat(l, r),
             Self::TextLength {} => crate::runtime::text_length(l),
             Self::ListCount {} => crate::runtime::list_count(l),

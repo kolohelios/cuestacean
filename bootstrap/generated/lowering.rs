@@ -114,6 +114,15 @@ impl Driver for Compiled {
                 call.arg(|ctx| ctx.path("evaluate"))?;
                 Ok(())
             }),
+            "listIndex" => ctx.call("runtime::list_index", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
+                })?;
+                Ok(())
+            }),
             "listLength" => ctx.call("runtime::list_length", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))

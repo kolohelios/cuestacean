@@ -49,6 +49,7 @@ enum Condition {
         kind: crate::unification::Kind,
     },
     HasOperator {},
+    HasIndex {},
     LeftAssociative {},
     GroupOpen {},
     HasBound {},
@@ -90,6 +91,12 @@ enum Statement {
     AdvanceOperator {},
     ParseRight {},
     BuildBinary {},
+    ScanIndex {},
+    AdvanceIndex {},
+    ParseIndex {
+        minimum: Number,
+    },
+    CloseIndex {},
     Whitespace {},
     ScanGroup {},
     AdvanceGroup {},
@@ -274,6 +281,7 @@ impl Condition {
         Ok(match self {
             Self::HasItem {} | Self::ItemKindIs { .. } => unreachable!("validated parser target"),
             Self::HasOperator {} => frame.has_operator(),
+            Self::HasIndex {} => frame.has_index()?,
             Self::LeftAssociative {} => frame.left_associative()?,
             Self::GroupOpen {} => frame.group_open()?,
             Self::HasBound {} => frame.has_bound()?,
@@ -324,6 +332,12 @@ fn execute(
                     Statement::AdvanceOperator {} => frame.advance_operator()?,
                     Statement::ParseRight {} => frame.parse_right()?,
                     Statement::BuildBinary {} => frame.build_binary()?,
+                    Statement::ScanIndex {} => frame.scan_index()?,
+                    Statement::AdvanceIndex {} => frame.advance_index()?,
+                    Statement::ParseIndex { minimum } => {
+                        frame.parse_index(minimum.value(frame)?)?
+                    }
+                    Statement::CloseIndex {} => frame.close_index()?,
                     Statement::Whitespace {} => frame.whitespace()?,
                     Statement::ScanGroup {} => frame.scan_group()?,
                     Statement::ScanNot {} => frame.scan_not()?,
@@ -600,6 +614,32 @@ mod target_tests {
         ] {
             let input = serde_json::json!({"formatVersion":1,"body":[
                 {"op":"parseListElement","minimum":minimum}
+            ]});
+            assert!(parse(&input.to_string()).is_err());
+        }
+    }
+
+    #[test]
+    fn index_operations_are_parser_only_and_minimum_is_typed() {
+        for op in ["scanIndex", "advanceIndex", "parseIndex", "closeIndex"] {
+            let mut action = serde_json::json!({"op":op});
+            if op == "parseIndex" {
+                action["minimum"] = serde_json::json!({"op":"integer","value":0});
+            }
+            let mut input = serde_json::json!({"formatVersion":1,"body":[action]});
+            assert!(parse(&input.to_string()).is_ok(), "{op}");
+            input["target"] = serde_json::json!("list");
+            assert!(parse(&input.to_string()).is_err(), "{op}");
+        }
+        let mut input = serde_json::json!({"formatVersion":1,"body":[
+            {"op":"if","condition":{"op":"hasIndex"},"then":[]}
+        ]});
+        assert!(parse(&input.to_string()).is_ok());
+        input["target"] = serde_json::json!("list");
+        assert!(parse(&input.to_string()).is_err());
+        for minimum in [serde_json::json!(256), serde_json::json!({"op":"hasIndex"})] {
+            let input = serde_json::json!({"formatVersion":1,"body":[
+                {"op":"parseIndex","minimum":minimum}
             ]});
             assert!(parse(&input.to_string()).is_err());
         }

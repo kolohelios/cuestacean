@@ -1,6 +1,7 @@
 {
   "rules": {
     "listExpression": {"result": {"op": "listExpression", "field": "elements"}},
+    "listIndex": {"result": {"op": "listIndex", "left": {"op": "evaluate", "field": "left"}, "right": {"op": "evaluate", "field": "right"}}},
     "length": {"result": {"op": "length", "value": {"op": "evaluate", "field": "operand"}}},
     "listLength": {"result": {"op": "listLength", "value": {"op": "evaluate", "field": "operand"}}},
     "list": {"result": {"op": "list", "field": "value"}},
