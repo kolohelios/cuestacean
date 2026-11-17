@@ -101,6 +101,7 @@
         "scan-lowering"
         "meta-lowering"
         "tests/valid/lowering-bindings"
+        "tests/valid/lowering-identifier"
         "tests/valid/meta-driver-keys"
         "tests/valid/lowering-numbers"
         "tests/valid/lowering-select"

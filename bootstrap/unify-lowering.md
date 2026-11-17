@@ -34,15 +34,19 @@ versus finite `Some(i64)`. Both accept only `integer {value}` on the wire.
 [Division control](division-control.md) uses endpoint constants for zero/unit
 checks and value constants for the remainder exception; no new numeric predicate
 or native dispatch is required. Native enums serialize side,
-endpoint, kind, relation and failure tags as data; CUE's select maps own their
-Rust spelling. The bridge always supplies a validated `function` enum (`unify`,
+endpoint, kind, relation and failure tags as data. CUE-selected `upperFirst`
+identifier rendering now owns their regular Rust spelling, replacing repetitive
+select maps. Full native enum validation still precedes rendering; raw metadata
+is not a sandbox. The [identifier contract](identifier-rendering.md) pins lexical
+bounds and style semantics; backend export shrinks from 503 to 410 values under
+the unchanged 512 guard, with identical solver output. The bridge always supplies a validated `function` enum (`unify`,
 `sum`, comparison/logical and integer-control names), defaulted for legacy
 control wire documents. CUE's checked `identifier` with snake conversion emits
 the compiled entry name and emits the `integerSum`/`textConcat` kernel calls used by
 [addition control](sum.md). It also emits boolean result construction for
 [equality control](equality.md), mapping `notEqual` to the fixed `not_equal` name.
 [Ordering control](ordering.md) adds four enum-validated names and a `textCompare`
-condition; CUE also maps inclusive relation names to fixed Rust variants. Native
+condition; CUE also renders inclusive relation names as Rust variants. Native
 finite/text comparison kernels do not choose allowed source domains.
 Logical control adds two fixed entry names and `booleanIs` literal/side projection.
 Unary logical control adds root `unary` arity facts and serialization-only

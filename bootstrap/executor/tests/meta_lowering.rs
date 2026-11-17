@@ -55,6 +55,7 @@ fn compiled_emitter_matches_reference_and_regenerates_itself() {
         "tests/valid/lowering-bindings",
         "tests/valid/lowering-select",
         "tests/valid/lowering-collections",
+        "tests/valid/lowering-identifier",
     ] {
         let input = export(name);
         assert_eq!(
@@ -295,15 +296,25 @@ fn emitted_templates_contain_independent_kernel_calls() {
         "ctx.string(_node, \"x\")",
         "ctx.bind(",
         "ctx.select(_node, \"tag\"",
-        "ctx.identifier(_node, \"name\", true)",
+        "ctx.identifier(_node, \"name\", true, false)",
     ] {
         assert!(source.contains(snippet), "missing {snippet}: {source}");
     }
-    let expr = json!({"op":"identifier","field":"name","snake":true});
-    assert_eq!(
-        compiled_meta_lowering::lower(&expr).expect("compiled expression"),
-        "ctx.identifier(_node, \"name\", true)"
-    );
+    for (expr, expected) in [
+        (
+            json!({"op":"identifier","field":"name","snake":true,"upperFirst":false}),
+            "ctx.identifier(_node, \"name\", true, false)",
+        ),
+        (
+            json!({"op":"identifier","field":"name","snake":false,"upperFirst":true}),
+            "ctx.identifier(_node, \"name\", false, true)",
+        ),
+    ] {
+        assert_eq!(
+            compiled_meta_lowering::lower(&expr).expect("compiled expression"),
+            expected
+        );
+    }
 }
 
 #[test]

@@ -163,6 +163,8 @@ enum Expr {
         field: String,
         #[serde(default)]
         snake: bool,
+        #[serde(default, rename = "upperFirst")]
+        upper_first: bool,
     },
     IfEmpty {
         field: String,
@@ -326,6 +328,11 @@ impl Expr {
                 then.validate_scoped(env)?;
                 otherwise.validate_scoped(env)
             }
+            Self::Identifier {
+                snake: true,
+                upper_first: true,
+                ..
+            } => Err(invalid("identifier styles are mutually exclusive")),
             Self::Path { value } if !valid_path(value) => Err(invalid("invalid Rust path")),
             Self::Call { path, args } => {
                 if !valid_path(path) {
@@ -560,7 +567,11 @@ impl Expr {
                 |ctx| then.render_scoped(ctx, node, depth, driver, env),
                 |ctx| otherwise.render_scoped(ctx, node, depth, driver, env),
             ),
-            Self::Identifier { field, snake } => ctx.identifier(node, field, *snake),
+            Self::Identifier {
+                field,
+                snake,
+                upper_first,
+            } => ctx.identifier(node, field, *snake, *upper_first),
             Self::BytePattern { field } => ctx.byte_pattern(node, field),
             Self::CharPattern { field } => ctx.char_pattern(node, field),
             Self::Path { value } => ctx.path(value),
@@ -941,8 +952,17 @@ impl Context {
         })
     }
     /// Render a checked ASCII identifier component, not a scanner source injection API.
-    pub fn identifier(&mut self, node: &Value, field: &str, snake: bool) -> Result<String, Error> {
+    pub fn identifier(
+        &mut self,
+        node: &Value,
+        field: &str,
+        snake: bool,
+        upper_first: bool,
+    ) -> Result<String, Error> {
         self.expression(|ctx| {
+            if snake && upper_first {
+                return Err(invalid("identifier styles are mutually exclusive"));
+            }
             let value = node.get(field).and_then(Value::as_str).ok_or_else(|| {
                 invalid(format!("field {field:?} must be an identifier component"))
             })?;
@@ -966,7 +986,13 @@ impl Context {
                         .write_char('_')
                         .map_err(|_| invalid("lowering exceeds 1 MiB rendered bytes"))?;
                 }
-                let b = if snake { b.to_ascii_lowercase() } else { b };
+                let b = if snake {
+                    b.to_ascii_lowercase()
+                } else if upper_first && i == 0 {
+                    b.to_ascii_uppercase()
+                } else {
+                    b
+                };
                 writer
                     .write_char(char::from(b))
                     .map_err(|_| invalid("lowering exceeds 1 MiB rendered bytes"))?;
@@ -1277,19 +1303,22 @@ mod tests {
             },
         };
         assert_eq!(
-            ctx.identifier(&json!({"x":"bytePattern"}), "x", true)?,
+            ctx.identifier(&json!({"x":"bytePattern"}), "x", true, false)?,
             "byte_pattern"
         );
         assert_eq!(ctx.budget.steps, 1);
         assert_eq!(ctx.budget.frames, 0);
         assert!(
-            ctx.identifier(&json!({"x":"bad-identifier"}), "x", true)
+            ctx.identifier(&json!({"x":"bad-identifier"}), "x", true, false)
                 .expect_err("invalid input first")
                 .to_string()
                 .contains("identifier")
         );
         assert_eq!(ctx.budget.frames, 0);
-        assert!(ctx.identifier(&json!({"x":"x"}), "x", false).is_err());
+        assert!(
+            ctx.identifier(&json!({"x":"x"}), "x", false, false)
+                .is_err()
+        );
         for value in ["", "0a", "é", "bad::path"] {
             assert!(
                 Context::run(
@@ -1305,13 +1334,131 @@ mod tests {
     }
 
     #[test]
+    fn identifier_upper_first_preserves_tail_and_shares_budget()
+    -> Result<(), Box<dyn std::error::Error>> {
+        for (value, expected) in [
+            ("lessEqual", "LessEqual"),
+            ("URL", "URL"),
+            ("_name", "_name"),
+            ("a2_bC", "A2_bC"),
+            ("type", "Type"),
+        ] {
+            for remaining in [expected.len(), expected.len() - 1] {
+                let mut ctx = Context {
+                    budget: Budget {
+                        steps: 0,
+                        bytes: 1024 * 1024 - remaining,
+                        frames: 0,
+                    },
+                };
+                let result = ctx.identifier(&json!({"v":value}), "v", false, true);
+                if remaining == expected.len() {
+                    assert_eq!(result?, expected);
+                    assert_eq!(ctx.budget.bytes, 1024 * 1024);
+                } else {
+                    assert_eq!(
+                        result.expect_err("one byte short").to_string(),
+                        "lowering: lowering exceeds 1 MiB rendered bytes"
+                    );
+                }
+                assert_eq!(ctx.budget.steps, 1);
+                assert_eq!(ctx.budget.frames, 0);
+            }
+        }
+        let mut ctx = Context {
+            budget: Budget {
+                steps: 0,
+                bytes: 1024 * 1024 - 2,
+                frames: 0,
+            },
+        };
+        assert_eq!(ctx.identifier(&json!({"v":"a"}), "v", false, true)?, "A");
+        assert_eq!(ctx.text("!")?, "!");
+        for node in [json!({"v":"validPrefix!"}), json!({"v":"é"}), json!({})] {
+            assert_eq!(
+                ctx.identifier(&node, "v", false, true)
+                    .expect_err("validate before output")
+                    .to_string(),
+                "lowering: field \"v\" must be an identifier component"
+            );
+            assert_eq!(ctx.budget.bytes, 1024 * 1024);
+            assert_eq!(ctx.budget.frames, 0);
+        }
+        assert_eq!(
+            ctx.identifier(&json!({}), "v", true, true)
+                .expect_err("styles before field")
+                .to_string(),
+            "lowering: identifier styles are mutually exclusive"
+        );
+        assert_eq!(ctx.budget.bytes, 1024 * 1024);
+        assert_eq!(ctx.budget.frames, 0);
+        ctx.budget.steps = 4096;
+        assert_eq!(
+            ctx.identifier(&json!({}), "v", true, true)
+                .expect_err("fuel before styles")
+                .to_string(),
+            "lowering: lowering exceeds 4096 steps"
+        );
+        assert_eq!(ctx.budget.frames, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn identifier_styles_validate_eagerly_and_serialize() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let conflict = json!({"op":"identifier","field":"v","snake":true,"upperFirst":true});
+        for expr in [
+            conflict.clone(),
+            json!({"op":"ifTrue","field":"flag","then":{"op":"text","value":"ok"},"else":conflict}),
+        ] {
+            let text = json!({"formatVersion":1,"cases":{"unused":expr}}).to_string();
+            let error = Policy::parse(&text).err().expect("unused styles reject");
+            assert_eq!(
+                error.to_string(),
+                "lowering: identifier styles are mutually exclusive"
+            );
+            assert_eq!(
+                super::generate_with_policy(&text, "malformed compiler")
+                    .expect_err("target validation first")
+                    .to_string(),
+                error.to_string()
+            );
+        }
+        for flags in [
+            r#""upperFirst":null"#,
+            r#""upperFirst":1"#,
+            r#""upperFirst":"true""#,
+            r#""upperFirst":true,"upperFirst":false"#,
+        ] {
+            let text = format!(
+                r#"{{"formatVersion":1,"cases":{{"x":{{"op":"identifier","field":"v",{flags}}}}}}}"#
+            );
+            assert!(Policy::parse(&text).is_err(), "{text}");
+        }
+        let expr: super::Expr =
+            serde_json::from_value(json!({"op":"identifier","field":"v","upperFirst":true}))?;
+        assert_eq!(
+            serde_json::to_value(expr)?,
+            json!({"op":"identifier","field":"v","snake":false,"upperFirst":true})
+        );
+        let policy = Policy::parse(
+            r#"{"formatVersion":1,"cases":{"x":{"op":"identifier","field":"v","upperFirst":true}}}"#,
+        )?;
+        assert_eq!(
+            policy.lower(&json!({"op":"x","v":"lessEqual"}))?,
+            "LessEqual"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn expression_serialization_projects_roles() -> Result<(), Box<dyn std::error::Error>> {
         let expr: super::Expr = serde_json::from_value(
             json!({"op":"concat","parts":[{"op":"call","path":"f","args":[{"op":"identifier","field":"op"}]},{"op":"select","field":"x","cases":{"z":{"op":"text","value":"z"},"a":{"op":"text","value":"a"}}}]}),
         )?;
         assert_eq!(
             serde_json::to_value(expr)?,
-            json!({"op":"concat","parts":[{"op":"concatArgument","value":{"op":"call","path":"f","args":[{"op":"callArgument","value":{"op":"identifier","field":"op","snake":false}}]}},{"op":"concatArgument","value":{"op":"select","field":"x","cases":[{"op":"selectCase","tag":"a","value":{"op":"text","value":"a"}},{"op":"selectCase","tag":"z","value":{"op":"text","value":"z"}}]}}]})
+            json!({"op":"concat","parts":[{"op":"concatArgument","value":{"op":"call","path":"f","args":[{"op":"callArgument","value":{"op":"identifier","field":"op","snake":false,"upperFirst":false}}]}},{"op":"concatArgument","value":{"op":"select","field":"x","cases":[{"op":"selectCase","tag":"a","value":{"op":"text","value":"a"}},{"op":"selectCase","tag":"z","value":{"op":"text","value":"z"}}]}}]})
         );
         Ok(())
     }

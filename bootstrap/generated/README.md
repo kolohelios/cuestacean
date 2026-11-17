@@ -115,7 +115,7 @@ cargo build --manifest-path bootstrap/executor/Cargo.toml --no-default-features 
   --bin bootstrap-ast-codegen --bin bootstrap-pratt-codegen --bin bootstrap-unify-codegen \
   --bin bootstrap-lower-codegen
 set -o pipefail
-for policy in lowering pratt-lowering unify-lowering ast-lowering scan-lowering meta-lowering tests/valid/meta-driver-keys tests/valid/lowering-bindings tests/valid/lowering-numbers tests/valid/lowering-select tests/valid/lowering-left-twice tests/valid/lowering-escaped tests/valid/lowering-reverse tests/valid/lowering-module-escaped tests/valid/lowering-collections; do
+for policy in tests/valid/lowering-identifier lowering pratt-lowering unify-lowering ast-lowering scan-lowering meta-lowering tests/valid/meta-driver-keys tests/valid/lowering-bindings tests/valid/lowering-numbers tests/valid/lowering-select tests/valid/lowering-left-twice tests/valid/lowering-escaped tests/valid/lowering-reverse tests/valid/lowering-module-escaped tests/valid/lowering-collections; do
   name=$(basename "$policy")
   bootstrap/executor/target/debug/bootstrap-lower-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$policy.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
@@ -216,6 +216,12 @@ independent Nix output built only from CUE sources, not committed artifacts.
    have repeat/drift checks. Reverse traversal additionally regenerates and
    compiles `evaluation-reverse.rs` while normal evaluator goldens stay unchanged. The semantics-only feature check temporarily removes
    every generated lowering driver to prove its independence.
+
+`lowering-identifier.rs` actually executes identity, snake and upper-first
+rendering against fixed lexical/budget oracles. The meta driver emits the fourth
+identifier kernel argument in every affected driver and self-regenerates; existing
+solver/evaluator/frontend output remains byte-identical. See the
+[identifier contract](../identifier-rendering.md).
 
 Committed Rust modules remain reviewable golden files: the Rust generation
 check still rejects drift. JSON has repeatability and schema checks, not a

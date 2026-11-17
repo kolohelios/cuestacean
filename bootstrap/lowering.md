@@ -51,7 +51,7 @@ unknown targets/chains/duplicates reject eagerly. Cases plus aliases total ≤64
 | `ifEqual {left, right, then, else}` | Compare rendered operands, select one branch |
 | `ifTrue {field, then, else}` | Select one branch using a bool field |
 | `bytePattern {field}` / `charPattern {field}` | Bounded sorted Rust pattern rendering |
-| `identifier {field, snake?}` | Checked ASCII component, optionally snake-cased |
+| `identifier {field, snake?, upperFirst?}` | Checked ASCII component; mutually exclusive snake/initial-capital styles |
 
 The instruction is the current input to every expression; recursive `lower`
 changes that input to the selected child. There is no native sum/product/etc.
@@ -69,7 +69,9 @@ the downstream compiler checks those. Policies are executable compiler inputs,
 not a security boundary for compiling untrusted implementation code. Instruction
 strings cannot become paths or unchecked Rust source. The explicit `identifier`
 operation is a bounded ASCII component exception, not keyword/name/type resolution;
-CUE supplies its surrounding syntax and Rust checks the result. Fixed
+CUE supplies its surrounding syntax and Rust checks the result. Both style
+flags default false and conflict eagerly, including unused templates. Upper-first
+changes only the initial ASCII byte; see [identifier rendering](identifier-rendering.md). Fixed
 `text`, like module `text`, is instead trusted implementation source and may
 contain arbitrary Rust syntax; it is not subject to the path grammar.
 

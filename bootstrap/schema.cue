@@ -66,7 +66,10 @@ package bootstrap
 } | {op: "select", field: string & !="", cases: [string & !=""]: #LoweringExpression} | {
 	op: "join", field: string & !="", separator: string
 } | {
-	op: "identifier", field: string & !="", snake?: bool
+	op: "identifier", field: string & !="", snake?: bool, upperFirst?: bool
+	if snake != _|_ {
+		if snake {upperFirst?: false}
+	}
 } | {
 	op: "bind", name: string & !="", value: #LoweringExpression, body: #LoweringExpression
 } | {
