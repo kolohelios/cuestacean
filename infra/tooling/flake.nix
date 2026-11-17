@@ -79,6 +79,8 @@
       ];
       prattNames = builtins.concatStringsSep " " prattFixtures;
       unifyFixtures = [
+        "string-length-control"
+        "tests/valid/length-zero"
         "unify"
         "sum"
         "equal"
@@ -147,6 +149,7 @@
         "bounds"
         "booleans"
         "strings"
+        "string-length"
         "concatenation"
         "equality"
         "inequality"
@@ -609,6 +612,15 @@
               }
               ''
                 set -euo pipefail
+                cue export ${../../bootstrap/tests/upstream/string-length.cue} --out json > expected
+                for binary in bootstrap-executor bootstrap-generated; do
+                  if [ "$binary" = bootstrap-executor ]; then
+                    "$binary" ${jsonExports pkgs}/string-length.json ${jsonExports pkgs}/evaluation.json > actual
+                  else
+                    "$binary" ${jsonExports pkgs}/string-length.json > actual
+                  fi
+                  diff -u expected actual
+                done
                 for pair in concrete:strings empty:tests/valid/strings-empty equal:tests/valid/strings-equal concatenated:concatenation; do
                   property="''${pair%%:*}"
                   fixture="''${pair#*:}"

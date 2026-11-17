@@ -1,5 +1,6 @@
 {
   "rules": {
+    "stringLength": {"result": {"op": "stringLength", "value": {"op": "evaluate", "field": "operand"}}},
     "top": {"result": {"op": "top"}},
     "null": {"result": {"op": "null"}},
     "logicalNot": {"result": {"op": "logicalNot", "value": {"op": "evaluate", "field": "operand"}}},

@@ -14,6 +14,7 @@ package bootstrap
 		upperBoundExpression: result: {op: "upperBound", value: {op: "evaluate", field: "operand"}}
 		integer: result: {op: "field", field: "value"}
 		logicalNot: result: {op: "logicalNot", value: {op: "evaluate", field: "operand"}}
+		stringLength: result: {op: "stringLength", value: {op: "evaluate", field: "operand"}}
 		negate: result: {op: "negate", value: {op: "evaluate", field: "operand"}}
 		add: result: {
 			op: "sum"

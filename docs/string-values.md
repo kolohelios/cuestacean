@@ -34,6 +34,9 @@ conflict, and mixed string/boolean/numeric-domain rejection before numeric ident
 Native kernels only expose tags, structural/content equality, errors and projections.
 Strings have no integer endpoints; that absence is not permission for numeric
 unification. Unicode data is preserved without normalization or coercion.
+[CUE string byte length](../bootstrap/string-length.md) admits concrete text,
+then borrows its UTF-8 bytes for checked integer length. It does not count scalar
+values/graphemes or retain another shared reference.
 
 `execute_json` and both JSON evaluator CLIs emit exact JSON string scalars; legacy
 integer `execute` rejects concrete strings. Abstract string output is incomplete.
