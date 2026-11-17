@@ -70,6 +70,8 @@ interprets that rule's result instruction against the current node:
   `quotient` / `remainder` truncate toward zero with dividend-signed remainder.
   Both children evaluate left-first before concreteness/zero-divisor checks.
   Quotient overflow fails; both remainders of i64::MIN by -1 are zero.
+  [CUE division policy](../division-control.md) now owns domain/zero/mode and
+  unit-divisor selection; native primitives retain checked numeric computation.
 - `logicalNot` evaluates its `value` child then uses [CUE unary control](../logical-not.md)
   to validate/invert a concrete boolean. It has a genuine single-value signature.
 - `logicalAnd` / `logicalOr` evaluate both children left-first, then use [CUE

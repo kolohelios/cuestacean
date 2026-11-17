@@ -64,6 +64,10 @@ enum Function {
     Negate,
     Difference,
     Product,
+    Divide,
+    Modulo,
+    Quotient,
+    Remainder,
 }
 impl Function {
     fn is_unary(self) -> bool {
@@ -84,6 +88,10 @@ enum IntegerOperation {
     Negate,
     Difference,
     Product,
+    Divide,
+    Modulo,
+    Quotient,
+    Remainder,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
@@ -112,6 +120,10 @@ enum Expr {
         operation: IntegerOperation,
     },
     TextConcat {},
+    #[serde(rename(serialize = "integerValue", deserialize = "integer"))]
+    Integer {
+        value: i64,
+    },
     Boolean {
         value: bool,
     },
@@ -128,6 +140,7 @@ pub enum Failure {
     Types,
     Strings,
     Arithmetic,
+    DivisionByZero,
     Comparison,
     Ordering,
     Logical,
@@ -139,6 +152,10 @@ enum End {
     Input {
         input: Side,
         endpoint: Endpoint,
+    },
+    #[serde(rename(serialize = "integerEndpoint", deserialize = "integer"))]
+    Integer {
+        value: i64,
     },
     Local {
         endpoint: Endpoint,
@@ -227,6 +244,7 @@ impl Expr {
     fn validate_unary(&self) -> Result<(), Error> {
         match self {
             Self::Input { input: Side::Left }
+            | Self::Integer { .. }
             | Self::Boolean { .. }
             | Self::IntegerPrimitive {
                 operation: IntegerOperation::Negate,
@@ -257,6 +275,7 @@ impl Expr {
             | Self::IntegerSum {}
             | Self::IntegerPrimitive { .. }
             | Self::TextConcat {}
+            | Self::Integer { .. }
             | Self::Boolean { .. } => Ok(()),
             Self::If {
                 condition,
@@ -416,6 +435,7 @@ pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate
         Failure::Bounds => Err(crate::Error::BoundsConflict),
         Failure::Types => Err(crate::Error::TypeConflict),
         Failure::Arithmetic => Err(crate::Error::Arithmetic),
+        Failure::DivisionByZero => Err(crate::Error::DivisionByZero),
         Failure::Comparison => Err(crate::Error::Comparison),
         Failure::Ordering => Err(crate::Error::Ordering),
         Failure::Logical => Err(crate::Error::Logical),
@@ -473,6 +493,7 @@ impl End {
     ) -> Result<Option<i64>, crate::Error> {
         Ok(match self {
             Self::Input { input, endpoint: e } => endpoint(input.value(l, r), *e),
+            Self::Integer { value } => Some(*value),
             Self::Local { endpoint } => endpoint.value(locals),
             Self::Empty {} => None,
             Self::Choose {
@@ -540,6 +561,7 @@ impl Expr {
     fn eval_unary(&self, left: &Value) -> Result<Value, crate::Error> {
         match self {
             Self::Input { input: Side::Left } => Ok(left.clone()),
+            Self::Integer { value } => Ok(Value::Integer(*value)),
             Self::Boolean { value } => Ok(Value::Boolean(*value)),
             Self::Fail {
                 reason: Failure::Logical,
@@ -600,8 +622,13 @@ impl Expr {
                 IntegerOperation::Negate => crate::runtime::integer_negate(l),
                 IntegerOperation::Difference => crate::runtime::integer_difference(l, r),
                 IntegerOperation::Product => crate::runtime::integer_product(l, r),
+                IntegerOperation::Divide => crate::runtime::integer_divide(l, r),
+                IntegerOperation::Modulo => crate::runtime::integer_modulo(l, r),
+                IntegerOperation::Quotient => crate::runtime::integer_quotient(l, r),
+                IntegerOperation::Remainder => crate::runtime::integer_remainder(l, r),
             },
             Self::TextConcat {} => crate::runtime::text_concat(l, r),
+            Self::Integer { value } => Ok(Value::Integer(*value)),
             Self::Boolean { value } => Ok(Value::Boolean(*value)),
             Self::Fail { reason } => fail(*reason, l, r),
         }
@@ -828,6 +855,86 @@ mod tests {
             );
             assert!(parse(&control).is_err(), "{expr}");
         }
+    }
+
+    #[test]
+    fn division_primitives_and_integer_literal_roles() {
+        use super::{interpret, interpret_unary};
+        use crate::runtime::Value as Scalar;
+
+        for (operation, expected) in [
+            ("divide", -3),
+            ("modulo", 2),
+            ("quotient", -2),
+            ("remainder", -1),
+        ] {
+            let control = format!(
+                r#"{{"formatVersion":1,"function":"{operation}","result":{{"op":"integerPrimitive","operation":"{operation}"}}}}"#
+            );
+            assert_eq!(
+                interpret(&control, Scalar::Integer(-7), Scalar::Integer(3)).ok(),
+                Some(Scalar::Integer(expected))
+            );
+            assert!(interpret_unary(&control, Scalar::Integer(7)).is_err());
+            let unary = control.replacen(
+                &format!(r#""function":"{operation}""#),
+                r#""function":"negate""#,
+                1,
+            );
+            assert!(parse(&unary).is_err());
+        }
+        for value in [i64::MIN, i64::MAX] {
+            let literal = format!(r#"{{"op":"integer","value":{value}}}"#);
+            let control = format!(r#"{{"formatVersion":1,"result":{literal}}}"#);
+            assert_eq!(
+                interpret(&control, Scalar::Null, Scalar::Top).ok(),
+                Some(Scalar::Integer(value))
+            );
+            let p = parse(&control).expect("valid integer value literal");
+            assert_eq!(serde_json::json!(p.result)["op"], "integerValue");
+            let unary = control.replace(
+                r#""formatVersion":1"#,
+                r#""formatVersion":1,"function":"negate""#,
+            );
+            assert_eq!(
+                interpret_unary(&unary, Scalar::Null).ok(),
+                Some(Scalar::Integer(value))
+            );
+            assert!(parse(&control.replace("integer", "integerValue")).is_err());
+            let bounds = format!(
+                r#"{{"formatVersion":1,"result":{{"op":"bounds","lower":{literal},"upper":{literal}}}}}"#
+            );
+            let p = parse(&bounds).expect("valid integer endpoint literal");
+            assert_eq!(
+                serde_json::json!(p.result)["lower"]["op"],
+                "integerEndpoint"
+            );
+            assert_eq!(
+                interpret(&bounds, Scalar::Null, Scalar::Top).ok(),
+                Some(Scalar::Bounds {
+                    lower: Some(value),
+                    upper: Some(value)
+                })
+            );
+            assert!(parse(&bounds.replace("integer", "integerEndpoint")).is_err());
+        }
+        for value in ["9223372036854775808", "-9223372036854775809", "1.0", "null"] {
+            let control =
+                format!(r#"{{"formatVersion":1,"result":{{"op":"integer","value":{value}}}}}"#);
+            assert!(parse(&control).is_err());
+        }
+        let failure = r#"{"formatVersion":1,"result":{"op":"fail","reason":"divisionByZero"}}"#;
+        assert!(matches!(
+            interpret(failure, Scalar::Null, Scalar::Top),
+            Err(crate::Error::DivisionByZero)
+        ));
+        assert!(
+            parse(&failure.replace(
+                r#""formatVersion":1"#,
+                r#""formatVersion":1,"function":"negate""#
+            ))
+            .is_err()
+        );
     }
 
     #[test]

@@ -11,7 +11,8 @@ No language syntax, AST/rule instruction, precedence or value-domain expansion.
 Both children still evaluate left-first before binary policy checks; unary child
 errors precede negation checks. Abstract operands remain rejected, not propagated
 or solved backwards. Signed MIN literals still parse directly without negating an
-out-of-range positive literal. Division/remainder kernels are unchanged.
+out-of-range positive literal. [Division/remainder control](division-control.md)
+extends this boundary with CUE zero/unit-divisor policy over checked math.
 
 ## Finite control and compiler boundary
 

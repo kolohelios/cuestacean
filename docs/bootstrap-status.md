@@ -33,6 +33,7 @@ advantages remain a hypothesis, not a measured result.
 | AST construction | `bootstrap/ast-*.cue`, [builder contract](../bootstrap/ast.md) | `src/ast.rs`; typed builders, no native parser JSON-map assembly |
 | Pratt expression loop | `bootstrap/pratt.cue`, [control contract](../bootstrap/pratt.md) | `src/pratt.rs`, checked native frame callbacks in `src/parser.rs` |
 | Primary dispatch | `bootstrap/primary.cue`, [primary contract](../bootstrap/primary.md) | Same control compiler; groups, negation, bounds, atoms, integers |
+| Division/remainder policy | `bootstrap/{divide,modulo,quotient,remainder}-control.cue`, [division control](../bootstrap/division-control.md) | CUE domain/zero/mode/unit-divisor selection; native checked division math |
 | Checked integer dispatch | `bootstrap/{negate,difference,product}-control.cue`, [integer control](../bootstrap/integer-control.md) | Same unary/binary compiler; CUE domain/operation policy over borrowed checked kernels |
 | Unary logical not | `bootstrap/logical-not.cue`, [unary control](../bootstrap/logical-not.md) | Checked unary arity/subset; same compiler and generated one-operand policy |
 | Logical value selection | `bootstrap/{logic-fragments,logical-and,logical-or}.cue`, [logical control](../bootstrap/logic.md) | Same finite binary compiler; native boolean inspection; CUE concreteness/result policy |
@@ -45,8 +46,9 @@ advantages remain a hypothesis, not a measured result.
 Paths beginning `src/` above are under `bootstrap/executor/`.
 Generated Rust goldens are under `bootstrap/generated/`.
 
-Negation/subtraction/multiplication now use CUE domain/operation dispatch too;
-checked integer primitives and division/remainder implementation remain native.
+All arithmetic dispatch now uses CUE control, including division/remainder
+zero checks and unit-divisor selection. Checked integer numeric computations
+and defensive kernel representation/zero checks remain native.
 
 Native boundaries still include grammar validation/lookup, checked cursor and
 frame operations, lowering compiler/rendering and cursor kernels, value representation/projection, finite comparison, arithmetic
@@ -166,6 +168,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#88](https://github.com/kolohelios/cuestacean/pull/88) | CUE-owned logical selection and export-schema resource fixes |
 | [#90](https://github.com/kolohelios/cuestacean/pull/90) | CUE-owned unary logical not and checked one-operand control |
 | [#92](https://github.com/kolohelios/cuestacean/pull/92) | CUE-owned null/top lattice boundaries |
+| [#94](https://github.com/kolohelios/cuestacean/pull/94) | CUE-owned negation/subtraction/multiplication dispatch |
 
 ## Build and validation runbook
 
