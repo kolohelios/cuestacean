@@ -169,7 +169,9 @@ CUE text-byte/list-element length dispatch, without a native builtin parser.
 loop is CUE-owned over checked single-element frame callbacks. Existing
 stringLength/listLength APIs remain domain-specific. [List indexing](../list-indexing.md)
 adds source postfix control and a binary AST/rule over CUE domain/range guards;
-checked extraction shares selected text without retaining the parent container. Default reference/generated execution
+checked extraction shares selected text or nested child without retaining the parent
+container. [Nested expression values](../../docs/nested-list-values.md) retain
+private certified depth/node metadata; raw scalar-list literals remain flat. Default reference/generated execution
 now shares a per-invocation [AST entry budget](../evaluation-budget.md): 4096
 visits and 64 active nodes, including repeated children/root. This is not a bound
 on all rule-instruction, byte/allocation or JSON-decoding work.

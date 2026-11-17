@@ -128,11 +128,16 @@ fn admission_is_per_item_and_child_error_precedence_is_independent() {
     for bad in [
         abstract_value,
         json!({"kind":"top"}),
-        list(json!([])),
-        json!({"kind":"list","value":[]}),
+        json!({"kind":"boolType"}),
+        json!({"kind":"stringType"}),
     ] {
         for result in both(list(json!([integer(1), bad]))) {
             assert!(matches!(result, Err(Error::ListElement { index: 1 })));
+        }
+    }
+    for child in [list(json!([])), json!({"kind":"list","value":[]})] {
+        for result in both(list(json!([integer(1), child]))) {
+            assert_eq!(result.expect("validated list child"), json!([1, []]));
         }
     }
 }

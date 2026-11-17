@@ -148,6 +148,9 @@ fn rejected_sources_and_cli_errors_fail_without_results() {
                 Some("booleans-type" | "booleans-bounds" | "string-mixed") => {
                     assert_eq!(stderr, "conflicting value types\n")
                 }
+                Some("list-nested-unequal") => {
+                    assert_eq!(stderr, "conflicting closed list values\n", "{path:?}");
+                }
                 Some("string-unequal") => {
                     assert!(
                         stderr.contains("conflicting string values"),

@@ -89,8 +89,12 @@ pub enum Error {
     Array { field: String },
     #[snafu(display("closed list exceeds 64 elements"))]
     ListCapacity,
-    #[snafu(display("closed list element {index} requires a concrete scalar"))]
+    #[snafu(display("closed list element {index} requires a concrete scalar or closed list"))]
     ListElement { index: usize },
+    #[snafu(display("closed list exceeds 32 value levels"))]
+    ListDepth,
+    #[snafu(display("closed list exceeds 4096 logical value nodes"))]
+    ListNodes,
     #[snafu(display("invalid list control state: {reason}"))]
     ListState { reason: &'static str },
     #[snafu(display("list control exceeds 4096 steps"))]

@@ -4,14 +4,16 @@ JSON AST `listExpression {elements:[Expression...]}` extends the literal-only
 list boundary without changing `list {value:[raw scalars...]}`. Rule instruction
 `listExpression {field}` selects the expression array. Capacity (at most 64)
 checks before any element evaluation. Default CUE control evaluates elements in
-source order, admits each concrete null/bool/i64/text result, appends it and
+source order, admits each concrete scalar or validated closed-list result, appends it and
 advances. The first child error or element-admission failure stops processing;
-admission of an earlier abstract/nested value precedes errors in later children.
-This is strict flat-list construction, not deferred/general CUE list solving.
+admission of an earlier abstract value precedes errors in later children.
+[Nested-value shape guards](../docs/nested-list-values.md) run on append before
+later children. This is strict concrete construction, not deferred list solving.
 
-`ClosedList` remains opaque, immutable and scalar-only. Nested expression-list
-syntax may form an AST, but a list-valued element rejects; no nested runtime
-representation is admitted. Completed results still go through its defensive
+`ClosedList` remains opaque and immutable. Nested expression lists now use
+certified child metadata: width 64, value depth 32 and logical nodes 4096 weighted
+by occurrences even when Arcs share. The old scalar-only raw literal codec stays
+unchanged; safe immutable construction cannot create cycles. Completed results still go through its defensive
 constructor. [Source list syntax](source-lists.md) now builds this AST through
 CUE primary control; open/abstract lists, structs/references and reference graph
 ownership remain separate designs/work.

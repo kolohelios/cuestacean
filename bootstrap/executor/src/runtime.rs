@@ -157,6 +157,7 @@ pub struct ListFrame<'a> {
     stage: ListStage,
     candidate: Option<Value>,
     buffer: Vec<Value>,
+    shape: ListShape,
     result: Option<Value>,
     fuel: usize,
 }
@@ -229,10 +230,15 @@ impl ListFrame<'_> {
         if self.buffer.len() >= 64 {
             return Err(Error::ListCapacity);
         }
+        let value = self.candidate.as_ref().ok_or(Error::ListState {
+            reason: "missing item candidate",
+        })?;
+        let shape = self.shape.include(value, index)?;
         let value = self.candidate.take().ok_or(Error::ListState {
             reason: "missing item candidate",
         })?;
         self.buffer.push(value);
+        self.shape = shape;
         self.stage = ListStage::Appended(index);
         Ok(())
     }
@@ -301,6 +307,7 @@ pub fn list_expression_with_driver(
         stage: ListStage::Start,
         candidate: None,
         buffer: Vec::new(),
+        shape: ListShape::EMPTY,
         result: None,
         fuel: 4096,
     };
@@ -353,39 +360,75 @@ pub fn list_expression_interpreted(
     })
 }
 
-/// Immutable, shared flat list of at most 64 concrete scalar values.
+/// Certified logical shape, counting shared children once per occurrence.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ListShape {
+    depth: usize,
+    nodes: usize,
+}
+
+impl ListShape {
+    const EMPTY: Self = Self { depth: 1, nodes: 1 };
+
+    /// Compute a prospective parent shape without traversing child storage.
+    fn include(self, value: &Value, index: usize) -> Result<Self, Error> {
+        let child = match value {
+            Value::Null | Value::Integer(_) | Value::Boolean(_) | Value::Text(_) => Self::EMPTY,
+            Value::List(list) => list.shape,
+            _ => return Err(Error::ListElement { index }),
+        };
+        // Both operands are certified bounded shapes, so these sums cannot overflow.
+        let depth = self.depth.max(1 + child.depth);
+        if depth > 32 {
+            return Err(Error::ListDepth);
+        }
+        let nodes = self.nodes + child.nodes;
+        if nodes > 4096 {
+            return Err(Error::ListNodes);
+        }
+        Ok(Self { depth, nodes })
+    }
+}
+
+/// Immutable, shared closed list with bounded width and logical depth/node count.
+/// Children are already-built immutable lists, so shared ownership forms a DAG.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ClosedList(Arc<[Value]>);
+pub struct ClosedList {
+    values: Arc<[Value]>,
+    shape: ListShape,
+}
 
 impl ClosedList {
-    /// Validate capacity before inspecting elements; nested lists are not admitted.
+    /// Validate capacity first, then each concrete child and prospective parent shape.
     pub fn new(values: Vec<Value>) -> Result<Self, Error> {
         if values.len() > 64 {
             return Err(Error::ListCapacity);
         }
+        let mut shape = ListShape::EMPTY;
         for (index, value) in values.iter().enumerate() {
-            if !matches!(
-                value,
-                Value::Null | Value::Integer(_) | Value::Boolean(_) | Value::Text(_)
-            ) {
-                return Err(Error::ListElement { index });
-            }
+            shape = shape.include(value, index)?;
         }
-        Ok(Self(Arc::from(values)))
+        Ok(Self {
+            values: Arc::from(values),
+            shape,
+        })
     }
 
     pub fn as_slice(&self) -> &[Value] {
-        &self.0
+        &self.values
     }
 
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.values.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.values.is_empty()
     }
 }
+
+#[cfg(test)]
+mod nested_tests;
 
 /// Owned value scaffold; abstract types are not conflicting values.
 /// Concrete integers are still restricted to the bootstrap i64 domain.

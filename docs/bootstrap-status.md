@@ -11,7 +11,7 @@ machinery progressively expressed in a CUE-hosted DSL. Merely using CUE to
 configure a permanently handwritten implementation is not the end goal.
 
 Current implementation: a deliberately small null/top/boolean/checked-i64/string source
-subset plus [closed scalar source lists](../bootstrap/source-lists.md) ([ownership](closed-lists.md)) ([string syntax](../bootstrap/strings.md), [ownership](string-values.md)),
+subset plus [bounded concrete source lists](../bootstrap/source-lists.md) ([ownership](closed-lists.md)) ([string syntax](../bootstrap/strings.md), [ownership](string-values.md)),
 not full CUE or bootstrap closure. Go CUE still exports specifications. Six
 bootstrap compilers still require native decoders, kernels and policy-compilation
 machinery; increasingly their executable lowering policies live in CUE. Performance
@@ -78,7 +78,8 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   [exclusive i64 bounds](../bootstrap/exclusive-bounds.md) reject empty `>MAX`/`<MIN`
   only within the bounded implementation domain, not all CUE integers;
   [source lists and `len(expression)`](../bootstrap/source-lists.md) for concrete
-  flat arrays and text-byte/list-element length;
+  arrays and text-byte/list-element length, including
+  [bounded nested expression values](nested-list-values.md);
   [closed-list indexing](../bootstrap/list-indexing.md) with computed i64 indices;
   parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary `!` and expression negation;
   `div`, `mod`, `quo`, `rem`; concrete scalar `==` / `!=`; integer/text `<` / `<=` / `>` / `>=`; CUE-owned UTF-8 `//` comment trivia.
@@ -129,16 +130,18 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 - Newline-after-operand and newline-after-word-operator rejection remain
   CUE-owned and conservative, not full CUE comma insertion. Only LF ends `//` comments; CR alone remains comment content.
   NUL/BOM inside comments are rejected by CUE. Block comments, declarations,
-  references, structs/open or nested list values, general string syntax, further scalar types, disjunctions/defaults
+  references, structs/open or abstract list constraints, general string syntax, further scalar types, disjunctions/defaults
   and general constraint solving are absent.
-- JSON APIs (`execute_json`, `generated::execute_json`) also support bounded flat
-  closed scalar lists; general list solving remains absent.
+- JSON APIs (`execute_json`, `generated::execute_json`) support bounded nested
+  concrete expression-list values; raw scalar-list literal payloads remain flat.
+  General list solving remains absent.
   They preserve null,
   strings, bools and exact i64s. Top output is `non-concrete value`. Legacy `execute` rejects concrete strings/booleans.
   JSON AST `string`/`stringType` now also come from the bounded CUE source-string profile.
   The public default generated evaluator is gated by `semantics`; fresh seeds
   omit it, with no stubs. Values are Clone, not Copy; shared text uses `Arc<str>`.
-  Closed-list storage is opaque, immutable and scalar-only; structural/reference
+  Closed-list storage is opaque and immutable with certified 32-level/4096-node
+  logical shape, forming an acyclic shared value DAG. Reference/mutable solver
   graph ownership still needs a separate design.
 
 ### Resource and phase invariants
@@ -165,7 +168,10 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   counted/once/zero forms ([contract](../bootstrap/scanner-repeat.md)).
 - Expression lists: CUE list control has 4096 steps per frame, separate from
   shared AST visits/depth. Capacity 64 checks before children; default CUE admits
-  each scalar result before advancing. Result count/completion, cursor and final
+  each concrete scalar/list result before advancing. Native append enforces
+  prospective parent value depth/logical nodes before later children. Width64,
+  value depth32/logical nodes4096 are separate from AST/parse/control budgets.
+  Result count/completion, cursor and final
   opaque-list invariants remain native safety checks, not traversal policy.
 - AST builders: typed/scoped parameters and bounded expressions; repeated owned
   arguments clone only before their final use, which moves.
@@ -222,6 +228,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#126](https://github.com/kolohelios/cuestacean/pull/126) | CUE element evaluation and validated list control target |
 | [#128](https://github.com/kolohelios/cuestacean/pull/128) | CUE source-list iteration and text/list length dispatch |
 | [#130](https://github.com/kolohelios/cuestacean/pull/130) | CUE closed-list domain/range and postfix index control |
+| [#132](https://github.com/kolohelios/cuestacean/pull/132) | CUE exclusive i64 bounds and unary endpoint comparisons/offsets |
 
 ## Build and validation runbook
 
