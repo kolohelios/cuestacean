@@ -100,7 +100,11 @@ uses the existing group operations, without a new compiler opcode. `negation-pre
 that distinguishes signed decimal literals from expression negation. `primary-cross-phase` deliberately
 attempts expression operations inside primary dispatch to exercise state guards.
 
-Generated evaluator code contains node-kind dispatch and lowered rule expressions. It
+Generated evaluator code contains node-kind dispatch and lowered rule expressions.
+CUE now emits per-invocation [AST evaluation context](../evaluation-budget.md)
+creation, checked entry and private dispatch body; recursive `evaluate` calls
+share the current context. Both normal and altered/reversed/escaped-rule modules
+retain the same native visit/depth guard, independently of compiler/module fuel. It
 shares the handwritten `bootstrap_executor::runtime` primitives for JSON
 validation, field access, integer/type values, inclusive bounds, unification,
 and checked integer arithmetic, including `difference`/subtraction. Unification delegates to `unify.rs`, generated

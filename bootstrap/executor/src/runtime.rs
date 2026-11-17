@@ -83,6 +83,44 @@ mod generated_lower_bound;
 #[path = "../../generated/upper-bound.rs"]
 mod generated_upper_bound;
 
+/// Per-invocation AST entry budget, not a bound on all evaluator work.
+/// Recursive entries must reuse the callback's context.
+#[derive(Debug)]
+pub struct EvaluationContext {
+    remaining: usize,
+    depth: usize,
+}
+
+impl Default for EvaluationContext {
+    fn default() -> Self {
+        Self {
+            remaining: 4096,
+            depth: 0,
+        }
+    }
+}
+
+impl EvaluationContext {
+    /// Charge one AST entry, restoring active depth on success or Result error.
+    /// Accepted entries consume a visit even on error; rejected entries do not.
+    pub fn visit<T>(
+        &mut self,
+        evaluate: impl FnOnce(&mut Self) -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        if self.remaining == 0 {
+            return Err(Error::EvaluationVisits);
+        }
+        if self.depth >= 64 {
+            return Err(Error::EvaluationDepth);
+        }
+        self.remaining -= 1;
+        self.depth += 1;
+        let result = evaluate(self);
+        self.depth -= 1;
+        result
+    }
+}
+
 /// Owned scalar scaffold; abstract types are not conflicting values.
 /// Concrete integers are still restricted to the bootstrap i64 domain.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -430,9 +468,78 @@ pub fn unify(left: Value, right: Value) -> Result<Value, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Value, checked_text_length, integer_sum, text_buffer, text_concat};
+    use super::{
+        EvaluationContext, Value, checked_text_length, integer_sum, text_buffer, text_concat,
+    };
     use crate::Error;
     use std::sync::Arc;
+
+    fn nested_visits(context: &mut EvaluationContext, levels: usize) -> Result<(), Error> {
+        context.visit(|context| {
+            if levels == 1 {
+                Ok(())
+            } else {
+                nested_visits(context, levels - 1)
+            }
+        })
+    }
+
+    #[test]
+    fn evaluation_depth_boundary_and_restoration() {
+        let mut context = EvaluationContext::default();
+        assert!(nested_visits(&mut context, 64).is_ok());
+        assert_eq!((context.remaining, context.depth), (4096 - 64, 0));
+        assert!(matches!(
+            nested_visits(&mut context, 65),
+            Err(Error::EvaluationDepth)
+        ));
+        // Only the 64 accepted entries were charged; the error unwound them all.
+        assert_eq!((context.remaining, context.depth), (4096 - 128, 0));
+        assert!(nested_visits(&mut context, 64).is_ok());
+        assert_eq!((context.remaining, context.depth), (4096 - 192, 0));
+    }
+
+    #[test]
+    fn evaluation_errors_consume_visits_without_replenishing() {
+        let mut context = EvaluationContext::default();
+        for remaining in (0..4096).rev() {
+            let result: Result<(), Error> = context.visit(|context| {
+                assert_eq!(context.depth, 1);
+                Err(Error::Kind)
+            });
+            assert!(matches!(result, Err(Error::Kind)));
+            assert_eq!((context.remaining, context.depth), (remaining, 0));
+        }
+        assert!(matches!(
+            context.visit::<()>(|_| panic!("exhausted callback must not run")),
+            Err(Error::EvaluationVisits)
+        ));
+        assert_eq!((context.remaining, context.depth), (0, 0));
+        assert!(EvaluationContext::default().visit(|_| Ok(())).is_ok());
+    }
+
+    #[test]
+    fn evaluation_visit_priority_at_depth_boundary() {
+        let mut context = EvaluationContext::default();
+        for _ in 0..(4096 - 64) {
+            assert!(context.visit(|_| Ok(())).is_ok());
+        }
+        // The final permitted entry is also at the depth limit. Both guards
+        // reject its child, so visit exhaustion must win over active depth.
+        assert!(matches!(
+            nested_visits(&mut context, 65),
+            Err(Error::EvaluationVisits)
+        ));
+        assert_eq!((context.remaining, context.depth), (0, 0));
+        assert_eq!(
+            Error::EvaluationVisits.to_string(),
+            "evaluation exceeds 4096 AST visits"
+        );
+        assert_eq!(
+            Error::EvaluationDepth.to_string(),
+            "evaluation exceeds 64 active AST nodes"
+        );
+    }
 
     #[test]
     fn text_length_conversion_extrema_without_allocation() {

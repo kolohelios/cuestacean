@@ -71,6 +71,10 @@ pub enum Error {
         document: &'static str,
         version: u32,
     },
+    #[snafu(display("evaluation exceeds 4096 AST visits"))]
+    EvaluationVisits,
+    #[snafu(display("evaluation exceeds 64 active AST nodes"))]
+    EvaluationDepth,
     #[snafu(display("expression must have a string kind"))]
     Kind,
     #[snafu(display("no rule for node kind {kind:?}"))]
@@ -278,7 +282,8 @@ enum Instruction {
 pub fn execute(program: &str, rules: &str) -> Result<i64, Error> {
     let program = runtime::program(program)?;
     let rules = parse_rules(rules)?;
-    runtime::concrete(evaluate(&program, &rules.rules)?)
+    let mut context = runtime::EvaluationContext::default();
+    runtime::concrete(evaluate(&program, &rules.rules, &mut context)?)
 }
 
 /// Execute to an exact concrete JSON scalar (integer, boolean or string).
@@ -286,7 +291,8 @@ pub fn execute(program: &str, rules: &str) -> Result<i64, Error> {
 pub fn execute_json(program: &str, rules: &str) -> Result<Value, Error> {
     let program = runtime::program(program)?;
     let rules = parse_rules(rules)?;
-    runtime::concrete_json(evaluate(&program, &rules.rules)?)
+    let mut context = runtime::EvaluationContext::default();
+    runtime::concrete_json(evaluate(&program, &rules.rules, &mut context)?)
 }
 
 fn parse_rules(input: &str) -> Result<Rules, Error> {
@@ -302,12 +308,18 @@ fn parse_rules(input: &str) -> Result<Rules, Error> {
 }
 
 #[cfg(feature = "semantics")]
-fn evaluate(node: &Value, rules: &BTreeMap<String, Rule>) -> Result<runtime::Value, Error> {
-    let kind = runtime::kind(node)?;
-    let rule = rules.get(kind).ok_or_else(|| Error::MissingRule {
-        kind: kind.to_string(),
-    })?;
-    instruction(&rule.result, node, rules)
+fn evaluate(
+    node: &Value,
+    rules: &BTreeMap<String, Rule>,
+    context: &mut runtime::EvaluationContext,
+) -> Result<runtime::Value, Error> {
+    context.visit(|context| {
+        let kind = runtime::kind(node)?;
+        let rule = rules.get(kind).ok_or_else(|| Error::MissingRule {
+            kind: kind.to_string(),
+        })?;
+        instruction(&rule.result, node, rules, context)
+    })
 }
 
 #[cfg(feature = "semantics")]
@@ -315,6 +327,7 @@ fn instruction(
     op: &Instruction,
     node: &Value,
     rules: &BTreeMap<String, Rule>,
+    context: &mut runtime::EvaluationContext,
 ) -> Result<runtime::Value, Error> {
     match op {
         Instruction::Null {} => Ok(runtime::Value::Null),
@@ -324,93 +337,101 @@ fn instruction(
         Instruction::Boolean { value } => Ok(runtime::Value::Boolean(*value)),
         Instruction::Text { field } => runtime::text(node, field),
         Instruction::StringType {} => Ok(runtime::Value::String),
-        Instruction::LowerBound { value } => runtime::lower_bound(instruction(value, node, rules)?),
-        Instruction::UpperBound { value } => runtime::upper_bound(instruction(value, node, rules)?),
+        Instruction::LowerBound { value } => {
+            runtime::lower_bound(instruction(value, node, rules, context)?)
+        }
+        Instruction::UpperBound { value } => {
+            runtime::upper_bound(instruction(value, node, rules, context)?)
+        }
         Instruction::Field { field: name } => runtime::integer(node, name),
-        Instruction::Evaluate { field: name } => evaluate(runtime::field(node, name)?, rules),
-        Instruction::Negate { value } => runtime::negate(instruction(value, node, rules)?),
+        Instruction::Evaluate { field: name } => {
+            evaluate(runtime::field(node, name)?, rules, context)
+        }
+        Instruction::Negate { value } => runtime::negate(instruction(value, node, rules, context)?),
         Instruction::Sum { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::sum(left, right)
         }
         Instruction::Difference { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::difference(left, right)
         }
         Instruction::Product { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::product(left, right)
         }
         Instruction::Divide { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::divide(left, right)
         }
         Instruction::Modulo { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::modulo(left, right)
         }
         Instruction::Quotient { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::quotient(left, right)
         }
         Instruction::Remainder { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::remainder(left, right)
         }
         Instruction::StringLength { value } => {
-            runtime::string_length(instruction(value, node, rules)?)
+            runtime::string_length(instruction(value, node, rules, context)?)
         }
-        Instruction::LogicalNot { value } => runtime::logical_not(instruction(value, node, rules)?),
+        Instruction::LogicalNot { value } => {
+            runtime::logical_not(instruction(value, node, rules, context)?)
+        }
         Instruction::LogicalAnd { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::logical_and(left, right)
         }
         Instruction::LogicalOr { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::logical_or(left, right)
         }
         Instruction::Less { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::less(left, right)
         }
         Instruction::LessEqual { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::less_equal(left, right)
         }
         Instruction::Greater { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::greater(left, right)
         }
         Instruction::GreaterEqual { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::greater_equal(left, right)
         }
         Instruction::Equal { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::equal(left, right)
         }
         Instruction::NotEqual { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::not_equal(left, right)
         }
         Instruction::Unify { left, right } => {
-            let left = instruction(left, node, rules)?;
-            let right = instruction(right, node, rules)?;
+            let left = instruction(left, node, rules, context)?;
+            let right = instruction(right, node, rules, context)?;
             runtime::unify(left, right)
         }
     }

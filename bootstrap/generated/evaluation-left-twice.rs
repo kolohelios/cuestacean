@@ -3,98 +3,114 @@ use bootstrap_executor::{Error, runtime};
 use serde_json::Value;
 
 pub fn execute(input: &str) -> Result<i64, Error> {
-    runtime::concrete(evaluate(&runtime::program(input)?)?)
+    let mut _context = runtime::EvaluationContext::default();
+    runtime::concrete(evaluate(&runtime::program(input)?, &mut _context)?)
 }
 
 pub fn execute_json(input: &str) -> Result<Value, Error> {
-    runtime::concrete_json(evaluate(&runtime::program(input)?)?)
+    let mut _context = runtime::EvaluationContext::default();
+    runtime::concrete_json(evaluate(&runtime::program(input)?, &mut _context)?)
 }
 
-fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
+fn evaluate(
+    node: &Value,
+    _context: &mut runtime::EvaluationContext,
+) -> Result<runtime::Value, Error> {
+    _context.visit(|_context| evaluate_node(node, _context))
+}
+
+fn evaluate_node(
+    node: &Value,
+    _context: &mut runtime::EvaluationContext,
+) -> Result<runtime::Value, Error> {
     match runtime::kind(node)? {
         "add" => runtime::sum(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "left")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
         ),
         "boolType" => Ok::<_, Error>(runtime::Value::Bool),
         "divide" => runtime::divide(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "equal" => runtime::equal(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "false" => Ok::<_, Error>(runtime::Value::Boolean(false)),
         "greater" => runtime::greater(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "greaterEqual" => runtime::greater_equal(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "intType" => Ok::<_, Error>(runtime::Value::Int),
         "integer" => runtime::integer(node, "value"),
         "less" => runtime::less(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "lessEqual" => runtime::less_equal(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "logicalAnd" => runtime::logical_and(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
-        "logicalNot" => runtime::logical_not((evaluate(runtime::field(node, "operand")?))?),
+        "logicalNot" => {
+            runtime::logical_not((evaluate(runtime::field(node, "operand")?, _context))?)
+        }
         "logicalOr" => runtime::logical_or(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "lowerBound" => runtime::lower_bound((runtime::integer(node, "value"))?),
         "lowerBoundExpression" => {
-            runtime::lower_bound((evaluate(runtime::field(node, "operand")?))?)
+            runtime::lower_bound((evaluate(runtime::field(node, "operand")?, _context))?)
         }
         "modulo" => runtime::modulo(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "multiply" => runtime::product(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
-        "negate" => runtime::negate((evaluate(runtime::field(node, "operand")?))?),
+        "negate" => runtime::negate((evaluate(runtime::field(node, "operand")?, _context))?),
         "notEqual" => runtime::not_equal(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "null" => Ok::<_, Error>(runtime::Value::Null),
         "quotient" => runtime::quotient(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "remainder" => runtime::remainder(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "string" => runtime::text(node, "value"),
-        "stringLength" => runtime::string_length((evaluate(runtime::field(node, "operand")?))?),
+        "stringLength" => {
+            runtime::string_length((evaluate(runtime::field(node, "operand")?, _context))?)
+        }
         "stringType" => Ok::<_, Error>(runtime::Value::String),
         "subtract" => runtime::difference(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "top" => Ok::<_, Error>(runtime::Value::Top),
         "true" => Ok::<_, Error>(runtime::Value::Boolean(true)),
         "unify" => runtime::unify(
-            (evaluate(runtime::field(node, "left")?))?,
-            (evaluate(runtime::field(node, "right")?))?,
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "upperBound" => runtime::upper_bound((runtime::integer(node, "value"))?),
         "upperBoundExpression" => {
-            runtime::upper_bound((evaluate(runtime::field(node, "operand")?))?)
+            runtime::upper_bound((evaluate(runtime::field(node, "operand")?, _context))?)
         }
         kind => Err(Error::MissingRule {
             kind: kind.to_string(),

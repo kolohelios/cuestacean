@@ -164,7 +164,10 @@ expression loop and associativity/binding-power decisions; its separate
 [primary program](../primary.md) owns dispatch and grouping control, now including
 [grammar-selected unary calls](../unary-calls.md). Default `len(expression)` uses
 the existing eager string-byte-length rule/control, without a native builtin parser.
-Existing JSON interfaces remain unchanged.
+Existing JSON interfaces remain unchanged. Default reference/generated execution
+now shares a per-invocation [AST entry budget](../evaluation-budget.md): 4096
+visits and 64 active nodes, including repeated children/root. This is not a bound
+on all rule-instruction, byte/allocation or JSON-decoding work.
 `bootstrap-scan-codegen <program.json> [lowering.json]` uses a
 [shared CUE backend](../scan-lowering.md) for scanner source/branch layout;
 checked flow/label analysis, cursor and pattern rendering remain native.

@@ -3,14 +3,26 @@ use bootstrap_executor::{Error, runtime};
 use serde_json::Value;
 
 pub fn execute(input: &str) -> Result<i64, Error> {
-    runtime::concrete(evaluate(&runtime::program(input)?)?)
+    let mut _context = runtime::EvaluationContext::default();
+    runtime::concrete(evaluate(&runtime::program(input)?, &mut _context)?)
 }
 
 pub fn execute_json(input: &str) -> Result<Value, Error> {
-    runtime::concrete_json(evaluate(&runtime::program(input)?)?)
+    let mut _context = runtime::EvaluationContext::default();
+    runtime::concrete_json(evaluate(&runtime::program(input)?, &mut _context)?)
 }
 
-fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
+fn evaluate(
+    node: &Value,
+    _context: &mut runtime::EvaluationContext,
+) -> Result<runtime::Value, Error> {
+    _context.visit(|_context| evaluate_node(node, _context))
+}
+
+fn evaluate_node(
+    node: &Value,
+    _context: &mut runtime::EvaluationContext,
+) -> Result<runtime::Value, Error> {
     match runtime::kind(node)? {
         "kind\"\\\nλ" => runtime::unify(
             (runtime::lower_bound((runtime::integer(node, "payload\"\\\nλ"))?))?,
