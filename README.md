@@ -58,6 +58,8 @@ with CUE-owned identity, null-domain and concreteness guards.
 subtraction and multiplication through CUE over native checked primitives.
 [Division policy](bootstrap/division-control.md) extends this to zero checks,
 Euclidean/truncating primitive selection and the remainder unit-divisor case.
+[Output admission](bootstrap/output-control.md) now selects concrete domains and
+incomplete diagnostics in unary CUE control, with native extraction/JSON encoding.
 Value representation and low-level primitives remain native.
 
 ## CUE all the way down

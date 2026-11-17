@@ -66,6 +66,12 @@ fn cue_styles_preserve_every_closed_enum_spelling() {
         ("ordering", "Ordering"),
         ("logical", "Logical"),
         ("divisionByZero", "DivisionByZero"),
+        ("incompleteInt", "IncompleteInt"),
+        ("incompleteValue", "IncompleteValue"),
+        ("incompleteBool", "IncompleteBool"),
+        ("incompleteString", "IncompleteString"),
+        ("incompleteBounds", "IncompleteBounds"),
+        ("integerOutput", "IntegerOutput"),
     ] {
         let input = control(json!({"op":"fail","reason":wire}));
         assert!(

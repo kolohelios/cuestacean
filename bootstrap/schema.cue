@@ -100,15 +100,16 @@ package bootstrap
 	op: "compare", left: #UnifyEndpoint, right: #UnifyEndpoint, relation: #UnifyRelation
 } | {op: "and" | "or", left: #UnifyCondition, right: #UnifyCondition}
 #IntegerOperation: "negate" | "difference" | "product" | "divide" | "modulo" | "quotient" | "remainder"
+#OutputFailure: "incompleteInt" | "incompleteValue" | "incompleteBool" | "incompleteString" | "incompleteBounds" | "integerOutput"
 #UnifyExpression: #ControlInteger | {op: "integerPrimitive", operation: #IntegerOperation} | {op: "boolean", value: bool} | {op: "integerSum" | "textConcat"} | {op: "input", input: #UnifySide} | {
 	op: "if", condition: #UnifyCondition, then: #UnifyExpression, else: #UnifyExpression
 } | {
 	op: "letBounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint, result: #UnifyExpression
-} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering" | "logical" | "divisionByZero"}
+} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: #OutputFailure | "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering" | "logical" | "divisionByZero"}
 #BinaryControlProgram: {formatVersion: 1, function?: "unify" | "sum" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr" | "difference" | "product" | "divide" | "modulo" | "quotient" | "remainder", result: #UnifyExpression}
 #UnaryControlCondition: {op: "kindIs", input: "left", kind: #UnifyKind} | {op: "booleanIs", input: "left", value: bool} | {op: "and" | "or", left: #UnaryControlCondition, right: #UnaryControlCondition}
-#UnaryControlExpr: #ControlInteger | {op: "integerPrimitive", operation: "negate"} | {op: "boolean", value: bool} | {op: "input", input: "left"} | {op: "fail", reason: "logical" | "arithmetic"} | {op: "if", condition: #UnaryControlCondition, then: #UnaryControlExpr, else: #UnaryControlExpr}
-#UnaryControlProgram: {formatVersion: 1, function: "logicalNot" | "negate", result: #UnaryControlExpr}
+#UnaryControlExpr: #ControlInteger | {op: "integerPrimitive", operation: "negate"} | {op: "boolean", value: bool} | {op: "input", input: "left"} | {op: "fail", reason: #OutputFailure | "logical" | "arithmetic"} | {op: "if", condition: #UnaryControlCondition, then: #UnaryControlExpr, else: #UnaryControlExpr}
+#UnaryControlProgram: {formatVersion: 1, function: "logicalNot" | "negate" | "jsonOutput" | "integerOutput", result: #UnaryControlExpr}
 #UnifyProgram: *#BinaryControlProgram | #UnaryControlProgram
 
 // Expression-parser control flow; native frame operations are explicit intrinsics.

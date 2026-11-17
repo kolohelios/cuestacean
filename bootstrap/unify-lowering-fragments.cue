@@ -19,6 +19,12 @@ package bootstrap
 			{op: "lower", field: "result"}, {op: "text", value: "\n}\n"}]}
 		unaryFail: {op: "select", field: "reason", cases: {
 			logical: {op: "text", value: "Err(Error::Logical)"}, arithmetic: {op: "text", value: "Err(Error::Arithmetic)"}
+			incompleteInt: {op: "text", value: "Err(Error::Incomplete)"}
+			incompleteValue: {op: "text", value: "Err(Error::IncompleteValue)"}
+			incompleteBool: {op: "text", value: "Err(Error::IncompleteBool)"}
+			incompleteString: {op: "text", value: "Err(Error::IncompleteString)"}
+			incompleteBounds: {op: "text", value: "Err(Error::IncompleteBounds)"}
+			integerOutput: {op: "text", value: "Err(Error::IntegerOutput)"}
 		}}
 		integerPrimitive: {op: "select", field: "operation", cases: {
 			negate: {op: "text", value: "crate::runtime::integer_negate(&_left)"}
