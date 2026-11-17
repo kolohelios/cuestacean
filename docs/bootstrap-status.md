@@ -136,7 +136,9 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 - Scanner: checked initial UTF-8 boundary, ASCII-only `advance`, explicit whole-
   scalar `advanceChar`, scoped `break` and Unicode `charIn`, checked lookahead
   up to 64 bytes; fuel `128 * (remaining bytes + 1)` saturating.
-  Limits: 64 statements, 16 nesting levels, 128 predicate bytes.
+  Limits: 64 statements, 16 nesting levels, 128 predicate bytes. Pure `and`/`or`
+  trees have separate whole-program bounds of 128 predicate nodes/16 levels;
+  CUE owns normal/De Morgan emission ([contract](../bootstrap/scanner-predicates.md)).
 - AST builders: typed/scoped parameters and bounded expressions; repeated owned
   arguments clone only before their final use, which moves.
 - Unification control: finite expressions, no loops/fuel; 512 JSON nodes,
@@ -178,6 +180,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#98](https://github.com/kolohelios/cuestacean/pull/98) | Checked identifier styles and compiler policy headroom |
 | [#100](https://github.com/kolohelios/cuestacean/pull/100) | Unary CUE concrete-output admission and diagnostics |
 | [#102](https://github.com/kolohelios/cuestacean/pull/102) | Unary CUE inclusive bound construction and checked left-only endpoints |
+| [#104](https://github.com/kolohelios/cuestacean/pull/104) | CUE-only four-digit Unicode escape and surrogate-pair admission |
 
 ## Build and validation runbook
 

@@ -48,6 +48,10 @@ sorts/deduplicates them and compacts contiguous runs into Rust range patterns.
 `flagIs` compares the current flag to its literal boolean `value`; `hasByte`
 tests for any remaining byte, including non-ASCII bytes. These predicates are
 pure reads; each surrounding `if`/`while` test consumes one execution step.
+`and {left,right}` / `or {left,right}` compose ordered short-circuit reads.
+Validation eagerly checks both children. Whole-program predicate trees are bounded
+at 128 nodes and 16 levels (root level one), separately from statements; no
+per-node runtime fuel is added. See [predicate control](scanner-predicates.md).
 `charIn` tests the current Unicode scalar against 1..=128 single-character
 strings; duplicate/order differences have set semantics. Generated character
 literals are safely escaped. This is scalar matching, not grapheme matching.
@@ -186,7 +190,8 @@ consumes a whole scalar instead; neither can split UTF-8 or index outside the
 source. Current default programs use scalar advancement inside comments and strings.
 [String Unicode escapes](unicode-escapes.md) use existing ASCII lookahead,
 advancement and a temporary high-surrogate flag; no native scanner opcode is
-added. The expanded string program uses 63 statements under the unchanged 64 cap.
+added for Unicode. Boolean composition now reduces the string program from 63
+to 57 statements under the unchanged 64 cap; a compiled nested baseline remains.
 Ordinary whitespace/identifier recognition remains ASCII.
 `peek_at` uses checked offset addition and bounds-checked byte access, returning
 no byte past EOF or on overflow. It may inspect bytes inside UTF-8, but does
@@ -196,7 +201,8 @@ Each action, `if` test, and `while` condition test consumes one execution step.
 The budget is `128 * (remaining source bytes + 1)`, with saturating arithmetic.
 A nonterminating loop exhausts its budget rather than hanging. A stateful loop
 may legitimately finish without advancing by changing its flag.
-Program validation caps statements at 64, nesting at 16, and predicate lists
+Program validation caps statements at 64, nesting at 16, predicate trees at
+128 nodes/16 levels across the whole program, and predicate lists
 at 128 ASCII bytes or 128 Unicode characters. These are bootstrap limits, not CUE language limits or a
 production-hardening claim. Fuel checks are emitted into generated loops as
 well as applied by the interpreter.

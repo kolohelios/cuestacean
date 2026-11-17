@@ -172,7 +172,9 @@ package bootstrap
 
 // Executable scanner statements, separate from expression evaluation rules.
 // Control flow lives in these programs; cursor safety remains native.
-#ScanPredicate: #ScanByteIn | #ScanCharIn | #ScanFlagIs | #ScanHasByte
+#ScanPredicate: #ScanByteIn | #ScanCharIn | #ScanFlagIs | #ScanHasByte | {
+	op: "and" | "or", left: #ScanPredicate, right: #ScanPredicate
+}
 #ScanByteIn: {
 	ahead?: uint & <=64
 	op:     "byteIn"
