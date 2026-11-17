@@ -41,11 +41,15 @@ CUE's checked identifier/snake operation emits their spelling.
 [Division control](division-control.md) extends that enum with four binary
 primitives, `divisionByZero` failure and checked-i64 `integer {value}` literals
 in value/endpoint positions. Literals need no input or scope; unary control may
-construct values but still rejects endpoints, binary primitives and zero failure.
+construct values but still rejects endpoint conditions, binary primitives and zero failure.
 [Output admission](output-control.md) adds unary `jsonOutput` / `integerOutput`
 names and six input-independent output/incomplete failure tags, usable in either
 arity. Endpoint conditions and pair-dependent failures still reject in unary
 programs. Native output encoders do not select incomplete diagnostics.
+[Bound construction](bound-control.md) adds unary `lowerBound` / `upperBound`,
+input-independent `boundThreshold` failure, and bounds built from left-only
+endpoint input/literal/empty/choose expressions. Right endpoints and locals
+remain forbidden, including unused arms; no unary letBounds or endpoint conditions.
 `integerSum` and `textConcat` call checked borrowed-input kernels; `fail` also
 supports `arithmetic`. The interpreter executes `result` independently of the
 entry-name metadata. There is no native overloaded-addition fallback. Value expressions

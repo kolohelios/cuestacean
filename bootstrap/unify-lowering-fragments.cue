@@ -25,6 +25,7 @@ package bootstrap
 			incompleteString: {op: "text", value: "Err(Error::IncompleteString)"}
 			incompleteBounds: {op: "text", value: "Err(Error::IncompleteBounds)"}
 			integerOutput: {op: "text", value: "Err(Error::IntegerOutput)"}
+			boundThreshold: {op: "text", value: "Err(Error::BoundThreshold)"}
 		}}
 		integerPrimitive: {op: "select", field: "operation", cases: {
 			negate: {op: "text", value: "crate::runtime::integer_negate(&_left)"}

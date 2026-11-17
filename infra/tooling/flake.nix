@@ -77,6 +77,10 @@
         "json-output"
         "integer-output"
         "tests/valid/output-zero"
+        "lower-bound"
+        "upper-bound"
+        "tests/valid/bound-reversed"
+        "tests/valid/unary-bound-endpoints"
         "negate-control"
         "difference-control"
         "product-control"
@@ -179,6 +183,7 @@
                 ../../bootstrap/integer-control-fragments.cue
                 ../../bootstrap/division-control-fragments.cue
                 ../../bootstrap/output-control-fragments.cue
+                ../../bootstrap/bound-control-fragments.cue
                 ../../bootstrap/lowering-fragments.cue
                 ../../bootstrap/pratt-lowering-fragments.cue
                 ../../bootstrap/unify-lowering-fragments.cue
@@ -221,6 +226,7 @@
                 less|less-equal|greater|greater-equal) fragments=(ordering-fragments) ;;
                 logical-and|logical-or) fragments=(equality-fragments logic-fragments) ;;
                 json-output|integer-output) fragments=(output-control-fragments) ;;
+                lower-bound|upper-bound|tests/valid/bound-reversed) fragments=(bound-control-fragments) ;;
                 difference-control|product-control) fragments=(integer-control-fragments) ;;
                 divide-control|modulo-control|quotient-control|remainder-control) fragments=(division-control-fragments) ;;
               esac

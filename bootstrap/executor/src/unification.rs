@@ -63,6 +63,8 @@ enum Function {
     LogicalNot,
     IntegerOutput,
     JsonOutput,
+    LowerBound,
+    UpperBound,
     Negate,
     Difference,
     Product,
@@ -75,7 +77,12 @@ impl Function {
     fn is_unary(self) -> bool {
         matches!(
             self,
-            Self::LogicalNot | Self::Negate | Self::IntegerOutput | Self::JsonOutput
+            Self::LogicalNot
+                | Self::Negate
+                | Self::IntegerOutput
+                | Self::JsonOutput
+                | Self::LowerBound
+                | Self::UpperBound
         )
     }
 }
@@ -139,6 +146,7 @@ enum Expr {
 #[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Failure {
+    BoundThreshold,
     Integers,
     Bounds,
     Booleans,
@@ -263,6 +271,7 @@ impl Expr {
             | Self::Fail {
                 reason:
                     Failure::Logical
+                    | Failure::BoundThreshold
                     | Failure::Arithmetic
                     | Failure::IncompleteInt
                     | Failure::IncompleteValue
@@ -279,6 +288,10 @@ impl Expr {
                 condition.validate_unary()?;
                 then.validate_unary()?;
                 otherwise.validate_unary()
+            }
+            Self::Bounds { lower, upper } => {
+                lower.validate_unary()?;
+                upper.validate_unary()
             }
             _ => ProgramSnafu {
                 reason: "unary control requires unary expressions",
@@ -322,6 +335,29 @@ impl Expr {
     }
 }
 impl End {
+    fn validate_unary(&self) -> Result<(), Error> {
+        match self {
+            Self::Input {
+                input: Side::Left, ..
+            }
+            | Self::Integer { .. }
+            | Self::Empty {} => Ok(()),
+            Self::Choose {
+                condition,
+                then,
+                otherwise,
+            } => {
+                condition.validate_unary()?;
+                then.validate_unary()?;
+                otherwise.validate_unary()
+            }
+            _ => ProgramSnafu {
+                reason: "unary control requires unary endpoints",
+            }
+            .fail(),
+        }
+    }
+
     fn validate(&self, bound: bool) -> Result<(), Error> {
         match self {
             Self::Local { .. } if !bound => ProgramSnafu {
@@ -451,6 +487,7 @@ pub fn text_compare(left: &Value, right: &Value, relation: Relation) -> Result<b
 }
 pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate::Error> {
     match reason {
+        Failure::BoundThreshold => Err(crate::Error::BoundThreshold),
         Failure::Bounds => Err(crate::Error::BoundsConflict),
         Failure::Types => Err(crate::Error::TypeConflict),
         Failure::Arithmetic => Err(crate::Error::Arithmetic),
@@ -510,6 +547,33 @@ impl Endpoint {
     }
 }
 impl End {
+    fn eval_unary(&self, left: &Value) -> Result<Option<i64>, crate::Error> {
+        Ok(match self {
+            Self::Input {
+                input: Side::Left,
+                endpoint: end,
+            } => endpoint(left, *end),
+            Self::Integer { value } => Some(*value),
+            Self::Empty {} => None,
+            Self::Choose {
+                condition,
+                then,
+                otherwise,
+            } => {
+                if condition.eval_unary(left)? {
+                    then.eval_unary(left)?
+                } else {
+                    otherwise.eval_unary(left)?
+                }
+            }
+            _ => {
+                return Err(crate::Error::UnificationState {
+                    reason: "invalid unary endpoint",
+                });
+            }
+        })
+    }
+
     fn eval(
         &self,
         l: &Value,
@@ -586,6 +650,13 @@ impl Expr {
     fn eval_unary(&self, left: &Value) -> Result<Value, crate::Error> {
         match self {
             Self::Input { input: Side::Left } => Ok(left.clone()),
+            Self::Bounds { lower, upper } => Ok(Value::Bounds {
+                lower: lower.eval_unary(left)?,
+                upper: upper.eval_unary(left)?,
+            }),
+            Self::Fail {
+                reason: Failure::BoundThreshold,
+            } => Err(crate::Error::BoundThreshold),
             Self::Integer { value } => Ok(Value::Integer(*value)),
             Self::Boolean { value } => Ok(Value::Boolean(*value)),
             Self::Fail {
@@ -821,7 +892,8 @@ mod tests {
             r#"{"op":"input","input":"right"}"#,
             r#"{"op":"integerSum"}"#,
             r#"{"op":"textConcat"}"#,
-            r#"{"op":"bounds","lower":{"op":"empty"},"upper":{"op":"empty"}}"#,
+            r#"{"op":"letBounds","lower":{"op":"empty"},"upper":{"op":"empty"},"result":{"op":"input","input":"left"}}"#,
+            r#"{"op":"bounds","lower":{"op":"input","input":"right","endpoint":"lower"},"upper":{"op":"empty"}}"#,
             r#"{"op":"fail","reason":"types"}"#,
             r#"{"op":"unaryFail","reason":"logical"}"#,
         ] {
@@ -851,11 +923,75 @@ mod tests {
     }
 
     #[test]
+    fn unary_endpoint_execution_and_defensive_errors() {
+        use super::{Condition, End, Endpoint, Expr, Side};
+        use crate::runtime::Value as Scalar;
+
+        let input = Scalar::Bounds {
+            lower: Some(i64::MIN),
+            upper: Some(i64::MAX),
+        };
+        let project = |endpoint| End::Input {
+            input: Side::Left,
+            endpoint,
+        };
+        let bounds = Expr::Bounds {
+            lower: project(Endpoint::Lower),
+            upper: project(Endpoint::Upper),
+        };
+        assert!(bounds.validate_unary().is_ok());
+        assert_eq!(bounds.eval_unary(&input).ok(), Some(input.clone()));
+        for invalid in [
+            End::Input {
+                input: Side::Right,
+                endpoint: Endpoint::Lower,
+            },
+            End::Local {
+                endpoint: Endpoint::Upper,
+            },
+        ] {
+            assert!(invalid.validate_unary().is_err());
+            assert!(matches!(
+                invalid.eval_unary(&input),
+                Err(crate::Error::UnificationState { .. })
+            ));
+            let choose = End::Choose {
+                condition: Box::new(Condition::KindIs {
+                    input: Side::Left,
+                    kind: super::Kind::Bounds,
+                }),
+                then: Box::new(End::Integer { value: 7 }),
+                otherwise: Box::new(invalid),
+            };
+            assert!(choose.validate_unary().is_err());
+            // Evaluation is lazy; validation, not evaluation, checks unused arms.
+            assert_eq!(choose.eval_unary(&input).ok(), Some(Some(7)));
+        }
+        let bounds = Expr::Bounds {
+            lower: End::Choose {
+                condition: Box::new(Condition::BooleanIs {
+                    input: Side::Left,
+                    value: true,
+                }),
+                then: Box::new(End::Empty {}),
+                otherwise: Box::new(End::Empty {}),
+            },
+            upper: End::Local {
+                endpoint: Endpoint::Upper,
+            },
+        };
+        assert!(matches!(
+            bounds.eval_unary(&input),
+            Err(crate::Error::Logical)
+        ));
+    }
+
+    #[test]
     fn output_control_arity_and_failures() {
         use super::{interpret, interpret_unary, project_unary};
         use crate::runtime::Value as Scalar;
 
-        for function in ["integerOutput", "jsonOutput"] {
+        for function in ["integerOutput", "jsonOutput", "lowerBound", "upperBound"] {
             let identity = format!(
                 r#"{{"formatVersion":1,"function":"{function}","result":{{"op":"input","input":"left"}}}}"#
             );
@@ -871,6 +1007,10 @@ mod tests {
                 ("incompleteString", "non-concrete string value"),
                 ("incompleteBounds", "non-concrete integer bounds"),
                 ("integerOutput", "integer output requires an integer value"),
+                (
+                    "boundThreshold",
+                    "bound threshold requires a concrete integer",
+                ),
             ] {
                 let result = format!(r#"{{"op":"fail","reason":"{reason}"}}"#);
                 let unary =

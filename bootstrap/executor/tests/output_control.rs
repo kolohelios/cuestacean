@@ -204,7 +204,7 @@ fn output_names_have_real_unary_arity_and_validate_unused_branches() {
             json!({"op":"input","input":"right"}),
             json!({"op":"integerSum"}),
             json!({"op":"integerPrimitive","operation":"product"}),
-            json!({"op":"bounds","lower":{"op":"empty"},"upper":{"op":"empty"}}),
+            json!({"op":"bounds","lower":{"op":"input","input":"right","endpoint":"lower"},"upper":{"op":"empty"}}),
             json!({"op":"fail","reason":"types"}),
             json!({"op":"fail","reason":"integers"}),
             json!({"op":"fail","reason":"bounds"}),
