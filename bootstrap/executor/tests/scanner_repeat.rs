@@ -431,7 +431,7 @@ fn actual_unrolled_and_repeat_unicode_scanners_keep_fixed_spans_flags_and_errors
         (r#""\uD800""#, 0, 7, "missing low surrogate escape"),
         (r#""\uD800\u0041""#, 0, 9, "expected low surrogate escape"),
         (r#""\uD800\uDCλ0""#, 0, 11, "invalid Unicode escape"),
-        (r#""\U00010000""#, 0, 2, "unsupported string escape"),
+        (r#""\q""#, 0, 2, "unsupported string escape"),
         ("λ\"é\\u00λ0\"", 2, 9, "invalid Unicode escape"),
     ] {
         for result in [

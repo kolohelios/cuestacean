@@ -150,7 +150,7 @@ fn malformed_units_and_pairs_have_exact_byte_diagnostics() {
         ("\"\\uD800\\uDCF", 12, "invalid Unicode escape"),
         (r#""\uD800\uDCλ0""#, 11, "invalid Unicode escape"),
         (r#""\uD800\uDFFg""#, 12, "invalid Unicode escape"),
-        (r#""\U00010000""#, 2, "unsupported string escape"),
+        (r#""\U0000D800""#, 11, "invalid Unicode scalar escape"),
     ] {
         let expected = format!("source byte {offset}: {reason}");
         for result in [
@@ -205,13 +205,14 @@ fn nonzero_utf8_offsets_preserve_spans_errors_and_completion_flag() {
 fn compiled_legacy_policy_changes_admission_on_unchanged_input() {
     let current = export("string-literal");
     let old = export("tests/valid/string-no-unicode");
-    let source = r#""\u0041""#;
-    accepted(&current, source, 0, 8);
-    for result in [legacy::scan(source, 0), scanner::interpret(&old, source, 0)] {
-        assert_eq!(
-            result.expect_err("legacy admission").to_string(),
-            "source byte 2: unsupported string escape"
-        );
+    for (source, end) in [(r#""\u0041""#, 8), (r#""\U00000041""#, 12)] {
+        accepted(&current, source, 0, end);
+        for result in [legacy::scan(source, 0), scanner::interpret(&old, source, 0)] {
+            assert_eq!(
+                result.expect_err("legacy admission").to_string(),
+                "source byte 2: unsupported string escape"
+            );
+        }
     }
     for (source, end) in [(r#""é🦀""#, 8), (r#""\n\\""#, 6)] {
         accepted(&current, source, 0, end);

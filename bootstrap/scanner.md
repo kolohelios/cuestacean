@@ -196,7 +196,8 @@ source. Current default programs use scalar advancement inside comments and stri
 advancement and a temporary high-surrogate flag; no native scanner opcode is
 added for Unicode. Boolean composition now reduces the string program from 63
 to 57 statements, then bounded digit repetition reduces it to 41 under the
-unchanged 64 cap; compiled nested and unrolled baselines remain.
+unchanged 64 cap. Adding [wide scalar admission](wide-unicode.md) now uses 53;
+compiled nested, unrolled and four-digit-only baselines remain.
 Ordinary whitespace/identifier recognition remains ASCII.
 `peek_at` uses checked offset addition and bounds-checked byte access, returning
 no byte past EOF or on overflow. It may inspect bytes inside UTF-8, but does

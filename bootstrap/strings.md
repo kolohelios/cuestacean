@@ -4,12 +4,13 @@ This continuation connects [owned JSON strings](../docs/string-values.md) to the
 source parser through executable CUE scanner, primary control and AST builders.
 Supported literals are single-line double-quoted raw UTF-8 with common escapes:
 `\"`, `\\`, `\b`, `\f`, `\n`, `\r`, `\t`, plus four-digit `\uXXXX`
-and valid UTF-16 surrogate pairs ([Unicode contract](unicode-escapes.md)).
+and valid UTF-16 surrogate pairs ([Unicode contract](unicode-escapes.md)), plus
+eight-digit scalar `\UXXXXXXXX` ([wide contract](wide-unicode.md)).
 The complete `string` atom denotes the
 abstract type. Empty strings, grouping, comments around strings and scalar
 unification are supported. Equality is content-based, without normalization.
 
-Eight-digit Unicode (`\U`), hex/octal and other escapes, interpolation, hash/raw and
+Wide surrogate units, hex/octal and other escapes, interpolation, hash/raw and
 multiline literals remain outside this deliberately small profile. Raw ASCII
 control bytes and embedded BOM reject; raw ordinary Unicode is accepted.
 [CUE addition control](sum.md) now concatenates two concrete strings with `+`;
@@ -30,7 +31,8 @@ The primary program scans strings after bounds and before identifiers. A matchin
 candidate is selected by CUE via `hasString`/`parseString`. Native frame state
 checks require the proper stage, a completed in-bounds character-boundary span,
 a valid optional grammar `text` constructor and forward progress. Native checked
-JSON string conversion decodes only the lexically admitted shared escape subset;
+string conversion safely bridges admitted wide scalars into JSON spelling, then
+decodes the complete literal through the checked JSON decoder;
 it is not the lexical policy or a general CUE decoder. The CUE `ast-text` builder
 constructs the JSON object; native parser code does not assemble maps.
 

@@ -67,7 +67,8 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   Top is unification identity before domain guards; null agrees only with null
   or top. Null is concrete for equality and logical selection, never numeric.
 - Single-line quoted UTF-8 strings with seven common escapes, four-digit
-  `\uXXXX` and valid UTF-16 surrogate pairs ([contract](../bootstrap/unicode-escapes.md)); abstract `string`;
+  `\uXXXX` and valid UTF-16 surrogate pairs ([contract](../bootstrap/unicode-escapes.md)),
+  plus eight-digit scalar `\UXXXXXXXX` ([wide contract](../bootstrap/wide-unicode.md)); abstract `string`;
   signed decimal integers; `true`/`false`; `bool`/`int`; inclusive literal bounds `>=` / `<=`;
   parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary `!` and expression negation;
   `div`, `mod`, `quo`, `rem`; concrete scalar `==` / `!=`; integer/text `<` / `<=` / `>` / `>=`; CUE-owned UTF-8 `//` comment trivia.
@@ -184,6 +185,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#102](https://github.com/kolohelios/cuestacean/pull/102) | Unary CUE inclusive bound construction and checked left-only endpoints |
 | [#104](https://github.com/kolohelios/cuestacean/pull/104) | CUE-only four-digit Unicode escape and surrogate-pair admission |
 | [#106](https://github.com/kolohelios/cuestacean/pull/106) | Bounded composable scanner predicates and Unicode control compaction |
+| [#108](https://github.com/kolohelios/cuestacean/pull/108) | Bounded repeat control and counted Unicode digit validation |
 
 ## Build and validation runbook
 

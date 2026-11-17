@@ -786,7 +786,7 @@ impl Frame<'_, '_> {
         let Some(slice) = self.parser.source.get(start..end).filter(|_| end > start) else {
             return self.primary_state_error();
         };
-        let value = serde_json::from_str::<String>(slice).map_err(|_| Error::Source {
+        let value = decode_string_literal(slice).ok_or_else(|| Error::Source {
             offset: start,
             reason: "invalid string literal".to_owned(),
         })?;
@@ -928,6 +928,175 @@ impl Frame<'_, '_> {
         self.consumed = false;
         self.binding = None;
         Ok(())
+    }
+}
+
+/// Checked conversion after CUE admission, not source lexical policy. Allocate a
+/// JSON-compatible spelling so quote, backslash and control scalars stay escaped;
+/// the JSON decoder still validates the complete literal and existing escapes.
+fn decode_string_literal(slice: &str) -> Option<String> {
+    use std::fmt::Write;
+
+    if !slice.contains("\\U") {
+        return serde_json::from_str(slice).ok();
+    }
+    let mut json = String::new();
+    let mut offset = 0usize;
+    while offset < slice.len() {
+        let ch = slice.get(offset..)?.chars().next()?;
+        offset = offset.checked_add(ch.len_utf8())?;
+        if ch != '\\' {
+            json.push(ch);
+            continue;
+        }
+        // Consume ordinary escapes together, including a literal backslash, so
+        // an escaped backslash cannot introduce a wide Unicode conversion.
+        let escaped = slice.get(offset..)?.chars().next()?;
+        offset = offset.checked_add(escaped.len_utf8())?;
+        if escaped != 'U' {
+            json.push('\\');
+            json.push(escaped);
+            continue;
+        }
+        let end = offset.checked_add(8)?;
+        let digits = slice.get(offset..end)?;
+        let mut value = 0u32;
+        for digit in digits.bytes() {
+            if !digit.is_ascii_hexdigit() {
+                return None;
+            }
+            value = value
+                .checked_mul(16)?
+                .checked_add((digit as char).to_digit(16)?)?;
+        }
+        let scalar = char::from_u32(value)?;
+        let mut units = [0u16; 2];
+        for unit in scalar.encode_utf16(&mut units) {
+            write!(json, "\\u{unit:04X}").ok()?;
+        }
+        offset = end;
+    }
+    serde_json::from_str(&json).ok()
+}
+
+#[cfg(test)]
+mod string_codec_tests {
+    use super::decode_string_literal;
+
+    #[test]
+    fn fixed_scalar_oracles_and_json_sensitive_values() {
+        for (source, expected) in [
+            (r#""\U0001F980""#, "🦀"),
+            (r#""\U00000022""#, "\""),
+            (r#""\U0000005C""#, "\\"),
+            (r#""\U0000002F""#, "/"),
+            (r#""\U00000000\U00000008\U0000000C""#, "\0\u{8}\u{c}"),
+            (r#""\U00000009\U0000000A\U0000000D""#, "\t\n\r"),
+            (
+                r#""\U0000feff\U0000FDD0\U0010ffff""#,
+                "\u{feff}\u{fdd0}\u{10ffff}",
+            ),
+            (r#""λ\u0061\U0001f980\uD83E\uDD80\n""#, "λa🦀🦀\n"),
+            (r#""\U000000220\U0000005C\U00000000λ""#, "\"0\\\0λ"),
+            // Eight digits are consumed; following hex characters are text.
+            (r#""\U000000410""#, "A0"),
+        ] {
+            assert_eq!(
+                decode_string_literal(source).as_deref(),
+                Some(expected),
+                "{source}"
+            );
+        }
+    }
+
+    #[test]
+    fn sampled_planes_and_scalar_boundaries() -> Result<(), Box<dyn std::error::Error>> {
+        for plane in 0..=16u32 {
+            for low in [0, 1, 0x7f, 0x80, 0x1234, 0xfffe, 0xffff] {
+                let value = plane * 0x10000 + low;
+                let scalar = char::from_u32(value).ok_or("invalid test scalar")?;
+                let source = format!("\"\\U{value:08X}\"");
+                assert_eq!(decode_string_literal(&source), Some(scalar.to_string()));
+            }
+        }
+        for value in [0xd7ff, 0xe000, 0xffff, 0x10000, 0x10ffff] {
+            let scalar = char::from_u32(value).ok_or("invalid test scalar")?;
+            assert_eq!(
+                decode_string_literal(&format!("\"\\U{value:08x}\"")),
+                Some(scalar.to_string())
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn backslash_parity_and_existing_escapes() {
+        for count in 1..=8 {
+            let source = format!("\"{}U0001F980\"", "\\".repeat(count));
+            let suffix = if count % 2 == 0 { "U0001F980" } else { "🦀" };
+            let expected = format!("{}{suffix}", "\\".repeat(count / 2));
+            assert_eq!(decode_string_literal(&source), Some(expected));
+        }
+        for source in [
+            r#""""#,
+            r#""λ🦀""#,
+            r#""\"\\\b\f\n\r\t""#,
+            r#""\u0000\uFEFF\ud83e\udd80""#,
+            r#""\\UFFFFFFFF""#,
+            r#""\\U0000000λ""#,
+            r#""\"\\U0001F980\"""#,
+        ] {
+            assert_eq!(
+                decode_string_literal(source),
+                serde_json::from_str::<String>(source).ok()
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_malformed_wide_and_json_context() {
+        for digits in [
+            "00110000",
+            "FFFFFFFF",
+            "0000D800",
+            "0000DBFF",
+            "0000DC00",
+            "0000DFFF",
+            "0000000g",
+            "000000é",
+            "００００００００",
+        ] {
+            let source = format!("\"\\U{digits}\"");
+            assert_eq!(decode_string_literal(&source), None, "{source}");
+        }
+        for count in 0..8 {
+            let digits = "0".repeat(count);
+            for source in [format!("\"\\U{digits}"), format!("\"\\U{digits}\"")] {
+                assert_eq!(decode_string_literal(&source), None, "{source}");
+            }
+        }
+        for source in [
+            "",
+            "null",
+            "42",
+            "[]",
+            "\"",
+            "\"\\",
+            "\"\n\"",
+            r#""\U00000041"extra"#,
+            r#""\U00000041"""#,
+            r#""\U00000041" "x""#,
+            r#""\U00000041"#,
+            r#""\U00000041\q""#,
+            r#""\uD800\U0000DC00""#,
+            r#""\uD800\U0001F980""#,
+            r#""\U00000041\uD800""#,
+            r#""\U00000041\uDC00""#,
+            r#""\U00000041\u12g4""#,
+            "\"\\U00000041\0\"",
+        ] {
+            assert_eq!(decode_string_literal(source), None, "{source:?}");
+        }
     }
 }
 

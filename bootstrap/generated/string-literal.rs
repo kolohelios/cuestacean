@@ -100,7 +100,55 @@ pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
                             }
                         } else {
                             cursor.step()?;
-                            cursor.reject("unsupported string escape")?;
+                            if matches!(cursor.peek(), Some(85)) {
+                                cursor.step()?;
+                                cursor.advance()?;
+                                cursor.step()?;
+                                if ((matches!(cursor.peek(), Some(48)))
+                                    && (matches!(cursor.peek_at(1), Some(48))))
+                                    && ((matches!(cursor.peek_at(2), Some(48)))
+                                        || ((matches!(cursor.peek_at(2), Some(49)))
+                                            && (matches!(cursor.peek_at(3), Some(48)))))
+                                {
+                                    cursor.step()?;
+                                    if (((matches!(cursor.peek(), Some(48)))
+                                        && (matches!(cursor.peek_at(1), Some(48))))
+                                        && ((matches!(cursor.peek_at(2), Some(48)))
+                                            && (matches!(cursor.peek_at(3), Some(48)))))
+                                        && ((matches!(cursor.peek_at(4), Some(68 | 100)))
+                                            && (matches!(
+                                                cursor.peek_at(5),
+                                                Some(56 | 57 | 65..=70 | 97..=102)
+                                            )))
+                                    {
+                                        cursor.step()?;
+                                        cursor.set_flag(true);
+                                    }
+                                } else {
+                                    cursor.step()?;
+                                    cursor.set_flag(true);
+                                }
+                                cursor.step()?;
+                                for _ in 0..8 {
+                                    cursor.step()?;
+                                    cursor.step()?;
+                                    if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
+                                        cursor.step()?;
+                                        cursor.advance()?;
+                                    } else {
+                                        cursor.step()?;
+                                        cursor.reject("invalid Unicode escape")?;
+                                    }
+                                }
+                                cursor.step()?;
+                                if cursor.flag() {
+                                    cursor.step()?;
+                                    cursor.reject("invalid Unicode scalar escape")?;
+                                }
+                            } else {
+                                cursor.step()?;
+                                cursor.reject("unsupported string escape")?;
+                            }
                         }
                     }
                 } else {

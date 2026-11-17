@@ -1,4 +1,4 @@
 package bootstrap
 
 // Same complete string algorithm; select the earlier escape admission policy.
-#StringLiteralScanner & {_unicode: [{op: "reject", reason: "unsupported string escape"}]}
+#StringLiteralScanner & {_wide: [{op: "reject", reason: "unsupported string escape"}], _unicode: [{op: "reject", reason: "unsupported string escape"}]}
