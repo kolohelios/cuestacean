@@ -183,7 +183,10 @@ native; AST construction and expression-loop policy use their separate CUE DSLs.
 The shared `scanner::Cursor` validates the initial UTF-8 character boundary,
 checks EOF, and keeps `advance` ASCII-only. The explicit `advanceChar` primitive
 consumes a whole scalar instead; neither can split UTF-8 or index outside the
-source. Current default programs use scalar advancement only inside comments.
+source. Current default programs use scalar advancement inside comments and strings.
+[String Unicode escapes](unicode-escapes.md) use existing ASCII lookahead,
+advancement and a temporary high-surrogate flag; no native scanner opcode is
+added. The expanded string program uses 63 statements under the unchanged 64 cap.
 Ordinary whitespace/identifier recognition remains ASCII.
 `peek_at` uses checked offset addition and bounds-checked byte access, returning
 no byte past EOF or on overflow. It may inspect bytes inside UTF-8, but does

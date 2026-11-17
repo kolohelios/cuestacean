@@ -33,6 +33,8 @@ fn literal_scanner_has_independent_byte_spans_and_errors() {
         ("\"\"tail", 0, 2, true),
         ("λ\"🦀é\"tail", 2, 10, true),
         (r#""\n\t"tail"#, 0, 6, true),
+        (r#""\u1234"tail"#, 0, 8, true),
+        (r#""\uD800\uDC00"tail"#, 0, 14, true),
         (r#""\"\\"!"#, 0, 6, true),
     ] {
         let expected = Scan { offset, flag };
@@ -51,7 +53,19 @@ fn literal_scanner_has_independent_byte_spans_and_errors() {
         ("\"", 1, "unterminated string literal"),
         ("\"λ", 3, "unterminated string literal"),
         ("\"\\", 2, "unsupported string escape"),
-        (r#""\u1234""#, 2, "unsupported string escape"),
+        (r#""\u""#, 3, "invalid Unicode escape"),
+        (r#""\U00001234""#, 2, "unsupported string escape"),
+        (r#""\uD800\uDC00"#, 13, "unterminated string literal"),
+        (
+            "\"\\uD800\\uDC00\n\"",
+            13,
+            "unsupported character in string",
+        ),
+        (
+            "\"\\uD800\\uDC00\u{feff}\"",
+            13,
+            "unsupported character in string",
+        ),
         (r#""\(x)""#, 2, "unsupported string escape"),
         ("\"λ\n\"", 3, "unsupported character in string"),
         ("\"\0\"", 1, "unsupported character in string"),
@@ -89,6 +103,11 @@ fn ascii_escape_and_raw_control_boundaries_are_exhaustive() {
                         flag: true
                     }
                 );
+            } else if byte == b'u' {
+                assert_eq!(
+                    scan.expect_err("missing Unicode digits").to_string(),
+                    "source byte 3: invalid Unicode escape"
+                );
             } else {
                 assert_eq!(
                     scan.expect_err("unsupported escape").to_string(),
@@ -108,8 +127,8 @@ fn ascii_escape_and_raw_control_boundaries_are_exhaustive() {
             }
         }
     }
-    // The checked decoder accepts this; the CUE lexical policy deliberately does not.
-    assert!(serde_json::from_str::<String>(r#""\u1234""#).is_ok());
+    // JSON permits escaped slash; the CUE lexical policy deliberately does not.
+    assert!(serde_json::from_str::<String>(r#""\/""#).is_ok());
     assert!(scanner::string_literal("λ", 1).is_err());
     assert!(scanner::interpret(&control, "λ", 1).is_err());
 }
@@ -133,6 +152,12 @@ fn builder_and_source_trees_are_owned_and_independently_specified() {
     let grammar = export("grammar");
     for (source, entry) in [
         (r#""""#, json!({"kind":"string","value":""})),
+        (r#""\u1234""#, json!({"kind":"string","value":"\u{1234}"})),
+        (r#""\\u1234""#, json!({"kind":"string","value":r"\u1234"})),
+        (
+            r#""\u0000\uFEFF\uFFFF""#,
+            json!({"kind":"string","value":"\0\u{feff}\u{ffff}"}),
+        ),
         (r#""🦀é\n\"\\""#, json!({"kind":"string","value":value})),
         (
             r#""\b\f\n\r\t""#,
@@ -195,7 +220,15 @@ fn grammar_metadata_and_phase_guards() {
             );
         }
     }
-    for source in [r#""\u1234""#, r#""\x20""#, "#\"raw\"#", "\"\"\"multi\"\"\""] {
+    for source in [
+        r#""\u""#,
+        r#""\U00001234""#,
+        r#""\x20""#,
+        r#""\123""#,
+        r#""\(x)""#,
+        "#\"raw\"#",
+        "\"\"\"multi\"\"\"",
+    ] {
         for result in parsed(source, &grammar) {
             assert!(result.is_err(), "{source:?}");
         }

@@ -27,6 +27,7 @@
         "decimal"
         "identifier"
         "string-literal"
+        "tests/valid/string-no-unicode"
         "tests/valid/scanner-horizontal"
         "tests/valid/scanner-stalled"
         "tests/valid/scanner-advance"
@@ -177,6 +178,7 @@
               [
                 ../../bootstrap/schema.cue
                 ../../bootstrap/scanner-fragments.cue
+                ../../bootstrap/string-literal-fragments.cue
                 ../../bootstrap/equality-fragments.cue
                 ../../bootstrap/ordering-fragments.cue
                 ../../bootstrap/logic-fragments.cue
@@ -212,6 +214,7 @@
               # for a literal can exhaust the CI runner while checking unused CUE.
               fragments=()
               case "$fixture" in
+                string-literal|tests/valid/string-no-unicode) fragments=(string-literal-fragments) ;;
                 whitespace|after-operand|after-word-operator|group-close)
                   fragments=(scanner-fragments) ;;
                 lowering|tests/valid/lowering-left-twice|tests/valid/lowering-reverse)

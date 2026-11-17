@@ -66,7 +66,8 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 - Concrete `null` and abstract top `_`, using existing CUE atom construction.
   Top is unification identity before domain guards; null agrees only with null
   or top. Null is concrete for equality and logical selection, never numeric.
-- Single-line quoted UTF-8 strings with seven common escapes; abstract `string`;
+- Single-line quoted UTF-8 strings with seven common escapes, four-digit
+  `\uXXXX` and valid UTF-16 surrogate pairs ([contract](../bootstrap/unicode-escapes.md)); abstract `string`;
   signed decimal integers; `true`/`false`; `bool`/`int`; inclusive literal bounds `>=` / `<=`;
   parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary `!` and expression negation;
   `div`, `mod`, `quo`, `rem`; concrete scalar `==` / `!=`; integer/text `<` / `<=` / `>` / `>=`; CUE-owned UTF-8 `//` comment trivia.
@@ -176,6 +177,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#96](https://github.com/kolohelios/cuestacean/pull/96) | CUE-owned division/remainder domain/zero/mode/exception policy |
 | [#98](https://github.com/kolohelios/cuestacean/pull/98) | Checked identifier styles and compiler policy headroom |
 | [#100](https://github.com/kolohelios/cuestacean/pull/100) | Unary CUE concrete-output admission and diagnostics |
+| [#102](https://github.com/kolohelios/cuestacean/pull/102) | Unary CUE inclusive bound construction and checked left-only endpoints |
 
 ## Build and validation runbook
 

@@ -60,6 +60,8 @@ subtraction and multiplication through CUE over native checked primitives.
 Euclidean/truncating primitive selection and the remainder unit-divisor case.
 [Output admission](bootstrap/output-control.md) now selects concrete domains and
 incomplete diagnostics in unary CUE control, with native extraction/JSON encoding.
+[Unicode escapes](bootstrap/unicode-escapes.md) add `\uXXXX` and valid surrogate
+pairs through CUE-only scanner policy; checked native conversion is unchanged.
 [Bound construction](bootstrap/bound-control.md) also delegates threshold admission
 and inclusive endpoint layout to checked left-only unary CUE control.
 Value representation and low-level primitives remain native.
