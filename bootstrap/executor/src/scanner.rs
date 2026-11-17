@@ -261,6 +261,8 @@ enum Statement {
         condition: Predicate,
         body: Vec<Statement>,
     },
+    #[serde(rename = "repeat")]
+    Repeat { count: usize, body: Vec<Statement> },
     #[serde(rename = "if")]
     If {
         condition: Predicate,
@@ -304,6 +306,15 @@ fn validate(
         match statement {
             Statement::While { condition, body } => {
                 condition.validate(1, predicate_nodes)?;
+                validate(body, depth + 1, loops + 1, nodes, predicate_nodes)?;
+            }
+            Statement::Repeat { count, body } => {
+                if *count > 64 {
+                    return ProgramSnafu {
+                        reason: "repeat count exceeds 64",
+                    }
+                    .fail();
+                }
                 validate(body, depth + 1, loops + 1, nodes, predicate_nodes)?;
             }
             Statement::If {
@@ -357,6 +368,15 @@ fn execute(body: &[Statement], cursor: &mut Cursor<'_>) -> Result<bool, Error> {
                     cursor.step()?;
                     condition.test(cursor)
                 } {
+                    if execute(body, cursor)? {
+                        break;
+                    }
+                }
+            }
+            Statement::Repeat { count, body } => {
+                cursor.step()?;
+                for _ in 0..*count {
+                    cursor.step()?;
                     if execute(body, cursor)? {
                         break;
                     }
@@ -424,6 +444,17 @@ fn always_breaks(body: &[Statement]) -> bool {
     })
 }
 
+// Nested loops consume their own breaks; only branches can expose one here.
+fn may_break(body: &[Statement]) -> bool {
+    body.iter().any(|statement| match statement {
+        Statement::Break {} => true,
+        Statement::If {
+            then, otherwise, ..
+        } => may_break(then) || may_break(otherwise),
+        _ => false,
+    })
+}
+
 fn predicate_node(predicate: &Predicate, inverse: bool) -> Result<Value, Error> {
     // Supply inversion as data at every level; CUE selects the operators.
     match predicate {
@@ -460,6 +491,12 @@ fn prepare(body: &[Statement], depth: usize, label: Option<usize>) -> Result<Vec
                 let once = always_breaks(body);
                 json!({"op":"while","condition":predicate_node(condition,false)?,"once":once,"depth":depth,
                     "body":prepare(body,depth+1,if once {Some(depth)} else {None})?})
+            }
+            Statement::Repeat { count, body } => {
+                let once = *count == 1 || always_breaks(body);
+                let labeled = once && may_break(body);
+                json!({"op":"repeat","count":count,"once":once,"labeled":labeled,"depth":depth,
+                    "body":prepare(body,depth+1,if labeled {Some(depth)} else {None})?})
             }
             Statement::If { condition, then, otherwise } => {
                 let then = prepare(then,depth,label)?;
@@ -586,6 +623,298 @@ pub fn identifier(source: &str, offset: usize) -> Result<Scan, Error> {
 #[cfg(test)]
 mod tests {
     use super::{Cursor, Error, Predicate, Statement, generate, interpret, validate};
+
+    fn repeat(count: usize, body: Vec<Statement>) -> Statement {
+        Statement::Repeat { count, body }
+    }
+
+    #[test]
+    fn repeat_charges_entry_and_attempted_iterations_without_final_test() {
+        for (count, body, steps) in [
+            (0, vec![Statement::Advance {}], 1),
+            (1, vec![], 2),
+            (64, vec![], 65),
+            (63, vec![Statement::SetFlag { value: true }], 127),
+            (64, vec![Statement::Break {}, Statement::Advance {}], 3),
+        ] {
+            let mut cursor = Cursor::new("", 0).expect("EOF cursor");
+            assert!(!super::execute(&[repeat(count, body)], &mut cursor).expect("repeat"));
+            assert_eq!(cursor.fuel, 128 - steps);
+            assert_eq!(cursor.offset, 0);
+        }
+        for source in ["", "x"] {
+            let mut cursor = Cursor::new(source, 0).expect("cursor");
+            let result = super::execute(
+                &[repeat(64, vec![Statement::SetFlag { value: true }])],
+                &mut cursor,
+            );
+            if source.is_empty() {
+                assert!(matches!(result, Err(Error::Budget)));
+                assert_eq!(cursor.fuel, 0);
+            } else {
+                assert!(!result.expect("129 steps fit 256 fuel"));
+                assert_eq!(cursor.fuel, 256 - 129);
+            }
+        }
+    }
+
+    #[test]
+    fn repeat_and_while_consume_only_their_nearest_break() {
+        for inner in [
+            repeat(64, vec![Statement::AdvanceChar {}, Statement::Break {}]),
+            Statement::While {
+                condition: Predicate::HasByte {},
+                body: vec![Statement::AdvanceChar {}, Statement::Break {}],
+            },
+        ] {
+            let mut cursor = Cursor::new("λ😀ab!", 0).expect("Unicode cursor");
+            super::execute(
+                &[
+                    repeat(2, vec![inner, Statement::AdvanceChar {}]),
+                    Statement::SetFlag { value: true },
+                ],
+                &mut cursor,
+            )
+            .expect("nearest inner break");
+            assert_eq!(
+                cursor.finish(),
+                super::Scan {
+                    offset: 8,
+                    flag: true
+                }
+            );
+        }
+        let mut cursor = Cursor::new("λ😀!", 0).expect("Unicode cursor");
+        super::execute(
+            &[
+                Statement::While {
+                    condition: Predicate::HasByte {},
+                    body: vec![
+                        repeat(64, vec![Statement::AdvanceChar {}, Statement::Break {}]),
+                        Statement::AdvanceChar {},
+                        Statement::Break {},
+                    ],
+                },
+                Statement::SetFlag { value: true },
+            ],
+            &mut cursor,
+        )
+        .expect("repeat inside while");
+        assert_eq!(
+            cursor.finish(),
+            super::Scan {
+                offset: 6,
+                flag: true
+            }
+        );
+    }
+
+    #[test]
+    fn repeat_metadata_uses_exact_nearest_loop_and_once_facts() {
+        use serde_json::json;
+        let body = vec![
+            repeat(
+                2,
+                vec![
+                    repeat(64, vec![Statement::Break {}, Statement::Advance {}]),
+                    Statement::AdvanceChar {},
+                ],
+            ),
+            Statement::SetFlag { value: true },
+        ];
+        assert!(!super::always_breaks(&body));
+        assert_eq!(
+            serde_json::Value::Array(super::prepare(&body, 0, None).expect("metadata")),
+            json!([
+                {"op":"repeat","count":2,"once":false,"labeled":false,"depth":0,"body":[
+                    {"op":"repeat","count":64,"once":true,"labeled":true,"depth":1,"body":[
+                        {"op":"break","labeled":true,"label":1}]},
+                    {"op":"advanceChar"}]},
+                {"op":"setFlag","value":true}
+            ])
+        );
+        for count in [0, 1, 2, 64] {
+            let nodes =
+                super::prepare(&[repeat(count, vec![])], 0, None).expect("empty repeat metadata");
+            assert_eq!(nodes[0]["once"], count == 1);
+            assert_eq!(nodes[0]["labeled"], false);
+        }
+        for (body, labeled) in [
+            (vec![Statement::SetFlag { value: true }], false),
+            (
+                vec![Statement::If {
+                    condition: Predicate::HasByte {},
+                    then: vec![Statement::Break {}],
+                    otherwise: vec![],
+                }],
+                true,
+            ),
+            (vec![repeat(64, vec![Statement::Break {}])], false),
+            (
+                vec![Statement::While {
+                    condition: Predicate::HasByte {},
+                    body: vec![Statement::Break {}],
+                }],
+                false,
+            ),
+        ] {
+            assert_eq!(super::may_break(&body), labeled);
+            let nodes = super::prepare(&[repeat(1, body)], 0, None).expect("once label");
+            assert_eq!(nodes[0]["once"], true);
+            assert_eq!(nodes[0]["labeled"], labeled);
+            if labeled {
+                assert_eq!(nodes[0]["body"][0]["then"][0]["label"], 0);
+            }
+        }
+        // An outer labeled block must not capture a break in an inner real loop.
+        // On return from the inner scope, the outer label must be restored.
+        for inner in [
+            repeat(
+                2,
+                vec![Statement::If {
+                    condition: Predicate::HasByte {},
+                    then: vec![Statement::Break {}],
+                    otherwise: vec![],
+                }],
+            ),
+            Statement::While {
+                condition: Predicate::HasByte {},
+                body: vec![Statement::If {
+                    condition: Predicate::HasByte {},
+                    then: vec![Statement::Break {}],
+                    otherwise: vec![],
+                }],
+            },
+        ] {
+            let nodes = super::prepare(&[repeat(1, vec![inner, Statement::Break {}])], 3, None)
+                .expect("nested scope");
+            assert_eq!(
+                nodes[0]["body"][0]["body"][0]["then"][0],
+                json!({"op":"break","labeled":false,"label":0})
+            );
+            assert_eq!(
+                nodes[0]["body"][1],
+                json!({"op":"break","labeled":true,"label":3})
+            );
+        }
+        // Repeat consumes its break, so it cannot make its enclosing while once-only.
+        let nodes = super::prepare(
+            &[Statement::While {
+                condition: Predicate::HasByte {},
+                body: vec![repeat(1, vec![Statement::Break {}])],
+            }],
+            0,
+            None,
+        )
+        .expect("while scope");
+        assert_eq!(nodes[0]["once"], false);
+    }
+
+    #[test]
+    fn zero_repeat_validates_full_body_before_policy_or_flow_pruning() {
+        for invalid in [
+            r#"{"op":"unknownTestKind"}"#,
+            r#"{"op":"repeat","body":[]}"#,
+            r#"{"op":"repeat","count":-1,"body":[]}"#,
+            r#"{"op":"repeat","count":1.5,"body":[]}"#,
+            r#"{"op":"repeat","count":65,"body":[]}"#,
+            r#"{"op":"repeat","count":0,"count":1,"body":[]}"#,
+            r#"{"op":"repeat","count":0}"#,
+            r#"{"op":"repeat","count":0,"body":[],"extra":0}"#,
+            r#"{"op":"reject","reason":""}"#,
+            r#"{"op":"if","condition":{"op":"byteIn","bytes":[],"ahead":65},"then":[]}"#,
+        ] {
+            let input = format!(
+                r#"{{"formatVersion":1,"body":[{{"op":"repeat","count":0,"body":[{{"op":"break"}},{invalid}]}}]}}"#
+            );
+            let expected = super::parse(&input)
+                .err()
+                .expect("invalid body")
+                .to_string();
+            assert_eq!(
+                interpret(&input, "", 0)
+                    .expect_err("validate before execution")
+                    .to_string(),
+                expected
+            );
+            assert_eq!(
+                super::generate_with_policy(&input, "not JSON")
+                    .expect_err("validate before policy")
+                    .to_string(),
+                expected
+            );
+        }
+        let input = r#"{"formatVersion":1,"body":[{"op":"repeat","count":0,"body":[{"op":"break"}]},{"op":"break"}]}"#;
+        assert!(
+            super::parse(input)
+                .err()
+                .expect("scope not leaked")
+                .to_string()
+                .contains("break requires an enclosing loop")
+        );
+        let input = r#"{"formatVersion":1,"body":[{"op":"repeat","count":65,"body":[]}]}"#;
+        assert_eq!(
+            super::parse(input).err().expect("count cap").to_string(),
+            "invalid scanner program: repeat count exceeds 64"
+        );
+    }
+
+    #[test]
+    fn repeat_body_counts_once_and_shares_all_structural_limits() {
+        for count in [0, 64] {
+            let mut body = vec![repeat(
+                count,
+                (0..63).map(|_| Statement::Advance {}).collect(),
+            )];
+            let mut nodes = 0;
+            validate(&body, 0, 0, &mut nodes, &mut 0).expect("body counted once");
+            assert_eq!(nodes, 64);
+            body.push(Statement::Advance {});
+            assert!(
+                validate(&body, 0, 0, &mut 0, &mut 0)
+                    .expect_err("shared statements")
+                    .to_string()
+                    .contains("64 statements")
+            );
+            let mut body = vec![
+                repeat(count, vec![conditional(tree(7))]),
+                conditional(Predicate::HasByte {}),
+            ];
+            let mut predicates = 0;
+            validate(&body, 0, 0, &mut 0, &mut predicates).expect("128 nodes shared");
+            assert_eq!(predicates, 128);
+            body.push(conditional(Predicate::HasByte {}));
+            assert!(
+                validate(&body, 0, 0, &mut 0, &mut 0)
+                    .expect_err("shared predicates")
+                    .to_string()
+                    .contains("128 predicate nodes")
+            );
+            assert!(
+                validate(
+                    &[repeat(count, vec![conditional(chain(17))])],
+                    0,
+                    0,
+                    &mut 0,
+                    &mut 0
+                )
+                .expect_err("predicate depth")
+                .to_string()
+                .contains("16 predicate levels")
+            );
+            let mut body = vec![];
+            for _ in 0..16 {
+                body = vec![repeat(count, body)];
+            }
+            validate(&body, 0, 0, &mut 0, &mut 0).expect("16 nested repeats");
+            assert!(
+                validate(&[repeat(count, body)], 0, 0, &mut 0, &mut 0)
+                    .expect_err("nesting limit")
+                    .to_string()
+                    .contains("16 nesting levels")
+            );
+        }
+    }
 
     fn tree(levels: usize) -> Predicate {
         if levels == 1 {

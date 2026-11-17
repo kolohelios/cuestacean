@@ -68,7 +68,11 @@ decodes the already admitted escape subset. [Unicode escape control](../unicode-
 adds four-digit scalars/surrogate pairs without native production Rust changes;
 `string-no-unicode` is the compiled earlier escape policy on the same whole-string
 template. `string-nested` preserves the prior 63-statement algorithm byte-exact;
-production composition uses 57. `scanner-predicates` executes normal and inverted
+`string-unrolled` preserves the subsequent 57-statement composed scanner;
+production [bounded digit repetition](../scanner-repeat.md) uses 41.
+`scanner-repeat`, `repeat-scopes`, `repeat-zero` and paired `repeat-fuel{,-over}`
+fixtures pin compiled counts, break scopes and exact 256/257-step boundaries.
+`scanner-predicates` executes normal and inverted
 compound conditions against fixed observable outcomes. All regenerate in fresh seed builds.
 
 `pratt.rs` is the generated [expression control program](../pratt.md), containing
@@ -146,7 +150,7 @@ done
 bootstrap/executor/target/debug/bootstrap-codegen "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-reverse.json" \
   | rustfmt --edition 2024 > bootstrap/generated/evaluation-reverse.rs
-for machine in tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
+for machine in tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
   tests/valid/scanner-horizontal \
   tests/valid/scanner-stalled tests/valid/scanner-advance \
   tests/valid/scanner-decimal-permissive tests/valid/scanner-reject tests/valid/scanner-state \

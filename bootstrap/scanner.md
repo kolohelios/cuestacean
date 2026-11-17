@@ -34,10 +34,11 @@ CUE owns compiler layout and rendered-branch simplification. Upstream Go CUE sti
 | Instruction | Meaning |
 | --- | --- |
 | `while` | Test `condition` before every iteration; execute `body` while true. |
+| `repeat` | Execute `body` up to literal `count` times (0..64), with nearest-loop break scope. |
 | `if` | Test `condition`; execute `then` or the optional `else` list. |
 | `advance` | Advance the cursor by one ASCII byte. |
 | `advanceChar` | Advance one complete UTF-8 scalar; fail at EOF. |
-| `break` | Exit the nearest enclosing `while`; invalid outside loops. |
+| `break` | Exit the nearest enclosing `while` or `repeat`; invalid outside loops. |
 | `setFlag` | Write the literal boolean `value` to the result register. |
 | `reject` | Stop with the current byte offset and a nonempty `reason` string. |
 
@@ -77,6 +78,9 @@ Leading/trailing and operator-before-operand comments are supported. A comment
 separates tokens rather than joining identifiers/word operators across lines.
 Pinned CUE rejects `/* ... */`; block comments are not introduced here.
 
+[Bounded repeat](scanner-repeat.md) charges one entry step and one per iteration,
+plus body actions, with no final test step. Zero validates but does not execute
+the body. Structural limits count its body once, not expanded copies.
 `break` propagates through `if` but stops at its nearest loop. The compiler omits
 unreachable suffixes, merges identical pure branches after charging the `if`
 step, and lowers provably once-only loops to a condition plus a labeled block.
@@ -191,7 +195,8 @@ source. Current default programs use scalar advancement inside comments and stri
 [String Unicode escapes](unicode-escapes.md) use existing ASCII lookahead,
 advancement and a temporary high-surrogate flag; no native scanner opcode is
 added for Unicode. Boolean composition now reduces the string program from 63
-to 57 statements under the unchanged 64 cap; a compiled nested baseline remains.
+to 57 statements, then bounded digit repetition reduces it to 41 under the
+unchanged 64 cap; compiled nested and unrolled baselines remain.
 Ordinary whitespace/identifier recognition remains ASCII.
 `peek_at` uses checked offset addition and bounds-checked byte access, returning
 no byte past EOF or on overflow. It may inspect bytes inside UTF-8, but does

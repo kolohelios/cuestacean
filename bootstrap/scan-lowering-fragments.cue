@@ -13,6 +13,19 @@ package bootstrap
 			{op: "text", value: " = Cursor::new(source, offset)?;\n"}, {op: "list", field: "body"},
 			{op: "text", value: "Ok(cursor.finish())\n}\n"},
 		]}
+		repeat: {op: "concat", parts: [Step, {
+			op: "ifZero", field: "count", then: Empty, else: {
+				op: "ifTrue", field: "once", then: {op: "concat", parts: [
+					{op: "ifTrue", field: "labeled", then: {op: "concat", parts: [
+						{op: "text", value: "'scan"}, {op: "unsigned", field: "depth"}, {op: "text", value: ": "},
+					]}, else: Empty},
+					{op: "text", value: "{\n"}, Step, {op: "list", field: "body"}, {op: "text", value: "}\n"},
+				]}, else: {op: "concat", parts: [
+					{op: "text", value: "for _ in 0.."}, {op: "unsigned", field: "count"}, {op: "text", value: " {\n"},
+					Step, {op: "list", field: "body"}, {op: "text", value: "}\n"},
+				]}
+			}
+		}]}
 		while: {op: "ifTrue", field: "once", then: {op: "concat", parts: [
 			Step, {op: "text", value: "if "}, {op: "lower", field: "condition"}, {op: "text", value: " {\n'scan"},
 			{op: "unsigned", field: "depth"}, {op: "text", value: ": {\n"}, {op: "list", field: "body"}, {op: "text", value: "}\n}\n"},

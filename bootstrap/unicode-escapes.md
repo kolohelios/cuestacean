@@ -9,7 +9,8 @@ hex/octal, interpolation, hash/raw and multiline syntax remain unsupported.
 Pinned Go CUE probes confirm the selected scalar and paired-surrogate behavior.
 
 [Composable predicates](scanner-predicates.md) now reduce prefix-control statement
-sites from 63 to 57; the original nested program is preserved as a compiled baseline.
+sites from 63 to 57; [bounded repeat](scanner-repeat.md) reduces them to 41.
+Both the original nested and composed unrolled programs are compiled baselines.
 CUE owns digit stepping, surrogate classification/pairing, completion and exact
 diagnostics. Four digit steps reject at the first nonhex byte (including quote or
 EOF). Lone low surrogates reject at their first hex byte. A high surrogate with
