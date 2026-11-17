@@ -4,17 +4,12 @@ package bootstrap
 	let Side = {op: "select", field: "input", cases: {
 		left: {op: "text", value: "_left"}, right: {op: "text", value: "_right"}
 	}}
-	let Endpoint = {op: "select", field: "endpoint", cases: {
-		lower: {op: "text", value: "Lower"}, upper: {op: "text", value: "Upper"}
-	}}
+	let Endpoint = {op: "identifier", field: "endpoint", upperFirst: true}
 	let Conditional = {op: "concat", parts: [
 		{op: "text", value: "if ("}, {op: "lower", field: "condition"}, {op: "text", value: ")? { "},
 		{op: "lower", field: "then"}, {op: "text", value: " } else { "}, {op: "lower", field: "else"}, {op: "text", value: " }"},
 	]}
-	let Relation = {op: "select", field: "relation", cases: {
-		equal: {op: "text", value: "Equal"}, less: {op: "text", value: "Less"}, greater: {op: "text", value: "Greater"}
-		lessEqual: {op: "text", value: "LessEqual"}, greaterEqual: {op: "text", value: "GreaterEqual"}
-	}}
+	let Relation = {op: "identifier", field: "relation", upperFirst: true}
 	let L = {op: "lower", field: "left"}
 	let R = {op: "lower", field: "right"}
 	cases: {
@@ -54,21 +49,13 @@ package bootstrap
 		bounds: {op: "ok", value: {op: "concat", parts: [{op: "text", value: "Value::Bounds { lower: ("},
 			{op: "lower", field: "lower"}, {op: "text", value: ")?, upper: ("}, {op: "lower", field: "upper"}, {op: "text", value: ")? }"}]}}
 		fail: {op: "concat", parts: [{op: "text", value: "crate::unification::fail(crate::unification::Failure::"}, {
-			op: "select", field: "reason", cases: {
-				integers: {op: "text", value: "Integers"}, bounds: {op: "text", value: "Bounds"}
-				booleans: {op: "text", value: "Booleans"}, types: {op: "text", value: "Types"}, strings: {op: "text", value: "Strings"}, arithmetic: {op: "text", value: "Arithmetic"}, comparison: {op: "text", value: "Comparison"}, ordering: {op: "text", value: "Ordering"}, logical: {op: "text", value: "Logical"}, divisionByZero: {op: "text", value: "DivisionByZero"}
-			}
+			op: "identifier", field: "reason", upperFirst: true
 		}, {op: "text", value: ", &_left, &_right)"}]}
 		same: {op: "text", value: *"Ok::<_, Error>(_left == _right)" | "Ok::<_, Error>(true)"}
 		or: {op: "ok", value: {op: "concat", parts: [{op: "text", value: "("}, L, {op: "text", value: ")? || ("}, R, {op: "text", value: ")?"}]}}
 		and: {op: "ok", value: {op: "concat", parts: [{op: "text", value: "("}, L, {op: "text", value: ")? && ("}, R, {op: "text", value: ")?"}]}}
 		kindIs: {op: "ok", value: {op: "concat", parts: [{op: "text", value: "crate::unification::kind_is(&"}, Side,
-			{op: "text", value: ", crate::unification::Kind::"}, {op: "select", field: "kind", cases: {
-				integer: {op: "text", value: "Integer"}, int: {op: "text", value: "Int"}, bounds: {op: "text", value: "Bounds"}
-				boolean: {op: "text", value: "Boolean"}, bool: {op: "text", value: "Bool"}
-				text: {op: "text", value: "Text"}, string: {op: "text", value: "String"}
-				"null": {op: "text", value: "Null"}, top: {op: "text", value: "Top"}
-			}}, {op: "text", value: ")"}]}}
+			{op: "text", value: ", crate::unification::Kind::"}, {op: "identifier", field: "kind", upperFirst: true}, {op: "text", value: ")"}]}}
 		hasEndpoint: {op: "ok", value: {op: "concat", parts: [{op: "text", value: "("}, {op: "lower", field: "value"}, {op: "text", value: ")?.is_some()"}]}}
 		booleanIs: {op: "concat", parts: [{op: "text", value: "crate::unification::boolean_is(&"}, Side, {op: "text", value: ", "}, {op: "boolean", field: "value"}, {op: "text", value: ")"}]}
 		textCompare: {op: "concat", parts: [{op: "text", value: "crate::unification::text_compare(&_left, &_right, crate::unification::Relation::"}, Relation, {op: "text", value: ")"}]}

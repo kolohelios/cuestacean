@@ -61,7 +61,7 @@ package bootstrap
 			{op: "text", value: ", |ctx| "}, {op: "lower", field: "right"}, {op: "text", value: ", |ctx| "},
 			{op: "lower", field: "then"}, {op: "text", value: ", |ctx| "}, {op: "lower", field: "else"}, {op: "text", value: ")"}]}
 		identifier: {op: "concat", parts: [{op: "text", value: "ctx.identifier(_node, "}, {op: "string", field: "field"},
-			{op: "text", value: ", "}, {op: "boolean", field: "snake"}, {op: "text", value: ")"}]}
+			{op: "text", value: ", "}, {op: "boolean", field: "snake"}, {op: "text", value: ", "}, {op: "boolean", field: "upperFirst"}, {op: "text", value: ")"}]}
 		select: {op: "concat", parts: [{op: "text", value: "ctx.select(_node, "}, {op: "string", field: "field"},
 			{op: "text", value: ", |ctx, tag| match tag { "}, {op: "list", field: "cases"},
 			{op: "text", value: "tag => Err(lowering::missing_selection(tag)), })"}]}

@@ -36,11 +36,16 @@ aliases total at most 64; keys use 1..64-byte bounds. Collisions, dangling targe
 chains/cycles, null maps and original-text duplicates reject even when unused.
 Dispatch preserves the original node/opcode and kernel charges. CUE groups the
 canonical then sorted alias keys into one match arm. The unchanged 512-value/32-level
-policy guard still applies; the full default meta export uses 466 JSON values.
+policy guard still applies; the full default meta export uses 472 JSON values.
 
-`identifier {field, snake?}` validates a 1..64-byte ASCII component before writing:
+`identifier {field, snake?, upperFirst?}` validates a 1..64-byte ASCII component before writing:
 first letter/underscore, remaining letters/digits/underscores. Snake mode lowercases
-capitals and inserts underscores before every noninitial capital. Output streams
+capitals and inserts underscores before every noninitial capital. Upper-first
+mode changes only the initial byte, preserving the rest. Both flags default false
+and cannot both be true; eager validation includes unused branches, and the
+kernel defends the same invariant. [Identifier rendering](identifier-rendering.md)
+recovers unification compiler headroom without native semantic spelling tables.
+The CUE emitter supplies both kernel arguments and self-regenerates. Output streams
 through shared budgets. This is lexical rendering, not keyword/name/type resolution
 or arbitrary source injection. CUE supplies prefixes/syntax; Rust checks the result.
 

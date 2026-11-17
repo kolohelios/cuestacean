@@ -11,7 +11,7 @@ impl Driver for Compiled {
 parts.arg(|ctx| ctx.text("ctx.bind(|ctx| "))?;
 parts.arg(|ctx| ctx.child(_node, "value", _depth, self))?;
 parts.arg(|ctx| ctx.text(", |ctx, _render_"))?;
-parts.arg(|ctx| ctx.identifier(_node, "name", false))?;
+parts.arg(|ctx| ctx.identifier(_node, "name", false, false))?;
 parts.arg(|ctx| ctx.text("| "))?;
 parts.arg(|ctx| ctx.child(_node, "body", _depth, self))?;
 parts.arg(|ctx| ctx.text(")"))?;
@@ -73,7 +73,7 @@ Ok(())
 }),
             "emitConditional" | "ifEmpty" | "ifTrue" | "ifZero" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("ctx."))?;
-parts.arg(|ctx| ctx.identifier(_node, "op", true))?;
+parts.arg(|ctx| ctx.identifier(_node, "op", true, false))?;
 parts.arg(|ctx| ctx.text("(_node, "))?;
 parts.arg(|ctx| ctx.string(_node, "field"))?;
 parts.arg(|ctx| ctx.text(", |ctx| "))?;
@@ -85,7 +85,7 @@ Ok(())
 }),
             "emitField" | "boolean" | "bytePattern" | "charPattern" | "signed" | "string" | "unsigned" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("ctx."))?;
-parts.arg(|ctx| ctx.identifier(_node, "op", true))?;
+parts.arg(|ctx| ctx.identifier(_node, "op", true, false))?;
 parts.arg(|ctx| ctx.text("(_node, "))?;
 parts.arg(|ctx| ctx.string(_node, "field"))?;
 parts.arg(|ctx| ctx.text(")"))?;
@@ -93,7 +93,7 @@ Ok(())
 }),
             "emitModuleAction" | "firstRule" | "kind" | "lastRule" | "nextRule" | "previousRule" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("frame.step()?; frame."))?;
-parts.arg(|ctx| ctx.identifier(_node, "op", true))?;
+parts.arg(|ctx| ctx.identifier(_node, "op", true, false))?;
 parts.arg(|ctx| ctx.text("()?;\n"))?;
 Ok(())
 }),
@@ -115,7 +115,7 @@ Ok(())
 }),
             "emitValue" | "path" | "text" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("ctx."))?;
-parts.arg(|ctx| ctx.identifier(_node, "op", false))?;
+parts.arg(|ctx| ctx.identifier(_node, "op", false, false))?;
 parts.arg(|ctx| ctx.text("("))?;
 parts.arg(|ctx| ctx.string(_node, "value"))?;
 parts.arg(|ctx| ctx.text(")"))?;
@@ -124,7 +124,7 @@ Ok(())
             "expression" => ctx.text("frame.step()?; frame.expression(self)?;\n"),
             "get" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("ctx.rendered(_render_"))?;
-parts.arg(|ctx| ctx.identifier(_node, "name", false))?;
+parts.arg(|ctx| ctx.identifier(_node, "name", false, false))?;
 parts.arg(|ctx| ctx.text(")"))?;
 Ok(())
 }),
@@ -133,6 +133,8 @@ parts.arg(|ctx| ctx.text("ctx.identifier(_node, "))?;
 parts.arg(|ctx| ctx.string(_node, "field"))?;
 parts.arg(|ctx| ctx.text(", "))?;
 parts.arg(|ctx| ctx.boolean(_node, "snake"))?;
+parts.arg(|ctx| ctx.text(", "))?;
+parts.arg(|ctx| ctx.boolean(_node, "upperFirst"))?;
 parts.arg(|ctx| ctx.text(")"))?;
 Ok(())
 }),
