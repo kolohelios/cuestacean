@@ -31,8 +31,9 @@ backend can distinguish them. The original wire still accepts only `input`;
 serialized-only aliases are not new control syntax. Native enums serialize side,
 endpoint, kind, relation and failure tags as data; CUE's select maps own their
 Rust spelling. The bridge always supplies a validated `function` enum (`unify`,
-`sum`, `equal` or `notEqual`), defaulted for legacy control wire documents. CUE selects the compiled
-entry name and emits the `integerSum`/`textConcat` kernel calls used by
+`sum`, comparison/logical and integer-control names), defaulted for legacy
+control wire documents. CUE's checked `identifier` with snake conversion emits
+the compiled entry name and emits the `integerSum`/`textConcat` kernel calls used by
 [addition control](sum.md). It also emits boolean result construction for
 [equality control](equality.md), mapping `notEqual` to the fixed `not_equal` name.
 [Ordering control](ordering.md) adds four enum-validated names and a `textCompare`
@@ -40,11 +41,15 @@ condition; CUE also maps inclusive relation names to fixed Rust variants. Native
 finite/text comparison kernels do not choose allowed source domains.
 Logical control adds two fixed entry names and `booleanIs` literal/side projection.
 Unary logical control adds root `unary` arity facts and serialization-only
-`unaryFail` for an already validated logical failure. CUE chooses a one-input
+`unaryFail` for an already validated logical/arithmetic failure. CUE chooses a one-input
 header and emits failure without a nonexistent RHS. Original wire still uses
 `fail`; the unary subset rejects all binary/right dependencies before lowering.
 Reusable binary CUE templates explicitly use `#BinaryControlProgram`.
-These are not arbitrary identifier/path inputs. Complete typed/lexical validation precedes any backend execution.
+The integer primitive's validated operation tag selects fixed checked-kernel
+paths in CUE. Function identifiers originate only in the native whitelist; raw
+compiler metadata and policies are trusted hooks, not an arbitrary-code sandbox.
+Malformed control-wire names still reject before any rendering. These are not
+unchecked user-supplied identifiers or paths. Complete typed/lexical validation precedes any backend execution.
 
 `letBounds` still emits a simultaneous tuple initializer: both initializers see
 the outer `_lower`/`_upper` binding, then the result sees the new pair. Conditional

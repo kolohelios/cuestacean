@@ -58,7 +58,9 @@ interprets that rule's result instruction against the current node:
   same current node. [CUE binary control](../sum.md) chooses checked integer
   addition, concrete text concatenation, or operand rejection.
 - `product` executes its left and right instructions in the same order and
-  multiplies their integer results using checked arithmetic.
+  multiplies their integer results using checked arithmetic. Like difference and
+  negation, [CUE integer control](../integer-control.md) now owns domain/operation
+  dispatch; borrowed native kernels retain the exact checked arithmetic.
 - `difference` evaluates left before right and subtracts right from left using
   checked i64 subtraction. It never negates the right operand first; subtracting
   i64::MIN from itself correctly yields zero.

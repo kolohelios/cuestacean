@@ -13,6 +13,15 @@ use crate::{Error, JsonSnafu, Program, VersionSnafu};
 mod generated_unification;
 
 #[cfg(feature = "semantics")]
+#[path = "../../generated/difference-control.rs"]
+mod generated_difference;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/negate-control.rs"]
+mod generated_negate;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/product-control.rs"]
+mod generated_product;
+#[cfg(feature = "semantics")]
 #[path = "../../generated/sum.rs"]
 mod generated_sum;
 
@@ -142,7 +151,8 @@ fn operands(left: Value, right: Value) -> Result<(i64, i64), Error> {
     }
 }
 
-pub fn negate(value: Value) -> Result<Value, Error> {
+/// Checked integer negation primitive; dispatch belongs to CUE control.
+pub fn integer_negate(value: &Value) -> Result<Value, Error> {
     let Value::Integer(value) = value else {
         return Err(Error::Arithmetic);
     };
@@ -239,16 +249,40 @@ pub fn logical_not(value: Value) -> Result<Value, Error> {
     generated_logical_not::logical_not(value)
 }
 
+/// Negate using generated CUE policy.
+#[cfg(feature = "semantics")]
+pub fn negate(value: Value) -> Result<Value, Error> {
+    generated_negate::negate(value)
+}
+
+/// Subtract using generated CUE policy.
+#[cfg(feature = "semantics")]
 pub fn difference(left: Value, right: Value) -> Result<Value, Error> {
-    let (left, right) = operands(left, right)?;
-    left.checked_sub(right)
+    generated_difference::difference(left, right)
+}
+
+/// Multiply using generated CUE policy.
+#[cfg(feature = "semantics")]
+pub fn product(left: Value, right: Value) -> Result<Value, Error> {
+    generated_product::product(left, right)
+}
+
+/// Checked integer subtraction primitive; dispatch belongs to CUE control.
+pub fn integer_difference(left: &Value, right: &Value) -> Result<Value, Error> {
+    let (Value::Integer(left), Value::Integer(right)) = (left, right) else {
+        return Err(Error::Arithmetic);
+    };
+    left.checked_sub(*right)
         .map(Value::Integer)
         .ok_or(Error::DifferenceOverflow)
 }
 
-pub fn product(left: Value, right: Value) -> Result<Value, Error> {
-    let (left, right) = operands(left, right)?;
-    left.checked_mul(right)
+/// Checked integer multiplication primitive; dispatch belongs to CUE control.
+pub fn integer_product(left: &Value, right: &Value) -> Result<Value, Error> {
+    let (Value::Integer(left), Value::Integer(right)) = (left, right) else {
+        return Err(Error::Arithmetic);
+    };
+    left.checked_mul(*right)
         .map(Value::Integer)
         .ok_or(Error::ProductOverflow)
 }
@@ -345,6 +379,49 @@ mod tests {
             super::concrete_json(Value::Top),
             Err(Error::IncompleteValue)
         ));
+    }
+
+    #[test]
+    fn checked_integer_kernels() {
+        use super::{integer_difference, integer_negate, integer_product};
+
+        assert_eq!(
+            integer_difference(&Value::Integer(i64::MIN), &Value::Integer(i64::MIN)).ok(),
+            Some(Value::Integer(0))
+        );
+        assert!(matches!(
+            integer_negate(&Value::Integer(i64::MIN)),
+            Err(Error::NegationOverflow)
+        ));
+        assert!(matches!(
+            integer_difference(&Value::Integer(i64::MAX), &Value::Integer(-1)),
+            Err(Error::DifferenceOverflow)
+        ));
+        assert!(matches!(
+            integer_product(&Value::Integer(i64::MIN), &Value::Integer(-1)),
+            Err(Error::ProductOverflow)
+        ));
+        for value in [
+            Value::Null,
+            Value::Top,
+            Value::Int,
+            Value::Bool,
+            Value::Bounds {
+                lower: None,
+                upper: None,
+            },
+            Value::Text(Arc::from("x")),
+        ] {
+            assert!(matches!(integer_negate(&value), Err(Error::Arithmetic)));
+            assert!(matches!(
+                integer_difference(&value, &Value::Integer(1)),
+                Err(Error::Arithmetic)
+            ));
+            assert!(matches!(
+                integer_product(&Value::Integer(1), &value),
+                Err(Error::Arithmetic)
+            ));
+        }
     }
 
     #[test]

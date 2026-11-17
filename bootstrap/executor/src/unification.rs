@@ -61,10 +61,13 @@ enum Function {
     LogicalAnd,
     LogicalOr,
     LogicalNot,
+    Negate,
+    Difference,
+    Product,
 }
 impl Function {
     fn is_unary(self) -> bool {
-        matches!(self, Self::LogicalNot)
+        matches!(self, Self::LogicalNot | Self::Negate)
     }
 }
 #[derive(Deserialize)]
@@ -74,6 +77,13 @@ struct Program {
     #[serde(default)]
     function: Function,
     result: Expr,
+}
+#[derive(Clone, Copy, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+enum IntegerOperation {
+    Negate,
+    Difference,
+    Product,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
@@ -98,6 +108,9 @@ enum Expr {
         upper: End,
     },
     IntegerSum {},
+    IntegerPrimitive {
+        operation: IntegerOperation,
+    },
     TextConcat {},
     Boolean {
         value: bool,
@@ -215,8 +228,11 @@ impl Expr {
         match self {
             Self::Input { input: Side::Left }
             | Self::Boolean { .. }
+            | Self::IntegerPrimitive {
+                operation: IntegerOperation::Negate,
+            }
             | Self::Fail {
-                reason: Failure::Logical,
+                reason: Failure::Logical | Failure::Arithmetic,
             } => Ok(()),
             Self::If {
                 condition,
@@ -239,6 +255,7 @@ impl Expr {
             Self::Input { .. }
             | Self::Fail { .. }
             | Self::IntegerSum {}
+            | Self::IntegerPrimitive { .. }
             | Self::TextConcat {}
             | Self::Boolean { .. } => Ok(()),
             Self::If {
@@ -527,6 +544,12 @@ impl Expr {
             Self::Fail {
                 reason: Failure::Logical,
             } => Err(crate::Error::Logical),
+            Self::Fail {
+                reason: Failure::Arithmetic,
+            } => Err(crate::Error::Arithmetic),
+            Self::IntegerPrimitive {
+                operation: IntegerOperation::Negate,
+            } => crate::runtime::integer_negate(left),
             Self::If {
                 condition,
                 then,
@@ -573,6 +596,11 @@ impl Expr {
                 upper: upper.eval(l, r, locals)?,
             }),
             Self::IntegerSum {} => crate::runtime::integer_sum(l, r),
+            Self::IntegerPrimitive { operation } => match operation {
+                IntegerOperation::Negate => crate::runtime::integer_negate(l),
+                IntegerOperation::Difference => crate::runtime::integer_difference(l, r),
+                IntegerOperation::Product => crate::runtime::integer_product(l, r),
+            },
             Self::TextConcat {} => crate::runtime::text_concat(l, r),
             Self::Boolean { value } => Ok(Value::Boolean(*value)),
             Self::Fail { reason } => fail(*reason, l, r),
@@ -750,6 +778,56 @@ mod tests {
         project_unary(&mut projected);
         assert_eq!(projected["else"]["op"], "unaryFail");
         assert_eq!(projected["else"]["reason"], "logical");
+    }
+
+    #[test]
+    fn integer_primitive_validation_and_execution() {
+        use super::{interpret, interpret_unary, project_unary};
+        use crate::runtime::Value as Scalar;
+
+        let unary = r#"{"formatVersion":1,"function":"negate","result":{"op":"integerPrimitive","operation":"negate"}}"#;
+        assert_eq!(
+            interpret_unary(unary, Scalar::Integer(7)).ok(),
+            Some(Scalar::Integer(-7))
+        );
+        assert!(interpret(unary, Scalar::Integer(7), Scalar::Integer(1)).is_err());
+        let failure = r#"{"formatVersion":1,"function":"negate","result":{"op":"fail","reason":"arithmetic"}}"#;
+        assert!(matches!(
+            interpret_unary(failure, Scalar::Int),
+            Err(crate::Error::Arithmetic)
+        ));
+        if let Ok(p) = parse(failure) {
+            let mut projected = serde_json::json!(p.result);
+            project_unary(&mut projected);
+            assert_eq!(projected["op"], "unaryFail");
+            assert_eq!(projected["reason"], "arithmetic");
+        } else {
+            panic!("valid unary failure");
+        }
+        for (operation, expected) in [("negate", -7), ("difference", 1), ("product", 42)] {
+            let control = format!(
+                r#"{{"formatVersion":1,"function":"difference","result":{{"op":"integerPrimitive","operation":"{operation}"}}}}"#
+            );
+            assert_eq!(
+                interpret(&control, Scalar::Integer(7), Scalar::Integer(6)).ok(),
+                Some(Scalar::Integer(expected))
+            );
+            assert!(interpret_unary(&control, Scalar::Integer(7)).is_err());
+        }
+        for expr in [
+            r#"{"op":"integerPrimitive","operation":"difference"}"#,
+            r#"{"op":"integerPrimitive","operation":"product"}"#,
+            r#"{"op":"integerPrimitive","operation":"unknown"}"#,
+            r#"{"op":"integerPrimitive","operation":1}"#,
+            r#"{"op":"integerPrimitive"}"#,
+            r#"{"op":"integerPrimitive","operation":"negate","extra":1}"#,
+            r#"{"op":"integerPrimitive","operation":"negate","operation":"negate"}"#,
+        ] {
+            let control = format!(
+                r#"{{"formatVersion":1,"function":"negate","result":{{"op":"if","condition":{{"op":"kindIs","input":"left","kind":"integer"}},"then":{{"op":"input","input":"left"}},"else":{expr}}}}}"#
+            );
+            assert!(parse(&control).is_err(), "{expr}");
+        }
     }
 
     #[test]
