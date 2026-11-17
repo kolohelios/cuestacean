@@ -34,6 +34,7 @@ fn literal_scanner_has_independent_byte_spans_and_errors() {
         ("λ\"🦀é\"tail", 2, 10, true),
         (r#""\n\t"tail"#, 0, 6, true),
         (r#""\u1234"tail"#, 0, 8, true),
+        (r#""\U00001234"tail"#, 0, 12, true),
         (r#""\uD800\uDC00"tail"#, 0, 14, true),
         (r#""\"\\"!"#, 0, 6, true),
     ] {
@@ -54,7 +55,7 @@ fn literal_scanner_has_independent_byte_spans_and_errors() {
         ("\"λ", 3, "unterminated string literal"),
         ("\"\\", 2, "unsupported string escape"),
         (r#""\u""#, 3, "invalid Unicode escape"),
-        (r#""\U00001234""#, 2, "unsupported string escape"),
+        (r#""\U00110000""#, 11, "invalid Unicode scalar escape"),
         (r#""\uD800\uDC00"#, 13, "unterminated string literal"),
         (
             "\"\\uD800\\uDC00\n\"",
@@ -103,7 +104,7 @@ fn ascii_escape_and_raw_control_boundaries_are_exhaustive() {
                         flag: true
                     }
                 );
-            } else if byte == b'u' {
+            } else if matches!(byte, b'u' | b'U') {
                 assert_eq!(
                     scan.expect_err("missing Unicode digits").to_string(),
                     "source byte 3: invalid Unicode escape"
@@ -222,7 +223,7 @@ fn grammar_metadata_and_phase_guards() {
     }
     for source in [
         r#""\u""#,
-        r#""\U00001234""#,
+        r#""\U00110000""#,
         r#""\x20""#,
         r#""\123""#,
         r#""\(x)""#,

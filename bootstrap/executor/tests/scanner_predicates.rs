@@ -454,7 +454,7 @@ fn actual_old_nested_and_composed_unicode_scanners_preserve_fixed_results() {
         ("\"\\uD800\\u", 0, 9, "expected low surrogate escape"),
         (r#""\uD800\uDCλ0""#, 0, 11, "invalid Unicode escape"),
         (r#""\uD800\uDFFg""#, 0, 12, "invalid Unicode escape"),
-        (r#""\U00010000""#, 0, 2, "unsupported string escape"),
+        (r#""\q""#, 0, 2, "unsupported string escape"),
         ("λ\"é\\u00λ0\"", 2, 9, "invalid Unicode escape"),
         ("λ\"\\uD800\\uDC00", 2, 15, "unterminated string literal"),
     ] {

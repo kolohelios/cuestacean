@@ -28,6 +28,7 @@
         "identifier"
         "string-literal"
         "tests/valid/string-no-unicode"
+        "tests/valid/string-no-wide"
         "tests/valid/string-nested"
         "tests/valid/scanner-predicates"
         "tests/valid/scanner-repeat"
@@ -222,7 +223,7 @@
               # for a literal can exhaust the CI runner while checking unused CUE.
               fragments=()
               case "$fixture" in
-                string-literal|tests/valid/string-no-unicode|tests/valid/string-nested|tests/valid/string-unrolled) fragments=(string-literal-fragments) ;;
+                string-literal|tests/valid/string-no-unicode|tests/valid/string-no-wide|tests/valid/string-nested|tests/valid/string-unrolled) fragments=(string-literal-fragments) ;;
                 whitespace|after-operand|after-word-operator|group-close)
                   fragments=(scanner-fragments) ;;
                 lowering|tests/valid/lowering-left-twice|tests/valid/lowering-reverse)

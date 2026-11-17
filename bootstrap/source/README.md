@@ -99,14 +99,16 @@ constraints remain separate and unchanged; prefix `<`/`>` constraints remain abs
 
 The [string profile](../strings.md) admits double-quoted raw UTF-8, empty strings,
 the common escapes `\"`, `\\`, `\b`, `\f`, `\n`, `\r`, `\t`, four-digit
-Unicode `\uXXXX` with valid surrogate pairs, and the abstract `string`
+Unicode `\uXXXX` with valid surrogate pairs, eight-digit scalar `\UXXXXXXXX`,
+and the abstract `string`
 atom. CUE scanner/primary/builder programs own lexical selection and AST construction;
 native checked conversion decodes the admitted subset. Raw controls/BOM reject.
 [CUE-owned addition](../sum.md) concatenates two concrete strings using `+`,
 with existing precedence and associativity. No coercion or abstract propagation
 is added. Lone surrogates reject; escaped controls/BOM/noncharacters are allowed
 while raw controls/BOM still reject ([contract](../unicode-escapes.md)).
-Eight-digit `\U`, hex/octal escapes, interpolation, hash/raw/multiline forms and
+Wide surrogates reject rather than pairing ([wide contract](../wide-unicode.md)).
+Hex/octal escapes, interpolation, hash/raw/multiline forms and
 other string arithmetic remain unsupported. JSON output escape spelling may differ from Go CUE;
 comparisons canonicalize strings only, retaining exact numeric checks.
 

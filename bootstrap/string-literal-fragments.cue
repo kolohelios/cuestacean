@@ -60,7 +60,33 @@ package bootstrap
 	]},
 ]
 
+#WideZeroPair: {op: "and", left: {op: "byteIn", bytes: [48]}, right: {op: "byteIn", ahead: 1, bytes: [48]}}
+#WideRangePrefix: {
+	op: "and", left: #WideZeroPair
+	right: {op: "or", left: {op: "byteIn", ahead: 2, bytes: [48]}, right: {
+		op: "and", left: {op: "byteIn", ahead: 2, bytes: [49]}, right: {op: "byteIn", ahead: 3, bytes: [48]}
+	}}
+}
+#WideSurrogate: {
+	op: "and"
+	left: {op: "and", left: #WideZeroPair, right: {
+		op: "and", left: {op: "byteIn", ahead: 2, bytes: [48]}, right: {op: "byteIn", ahead: 3, bytes: [48]}
+	}}
+	right: {op: "and", left: {op: "byteIn", ahead: 4, bytes: [68, 100]}, right: {
+		op: "byteIn", ahead: 5, bytes: [56, 57, 65, 66, 67, 68, 69, 70, 97, 98, 99, 100, 101, 102]
+	}}
+}
+#WideUnicodeEscape: [
+	{op: "advance"},
+	{op: "if", condition: #WideRangePrefix, then: [
+		{op: "if", condition: #WideSurrogate, then: [{op: "setFlag", value: true}]},
+	], else: [{op: "setFlag", value: true}]},
+	{op: "repeat", count: 8, body: [#HexDigitStep]},
+	{op: "if", condition: {op: "flagIs", value: true}, then: [{op: "reject", reason: "invalid Unicode scalar escape"}]},
+]
+
 #StringLiteralScanner: #ScanProgram & {
+	_wide: *[{op: "if", condition: {op: "byteIn", bytes: [85]}, then: [for step in #WideUnicodeEscape {step}], else: [{op: "reject", reason: "unsupported string escape"}]}] | [{op: "reject", reason: "unsupported string escape"}]
 	_unicode: *#RepeatedUnicodeEscape | #ComposedUnicodeEscape | #UnicodeEscape | [{op: "reject", reason: "unsupported string escape"}]
 	body: [{
 		op: "if", condition: {op: "byteIn", bytes: [34]}, then: [
@@ -75,7 +101,7 @@ package bootstrap
 						then: [{op: "advance"}], else: [{
 							op: "if", condition: {op: "byteIn", bytes: [117]}
 							then: [for step in _unicode {step}]
-							else: [{op: "reject", reason: "unsupported string escape"}]
+							else: [for step in _wide {step}]
 						}]
 					}]
 					else: [{
