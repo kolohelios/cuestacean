@@ -40,6 +40,16 @@ package bootstrap
 		]}, else: {op: "text", value: "break;\n"}}]}
 		setFlag: {op: "concat", parts: [Step, {op: "text", value: "cursor.set_flag("}, {op: "boolean", field: "value"}, {op: "text", value: ");\n"}]}
 		reject: {op: "concat", parts: [Step, {op: "text", value: "cursor.reject("}, {op: "string", field: "reason"}, {op: "text", value: ")?;\n"}]}
+		and: {op: "concat", parts: [
+			{op: "text", value: "("}, {op: "lower", field: "left"},
+			{op: "ifTrue", field: "inverse", then: {op: "text", value: ") || ("}, else: {op: "text", value: ") && ("}},
+			{op: "lower", field: "right"}, {op: "text", value: ")"},
+		]}
+		or: {op: "concat", parts: [
+			{op: "text", value: "("}, {op: "lower", field: "left"},
+			{op: "ifTrue", field: "inverse", then: {op: "text", value: ") && ("}, else: {op: "text", value: ") || ("}},
+			{op: "lower", field: "right"}, {op: "text", value: ")"},
+		]}
 		byteIn: {op: "concat", parts: [Not, {op: "text", value: "matches!("}, {
 			op: "ifZero", field: "ahead", then: {op: "text", value: "cursor.peek()"}, else: {op: "concat", parts: [
 				{op: "text", value: "cursor.peek_at("}, {op: "unsigned", field: "ahead"}, {op: "text", value: ")"},

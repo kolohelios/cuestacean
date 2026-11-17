@@ -28,8 +28,24 @@ package bootstrap
 	]},
 ]
 
+// Compose pure prefix reads instead of consuming statements for nested tests.
+#ComposedUnicodeEscape: [
+	{op: "advance"},
+	{op: "if", condition: {op: "and", left: #SurrogateLead, right: #HighTail}, then: [{op: "setFlag", value: true}]},
+	{op: "if", condition: {op: "and", left: #SurrogateLead, right: #LowTail}, then: [{op: "reject", reason: "unexpected low surrogate escape"}]},
+	for step in #FourHex {step},
+	{op: "if", condition: {op: "flagIs", value: true}, then: [
+		{op: "if", condition: {op: "and", left: {op: "byteIn", bytes: [92]}, right: {op: "byteIn", ahead: 1, bytes: [117]}}
+			then: [{op: "advance"}, {op: "advance"}]
+			else: [{op: "reject", reason: "missing low surrogate escape"}]},
+		{op: "if", condition: {op: "and", left: #SurrogateLead, right: #LowTail}, then: [for step in #FourHex {step}]
+			else: [{op: "reject", reason: "expected low surrogate escape"}]},
+		{op: "setFlag", value: false},
+	]},
+]
+
 #StringLiteralScanner: #ScanProgram & {
-	_unicode: *#UnicodeEscape | [{op: "reject", reason: "unsupported string escape"}]
+	_unicode: *#ComposedUnicodeEscape | #UnicodeEscape | [{op: "reject", reason: "unsupported string escape"}]
 	body: [{
 		op: "if", condition: {op: "byteIn", bytes: [34]}, then: [
 			{op: "advance"},

@@ -33,20 +33,18 @@ pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
                             cursor.step()?;
                             cursor.advance()?;
                             cursor.step()?;
-                            if matches!(cursor.peek(), Some(68 | 100)) {
+                            if (matches!(cursor.peek(), Some(68 | 100)))
+                                && (matches!(cursor.peek_at(1), Some(56 | 57 | 65 | 66 | 97 | 98)))
+                            {
                                 cursor.step()?;
-                                if matches!(cursor.peek_at(1), Some(56 | 57 | 65 | 66 | 97 | 98)) {
-                                    cursor.step()?;
-                                    cursor.set_flag(true);
-                                }
+                                cursor.set_flag(true);
                             }
                             cursor.step()?;
-                            if matches!(cursor.peek(), Some(68 | 100)) {
+                            if (matches!(cursor.peek(), Some(68 | 100)))
+                                && (matches!(cursor.peek_at(1), Some(67..=70 | 99..=102)))
+                            {
                                 cursor.step()?;
-                                if matches!(cursor.peek_at(1), Some(67..=70 | 99..=102)) {
-                                    cursor.step()?;
-                                    cursor.reject("unexpected low surrogate escape")?;
-                                }
+                                cursor.reject("unexpected low surrogate escape")?;
                             }
                             cursor.step()?;
                             if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
@@ -83,72 +81,52 @@ pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
                             cursor.step()?;
                             if cursor.flag() {
                                 cursor.step()?;
-                                if matches!(cursor.peek(), Some(92)) {
+                                if (matches!(cursor.peek(), Some(92)))
+                                    && (matches!(cursor.peek_at(1), Some(117)))
+                                {
                                     cursor.step()?;
-                                    if matches!(cursor.peek_at(1), Some(117)) {
-                                        cursor.step()?;
-                                        cursor.advance()?;
-                                        cursor.step()?;
-                                        cursor.advance()?;
-                                    } else {
-                                        cursor.step()?;
-                                        cursor.reject("missing low surrogate escape")?;
-                                    }
+                                    cursor.advance()?;
+                                    cursor.step()?;
+                                    cursor.advance()?;
                                 } else {
                                     cursor.step()?;
                                     cursor.reject("missing low surrogate escape")?;
                                 }
                                 cursor.step()?;
-                                if matches!(cursor.peek(), Some(68 | 100)) {
+                                if (matches!(cursor.peek(), Some(68 | 100)))
+                                    && (matches!(cursor.peek_at(1), Some(67..=70 | 99..=102)))
+                                {
                                     cursor.step()?;
-                                    if matches!(cursor.peek_at(1), Some(67..=70 | 99..=102)) {
+                                    if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
                                         cursor.step()?;
-                                        if matches!(
-                                            cursor.peek(),
-                                            Some(48..=57 | 65..=70 | 97..=102)
-                                        ) {
-                                            cursor.step()?;
-                                            cursor.advance()?;
-                                        } else {
-                                            cursor.step()?;
-                                            cursor.reject("invalid Unicode escape")?;
-                                        }
-                                        cursor.step()?;
-                                        if matches!(
-                                            cursor.peek(),
-                                            Some(48..=57 | 65..=70 | 97..=102)
-                                        ) {
-                                            cursor.step()?;
-                                            cursor.advance()?;
-                                        } else {
-                                            cursor.step()?;
-                                            cursor.reject("invalid Unicode escape")?;
-                                        }
-                                        cursor.step()?;
-                                        if matches!(
-                                            cursor.peek(),
-                                            Some(48..=57 | 65..=70 | 97..=102)
-                                        ) {
-                                            cursor.step()?;
-                                            cursor.advance()?;
-                                        } else {
-                                            cursor.step()?;
-                                            cursor.reject("invalid Unicode escape")?;
-                                        }
-                                        cursor.step()?;
-                                        if matches!(
-                                            cursor.peek(),
-                                            Some(48..=57 | 65..=70 | 97..=102)
-                                        ) {
-                                            cursor.step()?;
-                                            cursor.advance()?;
-                                        } else {
-                                            cursor.step()?;
-                                            cursor.reject("invalid Unicode escape")?;
-                                        }
+                                        cursor.advance()?;
                                     } else {
                                         cursor.step()?;
-                                        cursor.reject("expected low surrogate escape")?;
+                                        cursor.reject("invalid Unicode escape")?;
+                                    }
+                                    cursor.step()?;
+                                    if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
+                                        cursor.step()?;
+                                        cursor.advance()?;
+                                    } else {
+                                        cursor.step()?;
+                                        cursor.reject("invalid Unicode escape")?;
+                                    }
+                                    cursor.step()?;
+                                    if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
+                                        cursor.step()?;
+                                        cursor.advance()?;
+                                    } else {
+                                        cursor.step()?;
+                                        cursor.reject("invalid Unicode escape")?;
+                                    }
+                                    cursor.step()?;
+                                    if matches!(cursor.peek(), Some(48..=57 | 65..=70 | 97..=102)) {
+                                        cursor.step()?;
+                                        cursor.advance()?;
+                                    } else {
+                                        cursor.step()?;
+                                        cursor.reject("invalid Unicode escape")?;
                                     }
                                 } else {
                                     cursor.step()?;

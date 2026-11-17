@@ -2,13 +2,14 @@
 
 `scan-lowering{,-fragments}.cue` owns scanner module/statement layout, predicate
 composition and source-branch simplification through the [shared engine](lowering.md).
-All existing scanner goldens and control wire syntax remain unchanged.
+Existing leaf control syntax and scanner goldens remain unchanged except the
+production string scanner, intentionally compacted with [composable predicates](scanner-predicates.md).
 
 ## Explicit native boundary
 
 Native validation still checks the entire original program, including unreachable
 suffixes: version, duplicate/unknown fields, 64 statements, 16 levels, scoped breaks,
-predicate sizes and lookahead. The checked flow pass supplies loop depth, guaranteed
+predicate sizes/lookahead and whole-program predicate trees (128 nodes/16 levels). The checked flow pass supplies loop depth, guaranteed
 break facts and nearest-loop targets, pruning unreachable suffixes. This analysis
 is still native, not claimed self-hosted. Cursor/fuel checks and the reference
 statement interpreter remain native too.
@@ -18,7 +19,10 @@ inversion, step placement, advancement/rejection calls and module layout. It ren
 both conditional bodies once, caches them lexically, then merges equal branches
 or selects inverted/ordinary condition layout. A merged branch still charges its
 runtime condition step. Pure predicates make this valid; do not add side effects
-to predicate reads without revisiting this contract.
+to predicate reads without revisiting this contract. For `and`/`or`, native
+metadata propagates the desired inversion bit to both children; CUE chooses
+normal/De Morgan operators and operand grouping. There is no native boolean
+source-emission map, and each bounded compound read still uses one test step.
 
 `bytePattern` and `charPattern` are bounded native rendering primitives, not CUE
 algorithms: they require 1..128 values, sort/deduplicate, and stream output through
@@ -42,7 +46,7 @@ checked primitives; there is no global Context binding state or budget reset.
 Copies, comparisons' operands and enclosing results retain existing work/frame/byte
 accounting. Pattern validation precedes rendering. Existing 512-node/32-level policy,
 4096-step/128-frame/1-MiB output guards remain unchanged; the default policy uses
-321 JSON values. Generation now has shared rendering limits as well as scanner
+369 JSON values. Generation now has shared rendering limits as well as scanner
 validation bounds, unlike the construction interpreter's execution-only contract.
 
 ## Pipeline and proof

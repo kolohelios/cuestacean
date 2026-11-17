@@ -180,11 +180,38 @@ enum Predicate {
     FlagIs { value: bool },
     #[serde(rename = "hasByte")]
     HasByte {},
+    #[serde(rename = "and")]
+    And {
+        left: Box<Predicate>,
+        right: Box<Predicate>,
+    },
+    #[serde(rename = "or")]
+    Or {
+        left: Box<Predicate>,
+        right: Box<Predicate>,
+    },
 }
 
 impl Predicate {
-    fn validate(&self) -> Result<(), Error> {
+    fn validate(&self, depth: usize, nodes: &mut usize) -> Result<(), Error> {
+        *nodes += 1;
+        if *nodes > 128 {
+            return ProgramSnafu {
+                reason: "exceeds 128 predicate nodes",
+            }
+            .fail();
+        }
+        if depth > 16 {
+            return ProgramSnafu {
+                reason: "exceeds 16 predicate levels",
+            }
+            .fail();
+        }
         match self {
+            Self::And { left, right } | Self::Or { left, right } => {
+                left.validate(depth + 1, nodes)?;
+                right.validate(depth + 1, nodes)
+            }
             Self::ByteIn { bytes, .. }
                 if bytes.is_empty()
                     || bytes.len() > 128
@@ -209,6 +236,7 @@ impl Predicate {
         }
     }
 
+    // Validation bounds pure tree work; only the surrounding statement charges fuel.
     fn test(&self, cursor: &Cursor<'_>) -> bool {
         match self {
             Self::ByteIn { bytes, ahead } => cursor
@@ -219,6 +247,8 @@ impl Predicate {
                 .is_some_and(|ch| characters.contains(&ch)),
             Self::FlagIs { value } => cursor.flag() == *value,
             Self::HasByte {} => cursor.peek().is_some(),
+            Self::And { left, right } => left.test(cursor) && right.test(cursor),
+            Self::Or { left, right } => left.test(cursor) || right.test(cursor),
         }
     }
 }
@@ -255,6 +285,7 @@ fn validate(
     depth: usize,
     loops: usize,
     nodes: &mut usize,
+    predicate_nodes: &mut usize,
 ) -> Result<(), Error> {
     if depth > 16 {
         return ProgramSnafu {
@@ -272,17 +303,17 @@ fn validate(
         }
         match statement {
             Statement::While { condition, body } => {
-                condition.validate()?;
-                validate(body, depth + 1, loops + 1, nodes)?;
+                condition.validate(1, predicate_nodes)?;
+                validate(body, depth + 1, loops + 1, nodes, predicate_nodes)?;
             }
             Statement::If {
                 condition,
                 then,
                 otherwise,
             } => {
-                condition.validate()?;
-                validate(then, depth + 1, loops, nodes)?;
-                validate(otherwise, depth + 1, loops, nodes)?;
+                condition.validate(1, predicate_nodes)?;
+                validate(then, depth + 1, loops, nodes, predicate_nodes)?;
+                validate(otherwise, depth + 1, loops, nodes, predicate_nodes)?;
             }
             Statement::Reject { reason } if reason.is_empty() => {
                 return ProgramSnafu {
@@ -314,7 +345,7 @@ fn parse(input: &str) -> Result<Program, Error> {
         }
         .fail();
     }
-    validate(&program.body, 0, 0, &mut 0)?;
+    validate(&program.body, 0, 0, &mut 0, &mut 0)?;
     Ok(program)
 }
 
@@ -394,6 +425,23 @@ fn always_breaks(body: &[Statement]) -> bool {
 }
 
 fn predicate_node(predicate: &Predicate, inverse: bool) -> Result<Value, Error> {
+    // Supply inversion as data at every level; CUE selects the operators.
+    match predicate {
+        Predicate::And { left, right } | Predicate::Or { left, right } => {
+            let op = if matches!(predicate, Predicate::And { .. }) {
+                "and"
+            } else {
+                "or"
+            };
+            return Ok(json!({
+                "op": op,
+                "inverse": inverse,
+                "left": predicate_node(left, inverse)?,
+                "right": predicate_node(right, inverse)?,
+            }));
+        }
+        _ => {}
+    }
     #[derive(Serialize)]
     struct Node<'a> {
         #[serde(flatten)]
@@ -539,6 +587,212 @@ pub fn identifier(source: &str, offset: usize) -> Result<Scan, Error> {
 mod tests {
     use super::{Cursor, Error, Predicate, Statement, generate, interpret, validate};
 
+    fn tree(levels: usize) -> Predicate {
+        if levels == 1 {
+            Predicate::HasByte {}
+        } else {
+            Predicate::And {
+                left: Box::new(tree(levels - 1)),
+                right: Box::new(tree(levels - 1)),
+            }
+        }
+    }
+
+    fn chain(levels: usize) -> Predicate {
+        if levels == 1 {
+            Predicate::HasByte {}
+        } else {
+            Predicate::Or {
+                left: Box::new(Predicate::HasByte {}),
+                right: Box::new(chain(levels - 1)),
+            }
+        }
+    }
+
+    fn conditional(condition: Predicate) -> Statement {
+        Statement::If {
+            condition,
+            then: vec![],
+            otherwise: vec![],
+        }
+    }
+
+    #[test]
+    fn predicate_limits_are_independent_and_whole_program() {
+        // 127-node full tree plus a separate leaf, not a per-condition cap.
+        let body = vec![conditional(tree(7)), conditional(Predicate::HasByte {})];
+        let mut predicates = 0;
+        validate(&body, 0, 0, &mut 0, &mut predicates).expect("128 predicates");
+        assert_eq!(predicates, 128);
+        let body = vec![conditional(Predicate::And {
+            left: Box::new(Predicate::HasByte {}),
+            right: Box::new(tree(7)),
+        })];
+        assert_eq!(
+            validate(&body, 0, 0, &mut 0, &mut 0)
+                .expect_err("129 predicates")
+                .to_string(),
+            "invalid scanner program: exceeds 128 predicate nodes"
+        );
+        validate(&[conditional(chain(16))], 0, 0, &mut 0, &mut 0)
+            .expect("16 predicate levels, 31 nodes");
+        assert_eq!(
+            validate(&[conditional(chain(17))], 0, 0, &mut 0, &mut 0)
+                .expect_err("17 predicate levels")
+                .to_string(),
+            "invalid scanner program: exceeds 16 predicate levels"
+        );
+        // Count across while/if, both branches, and an unreachable suffix.
+        let body = vec![
+            Statement::While {
+                condition: tree(7),
+                body: vec![Statement::Break {}, conditional(Predicate::HasByte {})],
+            },
+            conditional(Predicate::HasByte {}),
+        ];
+        assert!(
+            validate(&body, 0, 0, &mut 0, &mut 0)
+                .expect_err("unreachable predicate counted")
+                .to_string()
+                .contains("exceeds 128 predicate nodes")
+        );
+        let body = vec![Statement::If {
+            condition: Predicate::HasByte {},
+            then: vec![conditional(tree(7))],
+            otherwise: vec![conditional(Predicate::HasByte {})],
+        }];
+        assert!(
+            validate(&body, 0, 0, &mut 0, &mut 0)
+                .expect_err("unused branch counted")
+                .to_string()
+                .contains("exceeds 128 predicate nodes")
+        );
+    }
+
+    #[test]
+    fn composite_reads_are_pure_and_charge_only_the_surrounding_test() {
+        for left in [false, true] {
+            for right in [false, true] {
+                let mut cursor = Cursor::new("λx", 0).expect("cursor");
+                cursor.set_flag(true);
+                let fuel = cursor.fuel;
+                for (op, expected) in [("and", left && right), ("or", left || right)] {
+                    let condition = serde_json::from_value(serde_json::json!({
+                        "op":op, "left":{"op":"flagIs","value":left},
+                        "right":{"op":"flagIs","value":right}
+                    }))
+                    .expect("predicate");
+                    let before_test = cursor.fuel;
+                    assert_eq!(Predicate::test(&condition, &cursor), expected);
+                    assert_eq!(cursor.fuel, before_test);
+                    super::execute(&[conditional(condition)], &mut cursor).expect("if");
+                }
+                assert_eq!(cursor.fuel, fuel - 2);
+                assert_eq!(cursor.offset, 0);
+                assert!(cursor.flag);
+            }
+        }
+        let mut cursor = Cursor::new("", 0).expect("EOF");
+        let fuel = cursor.fuel;
+        super::execute(&[conditional(tree(7))], &mut cursor).expect("bounded tree");
+        assert_eq!(cursor.fuel, fuel - 1);
+        super::execute(
+            &[Statement::While {
+                condition: chain(16),
+                body: vec![],
+            }],
+            &mut cursor,
+        )
+        .expect("false loop condition");
+        assert_eq!(cursor.fuel, fuel - 2);
+    }
+
+    #[test]
+    fn composite_metadata_recursively_preserves_desired_inversion() {
+        use serde_json::json;
+        let predicate: Predicate = serde_json::from_value(json!({
+            "op":"and", "left":{"op":"hasByte"},
+            "right":{"op":"or", "left":{"op":"byteIn","bytes":[97],"ahead":1},
+                "right":{"op":"charIn","characters":["λ"]}}
+        }))
+        .expect("tree");
+        for inverse in [false, true] {
+            assert_eq!(
+                super::predicate_node(&predicate, inverse).expect("metadata"),
+                json!({
+                    "op":"and", "inverse":inverse,
+                    "left":{"op":"hasByte","inverse":inverse},
+                    "right":{"op":"or","inverse":inverse,
+                        "left":{"op":"byteIn","bytes":[97],"ahead":1,"inverse":inverse},
+                        "right":{"op":"charIn","characters":["λ"],"inverse":inverse}}
+                })
+            );
+            assert_eq!(
+                super::predicate_node(&Predicate::FlagIs { value: false }, inverse)
+                    .expect("leaf metadata"),
+                json!({"op":"flagIs","value":false,"inverse":inverse})
+            );
+        }
+    }
+
+    #[test]
+    fn composite_children_validate_eagerly_before_policy_or_execution() {
+        for invalid in [
+            r#"{"op":"byteIn","bytes":[]}"#,
+            r#"{"op":"byteIn","bytes":[128]}"#,
+            r#"{"op":"byteIn","bytes":[97],"ahead":65}"#,
+            r#"{"op":"charIn","characters":[]}"#,
+            r#"{"op":"charIn","characters":["ab"]}"#,
+            r#"{"op":"hasByte","extra":true}"#,
+            r#"{"op":"flagIs","value":true,"value":false}"#,
+            r#"{"op":"and","left":{"op":"hasByte"}}"#,
+            r#"{"op":"or","right":{"op":"hasByte"}}"#,
+            r#"{"op":"and","left":{"op":"hasByte"},"right":{"op":"hasByte"},"extra":0}"#,
+            r#"{"op":"or","left":{"op":"hasByte"},"left":{"op":"hasByte"},"right":{"op":"hasByte"}}"#,
+            r#"{"op":"not","left":{"op":"hasByte"}}"#,
+        ] {
+            for op in ["and", "or"] {
+                for invalid_left in [false, true] {
+                    let valid = r#"{"op":"flagIs","value":true}"#;
+                    let (left, right) = if invalid_left {
+                        (invalid, valid)
+                    } else {
+                        (valid, invalid)
+                    };
+                    let input = format!(
+                        r#"{{"formatVersion":1,"body":[{{"op":"if","condition":{{"op":"{op}","left":{left},"right":{right}}},"then":[]}}]}}"#
+                    );
+                    let expected = super::parse(&input)
+                        .err()
+                        .expect("invalid child")
+                        .to_string();
+                    assert_eq!(
+                        interpret(&input, "", 0)
+                            .expect_err("eager execution validation")
+                            .to_string(),
+                        expected
+                    );
+                    assert_eq!(
+                        super::generate_with_policy(&input, "not JSON")
+                            .expect_err("target validation before malformed policy")
+                            .to_string(),
+                        expected
+                    );
+                }
+            }
+        }
+        // Oversized classes still reject inside compositions.
+        for child in [
+            serde_json::json!({"op":"byteIn","bytes":vec![97;129]}),
+            serde_json::json!({"op":"charIn","characters":vec!["λ";129]}),
+        ] {
+            let input = serde_json::json!({"formatVersion":1,"body":[{"op":"if",
+                "condition":{"op":"or","left":{"op":"hasByte"},"right":child},"then":[]}]})
+            .to_string();
+            assert!(super::parse(&input).is_err());
+        }
+    }
+
     #[test]
     fn unicode_cursor_preserves_boundaries_and_ascii_contract() {
         assert!(matches!(Cursor::new("λ", 1), Err(Error::Offset)));
@@ -621,10 +875,10 @@ mod tests {
     #[test]
     fn statement_and_nesting_limits_are_checked_before_execution_or_emission() {
         let mut body: Vec<_> = (0..64).map(|_| Statement::Advance {}).collect();
-        validate(&body, 0, 0, &mut 0).expect("64 statements allowed");
+        validate(&body, 0, 0, &mut 0, &mut 0).expect("64 statements allowed");
         body.push(Statement::Advance {});
         assert!(
-            validate(&body, 0, 0, &mut 0)
+            validate(&body, 0, 0, &mut 0, &mut 0)
                 .expect_err("statement cap")
                 .to_string()
                 .contains("64 statements")
@@ -639,7 +893,7 @@ mod tests {
                 body,
             }];
         }
-        validate(&body, 0, 0, &mut 0).expect("16 nesting levels allowed");
+        validate(&body, 0, 0, &mut 0, &mut 0).expect("16 nesting levels allowed");
         body = vec![Statement::While {
             condition: Predicate::ByteIn {
                 bytes: vec![32],
@@ -648,7 +902,7 @@ mod tests {
             body,
         }];
         assert!(
-            validate(&body, 0, 0, &mut 0)
+            validate(&body, 0, 0, &mut 0, &mut 0)
                 .expect_err("nesting cap")
                 .to_string()
                 .contains("16 nesting levels")
