@@ -56,7 +56,10 @@ interprets that rule's result instruction against the current node:
 - `text` reads a named string field into owned shared text.
 - `boolean` constructs its literal `value` from rule data, not a node-kind case.
 - `lowerBound` / `upperBound` execute their `value` instruction, require a
-  concrete integer threshold, and construct an inclusive one-sided bound.
+  concrete integer threshold, and construct an inclusive one-sided bound via
+  [CUE bound control](../bound-control.md). Native endpoint projection remains,
+  not native threshold/layout dispatch. Direct constructor failures retain
+  `BoundThreshold`; default rules still read scalar threshold fields first.
 - `field` reads the named field as a concrete integer value.
 - `evaluate` selects the named child and recursively dispatches its rule.
 - `sum` executes its left instruction, then its right instruction, against the

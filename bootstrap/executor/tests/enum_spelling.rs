@@ -66,6 +66,7 @@ fn cue_styles_preserve_every_closed_enum_spelling() {
         ("ordering", "Ordering"),
         ("logical", "Logical"),
         ("divisionByZero", "DivisionByZero"),
+        ("boundThreshold", "BoundThreshold"),
         ("incompleteInt", "IncompleteInt"),
         ("incompleteValue", "IncompleteValue"),
         ("incompleteBool", "IncompleteBool"),

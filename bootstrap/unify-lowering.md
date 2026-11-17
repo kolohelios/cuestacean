@@ -40,7 +40,8 @@ select maps. Full native enum validation still precedes rendering; raw metadata
 is not a sandbox. The [identifier contract](identifier-rendering.md) pins lexical
 bounds and style semantics; backend export shrinks from 503 to 410 values under
 the unchanged 512 guard, with identical solver output. The subsequent output
-admission extension adds six unary failure cases, reaching 428 values. The bridge always supplies a validated `function` enum (`unify`,
+admission extension adds six unary failure cases, reaching 428 values; bound
+construction adds one more, reaching 431 without raising the guard. The bridge always supplies a validated `function` enum (`unify`,
 `sum`, comparison/logical and integer-control names), defaulted for legacy
 control wire documents. CUE's checked `identifier` with snake conversion emits
 the compiled entry name and emits the `integerSum`/`textConcat` kernel calls used by
@@ -56,7 +57,10 @@ output/incomplete failure. [Output control](output-control.md) keeps the legacy
 `incompleteInt` → `Error::Incomplete` exception explicit in CUE. CUE chooses a one-input
 header and emits failure without a nonexistent RHS. Original wire still uses
 `fail`; the unary subset rejects all binary/right dependencies before lowering.
-Reusable binary CUE templates explicitly use `#BinaryControlProgram`.
+[Bound construction](bound-control.md) reuses existing endpoint projection and
+bounds layout in genuine unary programs. A checked left-only endpoint subset
+makes those templates safe without RHS fabrication; boundThreshold is emitted as
+an input-independent failure. Reusable binary CUE templates explicitly use `#BinaryControlProgram`.
 The integer primitive's validated operation tag selects fixed checked-kernel
 paths in CUE. Function identifiers originate only in the native whitelist; raw
 compiler metadata and policies are trusted hooks, not an arbitrary-code sandbox.

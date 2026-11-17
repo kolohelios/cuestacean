@@ -15,7 +15,9 @@ boolean results, left-input selection, logical/arithmetic failure, checked integ
 negation, integer value literals and conditional branches
 whose kind/boolean predicates inspect the left input (including `and`/`or`).
 Every branch is checked, even unused ones. Right references, same-pair tests,
-endpoints and binary arithmetic/concatenation fail validation. The
+endpoint conditions and binary arithmetic/concatenation fail validation.
+[Bound control](bound-control.md) now permits bounds construction with left-only
+endpoint projection/literals/empty/choose; right endpoints and locals still reject. The
 [integer-control extension](integer-control.md) adds `negate` unary arity alongside
 `logicalNot`; [output control](output-control.md) adds two unary admission
 entries and six input-independent output/incomplete failures. Metadata names do

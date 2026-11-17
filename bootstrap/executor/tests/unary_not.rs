@@ -116,7 +116,7 @@ fn unary_control_has_independent_values_and_real_arity() {
     let unused_bad = [
         json!({"op":"input","input":"right"}),
         json!({"op":"integerSum"}),
-        json!({"op":"bounds","lower":{"op":"empty"},"upper":{"op":"empty"}}),
+        json!({"op":"bounds","lower":{"op":"input","input":"right","endpoint":"lower"},"upper":{"op":"empty"}}),
         json!({"op":"fail","reason":"types"}),
         json!({"op":"unaryFail","reason":"logical"}),
     ];

@@ -24,8 +24,9 @@ advantages remain a hypothesis, not a measured result.
 | Lowering-driver compiler | `bootstrap/meta-lowering{,-fragments}.cue`, [meta contract](../bootstrap/meta-lowering.md) | Self-regenerating full source emitter; native decoder, metadata projection and checked VM/kernels |
 | Scanner compiler lowering | `bootstrap/scan-lowering{,-fragments}.cue`, [backend contract](../bootstrap/scan-lowering.md) | Native flow/label facts and bounded patterns; CUE source/branch layout; compiled driver |
 | AST-builder compiler lowering | `bootstrap/ast-lowering{,-fragments}.cue`, [backend contract](../bootstrap/ast-lowering.md) | Native checked binding/use-count facts; CUE layout/clone/move selection; compiled driver |
+| Inclusive bound construction | `bootstrap/{lower,upper}-bound.cue`, [bound control](../bootstrap/bound-control.md) | Unary CUE threshold/domain/layout; checked left-only endpoints, no native constructor fallback |
 | Concrete-output admission | `bootstrap/{json,integer}-output.cue`, [output control](../bootstrap/output-control.md) | Unary CUE domain/incomplete diagnostics; checked native extraction/JSON encoding |
-| Checked identifier styles | [identifier rendering](../bootstrap/identifier-rendering.md), shared kernel/meta policy | CUE-selected snake/initial-capital rendering; 428-value unification backend under unchanged 512 guard |
+| Checked identifier styles | [identifier rendering](../bootstrap/identifier-rendering.md), shared kernel/meta policy | CUE-selected snake/initial-capital rendering; 431-value unification backend under unchanged 512 guard |
 | Unification compiler lowering | `bootstrap/unify-lowering{,-fragments}.cue`, [backend contract](../bootstrap/unify-lowering.md) | Shared select/concat kernel and compiled driver; native typed/scope validation |
 | Pratt/primary compiler lowering | `bootstrap/pratt-lowering{,-fragments}.cue`, [backend contract](../bootstrap/pratt-lowering.md) | Shared lowering compiler/kernel; compiled driver; native typed bridge |
 | Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
@@ -174,6 +175,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#94](https://github.com/kolohelios/cuestacean/pull/94) | CUE-owned negation/subtraction/multiplication dispatch |
 | [#96](https://github.com/kolohelios/cuestacean/pull/96) | CUE-owned division/remainder domain/zero/mode/exception policy |
 | [#98](https://github.com/kolohelios/cuestacean/pull/98) | Checked identifier styles and compiler policy headroom |
+| [#100](https://github.com/kolohelios/cuestacean/pull/100) | Unary CUE concrete-output admission and diagnostics |
 
 ## Build and validation runbook
 

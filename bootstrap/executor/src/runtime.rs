@@ -72,6 +72,12 @@ mod generated_logical_not;
 #[cfg(feature = "semantics")]
 #[path = "../../generated/logical-or.rs"]
 mod generated_logical_or;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/lower-bound.rs"]
+mod generated_lower_bound;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/upper-bound.rs"]
+mod generated_upper_bound;
 
 /// Owned scalar scaffold; abstract types are not conflicting values.
 /// Concrete integers are still restricted to the bootstrap i64 domain.
@@ -380,24 +386,16 @@ pub fn integer_remainder(left: &Value, right: &Value) -> Result<Value, Error> {
         .ok_or(Error::DivisionOverflow)
 }
 
+/// Construct an inclusive lower bound using generated CUE policy.
+#[cfg(feature = "semantics")]
 pub fn lower_bound(value: Value) -> Result<Value, Error> {
-    let Value::Integer(value) = value else {
-        return Err(Error::BoundThreshold);
-    };
-    Ok(Value::Bounds {
-        lower: Some(value),
-        upper: None,
-    })
+    generated_lower_bound::lower_bound(value)
 }
 
+/// Construct an inclusive upper bound using generated CUE policy.
+#[cfg(feature = "semantics")]
 pub fn upper_bound(value: Value) -> Result<Value, Error> {
-    let Value::Integer(value) = value else {
-        return Err(Error::BoundThreshold);
-    };
-    Ok(Value::Bounds {
-        lower: None,
-        upper: Some(value),
-    })
+    generated_upper_bound::upper_bound(value)
 }
 
 /// Unify using the generated CUE policy; compiler-only seeds exclude this API.
