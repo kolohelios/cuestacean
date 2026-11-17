@@ -7,6 +7,12 @@ pub struct Compiled;
 impl Driver for Compiled {
     fn render(&self, ctx: &mut Context, _node: &Value, _depth: usize) -> Result<String, Error> {
         match lowering::instruction_op(_node)? {
+            "action" => ctx.concat(|parts| {
+parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame."))?;
+parts.arg(|ctx| ctx.select(_node, "action", |ctx, tag| match tag { "advanceBound" => ctx.text("advance_bound"), "advanceCall" => ctx.text("advance_call"), "advanceGroup" => ctx.text("advance_group"), "advanceList" => ctx.text("advance_list"), "advanceListTail" => ctx.text("advance_list_tail"), "advanceNegation" => ctx.text("advance_negation"), "advanceNot" => ctx.text("advance_not"), "advanceOperator" => ctx.text("advance_operator"), "afterOperand" => ctx.text("after_operand"), "afterWordOperator" => ctx.text("after_word_operator"), "appendItem" => ctx.text("append_item"), "appendListElement" => ctx.text("append_list_element"), "buildBinary" => ctx.text("build_binary"), "buildList" => ctx.text("build_list"), "buildNegation" => ctx.text("build_negation"), "buildNot" => ctx.text("build_not"), "closeGroup" => ctx.text("close_group"), "evaluateItem" => ctx.text("evaluate_item"), "finishList" => ctx.text("finish_list"), "firstItem" => ctx.text("first_item"), "lastItem" => ctx.text("last_item"), "lookupOperator" => ctx.text("lookup_operator"), "nextItem" => ctx.text("next_item"), "parseAtom" => ctx.text("parse_atom"), "parseBound" => ctx.text("parse_bound"), "parseInteger" => ctx.text("parse_integer"), "parseRight" => ctx.text("parse_right"), "parseString" => ctx.text("parse_string"), "previousItem" => ctx.text("previous_item"), "primary" => ctx.text("primary"), "probeListEnd" => ctx.text("probe_list_end"), "rejectItem" => ctx.text("reject_item"), "scanBound" => ctx.text("scan_bound"), "scanGroup" => ctx.text("scan_group"), "scanIdentifier" => ctx.text("scan_identifier"), "scanList" => ctx.text("scan_list"), "scanNegation" => ctx.text("scan_negation"), "scanNot" => ctx.text("scan_not"), "scanString" => ctx.text("scan_string"), "whitespace" => ctx.text("whitespace"), tag => Err(lowering::missing_selection(tag)), }))?;
+parts.arg(|ctx| ctx.text("()?;\n"))?;
+Ok(())
+}),
             "add" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("_frame.binding_add("))?;
 parts.arg(|ctx| ctx.child(_node, "left", _depth, self))?;
@@ -15,21 +21,12 @@ parts.arg(|ctx| ctx.child(_node, "right", _depth, self))?;
 parts.arg(|ctx| ctx.text(")?"))?;
 Ok(())
 }),
-            "advanceBound" => ctx.text("_frame.step()?;\n_frame.advance_bound()?;\n"),
-            "advanceCall" => ctx.text("_frame.step()?;\n_frame.advance_call()?;\n"),
-            "advanceGroup" => ctx.text("_frame.step()?;\n_frame.advance_group()?;\n"),
-            "advanceNegation" => ctx.text("_frame.step()?;\n_frame.advance_negation()?;\n"),
-            "advanceNot" => ctx.text("_frame.step()?;\n_frame.advance_not()?;\n"),
-            "advanceOperator" => ctx.text("_frame.step()?;\n_frame.advance_operator()?;\n"),
-            "afterOperand" => ctx.text("_frame.step()?;\n_frame.after_operand()?;\n"),
-            "afterWordOperator" => ctx.text("_frame.step()?;\n_frame.after_word_operator()?;\n"),
             "and" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.child(_node, "left", _depth, self))?;
 parts.arg(|ctx| ctx.text(" && "))?;
 parts.arg(|ctx| ctx.child(_node, "right", _depth, self))?;
 Ok(())
 }),
-            "appendItem" => ctx.text("_frame.step()?;\n_frame.append_item()?;\n"),
             "atLeast" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.child(_node, "left", _depth, self))?;
 parts.arg(|ctx| ctx.text(" >= "))?;
@@ -37,18 +34,13 @@ parts.arg(|ctx| ctx.child(_node, "right", _depth, self))?;
 Ok(())
 }),
             "boolean" => ctx.boolean(_node, "value"),
-            "buildBinary" => ctx.text("_frame.step()?;\n_frame.build_binary()?;\n"),
-            "buildNegation" => ctx.text("_frame.step()?;\n_frame.build_negation()?;\n"),
-            "buildNot" => ctx.text("_frame.step()?;\n_frame.build_not()?;\n"),
-            "closeGroup" => ctx.text("_frame.step()?;\n_frame.close_group()?;\n"),
-            "evaluateItem" => ctx.text("_frame.step()?;\n_frame.evaluate_item()?;\n"),
-            "finishList" => ctx.text("_frame.step()?;\n_frame.finish_list()?;\n"),
-            "firstItem" => ctx.text("_frame.step()?;\n_frame.first_item()?;\n"),
             "groupOpen" => ctx.text("_frame.group_open()?"),
             "hasBound" => ctx.text("_frame.has_bound()?"),
             "hasCall" => ctx.text("_frame.has_call()?"),
             "hasIdentifier" => ctx.text("_frame.has_identifier()?"),
             "hasItem" => ctx.text("_frame.has_item()?"),
+            "hasList" => ctx.text("_frame.has_list()?"),
+            "hasListElement" => ctx.text("_frame.has_list_element()?"),
             "hasNegation" => ctx.text("_frame.has_negation()?"),
             "hasNot" => ctx.text("_frame.has_not()?"),
             "hasOperator" => ctx.text("_frame.has_operator()"),
@@ -77,20 +69,20 @@ parts.arg(|ctx| ctx.identifier(_node, "kind", false, true))?;
 parts.arg(|ctx| ctx.text(")?"))?;
 Ok(())
 }),
-            "lastItem" => ctx.text("_frame.step()?;\n_frame.last_item()?;\n"),
             "leftAssociative" => ctx.text("_frame.left_associative()?"),
-            "lookupOperator" => ctx.text("_frame.step()?;\n_frame.lookup_operator()?;\n"),
             "minimum" => ctx.text("_frame.minimum()"),
-            "nextItem" => ctx.text("_frame.step()?;\n_frame.next_item()?;\n"),
-            "parseAtom" => ctx.text("_frame.step()?;\n_frame.parse_atom()?;\n"),
-            "parseBound" => ctx.text("_frame.step()?;\n_frame.parse_bound()?;\n"),
             "parseGroup" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.parse_group("))?;
 parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
 parts.arg(|ctx| ctx.text(")?;\n"))?;
 Ok(())
 }),
-            "parseInteger" => ctx.text("_frame.step()?;\n_frame.parse_integer()?;\n"),
+            "parseListElement" => ctx.concat(|parts| {
+parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.parse_list_element("))?;
+parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
+parts.arg(|ctx| ctx.text(")?;\n"))?;
+Ok(())
+}),
             "parseNegation" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.parse_negation("))?;
 parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
@@ -103,25 +95,14 @@ parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
 parts.arg(|ctx| ctx.text(")?;\n"))?;
 Ok(())
 }),
-            "parseRight" => ctx.text("_frame.step()?;\n_frame.parse_right()?;\n"),
-            "parseString" => ctx.text("_frame.step()?;\n_frame.parse_string()?;\n"),
             "precedence" => ctx.text("_frame.precedence()?"),
-            "previousItem" => ctx.text("_frame.step()?;\n_frame.previous_item()?;\n"),
-            "primary" => ctx.text("_frame.step()?;\n_frame.primary()?;\n"),
             "program" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.select(_node, "target", |ctx, tag| match tag { "list" => ctx.text("// Generated by bootstrap-pratt-codegen. Do not edit by hand.\nuse crate::{Error, runtime::ListFrame};\npub fn execute(_frame: &mut ListFrame<'_>) -> Result<(), Error> {\n"), "parser" => ctx.text("// Generated by bootstrap-pratt-codegen. Do not edit by hand.\nuse crate::parser::{Error, Frame};\npub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {\n"), tag => Err(lowering::missing_selection(tag)), }))?;
 parts.arg(|ctx| ctx.list(_node, "body", _depth, self))?;
 parts.arg(|ctx| ctx.select(_node, "tail", |ctx, tag| match tag { "return" => ctx.text("}\n"), "value" => ctx.text("Ok(())\n}\n"), tag => Err(lowering::missing_selection(tag)), }))?;
 Ok(())
 }),
-            "rejectItem" => ctx.text("_frame.step()?;\n_frame.reject_item()?;\n"),
             "return" => ctx.select(_node, "position", |ctx, tag| match tag { "early" => ctx.text("_frame.step()?;\nreturn Ok(());\n"), "tail" => ctx.text("_frame.step()?;\nOk(())\n"), tag => Err(lowering::missing_selection(tag)), }),
-            "scanBound" => ctx.text("_frame.step()?;\n_frame.scan_bound()?;\n"),
-            "scanGroup" => ctx.text("_frame.step()?;\n_frame.scan_group()?;\n"),
-            "scanIdentifier" => ctx.text("_frame.step()?;\n_frame.scan_identifier()?;\n"),
-            "scanNegation" => ctx.text("_frame.step()?;\n_frame.scan_negation()?;\n"),
-            "scanNot" => ctx.text("_frame.step()?;\n_frame.scan_not()?;\n"),
-            "scanString" => ctx.text("_frame.step()?;\n_frame.scan_string()?;\n"),
             "setBindingPower" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.set_binding_power("))?;
 parts.arg(|ctx| ctx.child(_node, "value", _depth, self))?;
@@ -137,7 +118,6 @@ parts.arg(|ctx| ctx.list(_node, "body", _depth, self))?;
 parts.arg(|ctx| ctx.text("}\n"))?;
 Ok(())
 }),
-            "whitespace" => ctx.text("_frame.step()?;\n_frame.whitespace()?;\n"),
             op => Err(lowering::missing_case(op)),
         }
     }

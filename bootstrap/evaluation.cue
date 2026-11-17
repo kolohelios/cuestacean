@@ -14,6 +14,7 @@ package bootstrap
 		upperBoundExpression: result: {op: "upperBound", value: {op: "evaluate", field: "operand"}}
 		integer: result: {op: "field", field: "value"}
 		logicalNot: result: {op: "logicalNot", value: {op: "evaluate", field: "operand"}}
+		length: result: {op: "length", value: {op: "evaluate", field: "operand"}}
 		stringLength: result: {op: "stringLength", value: {op: "evaluate", field: "operand"}}
 		list: result: {op: "list", field: "value"}
 		listExpression: result: {op: "listExpression", field: "elements"}

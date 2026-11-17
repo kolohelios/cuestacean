@@ -46,6 +46,10 @@ mod generated_string_length;
 mod generated_list_length;
 
 #[cfg(feature = "semantics")]
+#[path = "../../generated/length-control.rs"]
+mod generated_length;
+
+#[cfg(feature = "semantics")]
 #[path = "../../generated/equal.rs"]
 mod generated_equal;
 
@@ -570,6 +574,12 @@ pub fn list_count(value: &Value) -> Result<Value, Error> {
     i64::try_from(value.len())
         .map(Value::Integer)
         .map_err(|_| Error::ListLength)
+}
+
+/// Select text-byte or list-element counting using CUE policy.
+#[cfg(feature = "semantics")]
+pub fn length(value: Value) -> Result<Value, Error> {
+    generated_length::length(value)
 }
 
 /// Measure a list using generated CUE policy; compiler-only seeds exclude this API.

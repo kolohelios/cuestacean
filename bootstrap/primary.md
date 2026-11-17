@@ -1,7 +1,7 @@
 # CUE-hosted primary dispatch
 
 [`primary.cue`](primary.cue), using `primary-fragments.cue`, chooses groups, negation prefixes, bounds, strings,
-registered unary calls, atoms and integers using the same [control DSL](pratt.md) as the expression loop. The
+[source lists](source-lists.md), registered unary calls, atoms and integers using the same [control DSL](pratt.md) as the expression loop. The
 existing `bootstrap-pratt-codegen` compiler emits its branches and frame calls;
 there is no second compiler or native primary-dispatch fallback.
 
@@ -9,7 +9,8 @@ The expression program's `primary` instruction dispatches this generated
 program. It is wiring between two CUE programs, not an intrinsic that implements
 the selection algorithm in Rust. Production uses sequential guarded clauses with
 [early return](parser-return.md) after each completed primary, instead of nested
-`else` dispatch. Original JSON depth drops from 15 to 8; no limit is raised.
+`else` dispatch. That refactor reduced original JSON depth from 15 to 8;
+source-list iteration now uses depth 10, still below the unchanged 32-level guard.
 The primary program explicitly sequences:
 
 - `whitespace`, `scanGroup`, and a `groupOpen` condition;
@@ -21,7 +22,11 @@ The primary program explicitly sequences:
 - `scanBound` and `hasBound`, then `advanceBound`, whitespace and `scanGroup`;
   an enabled threshold group uses `advanceGroup`/`parseGroup`/`closeGroup`,
   otherwise `parseBound` keeps literal construction; or string handling;
-- `scanString` and `hasString`, then `parseString`, or identifier handling;
+- `scanString` and `hasString`, then `parseString`, or list handling;
+- `scanList`/`hasList`, advance/whitespace/probeListEnd, then a CUE
+  `hasListElement` loop parses one selected-driver expression at minimum 0,
+  appends, scans/commits the tail and probes for a trailing-comma close;
+  `buildList` uses the unary builder with a buffered JSON array, then return;
 - `scanIdentifier` and `hasCall`, then `advanceCall` and the existing group
   scan/advance/parse/close sequence at CUE argument minimum 0, followed by return;
 - otherwise `hasIdentifier`, then `parseAtom` or `parseInteger`.
@@ -65,8 +70,11 @@ specifications and JSON remains a build-only artifact.
 Whole-corpus compiled/reference comparisons cover old nested versus flat primary,
 while fixed return fixtures test loop/if unwinding, invocation scope, fuel and
 unfinished-primary rejection. The return refactor added no source syntax.
-Historical whole-corpus comparisons disable subsequent call registration to test
+Historical whole-corpus comparisons disable subsequent call/list registration to test
 the old language; [unary calls](unary-calls.md) add source `len(...)` separately.
+`primary-no-lists` preserves the pre-list primary byte-exact; a compiled
+`primary-call-high-minimum` now also changes element binding to 100, with fixed errors
+inside nested groups/RHS/lists proving both driver propagation and no fallback.
 `primary-no-calls` preserves the later flat pre-call algorithm byte-exact, and
 `primary-call-high-minimum` pins CUE-selected argument binding and driver propagation.
 

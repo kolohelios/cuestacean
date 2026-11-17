@@ -164,8 +164,10 @@ and frame safety remain native. The [Pratt control DSL](../pratt.md) owns the
 expression loop and associativity/binding-power decisions; its separate
 [primary program](../primary.md) owns dispatch and grouping control, now including
 [grammar-selected unary calls](../unary-calls.md). Default `len(expression)` uses
-the existing eager string-byte-length rule/control, without a native builtin parser.
-Existing JSON interfaces remain unchanged. Default reference/generated execution
+CUE text-byte/list-element length dispatch, without a native builtin parser.
+[Source lists](../source-lists.md) reuse CUE expression-list evaluation; the parser
+loop is CUE-owned over checked single-element frame callbacks. Existing
+stringLength/listLength APIs remain domain-specific. Default reference/generated execution
 now shares a per-invocation [AST entry budget](../evaluation-budget.md): 4096
 visits and 64 active nodes, including repeated children/root. This is not a bound
 on all rule-instruction, byte/allocation or JSON-decoding work.

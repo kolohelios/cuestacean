@@ -48,13 +48,12 @@ fn source_error(result: Result<Value, parser::Error>, offset: usize, reason: &st
 }
 
 #[test]
-fn flat_and_historical_nested_primary_agree_over_corpus_with_calls_disabled() {
-    // Compare the historical language, not the newly added call-dispatch clause.
+fn flat_and_historical_nested_primary_agree_over_corpus_with_calls_and_lists_disabled() {
+    // Compare the historical language, not subsequent call/list dispatch.
     let mut grammar: Value = serde_json::from_str(&export("grammar")).expect("grammar");
-    grammar
-        .as_object_mut()
-        .expect("grammar object")
-        .remove("calls");
+    let object = grammar.as_object_mut().expect("grammar object");
+    object.remove("calls");
+    object.remove("list");
     let grammar = grammar.to_string();
     let expression_json = export("pratt");
     let flat_json = export("primary");

@@ -47,7 +47,8 @@ executes CUE-defined identity, interval-intersection, scalar equality and typed 
 [owned string scalars](docs/string-values.md) now work in JSON evaluation and the
 [bounded single-line source-string profile](bootstrap/strings.md).
 [Closed scalar lists](docs/closed-lists.md) now add immutable owned JSON arrays,
-CUE content unification/equality and list length; source/open/nested lists remain absent.
+CUE content unification/equality and list length. [Source lists](bootstrap/source-lists.md)
+now accept computed scalar elements and `len([1,2])`; open/nested list values remain absent.
 [CUE-owned addition control](bootstrap/sum.md) selects checked integer addition
 or concrete string concatenation. [Scalar equality](bootstrap/equality.md)
 adds `==` and `!=` with CUE-owned concreteness guards and boolean result selection.

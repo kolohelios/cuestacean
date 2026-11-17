@@ -29,4 +29,5 @@ compiled alternate policy and pinned direct AST-versus-upstream comparisons
 establish this value/rule/control boundary. The subsequent
 [unary-call slice](unary-calls.md) connects source `len(expression)` through CUE
 primary control and grammar-selected constructors, not a native builtin parser.
-Lists/structs/bytes and their `len` semantics remain outside this profile.
+The subsequent [source-list bridge](source-lists.md) selects generic CUE `length`
+for source `len`; `stringLength` remains strictly text-only. Structs/bytes stay absent.

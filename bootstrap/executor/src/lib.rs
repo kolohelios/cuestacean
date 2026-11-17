@@ -149,6 +149,8 @@ pub enum Error {
     Ordering,
     #[snafu(display("length requires a concrete string"))]
     Length,
+    #[snafu(display("length requires a concrete string or closed list"))]
+    LengthOperand,
     #[snafu(display("string byte length exceeds signed 64-bit integer range"))]
     TextLengthOverflow,
     #[snafu(display("string concatenation exceeds available capacity"))]
@@ -247,6 +249,9 @@ enum Instruction {
     Remainder {
         left: Box<Instruction>,
         right: Box<Instruction>,
+    },
+    Length {
+        value: Box<Instruction>,
     },
     #[serde(rename = "stringLength")]
     StringLength {
@@ -416,6 +421,7 @@ fn instruction(
             let right = instruction(right, node, rules, context)?;
             runtime::remainder(left, right)
         }
+        Instruction::Length { value } => runtime::length(instruction(value, node, rules, context)?),
         Instruction::StringLength { value } => {
             runtime::string_length(instruction(value, node, rules, context)?)
         }

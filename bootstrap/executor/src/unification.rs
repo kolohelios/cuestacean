@@ -64,6 +64,7 @@ enum Function {
     LogicalNot,
     StringLength,
     ListLength,
+    Length,
     IntegerOutput,
     JsonOutput,
     LowerBound,
@@ -83,6 +84,7 @@ impl Function {
             Self::LogicalNot
                 | Self::StringLength
                 | Self::ListLength
+                | Self::Length
                 | Self::Negate
                 | Self::IntegerOutput
                 | Self::JsonOutput
@@ -153,6 +155,7 @@ enum Expr {
 #[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Failure {
+    LengthOperand,
     Length,
     ListLength,
     Lists,
@@ -285,6 +288,7 @@ impl Expr {
                     Failure::Logical
                     | Failure::Length
                     | Failure::ListLength
+                    | Failure::LengthOperand
                     | Failure::BoundThreshold
                     | Failure::Arithmetic
                     | Failure::IncompleteInt
@@ -505,6 +509,7 @@ pub fn text_compare(left: &Value, right: &Value, relation: Relation) -> Result<b
 }
 pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate::Error> {
     match reason {
+        Failure::LengthOperand => Err(crate::Error::LengthOperand),
         Failure::Length => Err(crate::Error::Length),
         Failure::ListLength => Err(crate::Error::ListLength),
         Failure::Lists => Err(crate::Error::ListConflict),
@@ -671,6 +676,9 @@ impl Expr {
     fn eval_unary(&self, left: &Value) -> Result<Value, crate::Error> {
         match self {
             Self::Input { input: Side::Left } => Ok(left.clone()),
+            Self::Fail {
+                reason: Failure::LengthOperand,
+            } => Err(crate::Error::LengthOperand),
             Self::TextLength {} => crate::runtime::text_length(left),
             Self::ListCount {} => crate::runtime::list_count(left),
             Self::Fail {

@@ -78,6 +78,12 @@ impl Driver for Compiled {
                 Ok(())
             }),
             "int" => ctx.ok(|ctx| ctx.path("runtime::Value::Int")),
+            "length" => ctx.call("runtime::length", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
+                })?;
+                Ok(())
+            }),
             "less" => ctx.call("runtime::less", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))

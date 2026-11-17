@@ -45,10 +45,11 @@ adds bounded array layout. Integer-only output still rejects lists.
 Unary `listLength {operand}` / rule `listLength {value}` and CUE `list-length-control`
 admit a closed list and call borrowed native `list_count`; other values fail
 `length requires a concrete closed list`. An actual compiled alternate policy
-returns zero independently of input. Existing `stringLength` and source `len`
-stay text-only. Computed JSON elements now use `listExpression`; source list
-syntax, open/abstract/nested lists,
-selectors, structs, list concatenation and general list solving remain absent.
+returns zero independently of input. Existing `stringLength` stays text-only.
+[Source lists](../bootstrap/source-lists.md) now build `listExpression`; default
+`len` selects CUE text/list `length` dispatch without widening the old APIs.
+Open/abstract/nested lists, selectors, structs, list concatenation and general
+list solving remain absent.
 
 ## Evidence and bootstrap
 

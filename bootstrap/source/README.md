@@ -37,12 +37,16 @@ null agrees only with null/top. Bare `_` remains incomplete. Null is concrete
 for scalar equality and ignored logical RHS selection, not arithmetic or ordering.
 These do not introduce bottom values, references, structs or general solving.
 
-[Unary calls](../unary-calls.md) add `len(expression)` for concrete UTF-8 strings;
-length counts decoded bytes, not Unicode scalars/graphemes. Argument evaluation is
+[Source lists](../source-lists.md) add `[]` and `[expression,...]` with explicit
+commas (trailing comma allowed), leading/after-comma trivia, and flat concrete
+scalar results. No open/nested list values or implicit comma insertion. The
+container costs one node: 63 scalar leaves fit the unchanged 64-node source limit.
+[Unary calls](../unary-calls.md) now select `length` for text bytes or list elements;
+text length counts decoded bytes, not Unicode scalars/graphemes. Argument evaluation is
 eager and CUE selects minimum 0. Spaces before `(` are allowed; LF/CR after the
 name reject conservatively, including LF through comments. There must be exactly
 one parenthesized expression. Empty/multiple arguments, function values, other
-builtins, selectors and list/struct/bytes length remain outside the profile.
+builtins, selectors and struct/bytes length remain outside the profile.
 Optional grammar `calls` metadata selects names/kinds/operand fields or disables
 registration, without native builtin fallback. Calls add one wrapper node and one
 recursive argument level under the unchanged parser limits.

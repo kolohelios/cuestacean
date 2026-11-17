@@ -12,8 +12,9 @@ This is strict flat-list construction, not deferred/general CUE list solving.
 `ClosedList` remains opaque, immutable and scalar-only. Nested expression-list
 syntax may form an AST, but a list-valued element rejects; no nested runtime
 representation is admitted. Completed results still go through its defensive
-constructor. Source list syntax, open/abstract lists, structs/references and
-reference graph ownership remain separate designs/work.
+constructor. [Source list syntax](source-lists.md) now builds this AST through
+CUE primary control; open/abstract lists, structs/references and reference graph
+ownership remain separate designs/work.
 
 ## Reuse the structured control compiler
 

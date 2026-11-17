@@ -48,6 +48,7 @@ fn evaluate_node(
         ),
         "intType" => Ok::<_, Error>(runtime::Value::Int),
         "integer" => runtime::integer(node, "value"),
+        "length" => runtime::length((evaluate(runtime::field(node, "operand")?, _context))?),
         "less" => runtime::less(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,

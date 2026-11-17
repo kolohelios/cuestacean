@@ -15,6 +15,9 @@
     }:
     let
       scannerFixtures = [
+        "list-open"
+        "list-close"
+        "list-tail"
         "call-open"
         "whitespace"
         "after-operand"
@@ -74,6 +77,7 @@
         "tests/valid/primary-bound-high-minimum"
         "tests/valid/primary-no-calls"
         "tests/valid/primary-call-high-minimum"
+        "tests/valid/primary-no-lists"
         "tests/valid/primary-no-atoms"
         "tests/valid/primary-high-minimum"
         "tests/valid/primary-low-negation"
@@ -86,6 +90,7 @@
       ];
       prattNames = builtins.concatStringsSep " " prattFixtures;
       unifyFixtures = [
+        "length-control"
         "list-length-control"
         "tests/valid/list-length-zero"
         "string-length-control"
@@ -251,7 +256,7 @@
               fragments=()
               case "$fixture" in
                 list-control|tests/valid/list-control-reverse) fragments=(list-control-fragments) ;;
-                primary|tests/valid/primary-bound-high-minimum|tests/valid/primary-call-high-minimum) fragments=(primary-fragments) ;;
+                primary|tests/valid/primary-bound-high-minimum|tests/valid/primary-call-high-minimum|tests/valid/primary-no-lists) fragments=(primary-fragments) ;;
                 decimal|integer-literal) fragments=(decimal-fragments) ;;
                 string-literal|tests/valid/string-no-unicode|tests/valid/string-no-wide|tests/valid/string-nested|tests/valid/string-unrolled) fragments=(string-literal-fragments) ;;
                 whitespace|after-operand|after-word-operator|group-close|call-open)
@@ -569,6 +574,7 @@
               }
               ''
                 set -euo pipefail
+                printf 'package probe\nimport "encoding/json"\nout: json.Marshal(value)\n' > compact.cue
                 for source in ${../../bootstrap/source}/valid/*.cue; do
                   cue export "$source" --out json > expected
                   # CUE can spell integer zero as -0; i64 output is canonical 0.
@@ -577,6 +583,15 @@
                   if [ "$scalar" = "-0" ]; then printf '0\n' > expected; fi
                   bootstrap-source "$source" > actual
                   case "$scalar" in
+                    '['*)
+                      # Reimport/marshal both arrays with CUE: exact integers,
+                      # normalized whitespace/string escapes, never jq numbers.
+                      for side in expected actual; do
+                        cue import -p probe -l '"value"' --outfile - json: "$side" > value.cue
+                        cue export value.cue compact.cue -e out --out text > normalized-"$side"
+                      done
+                      diff -u normalized-expected normalized-actual
+                      ;;
                     \"*)
                       # String encoders may differ in JSON escape spelling.
                       jq -e 'type == "string"' expected > /dev/null

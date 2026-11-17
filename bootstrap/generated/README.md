@@ -88,8 +88,12 @@ replaces nested dispatch; `primary-nested` retains the prior compiled algorithm
 byte-exact. `primary-return`, `primary-return-empty` and `pratt-return-loop`
 exercise tail/early return, completion/fuel guards and nested loop unwinding.
 The CUE compiler selects footer and return spelling from checked native flow facts.
+`primary-no-lists` preserves the pre-list primary byte-exact;
+`primary-call-high-minimum` now changes both argument and element binding to 100. `list-open/close/tail`
+and `length-control` connect [source lists](../source-lists.md), CUE parsing loops
+and generic text/list length without changing the runtime list invariant.
 `primary-no-calls` preserves the pre-call flat primary byte-exact;
-`primary-call-high-minimum` changes argument binding to 100; `call-open` owns
+Its call/element high-minimum tests isolate each boundary separately; `call-open` owns
 required opening/trivia/newline diagnostics. They use the existing scanner/compiler
 and unary builder, not a native builtin algorithm.
 `primary-no-atoms` and `primary-high-minimum` are
@@ -124,7 +128,7 @@ No native production element-evaluation loop or new seed is introduced.
 `list-length-control` adds [closed scalar list](../../docs/closed-lists.md) length;
 `list-length-zero` is an actual compiled alternate. Native bounded literal codecs
 supply owned arrays; CUE owns list isolation/equality/logical/output admission.
-No source or general/nested/expression-list support is implied.
+General/nested list solving remains absent.
 `string-length-control` adds [UTF-8 byte length](../string-length.md) through
 CUE concrete-text admission and a borrowed checked kernel; `length-zero` is an
 actual compiled input-independent alternate. [Unary source calls](../unary-calls.md)
@@ -181,7 +185,7 @@ done
 bootstrap/executor/target/debug/bootstrap-codegen "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-reverse.json" \
   | rustfmt --edition 2024 > bootstrap/generated/evaluation-reverse.rs
-for machine in call-open integer-literal tests/valid/string-no-wide tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
+for machine in list-open list-close list-tail call-open integer-literal tests/valid/string-no-wide tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
   tests/valid/scanner-horizontal \
   tests/valid/scanner-stalled tests/valid/scanner-advance \
   tests/valid/scanner-decimal-permissive tests/valid/scanner-reject tests/valid/scanner-state \
@@ -202,7 +206,7 @@ done
 bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-literal.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-lowering-forced.json" \
   | rustfmt --edition 2024 > bootstrap/generated/ast-forced-integer.rs
-for control in list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
+for control in tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
   primary tests/valid/primary-no-calls tests/valid/primary-call-high-minimum tests/valid/primary-nested tests/valid/primary-return tests/valid/primary-return-empty tests/valid/pratt-return-loop \
   tests/valid/primary-bound-high-minimum tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
   tests/valid/primary-cross-phase tests/valid/primary-low-negation \
@@ -215,7 +219,7 @@ done
 bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/pratt.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/pratt-lowering-no-increment.json" \
   | rustfmt --edition 2024 > bootstrap/generated/pratt-no-increment.rs
-for control in list-length-control tests/valid/list-length-zero string-length-control tests/valid/length-zero lower-bound upper-bound tests/valid/bound-reversed tests/valid/unary-bound-endpoints json-output integer-output tests/valid/output-zero divide-control modulo-control quotient-control remainder-control tests/valid/integer-literals negate-control difference-control product-control unify sum equal not-equal less less-equal greater greater-equal logical-and logical-or logical-not tests/valid/not-true tests/valid/control-default tests/valid/unary-conditions tests/valid/logic-false tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
+for control in length-control list-length-control tests/valid/list-length-zero string-length-control tests/valid/length-zero lower-bound upper-bound tests/valid/bound-reversed tests/valid/unary-bound-endpoints json-output integer-output tests/valid/output-zero divide-control modulo-control quotient-control remainder-control tests/valid/integer-literals negate-control difference-control product-control unify sum equal not-equal less less-equal greater greater-equal logical-and logical-or logical-not tests/valid/not-true tests/valid/control-default tests/valid/unary-conditions tests/valid/logic-false tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
   name=$(basename "$control")
   bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"

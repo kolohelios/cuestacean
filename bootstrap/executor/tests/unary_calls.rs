@@ -80,7 +80,7 @@ fn default_registration_and_independent_trees_count_decoded_utf8_bytes() {
     assert_eq!(
         metadata["calls"],
         json!([
-            {"token":"len","kind":"stringLength","operandField":"operand"}
+            {"token":"len","kind":"length","operandField":"operand"}
         ])
     );
     for (source, decoded, bytes) in [
@@ -100,7 +100,7 @@ fn default_registration_and_independent_trees_count_decoded_utf8_bytes() {
             1,
         ),
     ] {
-        let expected = program(unary("stringLength", text(decoded)));
+        let expected = program(unary("length", text(decoded)));
         for result in parses(source, &grammar) {
             let tree = result.expect(source);
             assert_eq!(tree, expected, "{source}");
@@ -112,7 +112,7 @@ fn default_registration_and_independent_trees_count_decoded_utf8_bytes() {
     for (source, entry, value) in [
         (
             r#"len("a"+"b")"#,
-            unary("stringLength", binary("add", text("a"), text("b"))),
+            unary("length", binary("add", text("a"), text("b"))),
             2,
         ),
         (
@@ -120,7 +120,7 @@ fn default_registration_and_independent_trees_count_decoded_utf8_bytes() {
             binary(
                 "add",
                 integer(1),
-                binary("multiply", unary("stringLength", text("ab")), integer(3)),
+                binary("multiply", unary("length", text("ab")), integer(3)),
             ),
             7,
         ),
@@ -128,7 +128,7 @@ fn default_registration_and_independent_trees_count_decoded_utf8_bytes() {
             r#">=(len("abc"))&3"#,
             binary(
                 "unify",
-                unary("lowerBoundExpression", unary("stringLength", text("abc"))),
+                unary("lowerBoundExpression", unary("length", text("abc"))),
                 integer(3),
             ),
             3,
@@ -137,7 +137,7 @@ fn default_registration_and_independent_trees_count_decoded_utf8_bytes() {
             r#"<=(len("abc"))&3"#,
             binary(
                 "unify",
-                unary("upperBoundExpression", unary("stringLength", text("abc"))),
+                unary("upperBoundExpression", unary("length", text("abc"))),
                 integer(3),
             ),
             3,
@@ -159,7 +159,10 @@ fn domain_and_child_errors_precede_output_and_enclosing_length_checks() {
     for source in ["len(3)", "len(string)", r#"len(len("x"))"#] {
         for parsed in parses(source, &grammar) {
             for result in evaluations(&parsed.expect(source)) {
-                assert!(matches!(result, Err(Error::Length)), "{source}: {result:?}");
+                assert!(
+                    matches!(result, Err(Error::LengthOperand)),
+                    "{source}: {result:?}"
+                );
             }
         }
     }
@@ -214,10 +217,7 @@ fn runtime_alias_constructor_and_registration_are_only_metadata() {
         .push(json!({"token":"negative","kind":"negate","operandField":"operand"}));
     for parsed in parses(r#"negative(len("abc"))"#, &multiple.to_string()) {
         let tree = parsed.expect("two independent registrations");
-        assert_eq!(
-            tree,
-            program(unary("negate", unary("stringLength", text("abc"))))
-        );
+        assert_eq!(tree, program(unary("negate", unary("length", text("abc")))));
         for result in evaluations(&tree) {
             assert_eq!(result.expect("constructor selects semantics"), json!(-3));
         }
@@ -385,7 +385,7 @@ fn selected_expression_driver_reaches_arguments_on_both_paths() {
         r#"1+len("a"+"b"+"c")"#,
     ] {
         let call = unary(
-            "stringLength",
+            "length",
             binary("add", text("a"), binary("add", text("b"), text("c"))),
         );
         let expected = program(if source.starts_with('1') {
@@ -424,7 +424,7 @@ fn cli_failures_are_atomic() {
     let path =
         std::env::temp_dir().join(format!("cuestacean-unary-calls-{}.cue", std::process::id()));
     for (source, message) in [
-        ("len(3)", "length requires a concrete string"),
+        ("len(3)", "length requires a concrete string or closed list"),
         ("len(1 div 0)", "integer division by zero"),
         ("len()", "expected signed decimal integer"),
     ] {

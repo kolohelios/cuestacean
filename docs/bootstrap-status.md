@@ -11,7 +11,7 @@ machinery progressively expressed in a CUE-hosted DSL. Merely using CUE to
 configure a permanently handwritten implementation is not the end goal.
 
 Current implementation: a deliberately small null/top/boolean/checked-i64/string source
-subset plus [closed scalar lists in JSON ASTs](closed-lists.md) ([string syntax](../bootstrap/strings.md), [ownership](string-values.md)),
+subset plus [closed scalar source lists](../bootstrap/source-lists.md) ([ownership](closed-lists.md)) ([string syntax](../bootstrap/strings.md), [ownership](string-values.md)),
 not full CUE or bootstrap closure. Go CUE still exports specifications. Six
 bootstrap compilers still require native decoders, kernels and policy-compilation
 machinery; increasingly their executable lowering policies live in CUE. Performance
@@ -73,7 +73,8 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   plus eight-digit scalar `\UXXXXXXXX` ([wide contract](../bootstrap/wide-unicode.md)); abstract `string`;
   signed decimal and prefixed 0b/0o/0x/0X integers ([contract](../bootstrap/radix-literals.md)); `true`/`false`; `bool`/`int`; inclusive bounds `>=` / `<=` with literal or
   [parenthesized computed thresholds](../bootstrap/computed-bounds.md);
-  [source `len(expression)`](../bootstrap/unary-calls.md) for concrete UTF-8 byte length;
+  [source lists and `len(expression)`](../bootstrap/source-lists.md) for concrete
+  flat arrays and text-byte/list-element length;
   parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary `!` and expression negation;
   `div`, `mod`, `quo`, `rem`; concrete scalar `==` / `!=`; integer/text `<` / `<=` / `>` / `>=`; CUE-owned UTF-8 `//` comment trivia.
 - Binary operators are left-associative by default. `div/mod/quo/rem` share
@@ -116,15 +117,17 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   be concrete. Singleton bounds remain incomplete until given a candidate.
   Missing endpoints are infinite, not clipped to i64 extrema.
 - CUE may export integer zero as `-0`; native i64 output is canonical `0`.
-  Differential checks normalize only that exact scalar spelling. Keep every
+  Scalar differential checks normalize only that exact integer spelling. Array
+  checks reimport/marshal through CUE to normalize layout/string escapes while
+  preserving exact integers, never through jq's numeric representation. Keep every
   nonzero integer byte-exact; do not use floating-point/jq normalization.
 - Newline-after-operand and newline-after-word-operator rejection remain
   CUE-owned and conservative, not full CUE comma insertion. Only LF ends `//` comments; CR alone remains comment content.
   NUL/BOM inside comments are rejected by CUE. Block comments, declarations,
-  references, structs/lists, general string syntax, further scalar types, disjunctions/defaults
+  references, structs/open or nested list values, general string syntax, further scalar types, disjunctions/defaults
   and general constraint solving are absent.
 - JSON APIs (`execute_json`, `generated::execute_json`) also support bounded flat
-  closed scalar lists; source list syntax and general list solving remain absent.
+  closed scalar lists; general list solving remains absent.
   They preserve null,
   strings, bools and exact i64s. Top output is `non-concrete value`. Legacy `execute` rejects concrete strings/booleans.
   JSON AST `string`/`stringType` now also come from the bounded CUE source-string profile.
@@ -211,6 +214,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#120](https://github.com/kolohelios/cuestacean/pull/120) | CUE-controlled unary source calls and grammar-selected `len` |
 | [#122](https://github.com/kolohelios/cuestacean/pull/122) | Shared AST evaluation visit/depth budget with CUE-owned wiring |
 | [#124](https://github.com/kolohelios/cuestacean/pull/124) | Opaque closed scalar list values and CUE domain/length policies |
+| [#126](https://github.com/kolohelios/cuestacean/pull/126) | CUE element evaluation and validated list control target |
 
 ## Build and validation runbook
 
