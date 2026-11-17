@@ -61,6 +61,7 @@ enum Function {
     LogicalAnd,
     LogicalOr,
     LogicalNot,
+    StringLength,
     IntegerOutput,
     JsonOutput,
     LowerBound,
@@ -78,6 +79,7 @@ impl Function {
         matches!(
             self,
             Self::LogicalNot
+                | Self::StringLength
                 | Self::Negate
                 | Self::IntegerOutput
                 | Self::JsonOutput
@@ -132,6 +134,7 @@ enum Expr {
         operation: IntegerOperation,
     },
     TextConcat {},
+    TextLength {},
     #[serde(rename(serialize = "integerValue", deserialize = "integer"))]
     Integer {
         value: i64,
@@ -146,6 +149,7 @@ enum Expr {
 #[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Failure {
+    Length,
     BoundThreshold,
     Integers,
     Bounds,
@@ -265,12 +269,14 @@ impl Expr {
             Self::Input { input: Side::Left }
             | Self::Integer { .. }
             | Self::Boolean { .. }
+            | Self::TextLength {}
             | Self::IntegerPrimitive {
                 operation: IntegerOperation::Negate,
             }
             | Self::Fail {
                 reason:
                     Failure::Logical
+                    | Failure::Length
                     | Failure::BoundThreshold
                     | Failure::Arithmetic
                     | Failure::IncompleteInt
@@ -307,6 +313,7 @@ impl Expr {
             | Self::IntegerSum {}
             | Self::IntegerPrimitive { .. }
             | Self::TextConcat {}
+            | Self::TextLength {}
             | Self::Integer { .. }
             | Self::Boolean { .. } => Ok(()),
             Self::If {
@@ -487,6 +494,7 @@ pub fn text_compare(left: &Value, right: &Value, relation: Relation) -> Result<b
 }
 pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate::Error> {
     match reason {
+        Failure::Length => Err(crate::Error::Length),
         Failure::BoundThreshold => Err(crate::Error::BoundThreshold),
         Failure::Bounds => Err(crate::Error::BoundsConflict),
         Failure::Types => Err(crate::Error::TypeConflict),
@@ -650,6 +658,10 @@ impl Expr {
     fn eval_unary(&self, left: &Value) -> Result<Value, crate::Error> {
         match self {
             Self::Input { input: Side::Left } => Ok(left.clone()),
+            Self::TextLength {} => crate::runtime::text_length(left),
+            Self::Fail {
+                reason: Failure::Length,
+            } => Err(crate::Error::Length),
             Self::Bounds { lower, upper } => Ok(Value::Bounds {
                 lower: lower.eval_unary(left)?,
                 upper: upper.eval_unary(left)?,
@@ -742,6 +754,7 @@ impl Expr {
                 IntegerOperation::Remainder => crate::runtime::integer_remainder(l, r),
             },
             Self::TextConcat {} => crate::runtime::text_concat(l, r),
+            Self::TextLength {} => crate::runtime::text_length(l),
             Self::Integer { value } => Ok(Value::Integer(*value)),
             Self::Boolean { value } => Ok(Value::Boolean(*value)),
             Self::Fail { reason } => fail(*reason, l, r),

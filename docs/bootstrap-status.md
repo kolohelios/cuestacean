@@ -42,6 +42,7 @@ advantages remain a hypothesis, not a measured result.
 | Logical value selection | `bootstrap/{logic-fragments,logical-and,logical-or}.cue`, [logical control](../bootstrap/logic.md) | Same finite binary compiler; native boolean inspection; CUE concreteness/result policy |
 | Scalar ordering | `bootstrap/{ordering-fragments,less,less-equal,greater,greater-equal}.cue`, [ordering control](../bootstrap/ordering.md) | Same finite binary compiler; native finite/text comparisons; generated domain/result policy |
 | Scalar equality | `bootstrap/{equal,not-equal,equality-fragments}.cue`, [equality control](../bootstrap/equality.md) | Same finite binary compiler; native content equality; generated concreteness/result policy |
+| String byte length | `bootstrap/string-length-control.cue`, [contract](../bootstrap/string-length.md) | Unary CUE text admission; borrowed checked byte-count kernel; JSON AST first |
 | Scalar addition | `bootstrap/sum.cue`, [binary control](../bootstrap/sum.md) | Same finite control compiler; native checked integer/text kernels; generated policy |
 | Null/top boundaries | `bootstrap/unify.cue`, [lattice values](../bootstrap/lattice-values.md) | Native scalar representation/output; CUE identity, domain and concreteness policy |
 | Scalar unification | `bootstrap/unify.cue`, [unification contract](../bootstrap/unify.md) | `src/unification.rs`; native `runtime::unify` delegates generated policy |
@@ -190,6 +191,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#110](https://github.com/kolohelios/cuestacean/pull/110) | Eight-digit Unicode scalar admission and checked JSON bridge |
 | [#112](https://github.com/kolohelios/cuestacean/pull/112) | Checked prefixed integers and inclusive thresholds |
 | [#114](https://github.com/kolohelios/cuestacean/pull/114) | CUE-controlled computed integer bound thresholds |
+| [#116](https://github.com/kolohelios/cuestacean/pull/116) | Early-return control, flat primary dispatch and CI-gated auto-merge |
 
 ## Build and validation runbook
 

@@ -10,6 +10,8 @@
 - `true` / `false` / `boolType`: payload-free boolean values and type constraint.
 - `lowerBound`: an inclusive lower threshold in integer `value`.
 - `upperBound`: an inclusive upper threshold in integer `value`.
+- `stringLength`: UTF-8 byte length of an eagerly evaluated `operand`, through
+  [CUE concrete-text admission](string-length.md), not general source calls yet.
 - `lowerBoundExpression` / `upperBoundExpression`: an `operand` expression,
   eagerly evaluated before [integer threshold admission](computed-bounds.md).
 - `add`: ordered `left` and `right` expression children. [CUE control](sum.md)

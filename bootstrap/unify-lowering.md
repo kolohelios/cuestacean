@@ -62,7 +62,10 @@ bounds layout in genuine unary programs. A checked left-only endpoint subset
 makes those templates safe without RHS fabrication; boundThreshold is emitted as
 an input-independent failure. Reusable binary CUE templates explicitly use `#BinaryControlProgram`.
 The integer primitive's validated operation tag selects fixed checked-kernel
-paths in CUE. Function identifiers originate only in the native whitelist; raw
+paths in CUE. [String length](string-length.md) adds a unary entry, left-input `textLength`
+primitive and input-independent length failure through the same CUE backend.
+The borrowed native byte-count kernel checks i64 conversion; CUE chooses admission.
+Function identifiers originate only in the native whitelist; raw
 compiler metadata and policies are trusted hooks, not an arbitrary-code sandbox.
 Malformed control-wire names still reject before any rendering. These are not
 unchecked user-supplied identifiers or paths. Complete typed/lexical validation precedes any backend execution.

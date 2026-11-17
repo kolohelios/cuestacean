@@ -26,6 +26,7 @@ package bootstrap
 			incompleteBounds: {op: "text", value: "Err(Error::IncompleteBounds)"}
 			integerOutput: {op: "text", value: "Err(Error::IntegerOutput)"}
 			boundThreshold: {op: "text", value: "Err(Error::BoundThreshold)"}
+			length: {op: "text", value: "Err(Error::Length)"}
 		}}
 		integerPrimitive: {op: "select", field: "operation", cases: {
 			negate: {op: "text", value: "crate::runtime::integer_negate(&_left)"}
@@ -41,6 +42,7 @@ package bootstrap
 		boolean: {op: "ok", value: {op: "call", path: "Value::Boolean", args: [{op: "boolean", field: "value"}]}}
 		integerSum: {op: "text", value: "crate::runtime::integer_sum(&_left, &_right)"}
 		textConcat: {op: "text", value: "crate::runtime::text_concat(&_left, &_right)"}
+		textLength: {op: "text", value: "crate::runtime::text_length(&_left)"}
 		inputValue: {op: "ok", value: {op: "concat", parts: [Side, {op: "text", value: ".clone()"}]}}
 		inputEndpoint: {op: "ok", value: {op: "concat", parts: [{op: "text", value: "crate::unification::endpoint(&"}, Side,
 			{op: "text", value: ", crate::unification::Endpoint::"}, Endpoint, {op: "text", value: ")"}]}}

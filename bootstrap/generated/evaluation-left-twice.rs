@@ -80,6 +80,7 @@ fn evaluate(node: &Value) -> Result<runtime::Value, Error> {
             (evaluate(runtime::field(node, "right")?))?,
         ),
         "string" => runtime::text(node, "value"),
+        "stringLength" => runtime::string_length((evaluate(runtime::field(node, "operand")?))?),
         "stringType" => Ok::<_, Error>(runtime::Value::String),
         "subtract" => runtime::difference(
             (evaluate(runtime::field(node, "left")?))?,

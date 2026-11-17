@@ -127,6 +127,10 @@ pub enum Error {
     Logical,
     #[snafu(display("ordering requires matching concrete integers or strings"))]
     Ordering,
+    #[snafu(display("length requires a concrete string"))]
+    Length,
+    #[snafu(display("string byte length exceeds signed 64-bit integer range"))]
+    TextLengthOverflow,
     #[snafu(display("string concatenation exceeds available capacity"))]
     TextCapacity,
     #[snafu(display("{source}"))]
@@ -216,6 +220,10 @@ enum Instruction {
     Remainder {
         left: Box<Instruction>,
         right: Box<Instruction>,
+    },
+    #[serde(rename = "stringLength")]
+    StringLength {
+        value: Box<Instruction>,
     },
     #[serde(rename = "logicalNot")]
     LogicalNot {
@@ -355,6 +363,9 @@ fn instruction(
             let left = instruction(left, node, rules)?;
             let right = instruction(right, node, rules)?;
             runtime::remainder(left, right)
+        }
+        Instruction::StringLength { value } => {
+            runtime::string_length(instruction(value, node, rules)?)
         }
         Instruction::LogicalNot { value } => runtime::logical_not(instruction(value, node, rules)?),
         Instruction::LogicalAnd { left, right } => {

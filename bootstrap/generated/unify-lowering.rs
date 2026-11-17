@@ -135,7 +135,8 @@ parts.arg(|ctx| ctx.text(")"))?;
 Ok(())
 }),
             "textConcat" => ctx.text("crate::runtime::text_concat(&_left, &_right)"),
-            "unaryFail" => ctx.select(_node, "reason", |ctx, tag| match tag { "arithmetic" => ctx.text("Err(Error::Arithmetic)"), "boundThreshold" => ctx.text("Err(Error::BoundThreshold)"), "incompleteBool" => ctx.text("Err(Error::IncompleteBool)"), "incompleteBounds" => ctx.text("Err(Error::IncompleteBounds)"), "incompleteInt" => ctx.text("Err(Error::Incomplete)"), "incompleteString" => ctx.text("Err(Error::IncompleteString)"), "incompleteValue" => ctx.text("Err(Error::IncompleteValue)"), "integerOutput" => ctx.text("Err(Error::IntegerOutput)"), "logical" => ctx.text("Err(Error::Logical)"), tag => Err(lowering::missing_selection(tag)), }),
+            "textLength" => ctx.text("crate::runtime::text_length(&_left)"),
+            "unaryFail" => ctx.select(_node, "reason", |ctx, tag| match tag { "arithmetic" => ctx.text("Err(Error::Arithmetic)"), "boundThreshold" => ctx.text("Err(Error::BoundThreshold)"), "incompleteBool" => ctx.text("Err(Error::IncompleteBool)"), "incompleteBounds" => ctx.text("Err(Error::IncompleteBounds)"), "incompleteInt" => ctx.text("Err(Error::Incomplete)"), "incompleteString" => ctx.text("Err(Error::IncompleteString)"), "incompleteValue" => ctx.text("Err(Error::IncompleteValue)"), "integerOutput" => ctx.text("Err(Error::IntegerOutput)"), "length" => ctx.text("Err(Error::Length)"), "logical" => ctx.text("Err(Error::Logical)"), tag => Err(lowering::missing_selection(tag)), }),
             op => Err(lowering::missing_case(op)),
         }
     }

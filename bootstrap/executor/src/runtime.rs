@@ -38,6 +38,10 @@ mod generated_remainder;
 mod generated_sum;
 
 #[cfg(feature = "semantics")]
+#[path = "../../generated/string-length-control.rs"]
+mod generated_string_length;
+
+#[cfg(feature = "semantics")]
 #[path = "../../generated/equal.rs"]
 mod generated_equal;
 
@@ -213,6 +217,26 @@ pub fn text_concat(left: &Value, right: &Value) -> Result<Value, Error> {
     buffer.push_str(left);
     buffer.push_str(right);
     Ok(Value::Text(Arc::from(buffer)))
+}
+
+fn checked_text_length(length: usize) -> Result<Value, Error> {
+    i64::try_from(length)
+        .map(Value::Integer)
+        .map_err(|_| Error::TextLengthOverflow)
+}
+
+/// Borrow the text's UTF-8 byte count without cloning or normalizing it.
+pub fn text_length(value: &Value) -> Result<Value, Error> {
+    let Value::Text(value) = value else {
+        return Err(Error::Length);
+    };
+    checked_text_length(value.len())
+}
+
+/// Measure text using generated CUE policy; compiler-only seeds exclude this API.
+#[cfg(feature = "semantics")]
+pub fn string_length(value: Value) -> Result<Value, Error> {
+    generated_string_length::string_length(value)
 }
 
 /// Add using generated CUE policy; compiler-only seeds exclude this API.
@@ -406,9 +430,37 @@ pub fn unify(left: Value, right: Value) -> Result<Value, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Value, integer_sum, text_buffer, text_concat};
+    use super::{Value, checked_text_length, integer_sum, text_buffer, text_concat};
     use crate::Error;
     use std::sync::Arc;
+
+    #[test]
+    fn text_length_conversion_extrema_without_allocation() {
+        assert_eq!(checked_text_length(0).ok(), Some(Value::Integer(0)));
+        assert_eq!(checked_text_length(1).ok(), Some(Value::Integer(1)));
+        if let Ok(maximum) = usize::try_from(i64::MAX) {
+            assert_eq!(
+                checked_text_length(maximum).ok(),
+                Some(Value::Integer(i64::MAX))
+            );
+            if let Some(overflow) = maximum.checked_add(1) {
+                assert!(matches!(
+                    checked_text_length(overflow),
+                    Err(Error::TextLengthOverflow)
+                ));
+            }
+        }
+        match i64::try_from(usize::MAX) {
+            Ok(maximum) => assert_eq!(
+                checked_text_length(usize::MAX).ok(),
+                Some(Value::Integer(maximum))
+            ),
+            Err(_) => assert!(matches!(
+                checked_text_length(usize::MAX),
+                Err(Error::TextLengthOverflow)
+            )),
+        }
+    }
 
     #[test]
     #[cfg(feature = "semantics")]

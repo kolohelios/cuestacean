@@ -177,6 +177,12 @@ impl Driver for Compiled {
                 })?;
                 Ok(())
             }),
+            "stringLength" => ctx.call("runtime::string_length", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
+                })?;
+                Ok(())
+            }),
             "stringType" => ctx.ok(|ctx| ctx.path("runtime::Value::String")),
             "sum" => ctx.call("runtime::sum", |call| {
                 call.arg(|ctx| {
