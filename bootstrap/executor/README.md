@@ -59,7 +59,10 @@ interprets that rule's result instruction against the current node:
   concrete integer threshold, and construct an inclusive one-sided bound via
   [CUE bound control](../bound-control.md). Native endpoint projection remains,
   not native threshold/layout dispatch. Direct constructor failures retain
-  `BoundThreshold`; default rules still read scalar threshold fields first.
+  `BoundThreshold`. Literal rules read scalar fields; new
+  [expression-bound rules](../computed-bounds.md) evaluate children first.
+  Grouped source thresholds reuse CUE primary/group control and unary builders,
+  preserving old literal ASTs and all parser budgets.
 - `field` reads the named field as a concrete integer value.
 - `evaluate` selects the named child and recursively dispatches its rule.
 - `sum` executes its left instruction, then its right instruction, against the

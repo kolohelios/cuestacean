@@ -28,6 +28,8 @@
         "left": {"op": "evaluate", "field": "left"}
       }
     },
+    "upperBoundExpression": {"result": {"op": "upperBound", "value": {"op": "evaluate", "field": "operand"}}},
+    "lowerBoundExpression": {"result": {"op": "lowerBound", "value": {"op": "evaluate", "field": "operand"}}},
     "upperBound": {"result": {"op": "upperBound", "value": {"op": "field", "field": "value"}}},
     "lowerBound": {"result": {"op": "lowerBound", "value": {"op": "field", "field": "value"}}},
     "intType": {"result": {"op": "int"}},

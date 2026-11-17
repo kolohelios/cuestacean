@@ -33,7 +33,9 @@ package bootstrap
 	value: int
 }
 
-#UnaryExpression: {kind: "negate" | "logicalNot", operand: #Expression}
+#UnaryExpression: {kind: "negate" | "logicalNot" | "lowerBoundExpression" | "upperBoundExpression", operand: #Expression}
+#LowerBoundExpression: #UnaryExpression & {kind: "lowerBoundExpression"}
+#UpperBoundExpression: #UnaryExpression & {kind: "upperBoundExpression"}
 #Negation: #UnaryExpression & {kind: "negate"}
 #LogicalNot: #UnaryExpression & {kind: "logicalNot"}
 
@@ -100,7 +102,7 @@ package bootstrap
 	op: "compare", left: #UnifyEndpoint, right: #UnifyEndpoint, relation: #UnifyRelation
 } | {op: "and" | "or", left: #UnifyCondition, right: #UnifyCondition}
 #IntegerOperation: "negate" | "difference" | "product" | "divide" | "modulo" | "quotient" | "remainder"
-#OutputFailure: "incompleteInt" | "incompleteValue" | "incompleteBool" | "incompleteString" | "incompleteBounds" | "integerOutput"
+#OutputFailure:    "incompleteInt" | "incompleteValue" | "incompleteBool" | "incompleteString" | "incompleteBounds" | "integerOutput"
 #UnifyExpression: #ControlInteger | {op: "integerPrimitive", operation: #IntegerOperation} | {op: "boolean", value: bool} | {op: "integerSum" | "textConcat"} | {op: "input", input: #UnifySide} | {
 	op: "if", condition: #UnifyCondition, then: #UnifyExpression, else: #UnifyExpression
 } | {
@@ -226,11 +228,13 @@ package bootstrap
 	kind:  string & !=""
 }
 
-// Prefix bounds currently accept only signed decimal literal operands.
+// Literal bounds accept signed decimal/radix i64s; optional metadata enables
+// parenthesized expression thresholds through the existing unary builder.
 #BoundPrefix: {
 	token:      ">=" | "<="
 	kind:       string & !=""
 	valueField: string & !="" & !="kind"
+	expression?: {kind: string & !="", operandField: string & !="" & !="kind"}
 }
 
 #Grammar: {
@@ -273,6 +277,8 @@ package bootstrap
 		"false": result: {op: "boolean", value: bool}
 		lowerBound: result: {op: "lowerBound", value: {op: "field", field: "value"}}
 		upperBound: result: {op: "upperBound", value: {op: "field", field: "value"}}
+		lowerBoundExpression: result: {op: "lowerBound", value: {op: "evaluate", field: "operand"}}
+		upperBoundExpression: result: {op: "upperBound", value: {op: "evaluate", field: "operand"}}
 		negate: result: {op: "negate", value: {op: "evaluate", field: "operand"}}
 		logicalNot: result: {op: "logicalNot", value: {op: "evaluate", field: "operand"}}
 		integer: result: {

@@ -327,8 +327,17 @@ fn bounds_keep_scalar_thresholds_candidates_and_unbounded_extrema() {
     ] {
         check(source, entry, expected);
     }
-    // Thresholds are literal scalars, not expressions or solver backpropagation.
-    for source in [">=(0x2a)", ">=int", "<=true"] {
+    check(
+        ">=(0x2a) & 42",
+        binary(
+            "unify",
+            json!({"kind":"lowerBoundExpression","operand":integer(42)}),
+            integer(42),
+        ),
+        Ok(42),
+    );
+    // Bare thresholds stay literal: no new prefix-expression/backpropagation rule.
+    for source in [">=int", "<=true"] {
         for result in parsed(source) {
             assert!(result.is_err(), "literal threshold only: {source}");
         }

@@ -62,6 +62,7 @@
       builderNames = builtins.concatStringsSep " " builderFixtures;
       prattFixtures = [
         "primary"
+        "tests/valid/primary-bound-high-minimum"
         "tests/valid/primary-no-atoms"
         "tests/valid/primary-high-minimum"
         "tests/valid/primary-low-negation"
@@ -189,6 +190,7 @@
                 ../../bootstrap/schema.cue
                 ../../bootstrap/scanner-fragments.cue
                 ../../bootstrap/decimal-fragments.cue
+                ../../bootstrap/primary-fragments.cue
                 ../../bootstrap/string-literal-fragments.cue
                 ../../bootstrap/equality-fragments.cue
                 ../../bootstrap/ordering-fragments.cue
@@ -225,6 +227,7 @@
               # for a literal can exhaust the CI runner while checking unused CUE.
               fragments=()
               case "$fixture" in
+                primary|tests/valid/primary-bound-high-minimum) fragments=(primary-fragments) ;;
                 decimal|integer-literal) fragments=(decimal-fragments) ;;
                 string-literal|tests/valid/string-no-unicode|tests/valid/string-no-wide|tests/valid/string-nested|tests/valid/string-unrolled) fragments=(string-literal-fragments) ;;
                 whitespace|after-operand|after-word-operator|group-close)

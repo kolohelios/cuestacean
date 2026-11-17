@@ -2,11 +2,12 @@
 
 `lower-bound.cue` / `upper-bound.cue` admit one concrete integer threshold and
 construct inclusive Bounds through CUE endpoint placement. Other domains keep
-BoundThreshold. Default rules read scalar threshold fields first; custom reference
-rules test child errors preceding admission, not generated threshold-child rules.
-Source syntax, precedence, AST/rule wire and i64/infinity semantics are unchanged. Exclusive bounds and
-expression thresholds in source remain unsupported; missing endpoints remain
-infinite, not extrema, and singleton bounds remain incomplete.
+BoundThreshold. Literal rules read scalar fields. New
+[expression-bound rules](computed-bounds.md) eagerly evaluate an operand child
+before the same admission policy, with compiled/reference child-error evidence.
+Existing literal wire and i64/infinity semantics remain unchanged; new unary AST
+kinds add parenthesized source thresholds. Exclusive bounds remain unsupported;
+missing endpoints remain infinite, not extrema, and singleton bounds incomplete.
 
 Unary control now admits `bounds` with a checked left-only endpoint subset:
 left input projection, integer literals, empty and choose. Choose uses existing
