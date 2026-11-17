@@ -11,8 +11,12 @@ compatibility or self-hosting.
 - Deliver coherent vertical slices, normally at most approximately 1,500 changed
   lines including generated Rust. Prefer capability/architecture progress over
   repeatedly splitting tiny lexer changes into separate PRs.
-- Open PRs for review and watch required CI. Never merge or enable auto-merge;
-  the maintainer merges manually.
+- Open PRs, complete focused reviews and full local preflight, then enable
+  CI-gated auto-merge. Watch required CI through confirmed merge; fix failures
+  rather than bypassing checks or using administrative merge overrides.
+- After a confirmed merge, work may continue from fetched `main@origin` without
+  waiting for a maintainer prompt. Keep slices bounded; pause for ambiguous
+  design/scope, security-sensitive changes or unresolved validation failures.
 - Use pinned Nix tooling and Shaka. Run full preflight and real sandbox builds;
   do not bypass failing checks or claim a pending check passed.
 - Keep CUE-generated JSON build-only. Keep generated Rust committed for now,

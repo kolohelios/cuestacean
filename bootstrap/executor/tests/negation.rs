@@ -448,25 +448,13 @@ fn invalid_negation_transitions_and_unfinished_dispatch_are_guarded() {
         );
     }
     let mut control: Value = serde_json::from_str(&export("primary")).expect("primary");
-    let group = control["body"]
+    let branch = control["body"]
         .as_array_mut()
         .expect("body")
         .iter_mut()
-        .find(|statement| statement["op"] == "if")
-        .expect("group branch");
-    let not_branch = group["else"]
-        .as_array_mut()
-        .expect("group else")
-        .iter_mut()
-        .find(|statement| statement["op"] == "if" && statement["condition"]["op"] == "hasNot")
-        .expect("not branch");
-    let nested = not_branch["else"]
-        .as_array_mut()
-        .expect("not else")
-        .iter_mut()
         .find(|statement| statement["op"] == "if" && statement["condition"]["op"] == "hasNegation")
-        .expect("negation branch");
-    let then = nested["then"].as_array_mut().expect("negation then");
+        .expect("flat negation branch");
+    let then = branch["then"].as_array_mut().expect("negation then");
     let index = then
         .iter()
         .position(|statement| statement["op"] == "buildNegation")

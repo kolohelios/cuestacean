@@ -189,6 +189,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#108](https://github.com/kolohelios/cuestacean/pull/108) | Bounded repeat control and counted Unicode digit validation |
 | [#110](https://github.com/kolohelios/cuestacean/pull/110) | Eight-digit Unicode scalar admission and checked JSON bridge |
 | [#112](https://github.com/kolohelios/cuestacean/pull/112) | Checked prefixed integers and inclusive thresholds |
+| [#114](https://github.com/kolohelios/cuestacean/pull/114) | CUE-controlled computed integer bound thresholds |
 
 ## Build and validation runbook
 
@@ -294,9 +295,13 @@ workspace's stale exports for changed specifications.
    than JSON/CUE string syntax. Do not assume another arithmetic feature is selected.
 5. Use at most two isolated Herdr workers, clear file ownership and a coordinator
    for integration/fresh generation. Read back reviews, fix findings, validate
-   locally, open with `--no-auto-merge`, watch CI and clean up created workers.
+   locally, retire created workers, enable CI-gated auto-merge and watch required
+   CI through confirmed merge. Never bypass checks or use administrative overrides.
    See [tooling notes](../infra/tooling/README.md) and `AGENTS.md`.
 
-The approximate 1,500-line PR budget includes goldens. Leave merging to the
-maintainer. Keep estimates and claims about compatibility/self-hosting cautious;
+The approximate 1,500-line PR budget includes goldens. CI-gated auto-merge is
+permitted after focused reviews and local validation; continue from confirmed
+merged main without requiring another maintainer prompt. Pause for ambiguous
+scope/design, security-sensitive changes or unresolved validation failures.
+Keep estimates and claims about compatibility/self-hosting cautious;
 references, cycles, disjunctions/defaults and propagation remain major work.

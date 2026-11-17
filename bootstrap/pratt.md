@@ -22,7 +22,8 @@ supported syntax.
 ## Control contract
 
 `#PrattProgram` contains version 1 and a statement `body`. Statements include
-`while`, `if`/`else`, `setBindingPower`, and explicit frame intrinsics:
+`while`, `if`/`else`, charged [driver `return`](parser-return.md),
+`setBindingPower`, and explicit frame intrinsics:
 `primary`, `afterOperand`, `lookupOperator`, `advanceOperator`, `parseRight`,
 and `buildBinary`. `primary` dispatches the separate CUE primary program.
 There is deliberately no `parsePratt` instruction that hides the loop in Rust.
@@ -50,7 +51,9 @@ Each action, `if` test, and `while` condition test consumes one of 4096 steps
 per expression frame. Existing native source limits remain 64 AST nodes and
 32 expression levels. Binding-power addition is checked u8 arithmetic, not
 wrapping. Control documents are limited to 512 JSON nodes and 32 JSON levels
-before typed decoding/emission. These are bootstrap limits, not production
+before typed decoding/emission. Whole-program validation also rejects statements
+following a structurally definite return, even in an unused branch; return does
+not bypass primary completion checks. These are bootstrap limits, not production
 hardening or CUE language limits.
 
 Tests compare complete trees **and error strings** between generated and

@@ -62,6 +62,10 @@
       builderNames = builtins.concatStringsSep " " builderFixtures;
       prattFixtures = [
         "primary"
+        "tests/valid/primary-nested"
+        "tests/valid/primary-return"
+        "tests/valid/primary-return-empty"
+        "tests/valid/pratt-return-loop"
         "tests/valid/primary-bound-high-minimum"
         "tests/valid/primary-no-atoms"
         "tests/valid/primary-high-minimum"

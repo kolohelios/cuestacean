@@ -83,7 +83,12 @@ the operator loop, binding-power condition and associativity branch. The
 `pratt-right`, `pratt-stalled`, `pratt-invalid-state`, and `pratt-overflow` drivers
 are test-only programs. Frame operations remain native. `primary.rs` uses the
 same compiler for [primary dispatch](../primary.md), group commitment, recursive
-minimum and closing order. `primary-no-atoms` and `primary-high-minimum` are
+minimum and closing order. [Flat early-return control](../parser-return.md)
+replaces nested dispatch; `primary-nested` retains the prior compiled algorithm
+byte-exact. `primary-return`, `primary-return-empty` and `pratt-return-loop`
+exercise tail/early return, completion/fuel guards and nested loop unwinding.
+The CUE compiler selects footer and return spelling from checked native flow facts.
+`primary-no-atoms` and `primary-high-minimum` are
 test-only policies, not production fallbacks. `primary-low-negation` weakens
 the CUE-supplied unary binding power. `primary-bound-high-minimum` weakens only
 threshold-group recursion; it shares `primary-fragments.cue` with production and
@@ -176,7 +181,8 @@ done
 bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-literal.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-lowering-forced.json" \
   | rustfmt --edition 2024 > bootstrap/generated/ast-forced-integer.rs
-for control in primary tests/valid/primary-bound-high-minimum tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
+for control in primary tests/valid/primary-nested tests/valid/primary-return tests/valid/primary-return-empty tests/valid/pratt-return-loop \
+  tests/valid/primary-bound-high-minimum tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
   tests/valid/primary-cross-phase tests/valid/primary-low-negation \
   pratt tests/valid/pratt-right tests/valid/pratt-stalled \
   tests/valid/pratt-invalid-state tests/valid/pratt-overflow; do
