@@ -64,7 +64,8 @@ an input-independent failure. Reusable binary CUE templates explicitly use `#Bin
 The integer primitive's validated operation tag selects fixed checked-kernel
 paths in CUE. [String length](string-length.md) adds a unary entry, left-input `textLength`
 primitive and input-independent length failure through the same CUE backend,
-bringing it to 437 values under the unchanged 512 guard.
+bringing it to 437 values. [Closed scalar lists](../docs/closed-lists.md) add
+list counting and unary length failure, reaching 443 under the unchanged 512 guard.
 The borrowed native byte-count kernel checks i64 conversion; CUE chooses admission.
 Function identifiers originate only in the native whitelist; raw
 compiler metadata and policies are trusted hooks, not an arbitrary-code sandbox.

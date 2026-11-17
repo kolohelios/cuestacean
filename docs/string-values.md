@@ -6,7 +6,9 @@ CUE `string`. A subsequent [source profile](../bootstrap/strings.md) now admits
 single-line literals, common escapes and [four-digit Unicode escapes with valid
 surrogate pairs](../bootstrap/unicode-escapes.md), plus [eight-digit scalar
 escapes](../bootstrap/wide-unicode.md). General string syntax, structs/lists,
-references, defaults and general solving remain outside the profile.
+references, defaults and general solving remain outside the source profile.
+[Closed scalar lists](closed-lists.md) now extend JSON values only, using opaque
+immutable shared containers without choosing reference/cycle ownership.
 
 ## Ownership boundary
 

@@ -1,7 +1,9 @@
 package bootstrap
 
+import "list"
+
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
+#Expression: #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
 
 // Factor the identical recursive shape; separate recursive disjuncts expand
 // combinatorially in the upstream exporter as binary node kinds accumulate.
@@ -10,6 +12,8 @@ package bootstrap
 	left:  #Expression
 	right: #Expression
 }
+
+#ListLiteral: {kind: "list", value: [...(null | bool | int | string)] & list.MaxItems(64)}
 
 #IntegerLiteral: {
 	kind:  "integer"
@@ -33,7 +37,7 @@ package bootstrap
 	value: int
 }
 
-#UnaryExpression: {kind: "stringLength" | "negate" | "logicalNot" | "lowerBoundExpression" | "upperBoundExpression", operand: #Expression}
+#UnaryExpression: {kind: "listLength" | "stringLength" | "negate" | "logicalNot" | "lowerBoundExpression" | "upperBoundExpression", operand: #Expression}
 #LowerBoundExpression: #UnaryExpression & {kind: "lowerBoundExpression"}
 #UpperBoundExpression: #UnaryExpression & {kind: "upperBoundExpression"}
 #Negation: #UnaryExpression & {kind: "negate"}
@@ -97,24 +101,24 @@ package bootstrap
 	op: "choose", condition: #UnifyCondition, then: #UnifyEndpoint, else: #UnifyEndpoint
 }
 #UnifyRelation: "equal" | "less" | "greater" | "lessEqual" | "greaterEqual"
-#UnifyKind:     "null" | "top" | "integer" | "int" | "bounds" | "boolean" | "bool" | "text" | "string"
+#UnifyKind:     "null" | "top" | "integer" | "int" | "bounds" | "boolean" | "bool" | "text" | "string" | "list"
 #UnifyCondition: {op: "booleanIs", input: #UnifySide, value: bool} | {op: "textCompare", relation: #UnifyRelation} | {op: "kindIs", input: #UnifySide, kind: #UnifyKind} | {op: "same"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
 	op: "compare", left: #UnifyEndpoint, right: #UnifyEndpoint, relation: #UnifyRelation
 } | {op: "and" | "or", left: #UnifyCondition, right: #UnifyCondition}
 #IntegerOperation: "negate" | "difference" | "product" | "divide" | "modulo" | "quotient" | "remainder"
 #OutputFailure:    "incompleteInt" | "incompleteValue" | "incompleteBool" | "incompleteString" | "incompleteBounds" | "integerOutput"
-#UnifyExpression: #ControlInteger | {op: "integerPrimitive", operation: #IntegerOperation} | {op: "boolean", value: bool} | {op: "integerSum" | "textConcat" | "textLength"} | {op: "input", input: #UnifySide} | {
+#UnifyExpression: #ControlInteger | {op: "integerPrimitive", operation: #IntegerOperation} | {op: "boolean", value: bool} | {op: "integerSum" | "textConcat" | "textLength" | "listCount"} | {op: "input", input: #UnifySide} | {
 	op: "if", condition: #UnifyCondition, then: #UnifyExpression, else: #UnifyExpression
 } | {
 	op: "letBounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint, result: #UnifyExpression
-} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: #OutputFailure | "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering" | "logical" | "divisionByZero" | "boundThreshold" | "length"}
+} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: #OutputFailure | "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering" | "logical" | "divisionByZero" | "boundThreshold" | "length" | "lists" | "listLength"}
 #BinaryControlProgram: {formatVersion: 1, function?: "unify" | "sum" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr" | "difference" | "product" | "divide" | "modulo" | "quotient" | "remainder", result: #UnifyExpression}
 #UnaryControlCondition: {op: "kindIs", input: "left", kind: #UnifyKind} | {op: "booleanIs", input: "left", value: bool} | {op: "and" | "or", left: #UnaryControlCondition, right: #UnaryControlCondition}
 #UnaryControlEndpoint: #ControlInteger | {op: "input", input: "left", endpoint: #UnifyEndpointName} | {op: "empty"} | {
 	op: "choose", condition: #UnaryControlCondition, then: #UnaryControlEndpoint, else: #UnaryControlEndpoint
 }
-#UnaryControlExpr: {op: "textLength"} | {op: "bounds", lower: #UnaryControlEndpoint, upper: #UnaryControlEndpoint} | #ControlInteger | {op: "integerPrimitive", operation: "negate"} | {op: "boolean", value: bool} | {op: "input", input: "left"} | {op: "fail", reason: #OutputFailure | "logical" | "arithmetic" | "boundThreshold" | "length"} | {op: "if", condition: #UnaryControlCondition, then: #UnaryControlExpr, else: #UnaryControlExpr}
-#UnaryControlProgram: {formatVersion: 1, function: "stringLength" | "logicalNot" | "negate" | "jsonOutput" | "integerOutput" | "lowerBound" | "upperBound", result: #UnaryControlExpr}
+#UnaryControlExpr: {op: "textLength" | "listCount"} | {op: "bounds", lower: #UnaryControlEndpoint, upper: #UnaryControlEndpoint} | #ControlInteger | {op: "integerPrimitive", operation: "negate"} | {op: "boolean", value: bool} | {op: "input", input: "left"} | {op: "fail", reason: #OutputFailure | "logical" | "arithmetic" | "boundThreshold" | "length" | "listLength"} | {op: "if", condition: #UnaryControlCondition, then: #UnaryControlExpr, else: #UnaryControlExpr}
+#UnaryControlProgram: {formatVersion: 1, function: "listLength" | "stringLength" | "logicalNot" | "negate" | "jsonOutput" | "integerOutput" | "lowerBound" | "upperBound", result: #UnaryControlExpr}
 #UnifyProgram: *#BinaryControlProgram | #UnaryControlProgram
 
 // Expression-parser control flow; native frame operations are explicit intrinsics.
@@ -289,6 +293,8 @@ package bootstrap
 		negate: result: {op: "negate", value: {op: "evaluate", field: "operand"}}
 		logicalNot: result: {op: "logicalNot", value: {op: "evaluate", field: "operand"}}
 		stringLength: result: {op: "stringLength", value: {op: "evaluate", field: "operand"}}
+		list: result: {op: "list", field: "value"}
+		listLength: result: {op: "listLength", value: {op: "evaluate", field: "operand"}}
 		integer: result: {
 			op:    "field"
 			field: "value"

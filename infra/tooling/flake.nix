@@ -82,6 +82,8 @@
       ];
       prattNames = builtins.concatStringsSep " " prattFixtures;
       unifyFixtures = [
+        "list-length-control"
+        "tests/valid/list-length-zero"
         "string-length-control"
         "tests/valid/length-zero"
         "unify"
@@ -153,6 +155,11 @@
         "booleans"
         "strings"
         "string-length"
+        "lists"
+        "list-length"
+        "tests/valid/lists-unify"
+        "tests/valid/lists-capacity"
+        "tests/valid/lists-equal"
         "concatenation"
         "equality"
         "inequality"
@@ -615,6 +622,27 @@
               }
               ''
                 set -euo pipefail
+                for fixture in lists tests/valid/lists-unify; do
+                  probe="''${fixture##*/}"
+                  # Marshal in pinned CUE, not jq: keep every i64 exact.
+                  printf '%s\n' "$(cue export ${../../bootstrap/tests/upstream}/"$probe.cue" --out text)" > expected
+                  for binary in bootstrap-executor bootstrap-generated; do
+                    if [ "$binary" = bootstrap-executor ]; then
+                      "$binary" ${jsonExports pkgs}/"$fixture.json" ${jsonExports pkgs}/evaluation.json > actual
+                    else
+                      "$binary" ${jsonExports pkgs}/"$fixture.json" > actual
+                    fi
+                    diff -u expected actual
+                  done
+                done
+                for fixture in list-length lists-equal; do
+                  cue export ${../../bootstrap/tests/upstream}/"$fixture.cue" --out json > expected
+                  if [ "$fixture" = lists-equal ]; then input=tests/valid/$fixture; else input=$fixture; fi
+                  bootstrap-executor ${jsonExports pkgs}/"$input.json" ${jsonExports pkgs}/evaluation.json > actual
+                  diff -u expected actual
+                  bootstrap-generated ${jsonExports pkgs}/"$input.json" > actual
+                  diff -u expected actual
+                done
                 cue export ${../../bootstrap/tests/upstream/string-length.cue} --out json > expected
                 for binary in bootstrap-executor bootstrap-generated; do
                   if [ "$binary" = bootstrap-executor ]; then

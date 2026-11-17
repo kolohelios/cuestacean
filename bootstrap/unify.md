@@ -1,7 +1,7 @@
 # CUE-hosted scalar unification
 
 [`unify.cue`](unify.cue) owns the current value-unification algorithm: abstract
-top (`_`), `string`, `bool` and `int` identity, null-domain isolation, concrete equality/conflict, mixed-domain rejection,
+top (`_`), `string`, `bool` and `int` identity, null/list-domain isolation, concrete equality/conflict, mixed-domain rejection,
 interval intersection, infinity handling, empty-range rejection and concrete
 candidate selection. Production
 `runtime::unify` calls generated Rust, not a native intersection fallback.
@@ -12,7 +12,10 @@ closure**. [Null/top boundaries](lattice-values.md) precede other domains;
 null has no numeric endpoints, and top selects its other operand. Values include
 native unit `Null`/`Top` and the owned `Text(Arc<str>)`/`String`, `Boolean(bool)`/`Bool`,
 `Integer(i64)`/`Int` and inclusive `Bounds` scaffold; `Value` is no longer Copy.
-See the [ownership design](../docs/string-values.md). Projection, tag tests, finite i64
+[Closed scalar lists](../docs/closed-lists.md) add an opaque immutable shared
+container, with capacity/flatness validated before construction; CUE selects
+same-list inputs, list conflicts and mixed-type rejection before numeric identity.
+See the [string ownership design](../docs/string-values.md). Projection, tag tests, finite i64
 comparisons, error construction, checked arithmetic, output extraction/encoding, typed
 decoders and generic compiler/interpreter kernels remain Rust. Per-opcode
 [compiler lowering](unify-lowering.md) now lives in a separate CUE policy. Go CUE still exports specifications. This policy

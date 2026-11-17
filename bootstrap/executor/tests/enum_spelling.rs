@@ -19,6 +19,7 @@ fn cue_styles_preserve_every_closed_enum_spelling() {
         ("bool", "Bool"),
         ("text", "Text"),
         ("string", "String"),
+        ("list", "List"),
         ("null", "Null"),
         ("top", "Top"),
     ] {
@@ -61,6 +62,9 @@ fn cue_styles_preserve_every_closed_enum_spelling() {
         ("booleans", "Booleans"),
         ("types", "Types"),
         ("strings", "Strings"),
+        ("lists", "Lists"),
+        ("listLength", "ListLength"),
+        ("length", "Length"),
         ("arithmetic", "Arithmetic"),
         ("comparison", "Comparison"),
         ("ordering", "Ordering"),

@@ -1,5 +1,7 @@
 {
   "rules": {
+    "listLength": {"result": {"op": "listLength", "value": {"op": "evaluate", "field": "operand"}}},
+    "list": {"result": {"op": "list", "field": "value"}},
     "stringLength": {"result": {"op": "stringLength", "value": {"op": "evaluate", "field": "operand"}}},
     "top": {"result": {"op": "top"}},
     "null": {"result": {"op": "null"}},

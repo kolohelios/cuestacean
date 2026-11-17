@@ -80,6 +80,10 @@ fn evaluate_node(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,
         ),
+        "listLength" => {
+            runtime::list_length((evaluate(runtime::field(node, "operand")?, _context))?)
+        }
+        "list" => runtime::list(node, "value"),
         "lessEqual" => runtime::less_equal(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,

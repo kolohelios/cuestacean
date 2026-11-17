@@ -14,7 +14,7 @@ nix run ./infra/tooling -- result-exports/addition.json result-exports/evaluatio
 ```
 
 Both print `42`. The CLI takes exactly two paths: program JSON, then rule JSON.
-Success prints an exact JSON integer, boolean or string and newline; errors go to stderr with exit
+Success prints exact concrete JSON (including closed scalar arrays) and newline; errors go to stderr with exit
 status 2 and no result on stdout.
 
 The generated evaluator is a separate CLI:
@@ -40,7 +40,8 @@ semantics-gated; compiler-only seeds retain the checked encoders. Their
 usage messages differ because their argument lists differ.
 
 Library `execute_json(program, rules)` and `generated::execute_json(program)`
-return concrete JSON scalars. Legacy `execute` entry points still return i64:
+return concrete JSON scalars or [closed scalar lists](../../docs/closed-lists.md).
+Legacy `execute` entry points still return i64:
 concrete booleans/strings report `integer output requires an integer value`.
 The normal generated module is a public, `semantics`-gated library API reused by
 both compiled CLIs; compiler-only seeds omit it entirely.

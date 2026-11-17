@@ -51,6 +51,7 @@ package bootstrap
 		bool: {op: "ok", value: {op: "path", value: "runtime::Value::Bool"}}
 		stringType: {op: "ok", value: {op: "path", value: "runtime::Value::String"}}
 		text: {op: "call", path: "runtime::text", args: [Node, Field]}
+		list: {op: "call", path: "runtime::list", args: [Node, Field]}
 		boolean: {op: "ok", value: {op: "call", path: "runtime::Value::Boolean", args: [{op: "boolean", field: "value"}]}}
 		field: {op: "call", path: "runtime::integer", args: [Node, Field]}
 		evaluate: {op: "call", path: "evaluate", args: [{op: "try", value: {op: "call", path: "runtime::field", args: [Node, Field]}}, Context]}
@@ -59,6 +60,7 @@ package bootstrap
 		negate: {op: "call", path: "runtime::negate", args: [V]}
 		logicalNot: {op: "call", path: "runtime::logical_not", args: [V]}
 		stringLength: {op: "call", path: "runtime::string_length", args: [V]}
+		listLength: {op: "call", path: "runtime::list_length", args: [V]}
 		sum: {op: "call", path: "runtime::sum", args: [L, R]}
 		logicalAnd: {op: "call", path: "runtime::logical_and", args: [L, R]}
 		logicalOr: {op: "call", path: "runtime::logical_or", args: [L, R]}

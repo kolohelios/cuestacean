@@ -85,6 +85,16 @@ pub enum Error {
     Integer { field: String },
     #[snafu(display("field {field:?} must be a string"))]
     Text { field: String },
+    #[snafu(display("field {field:?} must be an array"))]
+    Array { field: String },
+    #[snafu(display("closed list exceeds 64 elements"))]
+    ListCapacity,
+    #[snafu(display("closed list element {index} requires a concrete scalar"))]
+    ListElement { index: usize },
+    #[snafu(display("conflicting closed list values"))]
+    ListConflict,
+    #[snafu(display("length requires a concrete closed list"))]
+    ListLength,
     #[snafu(display("signed 64-bit integer addition overflow"))]
     Overflow,
     #[snafu(display("signed 64-bit integer subtraction overflow"))]
@@ -175,6 +185,9 @@ enum Instruction {
     Text {
         field: String,
     },
+    List {
+        field: String,
+    },
     #[serde(rename = "stringType")]
     StringType {},
     Boolean {
@@ -227,6 +240,10 @@ enum Instruction {
     },
     #[serde(rename = "stringLength")]
     StringLength {
+        value: Box<Instruction>,
+    },
+    #[serde(rename = "listLength")]
+    ListLength {
         value: Box<Instruction>,
     },
     #[serde(rename = "logicalNot")]
@@ -286,7 +303,7 @@ pub fn execute(program: &str, rules: &str) -> Result<i64, Error> {
     runtime::concrete(evaluate(&program, &rules.rules, &mut context)?)
 }
 
-/// Execute to an exact concrete JSON scalar (integer, boolean or string).
+/// Execute to exact concrete JSON scalars or a bounded closed scalar list.
 #[cfg(feature = "semantics")]
 pub fn execute_json(program: &str, rules: &str) -> Result<Value, Error> {
     let program = runtime::program(program)?;
@@ -336,6 +353,7 @@ fn instruction(
         Instruction::Bool {} => Ok(runtime::Value::Bool),
         Instruction::Boolean { value } => Ok(runtime::Value::Boolean(*value)),
         Instruction::Text { field } => runtime::text(node, field),
+        Instruction::List { field } => runtime::list(node, field),
         Instruction::StringType {} => Ok(runtime::Value::String),
         Instruction::LowerBound { value } => {
             runtime::lower_bound(instruction(value, node, rules, context)?)
@@ -385,6 +403,9 @@ fn instruction(
         }
         Instruction::StringLength { value } => {
             runtime::string_length(instruction(value, node, rules, context)?)
+        }
+        Instruction::ListLength { value } => {
+            runtime::list_length(instruction(value, node, rules, context)?)
         }
         Instruction::LogicalNot { value } => {
             runtime::logical_not(instruction(value, node, rules, context)?)

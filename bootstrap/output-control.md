@@ -2,11 +2,13 @@
 
 `json-output.cue` and `integer-output.cue` choose accepted scalar domains and
 incomplete-value diagnostics through genuine unary CUE control. JSON admits
-null, integers, booleans and owned text. Integer-only output admits integers;
+null, integers, booleans, owned text and now
+[bounded closed scalar lists](../docs/closed-lists.md). Integer-only output admits integers;
 other concrete scalars keep the IntegerOutput error. Top, int, bool, string and
 bounds retain their distinct incomplete errors before either output conversion.
-Singleton bounds stay incomplete. No source syntax, solver or output behavior
-expands; exact i64 and JSON string/null/bool handling remain unchanged.
+Singleton bounds stay incomplete. The subsequent list slice extends exact JSON
+output to flat arrays; it does not add source lists, abstract/open/nested list
+solving, or change existing i64/string/null/bool handling.
 
 Production `runtime::concrete` / `concrete_json` invoke generated admission, then
 native `encode_integer` / `encode_json`. Checked encoders perform representation

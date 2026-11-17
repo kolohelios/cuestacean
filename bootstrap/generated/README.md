@@ -116,6 +116,10 @@ that same compiler; `equal-false` is test-only. Four [ordering policies](../orde
 use it too, with `less-false` as a compiled test-only alternate.
 `logical-and.rs` / `logical-or.rs` use [CUE logical selection](../logic.md);
 `logic-false` is test-only. Both child instructions still evaluate eagerly.
+`list-length-control` adds [closed scalar list](../../docs/closed-lists.md) length;
+`list-length-zero` is an actual compiled alternate. Native bounded literal codecs
+supply owned arrays; CUE owns list isolation/equality/logical/output admission.
+No source or general/nested/expression-list support is implied.
 `string-length-control` adds [UTF-8 byte length](../string-length.md) through
 CUE concrete-text admission and a borrowed checked kernel; `length-zero` is an
 actual compiled input-independent alternate. [Unary source calls](../unary-calls.md)
@@ -205,7 +209,7 @@ done
 bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/pratt.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/pratt-lowering-no-increment.json" \
   | rustfmt --edition 2024 > bootstrap/generated/pratt-no-increment.rs
-for control in string-length-control tests/valid/length-zero lower-bound upper-bound tests/valid/bound-reversed tests/valid/unary-bound-endpoints json-output integer-output tests/valid/output-zero divide-control modulo-control quotient-control remainder-control tests/valid/integer-literals negate-control difference-control product-control unify sum equal not-equal less less-equal greater greater-equal logical-and logical-or logical-not tests/valid/not-true tests/valid/control-default tests/valid/unary-conditions tests/valid/logic-false tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
+for control in list-length-control tests/valid/list-length-zero string-length-control tests/valid/length-zero lower-bound upper-bound tests/valid/bound-reversed tests/valid/unary-bound-endpoints json-output integer-output tests/valid/output-zero divide-control modulo-control quotient-control remainder-control tests/valid/integer-literals negate-control difference-control product-control unify sum equal not-equal less less-equal greater greater-equal logical-and logical-or logical-not tests/valid/not-true tests/valid/control-default tests/valid/unary-conditions tests/valid/logic-false tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
   name=$(basename "$control")
   bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"

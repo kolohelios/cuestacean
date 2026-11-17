@@ -2,12 +2,14 @@
 
 `equal.cue` and `not-equal.cue` reuse finite binary control for `==` and `!=`.
 The shared CUE equality program checks that both operands are concrete null, i64,
-boolean or text values, then chooses a boolean using the existing structural
+boolean, text or [bounded closed scalar list](../docs/closed-lists.md) values,
+then chooses a boolean using the existing structural
 `same` primitive. Concrete mixed types compare unequal, not type-conflict, as
 pinned Go CUE confirms. Text compares by content without Unicode normalization
 or coercion. Abstract types and bounds fail `comparison requires concrete operands`
-even if structurally identical, including top `_`. This is scalar equality, not structural/reference
-equality, general CUE comparability or propagation. [Ordering](ordering.md) has
+even if structurally identical, including top `_`. Flat lists use bounded
+content equality, not general nested/structural/reference equality, comparability
+or propagation. Source list syntax remains absent. [Ordering](ordering.md) has
 its own matching-domain CUE policy, unlike equality's mixed-type behavior.
 
 Both children evaluate left-first before operand checks. Source `==` and `!=`
