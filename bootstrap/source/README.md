@@ -31,6 +31,12 @@ to typed Rust functions, rather than native JSON-map assembly.
 
 ## Deliberately small subset
 
+[Null/top boundaries](../lattice-values.md) add concrete `null` and abstract `_`
+through the existing CUE atom table and builder. `_ & value` selects that value;
+null agrees only with null/top. Bare `_` remains incomplete. Null is concrete
+for scalar equality and ignored logical RHS selection, not arithmetic or ordering.
+These do not introduce bottom values, references, structs or general solving.
+
 The default grammar accepts decimal signed integers, `true`/`false` and `bool`/`int` atoms,
 inclusive bounds (`>=`, `<=`), addition, subtraction, multiplication,
 integer division/remainder (`div`, `mod`, `quo`, `rem`), scalar comparisons

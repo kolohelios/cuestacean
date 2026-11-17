@@ -24,6 +24,14 @@ fn default_policy_matches_independent_instruction_expressions() {
     let right = json!({"op":"evaluate", "field":"right"});
     let cases = [
         (
+            json!({"op":"null"}),
+            "Ok::<_, Error>(runtime::Value::Null)".to_owned(),
+        ),
+        (
+            json!({"op":"top"}),
+            "Ok::<_, Error>(runtime::Value::Top)".to_owned(),
+        ),
+        (
             json!({"op":"int"}),
             "Ok::<_, Error>(runtime::Value::Int)".to_owned(),
         ),

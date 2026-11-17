@@ -92,7 +92,9 @@ use it too, with `less-false` as a compiled test-only alternate.
 `logical-not.rs` has a checked one-Value signature; `not-true` is an actual
 compiled alternate and `control-default` preserves omitted-function binary arity. Intermediate values may be abstract `bool`, `int` or
 bounds; JSON evaluation also supports owned strings and abstract `string`.
-Public `execute_json` requires a concrete JSON integer/boolean/string;
+Public `execute_json` requires concrete JSON null/integer/boolean/string;
+abstract top reports `non-concrete value`. [Lattice policy](../lattice-values.md)
+selects top identity and null-domain behavior in CUE;
 legacy `execute` remains integer-only. The normal module is exposed as
 `bootstrap_executor::generated` under `semantics`; both compiled CLIs reuse it. Tests compare values
 and errors against the interpreter and known expectations. Sharing primitives

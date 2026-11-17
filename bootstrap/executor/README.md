@@ -45,6 +45,8 @@ both compiled CLIs; compiler-only seeds omit it entirely.
 The executor looks up a node's string `kind` in the supplied rule map, then
 interprets that rule's result instruction against the current node:
 
+- `null` constructs the concrete null singleton; `top` constructs abstract top.
+  [CUE lattice policy](../lattice-values.md) owns top identity and null isolation.
 - `int` / `bool` / `stringType` construct abstract type values.
 - `text` reads a named string field into owned shared text.
 - `boolean` constructs its literal `value` from rule data, not a node-kind case.
@@ -82,7 +84,7 @@ interprets that rule's result instruction against the current node:
   `conflicting integer values`. Empty ranges and rejected candidates report
   `conflicting integer bounds`.
 
-The owned Clone (not Copy) value scaffold has concrete i64/boolean/shared text,
+The owned Clone (not Copy) value scaffold has null/top and concrete i64/boolean/shared text,
 abstract `int`/`bool`/`string`, and inclusive bounds. CUE controls string identity,
 content equality/conflict and cross-domain rejection. JSON strings and the [bounded source-string profile](../strings.md) are supported. See the [ownership design](../../docs/string-values.md).
 `bool & true` is concrete; `bool & bool` reports `non-concrete bool value`.
@@ -154,7 +156,7 @@ Checked binding/type/use-count facts and the reference interpreter remain native
 
 ## Deliberate limits
 
-- Unification supports concrete i64/booleans/text, abstract `int`/`bool`/`string`, and inclusive
+- Unification supports null, top, concrete i64/booleans/text, abstract `int`/`bool`/`string`, and inclusive
   integer-threshold bounds. Conflicts are errors, not first-class bottom
   values. Other types, structs, exclusive bounds, disjunctions, defaults,
   references, and full CUE unification remain unsupported.

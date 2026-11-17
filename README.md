@@ -52,6 +52,8 @@ concrete integers or text, preserving inclusive prefix bounds.
 [Logical selection](bootstrap/logic.md) adds `&&` / `||`, preserving eager child
 errors and selecting results/types in CUE. [Unary `!`](bootstrap/logical-not.md)
 uses checked one-operand CUE control and source-prefix dispatch.
+[Null and top](bootstrap/lattice-values.md) add concrete `null` and abstract `_`,
+with CUE-owned identity, null-domain and concreteness guards.
 Value representation and low-level primitives remain native.
 
 ## CUE all the way down

@@ -93,7 +93,7 @@ Ok(())
 parts.arg(|ctx| ctx.text("crate::unification::kind_is(&"))?;
 parts.arg(|ctx| ctx.select(_node, "input", |ctx, tag| match tag { "left" => ctx.text("_left"), "right" => ctx.text("_right"), tag => Err(lowering::missing_selection(tag)), }))?;
 parts.arg(|ctx| ctx.text(", crate::unification::Kind::"))?;
-parts.arg(|ctx| ctx.select(_node, "kind", |ctx, tag| match tag { "bool" => ctx.text("Bool"), "boolean" => ctx.text("Boolean"), "bounds" => ctx.text("Bounds"), "int" => ctx.text("Int"), "integer" => ctx.text("Integer"), "string" => ctx.text("String"), "text" => ctx.text("Text"), tag => Err(lowering::missing_selection(tag)), }))?;
+parts.arg(|ctx| ctx.select(_node, "kind", |ctx, tag| match tag { "bool" => ctx.text("Bool"), "boolean" => ctx.text("Boolean"), "bounds" => ctx.text("Bounds"), "int" => ctx.text("Int"), "integer" => ctx.text("Integer"), "null" => ctx.text("Null"), "string" => ctx.text("String"), "text" => ctx.text("Text"), "top" => ctx.text("Top"), tag => Err(lowering::missing_selection(tag)), }))?;
 parts.arg(|ctx| ctx.text(")"))?;
 Ok(())
 })),

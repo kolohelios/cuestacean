@@ -2,10 +2,11 @@
 
 `logical-and.cue` / `logical-or.cue` implement `&&` / `||` through shared finite
 binary control. Both children evaluate left-first before policy selection. Both
-values must be concrete prototype scalars (i64, bool or text), and the left value
+values must be concrete prototype scalars (null, i64, bool or text), and the left value
 must be boolean. If the left determines the result, CUE returns that boolean
 without requiring a boolean right value; otherwise the right must be boolean.
-Thus `false && 1` is false and `true || "x"` is true, but `true && 1`,
+Thus `false && null` is false and `true || null` is true. Top remains abstract.
+Likewise `false && 1` is false and `true || "x"` is true, but `true && 1`,
 `false || "x"`, `false && int` and `true || (1 div 0 == 0)` fail. These are
 pinned Go CUE observations, not Rust-style lazy child evaluation or coercion.
 Abstract values/bounds and invalid selected types report `invalid logical operands`.

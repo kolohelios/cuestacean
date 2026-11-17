@@ -97,6 +97,8 @@ pub enum Error {
     Conflict { left: i64, right: i64 },
     #[snafu(display("non-concrete int value"))]
     Incomplete,
+    #[snafu(display("non-concrete value"))]
+    IncompleteValue,
     #[snafu(display("conflicting boolean values {left} and {right}"))]
     BooleanConflict { left: bool, right: bool },
     #[snafu(display("conflicting value types"))]
@@ -156,6 +158,8 @@ struct Rule {
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "lowercase", deny_unknown_fields)]
 enum Instruction {
+    Null {},
+    Top {},
     Int {},
     Bool {},
     Text {
@@ -303,6 +307,8 @@ fn instruction(
     rules: &BTreeMap<String, Rule>,
 ) -> Result<runtime::Value, Error> {
     match op {
+        Instruction::Null {} => Ok(runtime::Value::Null),
+        Instruction::Top {} => Ok(runtime::Value::Top),
         Instruction::Int {} => Ok(runtime::Value::Int),
         Instruction::Bool {} => Ok(runtime::Value::Bool),
         Instruction::Boolean { value } => Ok(runtime::Value::Boolean(*value)),

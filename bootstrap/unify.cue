@@ -12,6 +12,16 @@ package bootstrap
 	let LeftString = {op: "or", left: {op: "kindIs", input: "left", kind: "string"}, right: {op: "kindIs", input: "left", kind: "text"}}
 	let RightString = {op: "or", left: {op: "kindIs", input: "right", kind: "string"}, right: {op: "kindIs", input: "right", kind: "text"}}
 	result: {
+		op: "if", condition: {op: "kindIs", input: "left", kind: "top"}
+		then: {op: "input", input: "right"}
+		else: {op: "if", condition: {op: "kindIs", input: "right", kind: "top"}, then: {op: "input", input: "left"}, else: Null}
+	}
+	let Null = {
+		op: "if", condition: {op: "or", left: {op: "kindIs", input: "left", kind: "null"}, right: {op: "kindIs", input: "right", kind: "null"}}
+		then: {op: "if", condition: {op: "same"}, then: {op: "input", input: "left"}, else: {op: "fail", reason: "types"}}
+		else: Scalar
+	}
+	let Scalar = {
 		op: "if", condition: LeftString
 		then: {
 			op: "if", condition: RightString

@@ -56,6 +56,7 @@ package bootstrap
 				integer: {op: "text", value: "Integer"}, int: {op: "text", value: "Int"}, bounds: {op: "text", value: "Bounds"}
 				boolean: {op: "text", value: "Boolean"}, bool: {op: "text", value: "Bool"}
 				text: {op: "text", value: "Text"}, string: {op: "text", value: "String"}
+				"null": {op: "text", value: "Null"}, top: {op: "text", value: "Top"}
 			}}, {op: "text", value: ")"}]}}
 		hasEndpoint: {op: "ok", value: {op: "concat", parts: [{op: "text", value: "("}, {op: "lower", field: "value"}, {op: "text", value: ")?.is_some()"}]}}
 		booleanIs: {op: "concat", parts: [{op: "text", value: "crate::unification::boolean_is(&"}, Side, {op: "text", value: ", "}, {op: "boolean", field: "value"}, {op: "text", value: ")"}]}

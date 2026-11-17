@@ -1,5 +1,7 @@
 {
   "rules": {
+    "top": {"result": {"op": "top"}},
+    "null": {"result": {"op": "null"}},
     "logicalNot": {"result": {"op": "logicalNot", "value": {"op": "evaluate", "field": "operand"}}},
     "logicalOr": {"result": {"op": "logicalOr", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},
     "logicalAnd": {"result": {"op": "logicalAnd", "right": {"op": "evaluate", "field": "right"}, "left": {"op": "evaluate", "field": "left"}}},

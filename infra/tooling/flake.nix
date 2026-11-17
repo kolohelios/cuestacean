@@ -123,6 +123,9 @@
         "logic-and"
         "logic-or"
         "not"
+        "null"
+        "top"
+        "top-null"
         "tests/valid/equality-mixed"
         "tests/valid/strings-empty"
         "tests/valid/strings-equal"
@@ -522,7 +525,7 @@
                   test -s error
                 done
                 # These rejected operand domains must also fail upstream.
-                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/not-integer.cue; do
+                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/not-integer.cue ${../../bootstrap/source}/rejected/null-conflict.cue; do
                   if cue export "$source" --out json > expected 2> cue-error; then exit 1; fi
                   test ! -s expected
                   test -s cue-error
@@ -605,6 +608,32 @@
                     jq -e 'type == "boolean"' actual > /dev/null
                     diff -u expected actual
                   done
+                done
+                for pair in nullValue:null combined:top-null; do
+                  property="''${pair%%:*}"
+                  fixture="''${pair#*:}"
+                  cue export ${../../bootstrap/tests/upstream/lattice.cue} -e "$property" --out json > expected
+                  for binary in bootstrap-executor bootstrap-generated; do
+                    if [ "$binary" = bootstrap-executor ]; then
+                      "$binary" ${jsonExports pkgs}/"$fixture.json" ${jsonExports pkgs}/evaluation.json > actual
+                    else
+                      "$binary" ${jsonExports pkgs}/"$fixture.json" > actual
+                    fi
+                    jq -e 'type == "null"' actual > /dev/null
+                    diff -u expected actual
+                  done
+                done
+                if cue export ${../../bootstrap/tests/upstream/lattice.cue} -e top --out json > expected 2> cue-error; then exit 1; fi
+                test ! -s expected
+                test -s cue-error
+                for binary in bootstrap-executor bootstrap-generated; do
+                  if [ "$binary" = bootstrap-executor ]; then
+                    if "$binary" ${jsonExports pkgs}/top.json ${jsonExports pkgs}/evaluation.json > actual 2> error; then exit 1; fi
+                  else
+                    if "$binary" ${jsonExports pkgs}/top.json > actual 2> error; then exit 1; fi
+                  fi
+                  test ! -s actual
+                  test -s error
                 done
                 for fixture in strings-incomplete strings-conflict strings-mixed; do
                   case "$fixture" in

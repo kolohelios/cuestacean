@@ -1,7 +1,8 @@
 # Bootstrap expression fixtures
 
-`schema.cue` defines a recursive expression tree with twenty-seven node kinds:
+`schema.cue` defines a recursive expression tree with twenty-nine node kinds:
 
+- `null` / `top`: payload-free [concrete null and abstract top](lattice-values.md).
 - `integer`: an integer `value`.
 - `intType`: the abstract `int` constraint, with no payload.
 - `string` / `stringType`: concrete string `value` or payload-free abstract string;
