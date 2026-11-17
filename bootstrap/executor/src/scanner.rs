@@ -49,6 +49,10 @@ mod generated_list_open;
 mod generated_list_close;
 
 #[cfg(feature = "source")]
+#[path = "../../generated/index-close.rs"]
+mod generated_index_close;
+
+#[cfg(feature = "source")]
 #[path = "../../generated/list-tail.rs"]
 mod generated_list_tail;
 
@@ -619,6 +623,12 @@ pub fn list_open(source: &str, offset: usize) -> Result<Scan, Error> {
 #[cfg(feature = "source")]
 pub fn list_close(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_list_close::scan(source, offset)
+}
+
+/// Run CUE-owned trivia and required closing-index recognition.
+#[cfg(feature = "source")]
+pub fn index_close(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_index_close::scan(source, offset)
 }
 
 /// Require a list delimiter; CUE reports comma as false and close as true.

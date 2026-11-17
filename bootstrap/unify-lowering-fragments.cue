@@ -46,6 +46,8 @@ package bootstrap
 		textConcat: {op: "text", value: "crate::runtime::text_concat(&_left, &_right)"}
 		textLength: {op: "text", value: "crate::runtime::text_length(&_left)"}
 		listCount: {op: "text", value: "crate::runtime::list_count(&_left)"}
+		listElement: {op: "text", value: "crate::runtime::list_at(&_left, &_right)"}
+		listCountEndpoint: {op: "text", value: "crate::runtime::list_count(&_left).map(|value| crate::unification::endpoint(&value, crate::unification::Endpoint::Lower))"}
 		inputValue: {op: "ok", value: {op: "concat", parts: [Side, {op: "text", value: ".clone()"}]}}
 		inputEndpoint: {op: "ok", value: {op: "concat", parts: [{op: "text", value: "crate::unification::endpoint(&"}, Side,
 			{op: "text", value: ", crate::unification::Endpoint::"}, Endpoint, {op: "text", value: ")"}]}}

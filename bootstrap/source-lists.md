@@ -14,6 +14,9 @@ cannot be empty or use `kind` as the element field. Production selects
 `listExpression`/`elements`. CUE bracket/tail scanners choose token acceptance,
 closing-versus-comma flags and diagnostics. No native byte/token dispatch.
 
+[Postfix indexing](list-indexing.md) subsequently adds `list[indexExpression]`
+through a separate CUE expression loop; it does not widen element representation.
+
 The existing parser control target adds scanList/hasList/advanceList,
 probeListEnd/hasListElement, parseListElement with explicit minimum,
 appendListElement, advanceListTail and buildList. The primary program sequences

@@ -41,6 +41,10 @@ These do not introduce bottom values, references, structs or general solving.
 commas (trailing comma allowed), leading/after-comma trivia, and flat concrete
 scalar results. No open/nested list values or implicit comma insertion. The
 container costs one node: 63 scalar leaves fit the unchanged 64-node source limit.
+[Indexing](../list-indexing.md) adds `operand[indexExpression]` with a concrete i64
+index, CUE domain/0-inclusive/count-exclusive bounds, and no negative/from-end or
+string indexing. Postfixes chain left-associatively above unary/binary operators.
+Each adds one node; index expressions share selected drivers and recursion limits.
 [Unary calls](../unary-calls.md) now select `length` for text bytes or list elements;
 text length counts decoded bytes, not Unicode scalars/graphemes. Argument evaluation is
 eager and CUE selects minimum 0. Spaces before `(` are allowed; LF/CR after the

@@ -6,6 +6,23 @@ pub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {
     _frame.step()?;
     _frame.after_operand()?;
     _frame.step()?;
+    _frame.scan_index()?;
+    while {
+        _frame.step()?;
+        _frame.has_index()?
+    } {
+        _frame.step()?;
+        _frame.advance_index()?;
+        _frame.step()?;
+        _frame.parse_index(0u8)?;
+        _frame.step()?;
+        _frame.close_index()?;
+        _frame.step()?;
+        _frame.after_operand()?;
+        _frame.step()?;
+        _frame.scan_index()?;
+    }
+    _frame.step()?;
     _frame.lookup_operator()?;
     while {
         _frame.step()?;

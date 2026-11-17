@@ -1,6 +1,7 @@
 # CUE-hosted expression control flow
 
-[`pratt.cue`](pratt.cue) now owns the expression loop: parse a primary, inspect
+[`pratt.cue`](pratt.cue), through `pratt-fragments.cue`, owns the expression loop:
+parse a primary, run a CUE [postfix index loop](list-indexing.md), then inspect
 an infix candidate, compare its precedence with the frame minimum, adjust the
 right binding power for left associativity, commit the operator, recurse, and
 combine the operands. `bootstrap-pratt-codegen <control.json> [lowering.json]` emits real Rust
@@ -34,6 +35,14 @@ and `buildBinary`. `primary` dispatches the separate CUE primary program.
 There is deliberately no `parsePratt` instruction that hides the loop in Rust.
 The [primary contract](primary.md) documents its additional operations and
 conditions in this same version-1 DSL.
+
+Postfix scanIndex/hasIndex/advanceIndex/parseIndex/closeIndex run before binary
+lookup, with a CUE-selected index minimum 0. Native private stages prevent pending
+indices from escaping on return or colliding with primary/binary operations.
+Optional grammar constructor metadata can disable indexing. An actual pre-index
+Pratt baseline remains byte-exact, and a compiled minimum100 alternate changes
+index parsing without a native fallback. The right-associative alternate also
+includes postfix control, propagating both selected drivers into indices.
 
 Conditions read `hasOperator`, `leftAssociative`, literal booleans, numeric
 `atLeast`, or short-circuit `and`. Numbers read the frame `minimum`, current

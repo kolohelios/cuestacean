@@ -5,6 +5,7 @@ package bootstrap
 	let L = {op: "lower", field: "left"}
 	let R = {op: "lower", field: "right"}
 	let Calls = {
+		scanIndex: "scan_index", advanceIndex: "advance_index", closeIndex: "close_index"
 		scanList:          "scan_list", advanceList:               "advance_list", probeListEnd:   "probe_list_end"
 		appendListElement: "append_list_element", advanceListTail: "advance_list_tail", buildList: "build_list"
 		firstItem:         "first_item", lastItem:                 "last_item", evaluateItem:      "evaluate_item"
@@ -55,6 +56,7 @@ package bootstrap
 		hasIdentifier: {op: "text", value: "_frame.has_identifier()?"}
 		hasCall: {op: "text", value: "_frame.has_call()?"}
 		hasList: {op: "text", value: "_frame.has_list()?"}
+		hasIndex: {op: "text", value: "_frame.has_index()?"}
 		hasListElement: {op: "text", value: "_frame.has_list_element()?"}
 		hasString: {op: "text", value: "_frame.has_string()?"}
 		hasNegation: {op: "text", value: "_frame.has_negation()?"}
@@ -67,6 +69,8 @@ package bootstrap
 		and: {op: "concat", parts: [L, {op: "text", value: " && "}, R]}
 		setBindingPower: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.set_binding_power("},
 			{op: "lower", field: "value"}, {op: "text", value: ")?;\n"}]}
+		parseIndex: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_index("},
+			{op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"}]}
 		parseListElement: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_list_element("},
 			{op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"}]}
 		parseGroup: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_group("},

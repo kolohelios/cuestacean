@@ -48,8 +48,10 @@ admit a closed list and call borrowed native `list_count`; other values fail
 returns zero independently of input. Existing `stringLength` stays text-only.
 [Source lists](../bootstrap/source-lists.md) now build `listExpression`; default
 `len` selects CUE text/list `length` dispatch without widening the old APIs.
-Open/abstract/nested lists, selectors, structs, list concatenation and general
-list solving remain absent.
+[Indexing](../bootstrap/list-indexing.md) now clones one selected scalar through
+CUE domain/range guards; text retains shared ownership after parent drop.
+Open/abstract/nested lists, field selectors, structs, list concatenation and
+general list solving remain absent.
 
 ## Evidence and bootstrap
 

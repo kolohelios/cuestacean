@@ -64,6 +64,8 @@ struct Grammar {
     #[serde(default)]
     list: Option<List>,
     #[serde(default)]
+    index: Option<Index>,
+    #[serde(default)]
     atoms: Vec<Atom>,
     #[serde(default)]
     calls: Vec<UnaryCall>,
@@ -89,6 +91,14 @@ struct Integer {
 struct List {
     kind: String,
     elements_field: String,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Index {
+    kind: String,
+    left_field: String,
+    right_field: String,
 }
 
 #[derive(Deserialize)]
@@ -187,6 +197,17 @@ impl Grammar {
         {
             return GrammarSnafu {
                 reason: "invalid list constructor",
+            }
+            .fail();
+        }
+        if let Some(index) = &self.index
+            && (index.kind.is_empty()
+                || !field(&index.left_field)
+                || !field(&index.right_field)
+                || index.left_field == index.right_field)
+        {
+            return GrammarSnafu {
+                reason: "invalid index constructor",
             }
             .fail();
         }
@@ -437,10 +458,16 @@ impl Parser<'_> {
             list_elements: Vec::new(),
             primary_state: None,
             in_primary: false,
+            index_state: None,
         };
         match engine {
             Engine::Compiled(driver) => driver(&mut frame)?,
             Engine::Interpreted(program) => crate::pratt::interpret(&program, &mut frame)?,
+        }
+        if !matches!(frame.index_state, None | Some(IndexState::Scanned(None))) {
+            return Err(Error::ControlState {
+                reason: "unfinished index at frame return",
+            });
         }
         if frame.consumed || frame.right.is_some() {
             return Err(Error::ControlState {
@@ -513,6 +540,13 @@ fn decode_integer_literal(text: &str) -> Result<i64, std::num::ParseIntError> {
 }
 
 #[derive(Clone, Copy)]
+enum IndexState {
+    Scanned(Option<usize>),
+    Advanced,
+    Parsed,
+}
+
+#[derive(Clone, Copy)]
 enum PrimaryState {
     Start,
     GroupScanned(Option<usize>),
@@ -559,6 +593,7 @@ pub struct Frame<'p, 's> {
     list_elements: Vec<Value>,
     primary_state: Option<PrimaryState>,
     in_primary: bool,
+    index_state: Option<IndexState>,
 }
 
 impl Frame<'_, '_> {
@@ -600,6 +635,9 @@ impl Frame<'_, '_> {
                 reason: "expression operation during primary dispatch",
             });
         }
+        if !matches!(self.index_state, None | Some(IndexState::Scanned(None))) {
+            return self.index_state_error();
+        }
         Ok(())
     }
     pub fn set_binding_power(&mut self, value: u8) -> Result<(), Error> {
@@ -608,6 +646,7 @@ impl Frame<'_, '_> {
         Ok(())
     }
     pub fn primary(&mut self) -> Result<(), Error> {
+        self.expression_phase()?;
         if self.left.is_some() || self.primary_state.is_some() {
             return Err(Error::ControlState {
                 reason: "primary already started or parsed",
@@ -621,11 +660,108 @@ impl Frame<'_, '_> {
         };
         self.in_primary = false;
         result?;
-        if !matches!(self.primary_state, Some(PrimaryState::Done)) || self.left.is_none() {
+        if !matches!(self.primary_state, Some(PrimaryState::Done))
+            || self.left.is_none()
+            || self.index_state.is_some()
+        {
             return Err(Error::ControlState {
                 reason: "unfinished primary at return",
             });
         }
+        Ok(())
+    }
+    fn index_state_error<T>(&self) -> Result<T, Error> {
+        Err(Error::ControlState {
+            reason: "invalid index stage",
+        })
+    }
+    pub fn scan_index(&mut self) -> Result<(), Error> {
+        self.expression_phase()?;
+        if self.left.is_none() || self.right.is_some() || self.consumed || self.operator.is_some() {
+            return self.index_state_error();
+        }
+        let scan = crate::scanner::list_open(self.parser.source, self.parser.offset)?;
+        self.index_state = Some(IndexState::Scanned(
+            (scan.flag && self.parser.grammar.index.is_some()).then_some(scan.offset),
+        ));
+        Ok(())
+    }
+    pub fn has_index(&self) -> Result<bool, Error> {
+        if self.in_primary {
+            return self.index_state_error();
+        }
+        match self.index_state {
+            Some(IndexState::Scanned(candidate)) => Ok(candidate.is_some()),
+            _ => self.index_state_error(),
+        }
+    }
+    fn index_phase(&self) -> Result<(), Error> {
+        if self.in_primary || self.left.is_none() || self.consumed || self.operator.is_some() {
+            return self.index_state_error();
+        }
+        Ok(())
+    }
+    fn advance_index_cursor(&mut self, end: usize) -> Result<(), Error> {
+        if end <= self.parser.offset
+            || end > self.parser.source.len()
+            || !self.parser.source.is_char_boundary(end)
+        {
+            return self.index_state_error();
+        }
+        self.parser.offset = end;
+        Ok(())
+    }
+    pub fn advance_index(&mut self) -> Result<(), Error> {
+        self.index_phase()?;
+        let Some(IndexState::Scanned(Some(end))) = self.index_state else {
+            return self.index_state_error();
+        };
+        if self.right.is_some() {
+            return self.index_state_error();
+        }
+        self.advance_index_cursor(end)?;
+        self.index_state = Some(IndexState::Advanced);
+        Ok(())
+    }
+    pub fn parse_index(&mut self, minimum: u8) -> Result<(), Error> {
+        self.index_phase()?;
+        if !matches!(self.index_state, Some(IndexState::Advanced)) || self.right.is_some() {
+            return self.index_state_error();
+        }
+        self.right = Some(self.parser.expression(minimum, self.depth + 1)?);
+        self.index_state = Some(IndexState::Parsed);
+        Ok(())
+    }
+    pub fn close_index(&mut self) -> Result<(), Error> {
+        self.index_phase()?;
+        if !matches!(self.index_state, Some(IndexState::Parsed)) || self.right.is_none() {
+            return self.index_state_error();
+        }
+        let constructor = self
+            .parser
+            .grammar
+            .index
+            .clone()
+            .ok_or(Error::ControlState {
+                reason: "index constructor disabled",
+            })?;
+        let scan = crate::scanner::index_close(self.parser.source, self.parser.offset)?;
+        self.advance_index_cursor(scan.offset)?;
+        self.parser.node()?;
+        let left = self.left.take().ok_or(Error::ControlState {
+            reason: "missing index left operand",
+        })?;
+        let right = self.right.take().ok_or(Error::ControlState {
+            reason: "missing index right operand",
+        })?;
+        self.left = Some(ast::binary(
+            constructor.kind,
+            constructor.left_field,
+            constructor.right_field,
+            left,
+            right,
+        ));
+        self.index_state = None;
         Ok(())
     }
     fn primary_state_error<T>(&self) -> Result<T, Error> {
@@ -1210,6 +1346,10 @@ impl Frame<'_, '_> {
     }
 }
 
+#[cfg(test)]
+#[path = "parser/index_tests.rs"]
+mod index_tests;
+
 /// Checked conversion after CUE admission, not source lexical policy. Allocate a
 /// JSON-compatible spelling so quote, backslash and control scalars stay escaped;
 /// the JSON decoder still validates the complete literal and existing escapes.
@@ -1298,6 +1438,7 @@ mod bound_group_state_tests {
             list_elements: Vec::new(),
             primary_state: Some(PrimaryState::BoundAdvanced(0)),
             in_primary: true,
+            index_state: None,
         };
         frame.scan_group()?;
         assert!(frame.group_open()?);
@@ -1363,6 +1504,7 @@ mod bound_group_state_tests {
             list_elements: Vec::new(),
             primary_state: Some(PrimaryState::Start),
             in_primary: true,
+            index_state: None,
         };
         assert!(frame.has_call().is_err());
         assert!(frame.advance_call().is_err());
@@ -1499,6 +1641,7 @@ mod list_state_tests {
             list_elements: Vec::new(),
             primary_state: Some(PrimaryState::Start),
             in_primary: true,
+            index_state: None,
         };
         assert!(frame.scan_list().is_err());
         assert!(frame.has_list().is_err());
@@ -1828,6 +1971,7 @@ mod string_state_tests {
             list_elements: Vec::new(),
             primary_state: Some(PrimaryState::Start),
             in_primary: true,
+            index_state: None,
         };
         assert!(matches!(frame.has_not(), Err(Error::ControlState { .. })));
         assert!(matches!(frame.scan_not(), Err(Error::ControlState { .. })));
@@ -1897,6 +2041,7 @@ mod string_state_tests {
             list_elements: Vec::new(),
             primary_state: Some(PrimaryState::Start),
             in_primary: true,
+            index_state: None,
         };
         assert!(matches!(
             frame.has_string(),

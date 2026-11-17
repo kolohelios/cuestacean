@@ -1,18 +1,3 @@
 package bootstrap
 
-// Alternate algorithm: omit the left-associative increment, making all operators right-associative.
-#PrattProgram & {
-	body: [{op: "primary"}, {op: "afterOperand"}, {op: "lookupOperator"}, {
-		op: "while"
-		condition: {op: "and", left: {op: "hasOperator"}, right: {
-			op: "atLeast", left: {op: "precedence"}, right: {op: "minimum"}
-		}}
-		body: [{op: "setBindingPower", value: {op: "precedence"}},
-			{op: "advanceOperator"}, {
-				op: "if"
-				condition: {op: "atLeast", left: {op: "tokenLength"}, right: {op: "integer", value: 3}}
-				then: [{op: "afterWordOperator"}]
-			}, {op: "parseRight"}, {op: "buildBinary"},
-			{op: "afterOperand"}, {op: "lookupOperator"}]
-	}]
-}
+#PrattControl & {_associativity: false}

@@ -9,7 +9,7 @@ impl Driver for Compiled {
         match lowering::instruction_op(_node)? {
             "action" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame."))?;
-parts.arg(|ctx| ctx.select(_node, "action", |ctx, tag| match tag { "advanceBound" => ctx.text("advance_bound"), "advanceCall" => ctx.text("advance_call"), "advanceGroup" => ctx.text("advance_group"), "advanceList" => ctx.text("advance_list"), "advanceListTail" => ctx.text("advance_list_tail"), "advanceNegation" => ctx.text("advance_negation"), "advanceNot" => ctx.text("advance_not"), "advanceOperator" => ctx.text("advance_operator"), "afterOperand" => ctx.text("after_operand"), "afterWordOperator" => ctx.text("after_word_operator"), "appendItem" => ctx.text("append_item"), "appendListElement" => ctx.text("append_list_element"), "buildBinary" => ctx.text("build_binary"), "buildList" => ctx.text("build_list"), "buildNegation" => ctx.text("build_negation"), "buildNot" => ctx.text("build_not"), "closeGroup" => ctx.text("close_group"), "evaluateItem" => ctx.text("evaluate_item"), "finishList" => ctx.text("finish_list"), "firstItem" => ctx.text("first_item"), "lastItem" => ctx.text("last_item"), "lookupOperator" => ctx.text("lookup_operator"), "nextItem" => ctx.text("next_item"), "parseAtom" => ctx.text("parse_atom"), "parseBound" => ctx.text("parse_bound"), "parseInteger" => ctx.text("parse_integer"), "parseRight" => ctx.text("parse_right"), "parseString" => ctx.text("parse_string"), "previousItem" => ctx.text("previous_item"), "primary" => ctx.text("primary"), "probeListEnd" => ctx.text("probe_list_end"), "rejectItem" => ctx.text("reject_item"), "scanBound" => ctx.text("scan_bound"), "scanGroup" => ctx.text("scan_group"), "scanIdentifier" => ctx.text("scan_identifier"), "scanList" => ctx.text("scan_list"), "scanNegation" => ctx.text("scan_negation"), "scanNot" => ctx.text("scan_not"), "scanString" => ctx.text("scan_string"), "whitespace" => ctx.text("whitespace"), tag => Err(lowering::missing_selection(tag)), }))?;
+parts.arg(|ctx| ctx.select(_node, "action", |ctx, tag| match tag { "advanceBound" => ctx.text("advance_bound"), "advanceCall" => ctx.text("advance_call"), "advanceGroup" => ctx.text("advance_group"), "advanceIndex" => ctx.text("advance_index"), "advanceList" => ctx.text("advance_list"), "advanceListTail" => ctx.text("advance_list_tail"), "advanceNegation" => ctx.text("advance_negation"), "advanceNot" => ctx.text("advance_not"), "advanceOperator" => ctx.text("advance_operator"), "afterOperand" => ctx.text("after_operand"), "afterWordOperator" => ctx.text("after_word_operator"), "appendItem" => ctx.text("append_item"), "appendListElement" => ctx.text("append_list_element"), "buildBinary" => ctx.text("build_binary"), "buildList" => ctx.text("build_list"), "buildNegation" => ctx.text("build_negation"), "buildNot" => ctx.text("build_not"), "closeGroup" => ctx.text("close_group"), "closeIndex" => ctx.text("close_index"), "evaluateItem" => ctx.text("evaluate_item"), "finishList" => ctx.text("finish_list"), "firstItem" => ctx.text("first_item"), "lastItem" => ctx.text("last_item"), "lookupOperator" => ctx.text("lookup_operator"), "nextItem" => ctx.text("next_item"), "parseAtom" => ctx.text("parse_atom"), "parseBound" => ctx.text("parse_bound"), "parseInteger" => ctx.text("parse_integer"), "parseRight" => ctx.text("parse_right"), "parseString" => ctx.text("parse_string"), "previousItem" => ctx.text("previous_item"), "primary" => ctx.text("primary"), "probeListEnd" => ctx.text("probe_list_end"), "rejectItem" => ctx.text("reject_item"), "scanBound" => ctx.text("scan_bound"), "scanGroup" => ctx.text("scan_group"), "scanIdentifier" => ctx.text("scan_identifier"), "scanIndex" => ctx.text("scan_index"), "scanList" => ctx.text("scan_list"), "scanNegation" => ctx.text("scan_negation"), "scanNot" => ctx.text("scan_not"), "scanString" => ctx.text("scan_string"), "whitespace" => ctx.text("whitespace"), tag => Err(lowering::missing_selection(tag)), }))?;
 parts.arg(|ctx| ctx.text("()?;\n"))?;
 Ok(())
 }),
@@ -38,6 +38,7 @@ Ok(())
             "hasBound" => ctx.text("_frame.has_bound()?"),
             "hasCall" => ctx.text("_frame.has_call()?"),
             "hasIdentifier" => ctx.text("_frame.has_identifier()?"),
+            "hasIndex" => ctx.text("_frame.has_index()?"),
             "hasItem" => ctx.text("_frame.has_item()?"),
             "hasList" => ctx.text("_frame.has_list()?"),
             "hasListElement" => ctx.text("_frame.has_list_element()?"),
@@ -73,6 +74,12 @@ Ok(())
             "minimum" => ctx.text("_frame.minimum()"),
             "parseGroup" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.parse_group("))?;
+parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
+parts.arg(|ctx| ctx.text(")?;\n"))?;
+Ok(())
+}),
+            "parseIndex" => ctx.concat(|parts| {
+parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.parse_index("))?;
 parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
 parts.arg(|ctx| ctx.text(")?;\n"))?;
 Ok(())

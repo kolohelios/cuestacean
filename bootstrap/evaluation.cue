@@ -19,6 +19,7 @@ package bootstrap
 		list: result: {op: "list", field: "value"}
 		listExpression: result: {op: "listExpression", field: "elements"}
 		listLength: result: {op: "listLength", value: {op: "evaluate", field: "operand"}}
+		listIndex: result: {op: "listIndex", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
 		negate: result: {op: "negate", value: {op: "evaluate", field: "operand"}}
 		add: result: {
 			op: "sum"

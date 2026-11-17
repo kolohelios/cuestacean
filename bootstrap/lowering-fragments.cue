@@ -63,6 +63,7 @@ package bootstrap
 		length: {op: "call", path: "runtime::length", args: [V]}
 		stringLength: {op: "call", path: "runtime::string_length", args: [V]}
 		listLength: {op: "call", path: "runtime::list_length", args: [V]}
+		listIndex: {op: "call", path: "runtime::list_index", args: [L, R]}
 		sum: {op: "call", path: "runtime::sum", args: [L, R]}
 		logicalAnd: {op: "call", path: "runtime::logical_and", args: [L, R]}
 		logicalOr: {op: "call", path: "runtime::logical_or", args: [L, R]}

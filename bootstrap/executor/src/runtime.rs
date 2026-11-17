@@ -50,6 +50,10 @@ mod generated_list_length;
 mod generated_length;
 
 #[cfg(feature = "semantics")]
+#[path = "../../generated/list-index.rs"]
+mod generated_list_index;
+
+#[cfg(feature = "semantics")]
 #[path = "../../generated/equal.rs"]
 mod generated_equal;
 
@@ -574,6 +578,21 @@ pub fn list_count(value: &Value) -> Result<Value, Error> {
     i64::try_from(value.len())
         .map(Value::Integer)
         .map_err(|_| Error::ListLength)
+}
+
+/// Defensively extract one scalar; CUE owns default domain/range admission.
+pub fn list_at(left: &Value, right: &Value) -> Result<Value, Error> {
+    let (Value::List(list), Value::Integer(index)) = (left, right) else {
+        return Err(Error::IndexOperands);
+    };
+    let index = usize::try_from(*index).map_err(|_| Error::IndexRange)?;
+    list.as_slice().get(index).cloned().ok_or(Error::IndexRange)
+}
+
+/// Index a closed list using generated CUE domain and range policy.
+#[cfg(feature = "semantics")]
+pub fn list_index(left: Value, right: Value) -> Result<Value, Error> {
+    generated_list_index::list_index(left, right)
 }
 
 /// Select text-byte or list-element counting using CUE policy.

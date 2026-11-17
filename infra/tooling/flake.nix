@@ -15,6 +15,7 @@
     }:
     let
       scannerFixtures = [
+        "index-close"
         "list-open"
         "list-close"
         "list-tail"
@@ -83,6 +84,8 @@
         "tests/valid/primary-low-negation"
         "tests/valid/primary-cross-phase"
         "pratt"
+        "tests/valid/pratt-no-index"
+        "tests/valid/pratt-index-high-minimum"
         "tests/valid/pratt-right"
         "tests/valid/pratt-stalled"
         "tests/valid/pratt-invalid-state"
@@ -90,6 +93,8 @@
       ];
       prattNames = builtins.concatStringsSep " " prattFixtures;
       unifyFixtures = [
+        "list-index"
+        "tests/valid/list-index-zero"
         "length-control"
         "list-length-control"
         "tests/valid/list-length-zero"
@@ -167,6 +172,7 @@
         "lists"
         "list-length"
         "list-expressions"
+        "list-indexing"
         "tests/valid/lists-unify"
         "tests/valid/lists-capacity"
         "tests/valid/lists-equal"
@@ -218,6 +224,7 @@
                 ../../bootstrap/scanner-fragments.cue
                 ../../bootstrap/decimal-fragments.cue
                 ../../bootstrap/primary-fragments.cue
+                ../../bootstrap/pratt-fragments.cue
                 ../../bootstrap/list-control-fragments.cue
                 ../../bootstrap/string-literal-fragments.cue
                 ../../bootstrap/equality-fragments.cue
@@ -255,11 +262,12 @@
               # for a literal can exhaust the CI runner while checking unused CUE.
               fragments=()
               case "$fixture" in
+                pratt|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
                 list-control|tests/valid/list-control-reverse) fragments=(list-control-fragments) ;;
                 primary|tests/valid/primary-bound-high-minimum|tests/valid/primary-call-high-minimum|tests/valid/primary-no-lists) fragments=(primary-fragments) ;;
                 decimal|integer-literal) fragments=(decimal-fragments) ;;
                 string-literal|tests/valid/string-no-unicode|tests/valid/string-no-wide|tests/valid/string-nested|tests/valid/string-unrolled) fragments=(string-literal-fragments) ;;
-                whitespace|after-operand|after-word-operator|group-close|call-open)
+                whitespace|after-operand|after-word-operator|group-close|call-open|index-close)
                   fragments=(scanner-fragments) ;;
                 lowering|tests/valid/lowering-left-twice|tests/valid/lowering-reverse)
                   fragments=(lowering-fragments) ;;
@@ -618,7 +626,7 @@
                   test -s error
                 done
                 # These selected domain/syntax rejections must also fail upstream.
-                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/call-{domain,arity,empty,name-newline}.cue ${../../bootstrap/source}/rejected/not-integer.cue ${../../bootstrap/source}/rejected/null-conflict.cue ${../../bootstrap/source}/rejected/radix-uppercase-{binary,octal}.cue; do
+                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/call-{domain,arity,empty,name-newline}.cue ${../../bootstrap/source}/rejected/list-index-{range,negative,type,close}.cue ${../../bootstrap/source}/rejected/not-integer.cue ${../../bootstrap/source}/rejected/null-conflict.cue ${../../bootstrap/source}/rejected/radix-uppercase-{binary,octal}.cue; do
                   if cue export "$source" --out json > expected 2> cue-error; then exit 1; fi
                   test ! -s expected
                   test -s cue-error
@@ -657,7 +665,7 @@
                     diff -u expected actual
                   done
                 done
-                for fixture in list-length lists-equal; do
+                for fixture in list-length lists-equal list-indexing; do
                   cue export ${../../bootstrap/tests/upstream}/"$fixture.cue" --out json > expected
                   if [ "$fixture" = lists-equal ]; then input=tests/valid/$fixture; else input=$fixture; fi
                   bootstrap-executor ${jsonExports pkgs}/"$input.json" ${jsonExports pkgs}/evaluation.json > actual

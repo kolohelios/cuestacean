@@ -31,6 +31,7 @@ advantages remain a hypothesis, not a measured result.
 | Pratt/primary compiler lowering | `bootstrap/pratt-lowering{,-fragments}.cue`, [backend contract](../bootstrap/pratt-lowering.md) | Shared lowering compiler/kernel; compiled driver; native typed bridge |
 | Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
 | Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` compiler/reference engine/shared kernel; generated Rust driver; native checked primitives |
+| Closed-list indexing | `bootstrap/list-index.cue`, [contract](../bootstrap/list-indexing.md) | CUE domain/range and postfix loops; native checked extraction/frame operations |
 | List element evaluation | `bootstrap/list-control{,-fragments}.cue`, [contract](../bootstrap/list-expressions.md) | Typed list target of existing control compiler; native checked cursor/callback/buffer |
 | Evaluation rules | `bootstrap/evaluation.cue`, expression/rule schemas | `src/lib.rs`, `src/codegen.rs`; interpreted and generated rule execution |
 | Token/trivia scanning | `bootstrap/*.cue`, [scanner contract](../bootstrap/scanner.md) | `src/scanner.rs`; generated scanners and reference interpreter |
@@ -75,6 +76,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   [parenthesized computed thresholds](../bootstrap/computed-bounds.md);
   [source lists and `len(expression)`](../bootstrap/source-lists.md) for concrete
   flat arrays and text-byte/list-element length;
+  [closed-list indexing](../bootstrap/list-indexing.md) with computed i64 indices;
   parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary `!` and expression negation;
   `div`, `mod`, `quo`, `rem`; concrete scalar `==` / `!=`; integer/text `<` / `<=` / `>` / `>=`; CUE-owned UTF-8 `//` comment trivia.
 - Binary operators are left-associative by default. `div/mod/quo/rem` share
@@ -215,6 +217,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#122](https://github.com/kolohelios/cuestacean/pull/122) | Shared AST evaluation visit/depth budget with CUE-owned wiring |
 | [#124](https://github.com/kolohelios/cuestacean/pull/124) | Opaque closed scalar list values and CUE domain/length policies |
 | [#126](https://github.com/kolohelios/cuestacean/pull/126) | CUE element evaluation and validated list control target |
+| [#128](https://github.com/kolohelios/cuestacean/pull/128) | CUE source-list iteration and text/list length dispatch |
 
 ## Build and validation runbook
 
