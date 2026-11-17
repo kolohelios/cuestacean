@@ -91,6 +91,12 @@ pub enum Error {
     ListCapacity,
     #[snafu(display("closed list element {index} requires a concrete scalar"))]
     ListElement { index: usize },
+    #[snafu(display("invalid list control state: {reason}"))]
+    ListState { reason: &'static str },
+    #[snafu(display("list control exceeds 4096 steps"))]
+    ListControlBudget,
+    #[snafu(display("{source}"))]
+    ControlProgram { source: pratt::Error },
     #[snafu(display("conflicting closed list values"))]
     ListConflict,
     #[snafu(display("length requires a concrete closed list"))]
@@ -186,6 +192,10 @@ enum Instruction {
         field: String,
     },
     List {
+        field: String,
+    },
+    #[serde(rename = "listExpression")]
+    ListExpression {
         field: String,
     },
     #[serde(rename = "stringType")]
@@ -354,6 +364,11 @@ fn instruction(
         Instruction::Boolean { value } => Ok(runtime::Value::Boolean(*value)),
         Instruction::Text { field } => runtime::text(node, field),
         Instruction::List { field } => runtime::list(node, field),
+        Instruction::ListExpression { field } => {
+            runtime::list_expression_interpreted(node, field, context, |node, context| {
+                evaluate(node, rules, context)
+            })
+        }
         Instruction::StringType {} => Ok(runtime::Value::String),
         Instruction::LowerBound { value } => {
             runtime::lower_bound(instruction(value, node, rules, context)?)

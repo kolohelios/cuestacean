@@ -6,6 +6,13 @@ parser-driver wrapper. `pratt.rs` no longer has per-opcode emission matches or
 hardcoded generated-source boilerplate. This is distinct from `pratt.cue` and
 `primary.cue`, which describe runtime parser behavior.
 
+The [expression-list target](list-expressions.md) now shares this compiler:
+validated target metadata selects CUE-owned Parser Frame versus ListFrame headers.
+Checked method names and item-kind spelling are emitted in CUE; native code owns
+only typed family validation, canonical facts and frame/reference kernels.
+Cross-family operations reject before even a backend that ignores them. Old parser
+programs default to parser and regenerate identical Rust.
+
 Both backends use the [same lowering compiler/kernel](lowering.md): evaluator
 instruction lowering and parser-control compilation are separate CUE policies,
 not separate handwritten generators. The compiler count remains six.

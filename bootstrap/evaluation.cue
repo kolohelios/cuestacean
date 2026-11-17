@@ -16,6 +16,7 @@ package bootstrap
 		logicalNot: result: {op: "logicalNot", value: {op: "evaluate", field: "operand"}}
 		stringLength: result: {op: "stringLength", value: {op: "evaluate", field: "operand"}}
 		list: result: {op: "list", field: "value"}
+		listExpression: result: {op: "listExpression", field: "elements"}
 		listLength: result: {op: "listLength", value: {op: "evaluate", field: "operand"}}
 		negate: result: {op: "negate", value: {op: "evaluate", field: "operand"}}
 		add: result: {

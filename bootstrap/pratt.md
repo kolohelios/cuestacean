@@ -21,7 +21,12 @@ supported syntax.
 
 ## Control contract
 
-`#PrattProgram` contains version 1 and a statement `body`. Statements include
+`#PrattProgram` contains version 1, a statement `body`, and optional `target`
+(default `parser`). The [list family](list-expressions.md) reuses structured
+if/while/return with checked list-cursor actions, not parser callbacks. Both
+schema/native decoders eagerly reject cross-family actions and conditions,
+including unused branches. Parser driver Rust remains byte-identical; list-target
+headers and calls are CUE-selected, without another compiler or seed. Statements include
 `while`, `if`/`else`, charged [driver `return`](parser-return.md),
 `setBindingPower`, and explicit frame intrinsics:
 `primary`, `afterOperand`, `lookupOperator`, `advanceOperator`, `parseRight`,

@@ -125,6 +125,220 @@ impl EvaluationContext {
     }
 }
 
+#[derive(Clone, Copy)]
+enum ListStage {
+    Start,
+    Ready(usize),
+    Evaluated(usize),
+    Appended(usize),
+    Exhausted,
+    Done,
+}
+
+/// Checked list protocol kernel; traversal and admission policy belong to control.
+pub struct ListFrame<'a> {
+    items: &'a [JsonValue],
+    context: &'a mut EvaluationContext,
+    evaluate: &'a mut dyn FnMut(&JsonValue, &mut EvaluationContext) -> Result<Value, Error>,
+    stage: ListStage,
+    candidate: Option<Value>,
+    buffer: Vec<Value>,
+    result: Option<Value>,
+    fuel: usize,
+}
+
+impl ListFrame<'_> {
+    pub fn step(&mut self) -> Result<(), Error> {
+        if self.fuel == 0 {
+            return Err(Error::ListControlBudget);
+        }
+        self.fuel -= 1;
+        Ok(())
+    }
+
+    fn invalid<T>(reason: &'static str) -> Result<T, Error> {
+        Err(Error::ListState { reason })
+    }
+
+    fn select(&mut self, index: Option<usize>) -> Result<(), Error> {
+        if !matches!(self.stage, ListStage::Start) {
+            return Self::invalid("list cursor already initialized");
+        }
+        self.stage = index.map_or(ListStage::Exhausted, ListStage::Ready);
+        Ok(())
+    }
+
+    pub fn first_item(&mut self) -> Result<(), Error> {
+        self.select(if self.items.is_empty() { None } else { Some(0) })
+    }
+
+    pub fn last_item(&mut self) -> Result<(), Error> {
+        self.select(self.items.len().checked_sub(1))
+    }
+
+    pub fn has_item(&self) -> Result<bool, Error> {
+        match self.stage {
+            ListStage::Ready(_) | ListStage::Evaluated(_) | ListStage::Appended(_) => Ok(true),
+            ListStage::Exhausted => Ok(false),
+            _ => Self::invalid("list cursor is not active"),
+        }
+    }
+
+    pub fn evaluate_item(&mut self) -> Result<(), Error> {
+        let ListStage::Ready(index) = self.stage else {
+            return Self::invalid("item evaluation requires ready cursor");
+        };
+        let item = self.items.get(index).ok_or(Error::ListState {
+            reason: "item index out of bounds",
+        })?;
+        self.candidate = Some((self.evaluate)(item, self.context)?);
+        self.stage = ListStage::Evaluated(index);
+        Ok(())
+    }
+
+    pub fn item_kind_is(&self, kind: crate::unification::Kind) -> Result<bool, Error> {
+        if !matches!(self.stage, ListStage::Evaluated(_)) {
+            return Self::invalid("item kind requires evaluated candidate");
+        }
+        self.candidate
+            .as_ref()
+            .map(|value| crate::unification::kind_is(value, kind))
+            .ok_or(Error::ListState {
+                reason: "missing item candidate",
+            })
+    }
+
+    pub fn append_item(&mut self) -> Result<(), Error> {
+        let ListStage::Evaluated(index) = self.stage else {
+            return Self::invalid("append requires evaluated candidate");
+        };
+        if self.buffer.len() >= 64 {
+            return Err(Error::ListCapacity);
+        }
+        let value = self.candidate.take().ok_or(Error::ListState {
+            reason: "missing item candidate",
+        })?;
+        self.buffer.push(value);
+        self.stage = ListStage::Appended(index);
+        Ok(())
+    }
+
+    fn advance(&mut self, forward: bool) -> Result<(), Error> {
+        let ListStage::Appended(index) = self.stage else {
+            return Self::invalid("movement requires appended item");
+        };
+        let next = if forward {
+            index
+                .checked_add(1)
+                .filter(|index| *index < self.items.len())
+        } else {
+            index.checked_sub(1)
+        };
+        self.stage = next.map_or(ListStage::Exhausted, ListStage::Ready);
+        Ok(())
+    }
+
+    pub fn next_item(&mut self) -> Result<(), Error> {
+        self.advance(true)
+    }
+    pub fn previous_item(&mut self) -> Result<(), Error> {
+        self.advance(false)
+    }
+
+    pub fn reject_item(&mut self) -> Result<(), Error> {
+        match self.stage {
+            ListStage::Evaluated(index) => Err(Error::ListElement { index }),
+            _ => Self::invalid("rejection requires evaluated candidate"),
+        }
+    }
+
+    pub fn finish_list(&mut self) -> Result<(), Error> {
+        if !matches!(self.stage, ListStage::Exhausted) || self.buffer.len() != self.items.len() {
+            return Self::invalid("finish requires exhausted cursor and complete buffer");
+        }
+        self.result = Some(Value::List(ClosedList::new(std::mem::take(
+            &mut self.buffer,
+        ))?));
+        self.stage = ListStage::Done;
+        Ok(())
+    }
+}
+
+pub type ListDriver = fn(&mut ListFrame<'_>) -> Result<(), Error>;
+
+/// Run a trusted driver without charging a parent AST visit; callbacks own child entry.
+pub fn list_expression_with_driver(
+    node: &JsonValue,
+    name: &str,
+    context: &mut EvaluationContext,
+    evaluate: &mut dyn FnMut(&JsonValue, &mut EvaluationContext) -> Result<Value, Error>,
+    driver: ListDriver,
+) -> Result<Value, Error> {
+    let items = field(node, name)?.as_array().ok_or_else(|| Error::Array {
+        field: name.to_string(),
+    })?;
+    if items.len() > 64 {
+        return Err(Error::ListCapacity);
+    }
+    let mut frame = ListFrame {
+        items,
+        context,
+        evaluate,
+        stage: ListStage::Start,
+        candidate: None,
+        buffer: Vec::new(),
+        result: None,
+        fuel: 4096,
+    };
+    driver(&mut frame)?;
+    if !matches!(frame.stage, ListStage::Done) {
+        return Err(Error::ListState {
+            reason: "unfinished list result",
+        });
+    }
+    frame.result.ok_or(Error::ListState {
+        reason: "unfinished list result",
+    })
+}
+
+#[cfg(feature = "semantics")]
+#[path = "../../generated/list-control.rs"]
+mod generated_list_control;
+
+#[cfg(feature = "semantics")]
+pub fn list_expression(
+    node: &JsonValue,
+    name: &str,
+    context: &mut EvaluationContext,
+    mut evaluate: impl FnMut(&JsonValue, &mut EvaluationContext) -> Result<Value, Error>,
+) -> Result<Value, Error> {
+    list_expression_with_driver(
+        node,
+        name,
+        context,
+        &mut evaluate,
+        generated_list_control::execute,
+    )
+}
+
+#[cfg(feature = "semantics")]
+pub fn list_expression_interpreted(
+    node: &JsonValue,
+    name: &str,
+    context: &mut EvaluationContext,
+    mut evaluate: impl FnMut(&JsonValue, &mut EvaluationContext) -> Result<Value, Error>,
+) -> Result<Value, Error> {
+    list_expression_with_driver(node, name, context, &mut evaluate, |frame| {
+        crate::pratt::interpret_list(
+            include_str!(concat!(
+                env!("CUESTACEAN_BOOTSTRAP_JSON"),
+                "/list-control.json"
+            )),
+            frame,
+        )
+    })
+}
+
 /// Immutable, shared flat list of at most 64 concrete scalar values.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClosedList(Arc<[Value]>);

@@ -62,6 +62,10 @@
       ];
       builderNames = builtins.concatStringsSep " " builderFixtures;
       prattFixtures = [
+        "list-control"
+        "tests/valid/list-control-reverse"
+        "tests/valid/list-control-stalled"
+        "tests/valid/list-control-unfinished"
         "primary"
         "tests/valid/primary-nested"
         "tests/valid/primary-return"
@@ -157,6 +161,7 @@
         "string-length"
         "lists"
         "list-length"
+        "list-expressions"
         "tests/valid/lists-unify"
         "tests/valid/lists-capacity"
         "tests/valid/lists-equal"
@@ -208,6 +213,7 @@
                 ../../bootstrap/scanner-fragments.cue
                 ../../bootstrap/decimal-fragments.cue
                 ../../bootstrap/primary-fragments.cue
+                ../../bootstrap/list-control-fragments.cue
                 ../../bootstrap/string-literal-fragments.cue
                 ../../bootstrap/equality-fragments.cue
                 ../../bootstrap/ordering-fragments.cue
@@ -244,6 +250,7 @@
               # for a literal can exhaust the CI runner while checking unused CUE.
               fragments=()
               case "$fixture" in
+                list-control|tests/valid/list-control-reverse) fragments=(list-control-fragments) ;;
                 primary|tests/valid/primary-bound-high-minimum|tests/valid/primary-call-high-minimum) fragments=(primary-fragments) ;;
                 decimal|integer-literal) fragments=(decimal-fragments) ;;
                 string-literal|tests/valid/string-no-unicode|tests/valid/string-no-wide|tests/valid/string-nested|tests/valid/string-unrolled) fragments=(string-literal-fragments) ;;
@@ -622,7 +629,7 @@
               }
               ''
                 set -euo pipefail
-                for fixture in lists tests/valid/lists-unify; do
+                for fixture in lists list-expressions tests/valid/lists-unify; do
                   probe="''${fixture##*/}"
                   # Marshal in pinned CUE, not jq: keep every i64 exact.
                   printf '%s\n' "$(cue export ${../../bootstrap/tests/upstream}/"$probe.cue" --out text)" > expected

@@ -52,6 +52,7 @@ package bootstrap
 		stringType: {op: "ok", value: {op: "path", value: "runtime::Value::String"}}
 		text: {op: "call", path: "runtime::text", args: [Node, Field]}
 		list: {op: "call", path: "runtime::list", args: [Node, Field]}
+		listExpression: {op: "call", path: "runtime::list_expression", args: [Node, Field, Context, {op: "path", value: "evaluate"}]}
 		boolean: {op: "ok", value: {op: "call", path: "runtime::Value::Boolean", args: [{op: "boolean", field: "value"}]}}
 		field: {op: "call", path: "runtime::integer", args: [Node, Field]}
 		evaluate: {op: "call", path: "evaluate", args: [{op: "try", value: {op: "call", path: "runtime::field", args: [Node, Field]}}, Context]}
