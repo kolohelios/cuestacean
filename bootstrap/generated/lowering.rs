@@ -96,6 +96,17 @@ impl Driver for Compiled {
                 })?;
                 Ok(())
             }),
+            "list" => ctx.call("runtime::list", |call| {
+                call.arg(|ctx| ctx.path("node"))?;
+                call.arg(|ctx| ctx.string(_node, "field"))?;
+                Ok(())
+            }),
+            "listLength" => ctx.call("runtime::list_length", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
+                })?;
+                Ok(())
+            }),
             "logicalAnd" => ctx.call("runtime::logical_and", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))

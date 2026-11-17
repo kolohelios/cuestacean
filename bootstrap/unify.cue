@@ -19,6 +19,15 @@ package bootstrap
 	let Null = {
 		op: "if", condition: {op: "or", left: {op: "kindIs", input: "left", kind: "null"}, right: {op: "kindIs", input: "right", kind: "null"}}
 		then: {op: "if", condition: {op: "same"}, then: {op: "input", input: "left"}, else: {op: "fail", reason: "types"}}
+		else: Lists
+	}
+	let Lists = {
+		op: "if", condition: {op: "or", left: {op: "kindIs", input: "left", kind: "list"}, right: {op: "kindIs", input: "right", kind: "list"}}
+		then: {
+			op: "if", condition: {op: "and", left: {op: "kindIs", input: "left", kind: "list"}, right: {op: "kindIs", input: "right", kind: "list"}}
+			then: {op: "if", condition: {op: "same"}, then: {op: "input", input: "left"}, else: {op: "fail", reason: "lists"}}
+			else: {op: "fail", reason: "types"}
+		}
 		else: Scalar
 	}
 	let Scalar = {

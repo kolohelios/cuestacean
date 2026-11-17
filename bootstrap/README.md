@@ -10,6 +10,9 @@
 - `true` / `false` / `boolType`: payload-free boolean values and type constraint.
 - `lowerBound`: an inclusive lower threshold in integer `value`.
 - `upperBound`: an inclusive upper threshold in integer `value`.
+- `list`: a raw `value` array of up to 64 concrete null/bool/i64/text scalars;
+  [opaque shared ownership](../docs/closed-lists.md), no nested/AST elements.
+- `listLength`: one `operand`, admitted by CUE before borrowed list counting.
 - `stringLength`: UTF-8 byte length of an eagerly evaluated `operand`, through
   [CUE concrete-text admission](string-length.md), not general source calls yet.
 - `lowerBoundExpression` / `upperBoundExpression`: an `operand` expression,

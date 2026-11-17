@@ -10,8 +10,8 @@ Cuestacean targets Rust with executable parser, semantics, solver and generator
 machinery progressively expressed in a CUE-hosted DSL. Merely using CUE to
 configure a permanently handwritten implementation is not the end goal.
 
-Current implementation: a deliberately small null/top/boolean/checked-i64/string expression
-subset ([string syntax](../bootstrap/strings.md), [ownership](string-values.md)),
+Current implementation: a deliberately small null/top/boolean/checked-i64/string source
+subset plus [closed scalar lists in JSON ASTs](closed-lists.md) ([string syntax](../bootstrap/strings.md), [ownership](string-values.md)),
 not full CUE or bootstrap closure. Go CUE still exports specifications. Six
 bootstrap compilers still require native decoders, kernels and policy-compilation
 machinery; increasingly their executable lowering policies live in CUE. Performance
@@ -26,7 +26,7 @@ advantages remain a hypothesis, not a measured result.
 | AST-builder compiler lowering | `bootstrap/ast-lowering{,-fragments}.cue`, [backend contract](../bootstrap/ast-lowering.md) | Native checked binding/use-count facts; CUE layout/clone/move selection; compiled driver |
 | Inclusive bound construction | `bootstrap/{lower,upper}-bound.cue`, [bound control](../bootstrap/bound-control.md) | Unary CUE threshold/domain/layout; checked left-only endpoints, no native constructor fallback |
 | Concrete-output admission | `bootstrap/{json,integer}-output.cue`, [output control](../bootstrap/output-control.md) | Unary CUE domain/incomplete diagnostics; checked native extraction/JSON encoding |
-| Checked identifier styles | [identifier rendering](../bootstrap/identifier-rendering.md), shared kernel/meta policy | CUE-selected snake/initial-capital rendering; 437-value unification backend under unchanged 512 guard |
+| Checked identifier styles | [identifier rendering](../bootstrap/identifier-rendering.md), shared kernel/meta policy | CUE-selected snake/initial-capital rendering; 443-value unification backend under unchanged 512 guard |
 | Unification compiler lowering | `bootstrap/unify-lowering{,-fragments}.cue`, [backend contract](../bootstrap/unify-lowering.md) | Shared select/concat kernel and compiled driver; native typed/scope validation |
 | Pratt/primary compiler lowering | `bootstrap/pratt-lowering{,-fragments}.cue`, [backend contract](../bootstrap/pratt-lowering.md) | Shared lowering compiler/kernel; compiled driver; native typed bridge |
 | Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
@@ -122,12 +122,15 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   NUL/BOM inside comments are rejected by CUE. Block comments, declarations,
   references, structs/lists, general string syntax, further scalar types, disjunctions/defaults
   and general constraint solving are absent.
-- JSON scalar APIs (`execute_json`, `generated::execute_json`) preserve null,
+- JSON APIs (`execute_json`, `generated::execute_json`) also support bounded flat
+  closed scalar lists; source list syntax and general list solving remain absent.
+  They preserve null,
   strings, bools and exact i64s. Top output is `non-concrete value`. Legacy `execute` rejects concrete strings/booleans.
   JSON AST `string`/`stringType` now also come from the bounded CUE source-string profile.
   The public default generated evaluator is gated by `semantics`; fresh seeds
   omit it, with no stubs. Values are Clone, not Copy; shared text uses `Arc<str>`.
-  Structural/reference graph ownership still needs a separate design.
+  Closed-list storage is opaque, immutable and scalar-only; structural/reference
+  graph ownership still needs a separate design.
 
 ### Resource and phase invariants
 
@@ -201,6 +204,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#116](https://github.com/kolohelios/cuestacean/pull/116) | Early-return control, flat primary dispatch and CI-gated auto-merge |
 | [#118](https://github.com/kolohelios/cuestacean/pull/118) | CUE-owned string UTF-8 byte length and borrowed checked kernel |
 | [#120](https://github.com/kolohelios/cuestacean/pull/120) | CUE-controlled unary source calls and grammar-selected `len` |
+| [#122](https://github.com/kolohelios/cuestacean/pull/122) | Shared AST evaluation visit/depth budget with CUE-owned wiring |
 
 ## Build and validation runbook
 

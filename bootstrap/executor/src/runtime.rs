@@ -42,6 +42,10 @@ mod generated_sum;
 mod generated_string_length;
 
 #[cfg(feature = "semantics")]
+#[path = "../../generated/list-length-control.rs"]
+mod generated_list_length;
+
+#[cfg(feature = "semantics")]
 #[path = "../../generated/equal.rs"]
 mod generated_equal;
 
@@ -121,7 +125,41 @@ impl EvaluationContext {
     }
 }
 
-/// Owned scalar scaffold; abstract types are not conflicting values.
+/// Immutable, shared flat list of at most 64 concrete scalar values.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ClosedList(Arc<[Value]>);
+
+impl ClosedList {
+    /// Validate capacity before inspecting elements; nested lists are not admitted.
+    pub fn new(values: Vec<Value>) -> Result<Self, Error> {
+        if values.len() > 64 {
+            return Err(Error::ListCapacity);
+        }
+        for (index, value) in values.iter().enumerate() {
+            if !matches!(
+                value,
+                Value::Null | Value::Integer(_) | Value::Boolean(_) | Value::Text(_)
+            ) {
+                return Err(Error::ListElement { index });
+            }
+        }
+        Ok(Self(Arc::from(values)))
+    }
+
+    pub fn as_slice(&self) -> &[Value] {
+        &self.0
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+/// Owned value scaffold; abstract types are not conflicting values.
 /// Concrete integers are still restricted to the bootstrap i64 domain.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Value {
@@ -133,6 +171,7 @@ pub enum Value {
     Bool,
     Text(Arc<str>),
     String,
+    List(ClosedList),
     // Missing endpoints are infinite, not i64::MIN / i64::MAX. Even equal
     // endpoints remain abstract until unified with a concrete candidate.
     Bounds {
@@ -185,13 +224,38 @@ pub fn text(node: &JsonValue, name: &str) -> Result<Value, Error> {
         })
 }
 
+/// Decode a bounded literal payload, not a collection of child expressions.
+pub fn list(node: &JsonValue, name: &str) -> Result<Value, Error> {
+    let items = field(node, name)?.as_array().ok_or_else(|| Error::Array {
+        field: name.to_string(),
+    })?;
+    if items.len() > 64 {
+        return Err(Error::ListCapacity);
+    }
+    let values = items
+        .iter()
+        .enumerate()
+        .map(|(index, item)| match item {
+            JsonValue::Null => Ok(Value::Null),
+            JsonValue::Bool(value) => Ok(Value::Boolean(*value)),
+            JsonValue::Number(value) => value
+                .as_i64()
+                .map(Value::Integer)
+                .ok_or(Error::ListElement { index }),
+            JsonValue::String(value) => Ok(Value::Text(Arc::from(value.as_str()))),
+            _ => Err(Error::ListElement { index }),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    ClosedList::new(values).map(Value::List)
+}
+
 /// Legacy integer output admitted by generated CUE policy.
 #[cfg(feature = "semantics")]
 pub fn concrete(value: Value) -> Result<i64, Error> {
     encode_integer(generated_integer_output::integer_output(value)?)
 }
 
-/// Preserve exact JSON scalars admitted by generated CUE policy.
+/// Preserve exact JSON scalars and closed lists admitted by generated CUE policy.
 #[cfg(feature = "semantics")]
 pub fn concrete_json(value: Value) -> Result<JsonValue, Error> {
     encode_json(generated_json_output::json_output(value)?)
@@ -205,13 +269,20 @@ pub fn encode_integer(value: Value) -> Result<i64, Error> {
     }
 }
 
-/// Encode admitted JSON scalars without choosing incomplete-value diagnostics.
+/// Encode admitted JSON scalars/closed lists without choosing incomplete diagnostics.
 pub fn encode_json(value: Value) -> Result<JsonValue, Error> {
     match value {
         Value::Null => Ok(JsonValue::Null),
         Value::Integer(value) => Ok(JsonValue::from(value)),
         Value::Boolean(value) => Ok(JsonValue::Bool(value)),
         Value::Text(value) => Ok(JsonValue::String(value.as_ref().to_owned())),
+        Value::List(value) => value
+            .as_slice()
+            .iter()
+            .cloned()
+            .map(encode_json)
+            .collect::<Result<Vec<_>, _>>()
+            .map(JsonValue::Array),
         _ => Err(Error::OutputPolicy),
     }
 }
@@ -275,6 +346,22 @@ pub fn text_length(value: &Value) -> Result<Value, Error> {
 #[cfg(feature = "semantics")]
 pub fn string_length(value: Value) -> Result<Value, Error> {
     generated_string_length::string_length(value)
+}
+
+/// Borrow a closed list's bounded count without cloning its contents.
+pub fn list_count(value: &Value) -> Result<Value, Error> {
+    let Value::List(value) = value else {
+        return Err(Error::ListLength);
+    };
+    i64::try_from(value.len())
+        .map(Value::Integer)
+        .map_err(|_| Error::ListLength)
+}
+
+/// Measure a list using generated CUE policy; compiler-only seeds exclude this API.
+#[cfg(feature = "semantics")]
+pub fn list_length(value: Value) -> Result<Value, Error> {
+    generated_list_length::list_length(value)
 }
 
 /// Add using generated CUE policy; compiler-only seeds exclude this API.

@@ -56,6 +56,10 @@ fn evaluate_node(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,
         ),
+        "list" => runtime::list(node, "value"),
+        "listLength" => {
+            runtime::list_length((evaluate(runtime::field(node, "operand")?, _context))?)
+        }
         "logicalAnd" => runtime::logical_and(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,

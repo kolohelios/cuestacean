@@ -36,6 +36,7 @@ pub enum Kind {
     Bool,
     Text,
     String,
+    List,
 }
 #[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -62,6 +63,7 @@ enum Function {
     LogicalOr,
     LogicalNot,
     StringLength,
+    ListLength,
     IntegerOutput,
     JsonOutput,
     LowerBound,
@@ -80,6 +82,7 @@ impl Function {
             self,
             Self::LogicalNot
                 | Self::StringLength
+                | Self::ListLength
                 | Self::Negate
                 | Self::IntegerOutput
                 | Self::JsonOutput
@@ -135,6 +138,7 @@ enum Expr {
     },
     TextConcat {},
     TextLength {},
+    ListCount {},
     #[serde(rename(serialize = "integerValue", deserialize = "integer"))]
     Integer {
         value: i64,
@@ -150,6 +154,8 @@ enum Expr {
 #[serde(rename_all = "camelCase")]
 pub enum Failure {
     Length,
+    ListLength,
+    Lists,
     BoundThreshold,
     Integers,
     Bounds,
@@ -270,6 +276,7 @@ impl Expr {
             | Self::Integer { .. }
             | Self::Boolean { .. }
             | Self::TextLength {}
+            | Self::ListCount {}
             | Self::IntegerPrimitive {
                 operation: IntegerOperation::Negate,
             }
@@ -277,6 +284,7 @@ impl Expr {
                 reason:
                     Failure::Logical
                     | Failure::Length
+                    | Failure::ListLength
                     | Failure::BoundThreshold
                     | Failure::Arithmetic
                     | Failure::IncompleteInt
@@ -314,6 +322,7 @@ impl Expr {
             | Self::IntegerPrimitive { .. }
             | Self::TextConcat {}
             | Self::TextLength {}
+            | Self::ListCount {}
             | Self::Integer { .. }
             | Self::Boolean { .. } => Ok(()),
             Self::If {
@@ -432,6 +441,7 @@ pub fn endpoint(value: &Value, end: Endpoint) -> Option<i64> {
         | Value::Bool
         | Value::Boolean(_)
         | Value::Text(_)
+        | Value::List(_)
         | Value::String => None,
         Value::Bounds { lower, upper } => match end {
             Endpoint::Lower => *lower,
@@ -451,6 +461,7 @@ pub fn kind_is(value: &Value, kind: Kind) -> bool {
             | (Value::Bool, Kind::Bool)
             | (Value::Text(_), Kind::Text)
             | (Value::String, Kind::String)
+            | (Value::List(_), Kind::List)
     )
 }
 /// Compare a concrete boolean representation against a literal.
@@ -495,6 +506,8 @@ pub fn text_compare(left: &Value, right: &Value, relation: Relation) -> Result<b
 pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate::Error> {
     match reason {
         Failure::Length => Err(crate::Error::Length),
+        Failure::ListLength => Err(crate::Error::ListLength),
+        Failure::Lists => Err(crate::Error::ListConflict),
         Failure::BoundThreshold => Err(crate::Error::BoundThreshold),
         Failure::Bounds => Err(crate::Error::BoundsConflict),
         Failure::Types => Err(crate::Error::TypeConflict),
@@ -659,6 +672,10 @@ impl Expr {
         match self {
             Self::Input { input: Side::Left } => Ok(left.clone()),
             Self::TextLength {} => crate::runtime::text_length(left),
+            Self::ListCount {} => crate::runtime::list_count(left),
+            Self::Fail {
+                reason: Failure::ListLength,
+            } => Err(crate::Error::ListLength),
             Self::Fail {
                 reason: Failure::Length,
             } => Err(crate::Error::Length),
@@ -755,6 +772,7 @@ impl Expr {
             },
             Self::TextConcat {} => crate::runtime::text_concat(l, r),
             Self::TextLength {} => crate::runtime::text_length(l),
+            Self::ListCount {} => crate::runtime::list_count(l),
             Self::Integer { value } => Ok(Value::Integer(*value)),
             Self::Boolean { value } => Ok(Value::Boolean(*value)),
             Self::Fail { reason } => fail(*reason, l, r),
