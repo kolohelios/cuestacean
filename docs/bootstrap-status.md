@@ -33,6 +33,7 @@ advantages remain a hypothesis, not a measured result.
 | Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
 | Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` compiler/reference engine/shared kernel; generated Rust driver; native checked primitives |
 | Closed-record source construction | `bootstrap/record-primary{,-fragments}.cue`, [contract](../bootstrap/source-records.md) | Same parser-target compiler; CUE field loop/scanners/builders, native checked stages and selected third driver |
+| Expression conjunction (JSON AST) | `bootstrap/conjunction-control{,-fragments}.cue`, [contract](../bootstrap/conjunction.md) | Existing compiler conjunction target; CUE identity/traversal/merge/finish, checked transactional accumulator and selected evaluator/unifier callbacks |
 | Record field evaluation (JSON AST) | `bootstrap/record-control{,-fragments}.cue`, [contract](../bootstrap/record-expressions.md) | Existing control compiler record target; CUE traversal/concrete-child admission, native checked cursor/map/callback |
 | Closed records (JSON AST) | [Ownership/profile contract](closed-records.md), `bootstrap/record-{index,length}.cue` | Immutable certified bounded map/flat codec; CUE domain/closedness/lookup/count/equality/logical policy |
 | Record selectors | `bootstrap/pratt-fragments.cue`, [contract](../bootstrap/source-selectors.md) | CUE mixed postfix loop; checked stages; existing record lookup and binary AST builder |
@@ -160,6 +161,10 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   Source `operand[lower:upper]` now lowers directly to the same AST through CUE
   separator/branch/minimum control. Omitted endpoints, stride and text slices
   remain excluded; source budgets and all three selected engines are unchanged.
+  JSON `conjunction {operands:[AST...]}` folds up to 64 expressions incrementally
+  through CUE control and existing unification. It accepts abstract scalar operands
+  without constructing/widening closed lists; empty is top. Shared AST budgets
+  and separate 4096-step control bounds apply; no source `and(...)` syntax yet.
   Source close expressions now use a separate CUE record-primary driver with the
   same source/AST budgets. Bare/open structs and general list/open-record solving
   remain absent.

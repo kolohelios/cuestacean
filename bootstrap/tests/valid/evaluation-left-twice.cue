@@ -13,6 +13,7 @@ package bootstrap
 		upperBound: result: {op: "upperBound", value: {op: "field", field: "value"}}
 		integer: result: {op: "field", field: "value"}
 		index: result: {op: "index", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
+		conjunction: result: {op: "conjunction", field: "operands"}
 		listSlice: result: {op: "listSlice", value: {op: "evaluate", field: "operand"}, lower: {op: "evaluate", field: "lower"}, upper: {op: "evaluate", field: "upper"}}
 		listIndex: result: {op: "listIndex", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
 		recordIndex: result: {op: "recordIndex", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}

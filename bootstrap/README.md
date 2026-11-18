@@ -56,6 +56,9 @@
 - `divide` / `modulo`: Euclidean quotient and nonnegative remainder.
 - `quotient` / `remainder`: truncating quotient and dividend-signed remainder.
 - `unify`: ordered children whose string, integer/bounds or boolean domains must agree.
+- `conjunction`: up to 64 operand ASTs, incrementally merged through
+  [CUE reduction control](conjunction.md). Abstract scalar operands are allowed
+  without constructing an abstract list. Empty is top; source `and(...)` is absent.
 
 `#Program` wraps an expression with `formatVersion: 1`. Node definitions reject
 unexpected fields. Missing fields with a single allowed value (such as the

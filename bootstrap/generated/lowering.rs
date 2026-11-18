@@ -7,14 +7,15 @@ pub struct Compiled;
 impl Driver for Compiled {
     fn render(&self, ctx: &mut Context, _node: &Value, _depth: usize) -> Result<String, Error> {
         match lowering::instruction_op(_node)? {
-            "binaryRuntime" | "difference" | "divide" | "index" | "listIndex" | "modulo"
-            | "product" | "quotient" | "recordIndex" => ctx.concat(|parts| {
+            "binaryRuntime" | "difference" | "divide" | "index" | "listIndex" | "logicalAnd"
+            | "modulo" | "product" | "quotient" | "recordIndex" => ctx.concat(|parts| {
                 parts.arg(|ctx| {
                     ctx.select(_node, "op", |ctx, tag| match tag {
                         "difference" => ctx.text("runtime::difference"),
                         "divide" => ctx.text("runtime::divide"),
                         "index" => ctx.text("runtime::index"),
                         "listIndex" => ctx.text("runtime::list_index"),
+                        "logicalAnd" => ctx.text("runtime::logical_and"),
                         "modulo" => ctx.text("runtime::modulo"),
                         "product" => ctx.text("runtime::product"),
                         "quotient" => ctx.text("runtime::quotient"),
@@ -39,6 +40,13 @@ impl Driver for Compiled {
                     call.arg(|ctx| ctx.boolean(_node, "value"))?;
                     Ok(())
                 })
+            }),
+            "conjunction" => ctx.call("runtime::conjunction", |call| {
+                call.arg(|ctx| ctx.path("node"))?;
+                call.arg(|ctx| ctx.string(_node, "field"))?;
+                call.arg(|ctx| ctx.path("_context"))?;
+                call.arg(|ctx| ctx.path("evaluate"))?;
+                Ok(())
             }),
             "equal" => ctx.call("runtime::equal", |call| {
                 call.arg(|ctx| {
@@ -125,15 +133,6 @@ impl Driver for Compiled {
                 })?;
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "upper", _depth, self)))
-                })?;
-                Ok(())
-            }),
-            "logicalAnd" => ctx.call("runtime::logical_and", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
-                })?;
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
                 })?;
                 Ok(())
             }),

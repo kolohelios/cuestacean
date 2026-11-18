@@ -27,6 +27,7 @@ enum Target {
     Parser,
     List,
     Record,
+    Conjunction,
 }
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
@@ -90,6 +91,9 @@ enum Statement {
     RejectItem {},
     FinishList {},
     FinishRecord {},
+    SeedTop {},
+    UnifyItem {},
+    FinishConjunction {},
     Return {},
     Primary {},
     AfterOperand {},
@@ -253,10 +257,14 @@ fn validate_family(body: &[Statement], target: Target) -> Result<(), Error> {
             Statement::FirstItem {}
             | Statement::LastItem {}
             | Statement::EvaluateItem {}
-            | Statement::AppendItem {}
             | Statement::NextItem {}
-            | Statement::PreviousItem {}
-            | Statement::RejectItem {} => target != Target::Parser,
+            | Statement::PreviousItem {} => target != Target::Parser,
+            Statement::AppendItem {} | Statement::RejectItem {} => {
+                matches!(target, Target::List | Target::Record)
+            }
+            Statement::SeedTop {} | Statement::UnifyItem {} | Statement::FinishConjunction {} => {
+                target == Target::Conjunction
+            }
             Statement::FinishList {} => target == Target::List,
             Statement::FinishRecord {} => target == Target::Record,
             _ => target == Target::Parser,
@@ -532,16 +540,32 @@ pub fn interpret_record(
     execute_items(&program.body, &mut ItemFrame::Record(frame)).map(|_| ())
 }
 
+/// Execute validated conjunction control using the shared structured VM.
+pub fn interpret_conjunction(
+    input: &str,
+    frame: &mut crate::runtime::ConjunctionFrame<'_>,
+) -> Result<(), crate::Error> {
+    let program = parse(input).map_err(|source| crate::Error::ControlProgram { source })?;
+    if program.target != Target::Conjunction {
+        return Err(crate::Error::ConjunctionState {
+            reason: "conjunction control target required",
+        });
+    }
+    execute_items(&program.body, &mut ItemFrame::Conjunction(frame)).map(|_| ())
+}
+
 // Dispatch only checked frame primitives, never collection traversal policy.
 enum ItemFrame<'a, 'b> {
     List(&'a mut crate::runtime::ListFrame<'b>),
     Record(&'a mut crate::runtime::RecordFrame<'b>),
+    Conjunction(&'a mut crate::runtime::ConjunctionFrame<'b>),
 }
 macro_rules! item_call {
     ($frame:expr, $method:ident($($arg:expr),*)) => {
         match $frame {
             ItemFrame::List(frame) => frame.$method($($arg),*),
             ItemFrame::Record(frame) => frame.$method($($arg),*),
+            ItemFrame::Conjunction(frame) => frame.$method($($arg),*),
         }
     };
 }
@@ -575,10 +599,30 @@ fn execute_items(body: &[Statement], frame: &mut ItemFrame<'_, '_>) -> Result<Fl
             Statement::FirstItem {} => item_call!(&mut *frame, first_item())?,
             Statement::LastItem {} => item_call!(&mut *frame, last_item())?,
             Statement::EvaluateItem {} => item_call!(&mut *frame, evaluate_item())?,
-            Statement::AppendItem {} => item_call!(&mut *frame, append_item())?,
+            Statement::SeedTop {} => match frame {
+                ItemFrame::Conjunction(frame) => frame.seed_top()?,
+                _ => unreachable!("validated conjunction target"),
+            },
+            Statement::UnifyItem {} => match frame {
+                ItemFrame::Conjunction(frame) => frame.unify_item()?,
+                _ => unreachable!("validated conjunction target"),
+            },
+            Statement::FinishConjunction {} => match frame {
+                ItemFrame::Conjunction(frame) => frame.finish_conjunction()?,
+                _ => unreachable!("validated conjunction target"),
+            },
+            Statement::AppendItem {} => match frame {
+                ItemFrame::List(frame) => frame.append_item()?,
+                ItemFrame::Record(frame) => frame.append_item()?,
+                _ => unreachable!("validated collection target"),
+            },
             Statement::NextItem {} => item_call!(&mut *frame, next_item())?,
             Statement::PreviousItem {} => item_call!(&mut *frame, previous_item())?,
-            Statement::RejectItem {} => item_call!(&mut *frame, reject_item())?,
+            Statement::RejectItem {} => match frame {
+                ItemFrame::List(frame) => frame.reject_item()?,
+                ItemFrame::Record(frame) => frame.reject_item()?,
+                _ => unreachable!("validated collection target"),
+            },
             Statement::FinishList {} => match frame {
                 ItemFrame::List(frame) => frame.finish_list()?,
                 _ => unreachable!("validated list target"),
@@ -838,6 +882,52 @@ mod target_tests {
                 assert!(parse(&input.to_string()).is_err());
             }
         }
+    }
+
+    #[test]
+    fn conjunction_operations_and_dead_arms_respect_target_families() {
+        for op in ["seedTop", "unifyItem", "finishConjunction"] {
+            let mut input = serde_json::json!({"formatVersion":1,"target":"conjunction","body":[
+                {"op":"if","condition":{"op":"boolean","value":false},"then":[{"op":op}]}
+            ]});
+            assert!(parse(&input.to_string()).is_ok(), "{op}");
+            for target in ["parser", "list", "record"] {
+                input["target"] = serde_json::json!(target);
+                assert!(parse(&input.to_string()).is_err(), "{target}: {op}");
+            }
+        }
+        for op in [
+            "appendItem",
+            "rejectItem",
+            "finishList",
+            "finishRecord",
+            "primary",
+            "scanSlice",
+        ] {
+            let input = serde_json::json!({"formatVersion":1,"target":"conjunction","body":[
+                {"op":"if","condition":{"op":"boolean","value":false},"then":[{"op":op}]}
+            ]});
+            assert!(parse(&input.to_string()).is_err(), "{op}");
+        }
+        for condition in [
+            serde_json::json!({"op":"hasItem"}),
+            serde_json::json!({"op":"itemKindIs","kind":"bounds"}),
+        ] {
+            let input = serde_json::json!({"formatVersion":1,"target":"conjunction","body":[{"op":"if","condition":condition,"then":[]}]});
+            assert!(parse(&input.to_string()).is_ok());
+        }
+        let malformed = r#"{"formatVersion":1,"target":"conjunction","body":[{"op":"seedTop","op":"unifyItem"}]}"#;
+        assert!(parse(malformed).is_err());
+        let wire = r#"{"formatVersion":1,"target":"conjunction","body":[{"op":"action","action":"seedTop"}]}"#;
+        assert!(parse(wire).is_err());
+        let ignored = r#"{"formatVersion":1,"target":"conjunction","body":[{"op":"appendItem"}]}"#;
+        assert!(
+            super::generate_with_policy(
+                ignored,
+                r#"{"formatVersion":1,"cases":{"program":{"op":"text","value":"ignored"}}}"#
+            )
+            .is_err()
+        );
     }
 
     #[test]

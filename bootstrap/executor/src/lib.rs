@@ -89,6 +89,12 @@ pub enum Error {
     Array { field: String },
     #[snafu(display("closed list exceeds 64 elements"))]
     ListCapacity,
+    #[snafu(display("conjunction exceeds 64 operands"))]
+    ConjunctionCapacity,
+    #[snafu(display("invalid conjunction control: {reason}"))]
+    ConjunctionState { reason: &'static str },
+    #[snafu(display("conjunction control exceeds 4096 steps"))]
+    ConjunctionControlBudget,
     #[snafu(display(
         "closed list element {index} requires a concrete scalar or closed collection"
     ))]
@@ -234,6 +240,9 @@ struct Rule {
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "lowercase", deny_unknown_fields)]
 enum Instruction {
+    Conjunction {
+        field: String,
+    },
     Null {},
     Top {},
     Int {},
@@ -486,6 +495,16 @@ fn instruction(
         Instruction::Boolean { value } => Ok(runtime::Value::Boolean(*value)),
         Instruction::Text { field } => runtime::text(node, field),
         Instruction::List { field } => runtime::list(node, field),
+        Instruction::Conjunction { field } => runtime::conjunction_interpreted(
+            node,
+            field,
+            context,
+            |node, context| evaluate(node, rules, context),
+            include_str!(concat!(
+                env!("CUESTACEAN_BOOTSTRAP_JSON"),
+                "/conjunction-control.json"
+            )),
+        ),
         Instruction::ListExpression { field } => {
             runtime::list_expression_interpreted(node, field, context, |node, context| {
                 evaluate(node, rules, context)

@@ -29,6 +29,7 @@ fn evaluate_node(
             (evaluate(runtime::field(node, "right")?, _context))?,
         ),
         "boolType" => Ok::<_, Error>(runtime::Value::Bool),
+        "conjunction" => runtime::conjunction(node, "operands", _context, evaluate),
         "divide" => runtime::divide(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,

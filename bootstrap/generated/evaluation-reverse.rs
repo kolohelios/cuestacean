@@ -147,6 +147,7 @@ fn evaluate_node(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,
         ),
+        "conjunction" => runtime::conjunction(node, "operands", _context, evaluate),
         "boolType" => Ok::<_, Error>(runtime::Value::Bool),
         "add" => runtime::sum(
             (evaluate(runtime::field(node, "left")?, _context))?,

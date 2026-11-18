@@ -251,7 +251,7 @@ done
 bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-literal.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-lowering-forced.json" \
   | rustfmt --edition 2024 > bootstrap/generated/ast-forced-integer.rs
-for control in tests/valid/pratt-no-slices tests/valid/pratt-slice-high-minimum tests/valid/pratt-no-selectors record-primary tests/valid/record-primary-high-minimum tests/valid/primary-no-records tests/valid/list-control-homogeneous tests/valid/record-control-homogeneous record-control tests/valid/record-control-scalars tests/valid/record-control-reverse tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
+for control in conjunction-control tests/valid/conjunction-control-reverse tests/valid/conjunction-control-tail tests/valid/pratt-no-slices tests/valid/pratt-slice-high-minimum tests/valid/pratt-no-selectors record-primary tests/valid/record-primary-high-minimum tests/valid/primary-no-records tests/valid/list-control-homogeneous tests/valid/record-control-homogeneous record-control tests/valid/record-control-scalars tests/valid/record-control-reverse tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
   primary tests/valid/primary-no-calls tests/valid/primary-call-high-minimum tests/valid/primary-nested tests/valid/primary-return tests/valid/primary-return-empty tests/valid/pratt-return-loop \
   tests/valid/primary-bound-high-minimum tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
   tests/valid/primary-cross-phase tests/valid/primary-low-negation \
@@ -292,6 +292,12 @@ slice children share the selected evaluator and existing budgets. Explicit
 Pratt branching; pratt-no-slices preserves the actual prior full driver and
 pratt-slice-high-minimum changes upper endpoint parsing. Omitted endpoints,
 stride and text slicing remain excluded. See the [JSON contract](../list-slicing.md).
+
+`conjunction-control.rs` adds a fourth target to the same structured compiler:
+CUE explicitly seeds top, traverses operand ASTs and unifies incrementally through
+checked frame primitives. The actual reverse control changes callback/error order;
+the tail-return control pins compiled/reference fuel charging. No abstract list
+storage or source and syntax is introduced. See [conjunction](../conjunction.md).
 
 ## Fresh Nix builds
 

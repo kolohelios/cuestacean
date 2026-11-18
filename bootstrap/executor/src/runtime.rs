@@ -9,6 +9,11 @@ use snafu::ResultExt;
 
 use crate::{Error, JsonSnafu, Program, VersionSnafu};
 
+mod conjunction;
+pub use conjunction::{ConjunctionDriver, ConjunctionFrame, Unifier, conjunction_with_driver};
+#[cfg(feature = "semantics")]
+pub use conjunction::{conjunction, conjunction_interpreted};
+
 #[cfg(feature = "semantics")]
 #[path = "../../generated/unify.rs"]
 mod generated_unification;

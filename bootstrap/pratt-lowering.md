@@ -10,7 +10,11 @@ The [expression-list target](list-expressions.md) now shares this compiler:
 validated target metadata selects CUE-owned Parser Frame versus ListFrame headers.
 Checked method names and item-kind spelling are emitted in CUE; native code owns
 only typed family validation, canonical facts and frame/reference kernels.
-Cross-family operations reject before even a backend that ignores them. Old parser
+[Conjunction](conjunction.md) adds a fourth header for a transactional reduction
+frame; seed/merge/finish are target-specific, append/reject stay list/record-only.
+Native typed validation and injected unifier keep compiler-only kernels independent
+of generated semantics, without a fallback. Cross-family operations reject before
+even a backend that ignores them. Old parser
 programs default to parser and regenerate identical Rust.
 
 The source-list extension factors validated unit statements into canonical
@@ -25,7 +29,8 @@ replace ordinary method selection with CUE checked snake identifier rendering of
 the validated canonical action name, retaining seven explicit selector methods.
 Seven parse-with-minimum calls share one CUE template via existing one-hop aliases.
 Actual prior full/no-selector/no-index driver sources stay byte-identical. Current
-backend is 330 original values, below unchanged 512/64 guards. Internal action/
+backend is 333 original values after the conjunction header (330 at source
+slices), below unchanged 512/64 guards. Internal action/
 parseMinimum tags and extra fields still reject eagerly on wire; no native source
 emitter or token/type-policy fallback is introduced.
 

@@ -16,8 +16,8 @@ package bootstrap
 		logicalNot:          "logical_not", length:                        "length", stringLength: "string_length", listLength: "list_length", recordLength: "record_length"
 	}
 	let Binary = {
-		index:       "index", difference:       "difference", product: "product", divide: "divide", modulo: "modulo", quotient: "quotient"
-		recordIndex: "record_index", listIndex: "list_index"
+		index:       "index", difference:       "difference", product:    "product", divide: "divide", modulo: "modulo", quotient: "quotient"
+		recordIndex: "record_index", listIndex: "list_index", logicalAnd: "logical_and"
 	}
 	aliases: {
 		for name, _ in Unary {"\(name)": "unaryRuntime"}
@@ -80,7 +80,7 @@ package bootstrap
 			{op: "text", value: "("}, L, {op: "text", value: ", "}, R, {op: "text", value: ")"},
 		]}
 		sum: {op: "call", path: "runtime::sum", args: [L, R]}
-		logicalAnd: {op: "call", path: "runtime::logical_and", args: [L, R]}
+		conjunction: {op: "call", path: "runtime::conjunction", args: [Node, Field, Context, {op: "path", value: "evaluate"}]}
 		logicalOr: {op: "call", path: "runtime::logical_or", args: [L, R]}
 		less: {op: "call", path: "runtime::less", args: [L, R]}
 		lessEqual: {op: "call", path: "runtime::less_equal", args: [L, R]}
