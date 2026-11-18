@@ -32,10 +32,12 @@ fn evaluate_node(
             runtime::upper_bound((evaluate(runtime::field(node, "operand")?, _context))?)
         }
         "upperBound" => runtime::upper_bound((runtime::integer(node, "value"))?),
-        "unify" => runtime::unify(
-            (evaluate(runtime::field(node, "left")?, _context))?,
-            (evaluate(runtime::field(node, "right")?, _context))?,
-        ),
+        "unify" => (|_context: &mut runtime::EvaluationContext| {
+            runtime::unify(
+                (evaluate(runtime::field(node, "left")?, _context))?,
+                (evaluate(runtime::field(node, "right")?, _context))?,
+            )
+        })(_context),
         "true" => Ok::<_, Error>(runtime::Value::Boolean(true)),
         "top" => Ok::<_, Error>(runtime::Value::Top),
         "subtract" => runtime::difference(
@@ -101,11 +103,13 @@ fn evaluate_node(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,
         ),
-        "listSlice" => runtime::list_slice(
-            (evaluate(runtime::field(node, "operand")?, _context))?,
-            (evaluate(runtime::field(node, "lower")?, _context))?,
-            (evaluate(runtime::field(node, "upper")?, _context))?,
-        ),
+        "listSlice" => (|_context: &mut runtime::EvaluationContext| {
+            runtime::list_slice(
+                (evaluate(runtime::field(node, "operand")?, _context))?,
+                (evaluate(runtime::field(node, "lower")?, _context))?,
+                (evaluate(runtime::field(node, "upper")?, _context))?,
+            )
+        })(_context),
         "listLength" => {
             runtime::list_length((evaluate(runtime::field(node, "operand")?, _context))?)
         }

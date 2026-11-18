@@ -189,6 +189,9 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   child evaluation charges again; Result errors restore active depth, never visits.
   These [new evaluator bounds](../bootstrap/evaluation-budget.md) are not total
   instruction/byte/allocation/JSON-work bounds or comprehensive hardening.
+  [Generated wide-operand closures](../bootstrap/generated-operand-frames.md)
+  isolate listSlice/unify debug temporaries without changing this budget or
+  child order; this is not a comprehensive native-stack/performance guarantee.
 
 - Source parser: 64 AST nodes, 32 recursive expression levels, 4096 steps per
   expression frame shared with primary dispatch. Grouping adds depth but no AST
