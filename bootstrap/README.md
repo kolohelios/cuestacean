@@ -18,6 +18,10 @@
   cached shape/immutable sharing, not open/abstract list constraints.
 - `lowerExclusiveBound`/`upperExclusiveBound` and their expression forms:
   [CUE i64 extrema/offset policy](exclusive-bounds.md) over existing bound values.
+- `record`: up to 64 ordered `{name,value}` raw-scalar entries; duplicate names
+  are checked, not silently overwritten. [Closed-record contract](../docs/closed-records.md).
+- `recordIndex`: eager record/key AST children, CUE domain/presence policy.
+- `recordLength`: record-only count; generic `length` also admits records.
 - `listIndex`: binary `left`/`right`, CUE closed-list/integer domain and range
   policy, checked scalar extraction; [source postfix control](list-indexing.md).
 - `length`: CUE selects text-byte/list-element counting of one `operand`;

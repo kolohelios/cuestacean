@@ -8,7 +8,7 @@ package bootstrap
 		else: {
 			op: "if", condition: {op: "kindIs", input: "left", kind: "list"}
 			then: {op: "listCount"}
-			else: {op: "fail", reason: "lengthOperand"}
+			else: {op: "if", condition: {op: "kindIs", input: "left", kind: "record"}, then: {op: "recordCount"}, else: {op: "fail", reason: "lengthOperand"}}
 		}
 	}
 }

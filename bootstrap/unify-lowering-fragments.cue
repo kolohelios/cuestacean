@@ -29,6 +29,7 @@ package bootstrap
 			emptyBound: {op: "text", value: "Err(Error::EmptyBound)"}
 			length: {op: "text", value: "Err(Error::Length)"}
 			listLength: {op: "text", value: "Err(Error::ListLength)"}
+			recordLength: {op: "text", value: "Err(Error::RecordLength)"}
 			lengthOperand: {op: "text", value: "Err(Error::LengthOperand)"}
 		}}
 		integerPrimitive: {op: "select", field: "operation", cases: {
@@ -47,6 +48,9 @@ package bootstrap
 		textConcat: {op: "text", value: "crate::runtime::text_concat(&_left, &_right)"}
 		textLength: {op: "text", value: "crate::runtime::text_length(&_left)"}
 		listCount: {op: "text", value: "crate::runtime::list_count(&_left)"}
+		recordCount: {op: "text", value: "crate::runtime::record_count(&_left)"}
+		recordGet: {op: "text", value: "crate::runtime::record_get(&_left, &_right)"}
+		recordHas: {op: "text", value: "crate::runtime::record_has(&_left, &_right)"}
 		listElement: {op: "text", value: "crate::runtime::list_at(&_left, &_right)"}
 		offset: {op: "concat", parts: [{op: "text", value: "crate::unification::offset_endpoint(("},
 			{op: "lower", field: "value"}, {op: "text", value: ")?, "},

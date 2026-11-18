@@ -1,6 +1,7 @@
 //! Value primitives shared by interpreted and generated evaluators.
 //! Scalar operations dispatch CUE-generated control over native kernels.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use serde_json::Value as JsonValue;
@@ -52,6 +53,13 @@ mod generated_length;
 #[cfg(feature = "semantics")]
 #[path = "../../generated/list-index.rs"]
 mod generated_list_index;
+
+#[cfg(feature = "semantics")]
+#[path = "../../generated/record-index.rs"]
+mod generated_record_index;
+#[cfg(feature = "semantics")]
+#[path = "../../generated/record-length.rs"]
+mod generated_record_length;
 
 #[cfg(feature = "semantics")]
 #[path = "../../generated/equal.rs"]
@@ -427,8 +435,73 @@ impl ClosedList {
     }
 }
 
+/// Immutable flat scalar record; private storage admits no mutation or cycles.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ClosedRecord(Arc<BTreeMap<String, Value>>);
+
+impl ClosedRecord {
+    /// Check input capacity, then name, duplication and scalar type in entry order.
+    pub fn new(fields: Vec<(String, Value)>) -> Result<Self, Error> {
+        record_capacity(fields.len())?;
+        let mut values = BTreeMap::new();
+        for (index, (name, value)) in fields.into_iter().enumerate() {
+            record_name(&values, &name, index)?;
+            record_insert(&mut values, name, value)?;
+        }
+        Ok(Self(Arc::new(values)))
+    }
+
+    pub fn as_map(&self) -> &BTreeMap<String, Value> {
+        &self.0
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+fn record_capacity(count: usize) -> Result<(), Error> {
+    if count > 64 {
+        return Err(Error::RecordCapacity);
+    }
+    Ok(())
+}
+
+fn record_name(values: &BTreeMap<String, Value>, name: &str, index: usize) -> Result<(), Error> {
+    if name.is_empty() || name.len() > 64 {
+        return Err(Error::RecordName { index });
+    }
+    if values.contains_key(name) {
+        return Err(Error::RecordDuplicate {
+            field: name.to_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn record_insert(
+    values: &mut BTreeMap<String, Value>,
+    name: String,
+    value: Value,
+) -> Result<(), Error> {
+    if !matches!(
+        value,
+        Value::Null | Value::Boolean(_) | Value::Integer(_) | Value::Text(_)
+    ) {
+        return Err(Error::RecordElement { field: name });
+    }
+    values.insert(name, value);
+    Ok(())
+}
+
 #[cfg(test)]
 mod nested_tests;
+#[cfg(test)]
+mod record_tests;
 
 /// Owned value scaffold; abstract types are not conflicting values.
 /// Concrete integers are still restricted to the bootstrap i64 domain.
@@ -443,6 +516,7 @@ pub enum Value {
     Text(Arc<str>),
     String,
     List(ClosedList),
+    Record(ClosedRecord),
     // Missing endpoints are infinite, not i64::MIN / i64::MAX. Even equal
     // endpoints remain abstract until unified with a concrete candidate.
     Bounds {
@@ -520,6 +594,34 @@ pub fn list(node: &JsonValue, name: &str) -> Result<Value, Error> {
     ClosedList::new(values).map(Value::List)
 }
 
+/// Decode flat literal entries, never child ASTs; preserve duplicates until checked.
+pub fn record(node: &JsonValue, name: &str) -> Result<Value, Error> {
+    let fields = field(node, name)?.as_array().ok_or_else(|| Error::Array {
+        field: name.to_owned(),
+    })?;
+    record_capacity(fields.len())?;
+    let mut values = BTreeMap::new();
+    for (index, entry) in fields.iter().enumerate() {
+        let name = field(entry, "name")?.as_str().ok_or_else(|| Error::Text {
+            field: "name".to_owned(),
+        })?;
+        record_name(&values, name, index)?;
+        // Do not even read the value until name and duplicate validation succeeds.
+        let invalid = || Error::RecordElement {
+            field: name.to_owned(),
+        };
+        let value = match field(entry, "value")? {
+            JsonValue::Null => Value::Null,
+            JsonValue::Bool(value) => Value::Boolean(*value),
+            JsonValue::Number(value) => Value::Integer(value.as_i64().ok_or_else(invalid)?),
+            JsonValue::String(value) => Value::Text(Arc::from(value.as_str())),
+            _ => return Err(invalid()),
+        };
+        record_insert(&mut values, name.to_owned(), value)?;
+    }
+    Ok(Value::Record(ClosedRecord(Arc::new(values))))
+}
+
 /// Legacy integer output admitted by generated CUE policy.
 #[cfg(feature = "semantics")]
 pub fn concrete(value: Value) -> Result<i64, Error> {
@@ -554,6 +656,12 @@ pub fn encode_json(value: Value) -> Result<JsonValue, Error> {
             .map(encode_json)
             .collect::<Result<Vec<_>, _>>()
             .map(JsonValue::Array),
+        Value::Record(value) => value
+            .as_map()
+            .iter()
+            .map(|(name, value)| Ok((name.clone(), encode_json(value.clone())?)))
+            .collect::<Result<serde_json::Map<String, JsonValue>, Error>>()
+            .map(JsonValue::Object),
         _ => Err(Error::OutputPolicy),
     }
 }
@@ -636,6 +744,48 @@ pub fn list_at(left: &Value, right: &Value) -> Result<Value, Error> {
     };
     let index = usize::try_from(*index).map_err(|_| Error::IndexRange)?;
     list.as_slice().get(index).cloned().ok_or(Error::IndexRange)
+}
+
+/// Checked field presence; domain admission remains CUE-owned.
+pub fn record_has(left: &Value, right: &Value) -> Result<bool, Error> {
+    let (Value::Record(record), Value::Text(name)) = (left, right) else {
+        return Err(Error::RecordIndexOperands);
+    };
+    Ok(record.as_map().contains_key(name.as_ref()))
+}
+
+/// Clone a selected scalar without retaining its parent record.
+pub fn record_get(left: &Value, right: &Value) -> Result<Value, Error> {
+    let (Value::Record(record), Value::Text(name)) = (left, right) else {
+        return Err(Error::RecordIndexOperands);
+    };
+    record
+        .as_map()
+        .get(name.as_ref())
+        .cloned()
+        .ok_or_else(|| Error::RecordMissing {
+            field: name.to_string(),
+        })
+}
+
+/// Borrow the bounded field count, without inspecting field values.
+pub fn record_count(value: &Value) -> Result<Value, Error> {
+    let Value::Record(record) = value else {
+        return Err(Error::RecordLength);
+    };
+    i64::try_from(record.len())
+        .map(Value::Integer)
+        .map_err(|_| Error::RecordLength)
+}
+
+#[cfg(feature = "semantics")]
+pub fn record_index(left: Value, right: Value) -> Result<Value, Error> {
+    generated_record_index::record_index(left, right)
+}
+
+#[cfg(feature = "semantics")]
+pub fn record_length(value: Value) -> Result<Value, Error> {
+    generated_record_length::record_length(value)
 }
 
 /// Index a closed list using generated CUE domain and range policy.

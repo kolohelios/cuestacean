@@ -13,7 +13,7 @@ package bootstrap
 	let Unary = {
 		lowerExclusiveBound: "lower_exclusive_bound", upperExclusiveBound: "upper_exclusive_bound"
 		lowerBound:          "lower_bound", upperBound:                    "upper_bound", negate:  "negate"
-		logicalNot:          "logical_not", length:                        "length", stringLength: "string_length", listLength: "list_length"
+		logicalNot:          "logical_not", length:                        "length", stringLength: "string_length", listLength: "list_length", recordLength: "record_length"
 	}
 	let Binary = {difference: "difference", product: "product", divide: "divide", modulo: "modulo"}
 	aliases: {
@@ -62,6 +62,7 @@ package bootstrap
 		stringType: {op: "ok", value: {op: "path", value: "runtime::Value::String"}}
 		text: {op: "call", path: "runtime::text", args: [Node, Field]}
 		list: {op: "call", path: "runtime::list", args: [Node, Field]}
+		record: {op: "call", path: "runtime::record", args: [Node, Field]}
 		listExpression: {op: "call", path: "runtime::list_expression", args: [Node, Field, Context, {op: "path", value: "evaluate"}]}
 		boolean: {op: "ok", value: {op: "call", path: "runtime::Value::Boolean", args: [{op: "boolean", field: "value"}]}}
 		field: {op: "call", path: "runtime::integer", args: [Node, Field]}
@@ -75,6 +76,7 @@ package bootstrap
 			{op: "text", value: "("}, L, {op: "text", value: ", "}, R, {op: "text", value: ")"},
 		]}
 		sum: {op: "call", path: "runtime::sum", args: [L, R]}
+		recordIndex: {op: "call", path: "runtime::record_index", args: [L, R]}
 		listIndex: {op: "call", path: "runtime::list_index", args: [L, R]}
 		logicalAnd: {op: "call", path: "runtime::logical_and", args: [L, R]}
 		logicalOr: {op: "call", path: "runtime::logical_or", args: [L, R]}

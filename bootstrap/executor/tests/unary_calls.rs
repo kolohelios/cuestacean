@@ -424,7 +424,10 @@ fn cli_failures_are_atomic() {
     let path =
         std::env::temp_dir().join(format!("cuestacean-unary-calls-{}.cue", std::process::id()));
     for (source, message) in [
-        ("len(3)", "length requires a concrete string or closed list"),
+        (
+            "len(3)",
+            "length requires a concrete string or closed collection",
+        ),
         ("len(1 div 0)", "integer division by zero"),
         ("len()", "expected signed decimal integer"),
     ] {

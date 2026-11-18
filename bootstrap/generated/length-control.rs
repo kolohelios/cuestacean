@@ -13,7 +13,14 @@ pub fn length(_left: Value) -> Result<Value, Error> {
         )))? {
             crate::runtime::list_count(&_left)
         } else {
-            Err(Error::LengthOperand)
+            if (Ok::<_, Error>(crate::unification::kind_is(
+                &_left,
+                crate::unification::Kind::Record,
+            )))? {
+                crate::runtime::record_count(&_left)
+            } else {
+                Err(Error::LengthOperand)
+            }
         }
     }
 }

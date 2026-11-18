@@ -103,6 +103,14 @@ fn evaluate_node(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,
         ),
+        "record" => runtime::record(node, "fields"),
+        "recordIndex" => runtime::record_index(
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
+        ),
+        "recordLength" => {
+            runtime::record_length((evaluate(runtime::field(node, "operand")?, _context))?)
+        }
         "remainder" => runtime::remainder(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,

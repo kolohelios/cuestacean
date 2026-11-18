@@ -32,6 +32,7 @@ advantages remain a hypothesis, not a measured result.
 | Pratt/primary compiler lowering | `bootstrap/pratt-lowering{,-fragments}.cue`, [backend contract](../bootstrap/pratt-lowering.md) | Shared lowering compiler/kernel; compiled driver; native typed bridge |
 | Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
 | Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` compiler/reference engine/shared kernel; generated Rust driver; native checked primitives |
+| Closed scalar records (JSON AST) | [Ownership/profile contract](closed-records.md), `bootstrap/record-{index,length}.cue` | Immutable checked flat map/codec; CUE domain/closedness/lookup/count/equality/logical policy |
 | Closed-list indexing | `bootstrap/list-index.cue`, [contract](../bootstrap/list-indexing.md) | CUE domain/range and postfix loops; native checked extraction/frame operations |
 | List element evaluation | `bootstrap/list-control{,-fragments}.cue`, [contract](../bootstrap/list-expressions.md) | Typed list target of existing control compiler; native checked cursor/callback/buffer |
 | Evaluation rules | `bootstrap/evaluation.cue`, expression/rule schemas | `src/lib.rs`, `src/codegen.rs`; interpreted and generated rule execution |
@@ -134,7 +135,10 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   and general constraint solving are absent.
 - JSON APIs (`execute_json`, `generated::execute_json`) support bounded nested
   concrete expression-list values; raw scalar-list literal payloads remain flat.
-  General list solving remains absent.
+  [Closed scalar records](closed-records.md) additionally support JSON AST entry
+  arrays, field lookup and length, with 64 fields and 1..64-byte UTF-8 names.
+  Records remain excluded from lists and record children must be scalar.
+  Source structs and general list/open-record solving remain absent.
   They preserve null,
   strings, bools and exact i64s. Top output is `non-concrete value`. Legacy `execute` rejects concrete strings/booleans.
   JSON AST `string`/`stringType` now also come from the bounded CUE source-string profile.
@@ -229,6 +233,8 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#128](https://github.com/kolohelios/cuestacean/pull/128) | CUE source-list iteration and text/list length dispatch |
 | [#130](https://github.com/kolohelios/cuestacean/pull/130) | CUE closed-list domain/range and postfix index control |
 | [#132](https://github.com/kolohelios/cuestacean/pull/132) | CUE exclusive i64 bounds and unary endpoint comparisons/offsets |
+| [#134](https://github.com/kolohelios/cuestacean/pull/134) | Bounded nested immutable expression-list values |
+| [#136](https://github.com/kolohelios/cuestacean/pull/136) | Shared reference-VM operand slots and CUE arithmetic templates |
 
 ## Build and validation runbook
 

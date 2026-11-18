@@ -95,6 +95,9 @@
       ];
       prattNames = builtins.concatStringsSep " " prattFixtures;
       unifyFixtures = [
+        "record-index"
+        "record-length"
+        "tests/valid/record-index-zero"
         "lower-exclusive-bound"
         "upper-exclusive-bound"
         "tests/valid/exclusive-reversed"
@@ -179,6 +182,14 @@
         "list-length"
         "list-expressions"
         "nested-lists"
+        "records"
+        "records-unify"
+        "records-index"
+        "records-length"
+        "records-equal"
+        "records-logical"
+        "records-conflict"
+        "records-fields-conflict"
         "list-indexing"
         "tests/valid/lists-unify"
         "tests/valid/lists-capacity"
@@ -661,7 +672,7 @@
               }
               ''
                 set -euo pipefail
-                for fixture in lists list-expressions nested-lists tests/valid/lists-unify; do
+                for fixture in lists list-expressions nested-lists records records-unify tests/valid/lists-unify; do
                   probe="''${fixture##*/}"
                   # Marshal in pinned CUE, not jq: keep every i64 exact.
                   printf '%s\n' "$(cue export ${../../bootstrap/tests/upstream}/"$probe.cue" --out text)" > expected
@@ -674,7 +685,21 @@
                     diff -u expected actual
                   done
                 done
-                for fixture in list-length lists-equal list-indexing exclusive-bounds; do
+                for fixture in records-conflict records-fields-conflict; do
+                  if cue export ${../../bootstrap/tests/upstream}/"$fixture.cue" --out json > expected 2> cue-error; then exit 1; fi
+                  test ! -s expected
+                  test -s cue-error
+                  for binary in bootstrap-executor bootstrap-generated; do
+                    if [ "$binary" = bootstrap-executor ]; then
+                      if "$binary" ${jsonExports pkgs}/"$fixture.json" ${jsonExports pkgs}/evaluation.json > actual 2> error; then exit 1; fi
+                    else
+                      if "$binary" ${jsonExports pkgs}/"$fixture.json" > actual 2> error; then exit 1; fi
+                    fi
+                    test ! -s actual
+                    grep -Fx 'conflicting closed record values' error
+                  done
+                done
+                for fixture in list-length lists-equal list-indexing exclusive-bounds records-index records-length records-equal records-logical; do
                   cue export ${../../bootstrap/tests/upstream}/"$fixture.cue" --out json > expected
                   if [ "$fixture" = lists-equal ]; then input=tests/valid/$fixture; else input=$fixture; fi
                   bootstrap-executor ${jsonExports pkgs}/"$input.json" ${jsonExports pkgs}/evaluation.json > actual

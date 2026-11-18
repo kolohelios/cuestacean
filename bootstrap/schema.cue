@@ -3,14 +3,21 @@ package bootstrap
 import "list"
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #ListExpression | #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
+#Expression: #RecordLiteral | #ListExpression | #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
 
 // Factor the identical recursive shape; separate recursive disjuncts expand
 // combinatorially in the upstream exporter as binary node kinds accumulate.
 #BinaryExpression: {
-	kind:  "listIndex" | "add" | "subtract" | "multiply" | "divide" | "modulo" | "quotient" | "remainder" | "unify" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr"
+	kind:  "recordIndex" | "listIndex" | "add" | "subtract" | "multiply" | "divide" | "modulo" | "quotient" | "remainder" | "unify" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr"
 	left:  #Expression
 	right: #Expression
+}
+
+#RecordEntry: {name: string & !="", value: null | bool | int | string, _bytes: len(name) & <=64}
+#RecordLiteral: {
+	kind: "record"
+	fields: [...#RecordEntry] & list.MaxItems(64)
+	_unique: true & list.UniqueItems([for f in fields {f.name}])
 }
 
 #ListLiteral: {kind: "list", value: [...(null | bool | int | string)] & list.MaxItems(64)}
@@ -38,7 +45,7 @@ import "list"
 	value: int
 }
 
-#UnaryExpression: {kind: "length" | "listLength" | "stringLength" | "negate" | "logicalNot" | "lowerBoundExpression" | "upperBoundExpression" | "lowerExclusiveBoundExpression" | "upperExclusiveBoundExpression", operand: #Expression}
+#UnaryExpression: {kind: "recordLength" | "length" | "listLength" | "stringLength" | "negate" | "logicalNot" | "lowerBoundExpression" | "upperBoundExpression" | "lowerExclusiveBoundExpression" | "upperExclusiveBoundExpression", operand: #Expression}
 #LowerBoundExpression: #UnaryExpression & {kind: "lowerBoundExpression"}
 #UpperBoundExpression: #UnaryExpression & {kind: "upperBoundExpression"}
 #Negation: #UnaryExpression & {kind: "negate"}
@@ -102,24 +109,24 @@ import "list"
 	op: "choose", condition: #UnifyCondition, then: #UnifyEndpoint, else: #UnifyEndpoint
 }
 #UnifyRelation: "equal" | "less" | "greater" | "lessEqual" | "greaterEqual"
-#UnifyKind:     "null" | "top" | "integer" | "int" | "bounds" | "boolean" | "bool" | "text" | "string" | "list"
-#UnifyCondition: {op: "booleanIs", input: #UnifySide, value: bool} | {op: "textCompare", relation: #UnifyRelation} | {op: "kindIs", input: #UnifySide, kind: #UnifyKind} | {op: "same"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
+#UnifyKind:     "null" | "top" | "integer" | "int" | "bounds" | "boolean" | "bool" | "text" | "string" | "list" | "record"
+#UnifyCondition: {op: "recordHas"} | {op: "booleanIs", input: #UnifySide, value: bool} | {op: "textCompare", relation: #UnifyRelation} | {op: "kindIs", input: #UnifySide, kind: #UnifyKind} | {op: "same"} | {op: "hasEndpoint", value: #UnifyEndpoint} | {
 	op: "compare", left: #UnifyEndpoint, right: #UnifyEndpoint, relation: #UnifyRelation
 } | {op: "and" | "or", left: #UnifyCondition, right: #UnifyCondition}
 #IntegerOperation: "negate" | "difference" | "product" | "divide" | "modulo" | "quotient" | "remainder"
 #OutputFailure:    "incompleteInt" | "incompleteValue" | "incompleteBool" | "incompleteString" | "incompleteBounds" | "integerOutput"
-#UnifyExpression: #ControlInteger | {op: "integerPrimitive", operation: #IntegerOperation} | {op: "boolean", value: bool} | {op: "integerSum" | "textConcat" | "textLength" | "listCount" | "listElement"} | {op: "input", input: #UnifySide} | {
+#UnifyExpression: #ControlInteger | {op: "integerPrimitive", operation: #IntegerOperation} | {op: "boolean", value: bool} | {op: "integerSum" | "textConcat" | "textLength" | "listCount" | "listElement" | "recordGet" | "recordCount"} | {op: "input", input: #UnifySide} | {
 	op: "if", condition: #UnifyCondition, then: #UnifyExpression, else: #UnifyExpression
 } | {
 	op: "letBounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint, result: #UnifyExpression
-} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: #OutputFailure | "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering" | "logical" | "divisionByZero" | "boundThreshold" | "length" | "lists" | "listLength" | "lengthOperand" | "indexOperands" | "indexRange" | "emptyBound"}
-#BinaryControlProgram: {formatVersion: 1, function?: "listIndex" | "unify" | "sum" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr" | "difference" | "product" | "divide" | "modulo" | "quotient" | "remainder", result: #UnifyExpression}
+} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: #OutputFailure | "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering" | "logical" | "divisionByZero" | "boundThreshold" | "length" | "lists" | "listLength" | "lengthOperand" | "indexOperands" | "indexRange" | "emptyBound" | "records" | "recordLength" | "recordIndexOperands" | "recordMissing"}
+#BinaryControlProgram: {formatVersion: 1, function?: "recordIndex" | "listIndex" | "unify" | "sum" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr" | "difference" | "product" | "divide" | "modulo" | "quotient" | "remainder", result: #UnifyExpression}
 #UnaryControlCondition: {op: "compare", left: #UnaryControlEndpoint, right: #UnaryControlEndpoint, relation: #UnifyRelation} | {op: "kindIs", input: "left", kind: #UnifyKind} | {op: "booleanIs", input: "left", value: bool} | {op: "and" | "or", left: #UnaryControlCondition, right: #UnaryControlCondition}
 #UnaryControlEndpoint: {op: "offset", value: #UnaryControlEndpoint, delta: -1 | 1} | #ControlInteger | {op: "input", input: "left", endpoint: #UnifyEndpointName} | {op: "empty"} | {
 	op: "choose", condition: #UnaryControlCondition, then: #UnaryControlEndpoint, else: #UnaryControlEndpoint
 }
-#UnaryControlExpr: {op: "textLength" | "listCount"} | {op: "bounds", lower: #UnaryControlEndpoint, upper: #UnaryControlEndpoint} | #ControlInteger | {op: "integerPrimitive", operation: "negate"} | {op: "boolean", value: bool} | {op: "input", input: "left"} | {op: "fail", reason: #OutputFailure | "logical" | "arithmetic" | "boundThreshold" | "length" | "listLength" | "lengthOperand" | "emptyBound"} | {op: "if", condition: #UnaryControlCondition, then: #UnaryControlExpr, else: #UnaryControlExpr}
-#UnaryControlProgram: {formatVersion: 1, function: "length" | "listLength" | "stringLength" | "logicalNot" | "negate" | "jsonOutput" | "integerOutput" | "lowerBound" | "upperBound" | "lowerExclusiveBound" | "upperExclusiveBound", result: #UnaryControlExpr}
+#UnaryControlExpr: {op: "textLength" | "listCount" | "recordCount"} | {op: "bounds", lower: #UnaryControlEndpoint, upper: #UnaryControlEndpoint} | #ControlInteger | {op: "integerPrimitive", operation: "negate"} | {op: "boolean", value: bool} | {op: "input", input: "left"} | {op: "fail", reason: #OutputFailure | "logical" | "arithmetic" | "boundThreshold" | "length" | "listLength" | "lengthOperand" | "emptyBound" | "recordLength"} | {op: "if", condition: #UnaryControlCondition, then: #UnaryControlExpr, else: #UnaryControlExpr}
+#UnaryControlProgram: {formatVersion: 1, function: "recordLength" | "length" | "listLength" | "stringLength" | "logicalNot" | "negate" | "jsonOutput" | "integerOutput" | "lowerBound" | "upperBound" | "lowerExclusiveBound" | "upperExclusiveBound", result: #UnaryControlExpr}
 #UnifyProgram: *#BinaryControlProgram | #UnaryControlProgram
 
 // Expression-parser control flow; native frame operations are explicit intrinsics.
@@ -316,6 +323,9 @@ import "list"
 		listExpression: result: {op: "listExpression", field: "elements"}
 		listLength: result: {op: "listLength", value: {op: "evaluate", field: "operand"}}
 		listIndex: result: {op: "listIndex", left: #EvaluateChild, right: #EvaluateChild}
+		record: result: {op: "record", field: "fields"}
+		recordIndex: result: {op: "recordIndex", left: #EvaluateChild, right: #EvaluateChild}
+		recordLength: result: {op: "recordLength", value: {op: "evaluate", field: "operand"}}
 		integer: result: {
 			op:    "field"
 			field: "value"

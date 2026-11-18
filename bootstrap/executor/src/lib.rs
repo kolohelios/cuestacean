@@ -105,6 +105,22 @@ pub enum Error {
     ListConflict,
     #[snafu(display("length requires a concrete closed list"))]
     ListLength,
+    #[snafu(display("closed record exceeds 64 fields"))]
+    RecordCapacity,
+    #[snafu(display("closed record field name at index {index} must contain 1..=64 UTF-8 bytes"))]
+    RecordName { index: usize },
+    #[snafu(display("duplicate closed record field {field:?}"))]
+    RecordDuplicate { field: String },
+    #[snafu(display("closed record field {field:?} requires a concrete scalar"))]
+    RecordElement { field: String },
+    #[snafu(display("conflicting closed record values"))]
+    RecordConflict,
+    #[snafu(display("length requires a concrete closed record"))]
+    RecordLength,
+    #[snafu(display("field lookup requires a concrete closed record and string"))]
+    RecordIndexOperands,
+    #[snafu(display("missing closed record field {field:?}"))]
+    RecordMissing { field: String },
     #[snafu(display("signed 64-bit integer addition overflow"))]
     Overflow,
     #[snafu(display("signed 64-bit integer subtraction overflow"))]
@@ -157,7 +173,7 @@ pub enum Error {
     Ordering,
     #[snafu(display("length requires a concrete string"))]
     Length,
-    #[snafu(display("length requires a concrete string or closed list"))]
+    #[snafu(display("length requires a concrete string or closed collection"))]
     LengthOperand,
     #[snafu(display("indexing requires a concrete closed list and integer"))]
     IndexOperands,
@@ -207,6 +223,18 @@ enum Instruction {
     },
     List {
         field: String,
+    },
+    Record {
+        field: String,
+    },
+    #[serde(rename = "recordIndex")]
+    RecordIndex {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
+    },
+    #[serde(rename = "recordLength")]
+    RecordLength {
+        value: Box<Instruction>,
     },
     #[serde(rename = "listExpression")]
     ListExpression {
@@ -455,6 +483,13 @@ fn instruction(
             binary_instruction(left, right, node, rules, context, runtime::remainder)
         }
         Instruction::Length { value } => runtime::length(instruction(value, node, rules, context)?),
+        Instruction::Record { field } => runtime::record(node, field),
+        Instruction::RecordLength { value } => {
+            runtime::record_length(instruction(value, node, rules, context)?)
+        }
+        Instruction::RecordIndex { left, right } => {
+            binary_instruction(left, right, node, rules, context, runtime::record_index)
+        }
         Instruction::ListIndex { left, right } => {
             binary_instruction(left, right, node, rules, context, runtime::list_index)
         }
