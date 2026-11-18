@@ -81,10 +81,12 @@ fresh-seed generation/profile checks pass. Full Rust/Clippy passes; pinned
 preflight passes 13/13 (7 inapplicable checks skipped), with all eight Nix checks
 explicitly rebuilt in actual sandboxes and fresh six compiler binaries retained.
 
-The inspected family graph has 1407 build derivations/3392 store paths and its raw
+At #171, the inspected family graph had 1407 build derivations/3392 store paths; its raw
 source contains exactly 13 files. Pinned Go CUE/source/production JSON-export
-identities are absent. The original exporter and atom artifact derivations are
-unchanged; no parser/evaluator or guard was modified. Verification keeps paths,
+identities are absent. That step preserved the original exporter/atom derivation
+identities without parser/evaluator or guard changes. Later exporter changes such
+as [#173 lexical bindings](native-let-bindings.md) retain this raw family boundary
+and re-attest the new exporter/artifact derivations. Verification keeps paths,
 reference registration and roots separate from the native artifact. Only
 x86_64-linux is validated; incompatible aarch64 systems are omitted, not tested.
 

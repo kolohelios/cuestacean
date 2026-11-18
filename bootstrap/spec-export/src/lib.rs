@@ -1,4 +1,5 @@
 //! Isolated native bootstrap exporter, not a general CUE implementation.
+mod bindings;
 mod eval;
 mod model;
 mod parser;
