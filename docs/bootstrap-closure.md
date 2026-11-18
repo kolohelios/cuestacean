@@ -2,12 +2,12 @@
 
 ## Decision and scope
 
-The first proposed no-Go-CUE target is **exporting the existing AST atom builder**
-from exactly `bootstrap/ast-schema.cue` and `bootstrap/ast-atom.cue`. This issue
-isolates that real specification closure and characterizes its upstream behavior;
-it does **not** implement the native exporter or remove Go CUE from today's build.
-The implementation milestone must be reviewed with #162/#164/#165 under #161.
-Routine source-feature expansion remains paused.
+The first no-Go-CUE target is **exporting the existing AST atom builder** from
+exactly `bootstrap/ast-schema.cue` and `bootstrap/ast-atom.cue`. This #163 inventory
+isolated the closure and characterized upstream behavior. Following the reviewed
+#162–#165 findings and user agreement under #161, [#169](native-spec-export.md)
+adds an isolated native exporter/artifact path. The default export pipeline and
+six compiler seeds still depend on Go CUE; wider feature expansion stays deferred.
 
 The [solver spike](solver-spike.md) demonstrated bounded dependencies and separate
 default projection, not general schema evaluation. The chosen target avoids
@@ -200,7 +200,8 @@ two CUE files. A native bootstrap implementation is allowed initially, but it mu
 be identified as such; policy ownership/progression is a #164 decision, not a claim
 that a permanent handwritten exporter achieves the project goal.
 
-Required evidence, **not achieved by this inventory**:
+Required evidence, defined by this inventory and implemented for the isolated
+path in the [native-export contract and checks](native-spec-export.md):
 
 1. Build the exporter from an explicit source fileset excluding committed/generated
    Rust, generated JSON, existing policy-export outputs and expected-answer files.

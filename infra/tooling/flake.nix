@@ -518,12 +518,125 @@
             )
           '';
         });
+      specSources =
+        pkgs: tests:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions (
+            [
+              ../../bootstrap/spec-export/src/lib.rs
+              ../../bootstrap/spec-export/src/main.rs
+              ../../bootstrap/spec-export/src/model.rs
+              ../../bootstrap/spec-export/src/parser.rs
+              ../../bootstrap/spec-export/src/eval.rs
+              ../../bootstrap/spec-export/Cargo.toml
+              ../../bootstrap/spec-export/Cargo.lock
+            ]
+            ++ pkgs.lib.optionals tests [
+              ../../bootstrap/spec-export/tests
+              ../../bootstrap/ast-schema.cue
+              ../../bootstrap/ast-atom.cue
+              ../../bootstrap/tests/invalid/ast-operation.cue
+            ]
+          );
+        };
+      specExporter =
+        pkgs:
+        pkgs.rustPlatform.buildRustPackage {
+          pname = "cuestacean-spec-export";
+          version = "0.1.0";
+          src = specSources pkgs false;
+          postUnpack = ''sourceRoot="$sourceRoot/spec-export"'';
+          cargoLock.lockFile = "${specSources pkgs false}/spec-export/Cargo.lock";
+          cargoBuildFlags = [
+            "--bin"
+            "cuestacean-spec-export"
+          ];
+          # Expected answers/oracles belong only to the separate check derivation.
+          doCheck = false;
+        };
+      specTests =
+        pkgs:
+        (specExporter pkgs).overrideAttrs (_: {
+          pname = "cuestacean-spec-export-tests";
+          src = specSources pkgs true;
+          doCheck = true;
+          nativeCheckInputs = [
+            pkgs.rustfmt
+            pkgs.clippy
+            pkgs.cue
+          ];
+          checkPhase = ''
+            cargo fmt --check
+            cargo clippy --offline --all-targets -- -D warnings
+            cargo test --offline --all-targets
+            cargo test --offline --all-targets --release
+          '';
+        });
+      atomSources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/ast-schema.cue
+            ../../bootstrap/ast-atom.cue
+          ];
+        };
+      nativeAtom =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-ast-atom" { } ''
+          mkdir -p "$out"
+          env -i PATH=/nonexistent ${specExporter pkgs}/bin/cuestacean-spec-export \
+            ${atomSources pkgs}/ast-schema.cue ${atomSources pkgs}/ast-atom.cue > "$out/ast-atom.json"
+        '';
+      nativeBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          # .drv roots include build dependencies, not just output references.
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativeAtom pkgs).drvPath
+          ];
+        };
+      nativeVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-export-verification"
+          {
+            nativeBuildInputs = [
+              pkgs.cue
+              pkgs.jq
+              pkgs.rustfmt
+            ];
+          }
+          ''
+            set -euo pipefail
+            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath}; do
+              if grep -Fx "$forbidden" ${nativeBuildClosure pkgs}/store-paths; then
+                echo "forbidden bootstrap dependency: $forbidden" >&2; exit 1
+              fi
+            done
+            cue export ${atomSources pkgs}/ast-schema.cue ${atomSources pkgs}/ast-atom.cue --out json | jq -S . > expected
+            cmp expected ${nativeAtom pkgs}/ast-atom.json
+            env -i PATH=/nonexistent ${specExporter pkgs}/bin/cuestacean-spec-export \
+              ${atomSources pkgs}/ast-schema.cue ${atomSources pkgs}/ast-atom.cue > repeated
+            cmp repeated ${nativeAtom pkgs}/ast-atom.json
+            ${executor pkgs}/bin/bootstrap-ast-codegen ${nativeAtom pkgs}/ast-atom.json \
+              | rustfmt --edition 2024 > actual.rs
+            cmp actual.rs ${../../bootstrap/generated/ast-atom.rs}
+            mkdir -p "$out"
+            cp ${nativeBuildClosure pkgs}/store-paths "$out/native-build-paths"
+            cp ${nativeBuildClosure pkgs}/registration "$out/native-build-registration"
+            printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeAtom pkgs).drvPath} > "$out/native-build-roots"
+            cp actual.rs "$out/ast-atom.rs"
+          '';
     in
     {
       packages = kolohelios-nix.lib.forEachSupportedSystem (
         { pkgs, ... }: {
           default = executor pkgs;
           exports = jsonExports pkgs;
+          spec-export = specExporter pkgs;
+          native-ast-atom = nativeAtom pkgs;
         }
       );
 
@@ -572,6 +685,8 @@
         { pkgs, ... }:
         {
           bootstrap-executor = executor pkgs;
+          native-spec-tests = specTests pkgs;
+          native-spec-closure = nativeVerification pkgs;
           bootstrap-codegen =
             pkgs.runCommand "cuestacean-bootstrap-codegen"
               {
