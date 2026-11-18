@@ -7,14 +7,15 @@ pub struct Compiled;
 impl Driver for Compiled {
     fn render(&self, ctx: &mut Context, _node: &Value, _depth: usize) -> Result<String, Error> {
         match lowering::instruction_op(_node)? {
-            "binaryRuntime" | "difference" | "divide" | "modulo" | "product" => {
-                ctx.concat(|parts| {
+            "binaryRuntime" | "difference" | "divide" | "modulo" | "product" | "quotient" => ctx
+                .concat(|parts| {
                     parts.arg(|ctx| {
                         ctx.select(_node, "op", |ctx, tag| match tag {
                             "difference" => ctx.text("runtime::difference"),
                             "divide" => ctx.text("runtime::divide"),
                             "modulo" => ctx.text("runtime::modulo"),
                             "product" => ctx.text("runtime::product"),
+                            "quotient" => ctx.text("runtime::quotient"),
                             tag => Err(lowering::missing_selection(tag)),
                         })
                     })?;
@@ -30,8 +31,7 @@ impl Driver for Compiled {
                     })?;
                     parts.arg(|ctx| ctx.text(")"))?;
                     Ok(())
-                })
-            }
+                }),
             "bool" => ctx.ok(|ctx| ctx.path("runtime::Value::Bool")),
             "boolean" => ctx.ok(|ctx| {
                 ctx.call("runtime::Value::Boolean", |call| {
@@ -152,18 +152,16 @@ impl Driver for Compiled {
                 Ok(())
             }),
             "null" => ctx.ok(|ctx| ctx.path("runtime::Value::Null")),
-            "quotient" => ctx.call("runtime::quotient", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
-                })?;
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
-                })?;
-                Ok(())
-            }),
             "record" => ctx.call("runtime::record", |call| {
                 call.arg(|ctx| ctx.path("node"))?;
                 call.arg(|ctx| ctx.string(_node, "field"))?;
+                Ok(())
+            }),
+            "recordExpression" => ctx.call("runtime::record_expression", |call| {
+                call.arg(|ctx| ctx.path("node"))?;
+                call.arg(|ctx| ctx.string(_node, "field"))?;
+                call.arg(|ctx| ctx.path("_context"))?;
+                call.arg(|ctx| ctx.path("evaluate"))?;
                 Ok(())
             }),
             "recordIndex" => ctx.call("runtime::record_index", |call| {

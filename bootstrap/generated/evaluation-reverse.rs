@@ -58,6 +58,7 @@ fn evaluate_node(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,
         ),
+        "recordExpression" => runtime::record_expression(node, "fields", _context, evaluate),
         "record" => runtime::record(node, "fields"),
         "quotient" => runtime::quotient(
             (evaluate(runtime::field(node, "left")?, _context))?,

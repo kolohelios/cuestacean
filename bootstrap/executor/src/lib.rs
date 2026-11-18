@@ -105,6 +105,10 @@ pub enum Error {
     ListConflict,
     #[snafu(display("length requires a concrete closed list"))]
     ListLength,
+    #[snafu(display("invalid record control state: {reason}"))]
+    RecordState { reason: &'static str },
+    #[snafu(display("record control exceeds 4096 steps"))]
+    RecordControlBudget,
     #[snafu(display("closed record exceeds 64 fields"))]
     RecordCapacity,
     #[snafu(display("closed record field name at index {index} must contain 1..=64 UTF-8 bytes"))]
@@ -225,6 +229,10 @@ enum Instruction {
         field: String,
     },
     Record {
+        field: String,
+    },
+    #[serde(rename = "recordExpression")]
+    RecordExpression {
         field: String,
     },
     #[serde(rename = "recordIndex")]
@@ -440,6 +448,11 @@ fn instruction(
         Instruction::List { field } => runtime::list(node, field),
         Instruction::ListExpression { field } => {
             runtime::list_expression_interpreted(node, field, context, |node, context| {
+                evaluate(node, rules, context)
+            })
+        }
+        Instruction::RecordExpression { field } => {
+            runtime::record_expression_interpreted(node, field, context, |node, context| {
                 evaluate(node, rules, context)
             })
         }

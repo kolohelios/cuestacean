@@ -33,8 +33,8 @@ unknown targets/chains/duplicates reject eagerly. Cases plus aliases total ≤64
 The exclusive-bound extension factors nine unary runtime calls through one
 canonical template plus aliases and `select(op)`. CUE owns all fixed method
 names/grouping/Result layout; old rendered Rust stays unchanged. This avoids
-exceeding the unchanged 512-original-JSON-value policy guard. Four checked
-arithmetic calls (difference/product/divide/modulo) now share a binary template
+exceeding the unchanged 512-original-JSON-value policy guard. The checked
+arithmetic calls (difference/product/divide/modulo/quotient) now share a binary template
 through the same existing aliases/select mechanism. Fixed CUE method names,
 operand selection, grouping and rendered Rust stay identical; sum retains its
 separate selectable-right-child alternate.
