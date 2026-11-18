@@ -187,6 +187,11 @@ and resource limits, and name which executable rules live in CUE versus native
 kernels. Do not treat a Suspended result as an error to retry through another
 engine or use this conservative classifier as full CUE export admission.
 
+The [#180 executable dispatch-policy experiment](demand-policy.md) reuses only
+predecision observation and checked primitives. Its CUE-authored branches select
+action requests; native certificates constrain execution. The native demand path
+remains reference evidence, not a fallback, and nested semantics remain held.
+
 ## Validation and unchanged production cut
 
 On x86_64-linux, all 14 new test groups and 13 old groups pass debug/release under

@@ -162,6 +162,28 @@ fn both_oracles(left: &str, right: &str, forward: Oracle, reverse: Oracle) {
 }
 
 #[test]
+fn policy_entry_point_is_additive_to_native_reference() {
+    let policy = default_provenance::policy::Policy::from_json(
+        r#"{"formatVersion":1,"body":{"op":"return","action":"defer"}}"#,
+    )
+    .expect("bounded policy API fixture");
+    let graph = graph(value(1));
+    let report = graph
+        .demand_with_policy(Domain::Top, 4096, &policy)
+        .expect("policy demand");
+    assert_eq!(report.readiness, Readiness::PolicyDeferred);
+    assert_eq!(report.demand, Demand::Suspended);
+    assert_eq!(report.preferred, None);
+    assert_eq!(
+        graph
+            .demand(Domain::Top, 4096)
+            .expect("native reference")
+            .demand,
+        Demand::Concrete(1)
+    );
+}
+
+#[test]
 fn pinned_cue_is_mandatory() {
     let output = Command::new("cue")
         .arg("version")
