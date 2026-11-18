@@ -78,6 +78,9 @@
       ];
       builderNames = builtins.concatStringsSep " " builderFixtures;
       prattFixtures = [
+        "slice-control"
+        "tests/valid/slice-control-lower-one"
+        "tests/valid/slice-control-tail"
         "conjunction-control"
         "tests/valid/conjunction-control-reverse"
         "tests/valid/conjunction-control-tail"
@@ -234,6 +237,9 @@
         "records-fields-conflict"
         "list-indexing"
         "list-slicing"
+        "optional-slices"
+        "optional-slices-domain"
+        "optional-slices-range"
         "list-slicing-range"
         "list-slicing-domain"
         "collection-index"
@@ -295,6 +301,7 @@
                 ../../bootstrap/list-control-fragments.cue
                 ../../bootstrap/record-control-fragments.cue
                 ../../bootstrap/conjunction-control-fragments.cue
+                ../../bootstrap/slice-control-fragments.cue
                 ../../bootstrap/record-primary-fragments.cue
                 ../../bootstrap/conjunction-primary-fragments.cue
                 ../../bootstrap/string-literal-fragments.cue
@@ -336,6 +343,7 @@
               case "$fixture" in
                 pratt|tests/valid/pratt-no-slices|tests/valid/pratt-slice-high-minimum|tests/valid/pratt-no-selectors|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
                 list-control|tests/valid/list-control-reverse|tests/valid/list-control-scalars|tests/valid/list-control-homogeneous) fragments=(list-control-fragments) ;;
+                slice-control|tests/valid/slice-control-lower-one|tests/valid/slice-control-tail) fragments=(slice-control-fragments) ;;
                 conjunction-control|tests/valid/conjunction-control-reverse|tests/valid/conjunction-control-tail) fragments=(conjunction-control-fragments) ;;
                 record-control|tests/valid/record-control-reverse|tests/valid/record-control-scalars|tests/valid/record-control-homogeneous) fragments=(record-control-fragments) ;;
                 conjunction-primary|tests/valid/conjunction-primary-high-minimum) fragments=(conjunction-primary-fragments) ;;
@@ -731,7 +739,7 @@
               }
               ''
                 set -euo pipefail
-                for fixture in lists list-expressions conjunction list-slicing nested-lists records records-unify record-expressions nested-records nested-records-unify mixed-collections mixed-unify collection-index-record tests/valid/lists-unify; do
+                for fixture in lists list-expressions conjunction list-slicing optional-slices nested-lists records records-unify record-expressions nested-records nested-records-unify mixed-collections mixed-unify collection-index-record tests/valid/lists-unify; do
                   probe="''${fixture##*/}"
                   # Marshal in pinned CUE, not jq: keep every i64 exact.
                   printf '%s\n' "$(cue export ${../../bootstrap/tests/upstream}/"$probe.cue" --out text)" > expected
@@ -756,8 +764,9 @@
                   test ! -s actual
                   grep -Fx 'conflicting integer values 1 and 2' error
                 done
-                for mode in range domain; do
-                  fixture="list-slicing-$mode"
+                for pair in list-slicing:range list-slicing:domain optional-slices:range optional-slices:domain; do
+                  mode="''${pair#*:}"
+                  fixture="''${pair%:*}-$mode"
                   if cue export ${../../bootstrap/tests/upstream}/"$fixture.cue" --out json > expected 2> cue-error; then exit 1; fi
                   test ! -s expected
                   test -s cue-error

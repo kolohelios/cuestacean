@@ -11,6 +11,7 @@
     "recordLength": {"result": {"op": "recordLength", "value": {"op": "evaluate", "field": "operand"}}},
     "select": {"result": {"op": "recordIndex", "left": {"op": "evaluate", "field": "operand"}, "right": {"op": "text", "field": "label"}}},
     "index": {"result": {"op": "index", "left": {"op": "evaluate", "field": "left"}, "right": {"op": "evaluate", "field": "right"}}},
+    "slice": {"result": {"op": "slice", "operandField": "operand", "lowerField": "lower", "upperField": "upper"}},
     "conjunction": {"result": {"op": "conjunction", "field": "operands"}},
     "listSlice": {"result": {"op": "listSlice", "value": {"op": "evaluate", "field": "operand"}, "lower": {"op": "evaluate", "field": "lower"}, "upper": {"op": "evaluate", "field": "upper"}}},
     "listIndex": {"result": {"op": "listIndex", "left": {"op": "evaluate", "field": "left"}, "right": {"op": "evaluate", "field": "right"}}},

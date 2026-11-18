@@ -16,8 +16,8 @@ package bootstrap
 		logicalNot:          "logical_not", length:                        "length", stringLength: "string_length", listLength: "list_length", recordLength: "record_length"
 	}
 	let Binary = {
-		index:       "index", difference:       "difference", product:    "product", divide: "divide", modulo: "modulo", quotient: "quotient"
-		recordIndex: "record_index", listIndex: "list_index", logicalAnd: "logical_and", logicalOr: "logical_or"
+		index:       "index", difference:       "difference", product:    "product", divide:        "divide", modulo:    "modulo", quotient: "quotient"
+		recordIndex: "record_index", listIndex: "list_index", logicalAnd: "logical_and", logicalOr: "logical_or", equal: "equal"
 	}
 	aliases: {
 		for name, _ in Unary {"\(name)": "unaryRuntime"}
@@ -81,17 +81,20 @@ package bootstrap
 		]}
 		sum: {op: "call", path: "runtime::sum", args: [L, R]}
 		conjunction: {op: "call", path: "runtime::conjunction", args: [Node, Field, Context, {op: "path", value: "evaluate"}]}
+		slice: {op: "call", path: "runtime::slice_fields", args: [Node,
+			{op: "string", field: "operandField"}, {op: "string", field: "lowerField"}, {op: "string", field: "upperField"},
+			Context, {op: "path", value: "evaluate"},
+		]}
 		less: {op: "call", path: "runtime::less", args: [L, R]}
 		lessEqual: {op: "call", path: "runtime::less_equal", args: [L, R]}
 		greater: {op: "call", path: "runtime::greater", args: [L, R]}
 		greaterEqual: {op: "call", path: "runtime::greater_equal", args: [L, R]}
-		equal: {op: "call", path: "runtime::equal", args: [L, R]}
 		notEqual: {op: "call", path: "runtime::not_equal", args: [L, R]}
 		remainder: {op: "call", path: "runtime::remainder", args: [L, R]}
-		// Keep wide owned temporaries out of unrelated recursive match arms.
 		unify: {op: "concat", parts: [{op: "text", value: "(|_context: &mut runtime::EvaluationContext| "},
 			{op: "call", path: "runtime::unify", args: [L, R]}, {op: "text", value: ")(_context)"},
 		]}
+		// Isolate wide ternary temporaries from every recursive match frame.
 		listSlice: {op: "concat", parts: [{op: "text", value: "(|_context: &mut runtime::EvaluationContext| "},
 			{op: "call", path: "runtime::list_slice", args: [V,
 				{op: "try", value: {op: "group", value: {op: "lower", field: "lower"}}},

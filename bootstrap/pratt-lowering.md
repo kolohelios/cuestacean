@@ -12,7 +12,9 @@ Checked method names and item-kind spelling are emitted in CUE; native code owns
 only typed family validation, canonical facts and frame/reference kernels.
 [Conjunction](conjunction.md) adds a fourth header for a transactional reduction
 frame; seed/merge/finish are target-specific, append/reject stay list/record-only.
-Native typed validation and injected unifier keep compiler-only kernels independent
+[Optional slicing](optional-slices.md) adds a fifth header and presence/default
+frame; item operations stay confined to collection/reduction targets. Native typed
+validation and injected unifier/slicer keep compiler-only kernels independent
 of generated semantics, without a fallback. Cross-family operations reject before
 even a backend that ignores them. Old parser
 programs default to parser and regenerate identical Rust.
@@ -29,8 +31,9 @@ replace ordinary method selection with CUE checked snake identifier rendering of
 the validated canonical action name, retaining seven explicit selector methods.
 Seven parse-with-minimum calls share one CUE template via existing one-hop aliases.
 Actual prior full/no-selector/no-index driver sources stay byte-identical. Current
-backend is 336 original values after source-conjunction selection (333 at the
-reduction header, 330 at source slices), below unchanged 512/64 guards. Internal action/
+backend is 370 original values after optional-slice control (336 at source
+conjunction, 333 at the reduction header, 330 at source slices), below unchanged
+512/64 guards. Internal action/
 parseMinimum tags and extra fields still reject eagerly on wire; no native source
 emitter or token/type-policy fallback is introduced.
 

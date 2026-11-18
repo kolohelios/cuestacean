@@ -9,6 +9,11 @@ use snafu::ResultExt;
 
 use crate::{Error, JsonSnafu, Program, VersionSnafu};
 
+mod optional_slice;
+pub use optional_slice::{SliceDriver, SliceFrame, Slicer, slice_with_driver};
+#[cfg(feature = "semantics")]
+pub use optional_slice::{slice, slice_fields, slice_interpreted};
+
 mod conjunction;
 pub use conjunction::{ConjunctionDriver, ConjunctionFrame, Unifier, conjunction_with_driver};
 #[cfg(feature = "semantics")]

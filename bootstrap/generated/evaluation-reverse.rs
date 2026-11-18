@@ -49,6 +49,7 @@ fn evaluate_node(
             runtime::string_length((evaluate(runtime::field(node, "operand")?, _context))?)
         }
         "string" => runtime::text(node, "value"),
+        "slice" => runtime::slice_fields(node, "operand", "lower", "upper", _context, evaluate),
         "select" => runtime::record_index(
             (evaluate(runtime::field(node, "operand")?, _context))?,
             (runtime::text(node, "label"))?,

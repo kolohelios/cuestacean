@@ -21,7 +21,8 @@ ownership remain separate designs/work.
 ## Reuse the structured control compiler
 
 The existing Pratt compiler accepts `target` (`parser` by default, `list`,
-[record](record-expressions.md), or [conjunction](conjunction.md)). Conjunction
+[record](record-expressions.md), [conjunction](conjunction.md), or
+[optional slicing](optional-slices.md)). Conjunction
 folds abstract/concrete operands without widening list admission; append/reject
 and collection finish operations remain distinct from conjunction seed/merge/finish.
 Omitted target preserves old parser wire; CUE and native decoding validate whole
