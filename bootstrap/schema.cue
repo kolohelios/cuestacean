@@ -3,7 +3,7 @@ package bootstrap
 import "list"
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #RecordExpression | #RecordLiteral | #ListExpression | #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
+#Expression: #SelectorExpression | #RecordExpression | #RecordLiteral | #ListExpression | #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
 
 // Factor the identical recursive shape; separate recursive disjuncts expand
 // combinatorially in the upstream exporter as binary node kinds accumulate.
@@ -12,6 +12,8 @@ import "list"
 	left:  #Expression
 	right: #Expression
 }
+
+#SelectorExpression: {kind: "select", operand: #Expression, label: string}
 
 #RecordEntry: {name: string & !="", value: null | bool | int | string, _bytes: len(name) & <=64}
 #RecordLiteral: {
@@ -141,7 +143,7 @@ import "list"
 	left:  #PrattNumber
 	right: #PrattNumber
 }
-#PrattCondition: {op: "hasRecord" | "hasRecordField" | "hasIndex" | "hasList" | "hasListElement" | "hasCall" | "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier" | "hasNegation" | "hasNot" | "hasString"} | {op: "boolean", value: bool} | {
+#PrattCondition: {op: "hasPostfix" | "hasSelectorString" | "hasRecord" | "hasRecordField" | "hasIndex" | "hasList" | "hasListElement" | "hasCall" | "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier" | "hasNegation" | "hasNot" | "hasString"} | {op: "boolean", value: bool} | {
 	op:    "atLeast"
 	left:  #PrattNumber
 	right: #PrattNumber
@@ -150,7 +152,7 @@ import "list"
 	left:  #PrattCondition
 	right: #PrattCondition
 }
-#PrattStatement: {op: "record" | "advanceRecord" | "openRecordCall" | "recordWhitespace" | "openRecordBody" | "probeRecordEnd" | "requireRecordLabel" | "parseRecordLabel" | "recordLabelTrivia" | "recordColon" | "appendRecordField" | "advanceRecordTail" | "closeRecordCall" | "buildRecord" | "scanIndex" | "advanceIndex" | "closeIndex" | "scanList" | "advanceList" | "probeListEnd" | "appendListElement" | "advanceListTail" | "buildList" | "advanceCall" | "return" | "primary" | "afterOperand" | "afterWordOperator" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanString" | "parseString" | "scanNegation" | "advanceNegation" | "buildNegation" | "scanNot" | "advanceNot" | "buildNot"} | {
+#PrattStatement: {op: "scanSelector" | "advanceSelector" | "selectorWhitespace" | "scanSelectorString" | "parseSelectorString" | "parseSelectorIdentifier" | "buildSelector" | "record" | "advanceRecord" | "openRecordCall" | "recordWhitespace" | "openRecordBody" | "probeRecordEnd" | "requireRecordLabel" | "parseRecordLabel" | "recordLabelTrivia" | "recordColon" | "appendRecordField" | "advanceRecordTail" | "closeRecordCall" | "buildRecord" | "scanIndex" | "advanceIndex" | "closeIndex" | "scanList" | "advanceList" | "probeListEnd" | "appendListElement" | "advanceListTail" | "buildList" | "advanceCall" | "return" | "primary" | "afterOperand" | "afterWordOperator" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanString" | "parseString" | "scanNegation" | "advanceNegation" | "buildNegation" | "scanNot" | "advanceNot" | "buildNot"} | {
 	op:      "parseRecordValue" | "parseIndex" | "parseListElement" | "parseGroup" | "parseNegation" | "parseNot"
 	minimum: #PrattNumber
 } | {
@@ -296,6 +298,7 @@ import "list"
 	text?: {kind: string & !="", valueField: string & !="" & !="kind"}
 	list?: {kind: string & !="", elementsField: string & !="" & !="kind"}
 	record?: {token: string & =~"^[a-zA-Z_][a-zA-Z0-9_]*$", kind: string & !="", fieldsField: string & !="" & !="kind"}
+	selector?: {kind: string & !="", operandField: string & !="" & !="kind", labelField: string & !="" & !="kind" & !=operandField}
 	index?: {kind: string & !="", leftField: string & !="" & !="kind", rightField: string & !="" & !="kind" & !=leftField}
 	group: {open: "(", close: ")"}
 	operators: [#InfixOperator, ...#InfixOperator]
@@ -339,6 +342,7 @@ import "list"
 		record: result: {op: "record", field: "fields"}
 		recordExpression: result: {op: "recordExpression", field: "fields"}
 		recordIndex: result: {op: "recordIndex", left: #EvaluateChild, right: #EvaluateChild}
+		select: result: {op: "recordIndex", left: {op: "evaluate", field: "operand"}, right: {op: "text", field: "label"}}
 		index: result: {op: "index", left: #EvaluateChild, right: #EvaluateChild}
 		recordLength: result: {op: "recordLength", value: {op: "evaluate", field: "operand"}}
 		integer: result: {

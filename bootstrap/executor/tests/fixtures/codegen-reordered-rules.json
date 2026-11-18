@@ -9,6 +9,7 @@
     "recordExpression": {"result": {"op": "recordExpression", "field": "fields"}},
     "recordIndex": {"result": {"op": "recordIndex", "left": {"op": "evaluate", "field": "left"}, "right": {"op": "evaluate", "field": "right"}}},
     "recordLength": {"result": {"op": "recordLength", "value": {"op": "evaluate", "field": "operand"}}},
+    "select": {"result": {"op": "recordIndex", "left": {"op": "evaluate", "field": "operand"}, "right": {"op": "text", "field": "label"}}},
     "index": {"result": {"op": "index", "left": {"op": "evaluate", "field": "left"}, "right": {"op": "evaluate", "field": "right"}}},
     "listIndex": {"result": {"op": "listIndex", "left": {"op": "evaluate", "field": "left"}, "right": {"op": "evaluate", "field": "right"}}},
     "length": {"result": {"op": "length", "value": {"op": "evaluate", "field": "operand"}}},

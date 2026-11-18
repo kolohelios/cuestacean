@@ -45,8 +45,10 @@ Ok(())
             "hasNegation" => ctx.text("_frame.has_negation()?"),
             "hasNot" => ctx.text("_frame.has_not()?"),
             "hasOperator" => ctx.text("_frame.has_operator()"),
+            "hasPostfix" => ctx.text("_frame.has_postfix()?"),
             "hasRecord" => ctx.text("_frame.has_record()?"),
             "hasRecordField" => ctx.text("_frame.has_record_field()?"),
+            "hasSelectorString" => ctx.text("_frame.has_selector_string()?"),
             "hasString" => ctx.text("_frame.has_string()?"),
             "if" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("_frame.step()?;\nif "))?;
@@ -74,38 +76,10 @@ Ok(())
 }),
             "leftAssociative" => ctx.text("_frame.left_associative()?"),
             "minimum" => ctx.text("_frame.minimum()"),
-            "parseGroup" => ctx.concat(|parts| {
-parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.parse_group("))?;
-parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
-parts.arg(|ctx| ctx.text(")?;\n"))?;
-Ok(())
-}),
-            "parseIndex" => ctx.concat(|parts| {
-parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.parse_index("))?;
-parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
-parts.arg(|ctx| ctx.text(")?;\n"))?;
-Ok(())
-}),
-            "parseListElement" => ctx.concat(|parts| {
-parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.parse_list_element("))?;
-parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
-parts.arg(|ctx| ctx.text(")?;\n"))?;
-Ok(())
-}),
-            "parseNegation" => ctx.concat(|parts| {
-parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.parse_negation("))?;
-parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
-parts.arg(|ctx| ctx.text(")?;\n"))?;
-Ok(())
-}),
-            "parseNot" => ctx.concat(|parts| {
-parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.parse_not("))?;
-parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
-parts.arg(|ctx| ctx.text(")?;\n"))?;
-Ok(())
-}),
-            "parseRecordValue" => ctx.concat(|parts| {
-parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.parse_record_value("))?;
+            "parseMinimum" | "parseGroup" | "parseIndex" | "parseListElement" | "parseNegation" | "parseNot" | "parseRecordValue" => ctx.concat(|parts| {
+parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame."))?;
+parts.arg(|ctx| ctx.select(_node, "op", |ctx, tag| match tag { "parseGroup" => ctx.text("parse_group"), "parseIndex" => ctx.text("parse_index"), "parseListElement" => ctx.text("parse_list_element"), "parseNegation" => ctx.text("parse_negation"), "parseNot" => ctx.text("parse_not"), "parseRecordValue" => ctx.text("parse_record_value"), tag => Err(lowering::missing_selection(tag)), }))?;
+parts.arg(|ctx| ctx.text("("))?;
 parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
 parts.arg(|ctx| ctx.text(")?;\n"))?;
 Ok(())
@@ -118,6 +92,12 @@ parts.arg(|ctx| ctx.select(_node, "tail", |ctx, tag| match tag { "return" => ctx
 Ok(())
 }),
             "return" => ctx.select(_node, "position", |ctx, tag| match tag { "early" => ctx.text("_frame.step()?;\nreturn Ok(());\n"), "tail" => ctx.text("_frame.step()?;\nOk(())\n"), tag => Err(lowering::missing_selection(tag)), }),
+            "selectorAction" => ctx.concat(|parts| {
+parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame."))?;
+parts.arg(|ctx| ctx.select(_node, "action", |ctx, tag| match tag { "advanceSelector" => ctx.text("advance_selector"), "buildSelector" => ctx.text("build_selector"), "parseSelectorIdentifier" => ctx.text("parse_selector_identifier"), "parseSelectorString" => ctx.text("parse_selector_string"), "scanSelector" => ctx.text("scan_selector"), "scanSelectorString" => ctx.text("scan_selector_string"), "selectorWhitespace" => ctx.text("selector_whitespace"), tag => Err(lowering::missing_selection(tag)), }))?;
+parts.arg(|ctx| ctx.text("()?;\n"))?;
+Ok(())
+}),
             "setBindingPower" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame.set_binding_power("))?;
 parts.arg(|ctx| ctx.child(_node, "value", _depth, self))?;

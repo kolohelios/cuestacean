@@ -4,6 +4,9 @@ package bootstrap
 #PrattLowering: #LoweringPolicy & {
 	let L = {op: "lower", field: "left"}
 	let R = {op: "lower", field: "right"}
+	let MinimumCalls = {parseRecordValue: "parse_record_value", parseIndex: "parse_index", parseListElement: "parse_list_element", parseGroup: "parse_group", parseNot: "parse_not", parseNegation: "parse_negation"}
+	aliases: {for name, _ in MinimumCalls {"\(name)": "parseMinimum"}}
+	let SelectorCalls = {scanSelector: "scan_selector", advanceSelector: "advance_selector", selectorWhitespace: "selector_whitespace", scanSelectorString: "scan_selector_string", parseSelectorString: "parse_selector_string", parseSelectorIdentifier: "parse_selector_identifier", buildSelector: "build_selector"}
 	let Calls = {
 		scanIndex:         "scan_index", advanceIndex:               "advance_index", closeIndex:              "close_index"
 		scanList:          "scan_list", advanceList:                 "advance_list", probeListEnd:             "probe_list_end"
@@ -26,6 +29,11 @@ package bootstrap
 		scanNegation:      "scan_negation", advanceNegation:   "advance_negation", buildNegation: "build_negation"
 	}
 	cases: {
+		selectorAction: {op: "concat", parts: [
+			{op: "text", value: "_frame.step()?;\n_frame."},
+			{op: "select", field: "action", cases: {for name, method in SelectorCalls {"\(name)": {op: "text", value: method}}}},
+			{op: "text", value: "()?;\n"},
+		]}
 		action: {op: "concat", parts: [
 			{op: "text", value: "_frame.step()?;\n_frame."},
 			{op: "select", field: "action", cases: {
@@ -63,6 +71,8 @@ package bootstrap
 		hasRecordField: {op: "text", value: "_frame.has_record_field()?"}
 		hasList: {op: "text", value: "_frame.has_list()?"}
 		hasIndex: {op: "text", value: "_frame.has_index()?"}
+		hasPostfix: {op: "text", value: "_frame.has_postfix()?"}
+		hasSelectorString: {op: "text", value: "_frame.has_selector_string()?"}
 		hasListElement: {op: "text", value: "_frame.has_list_element()?"}
 		hasString: {op: "text", value: "_frame.has_string()?"}
 		hasNegation: {op: "text", value: "_frame.has_negation()?"}
@@ -75,18 +85,11 @@ package bootstrap
 		and: {op: "concat", parts: [L, {op: "text", value: " && "}, R]}
 		setBindingPower: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.set_binding_power("},
 			{op: "lower", field: "value"}, {op: "text", value: ")?;\n"}]}
-		parseRecordValue: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_record_value("},
-			{op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"}]}
-		parseIndex: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_index("},
-			{op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"}]}
-		parseListElement: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_list_element("},
-			{op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"}]}
-		parseGroup: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_group("},
-			{op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"}]}
-		parseNot: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_not("},
-			{op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"}]}
-		parseNegation: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_negation("},
-			{op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"}]}
+		parseMinimum: {op: "concat", parts: [
+			{op: "text", value: "_frame.step()?;\n_frame."},
+			{op: "select", field: "op", cases: {for name, method in MinimumCalls {"\(name)": {op: "text", value: method}}}},
+			{op: "text", value: "("}, {op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"},
+		]}
 		while: {op: "concat", parts: [{op: "text", value: "while { _frame.step()?; "},
 			{op: "lower", field: "condition"}, {op: "text", value: " } {\n"},
 			{op: "list", field: "body"}, {op: "text", value: "}\n"}]}
