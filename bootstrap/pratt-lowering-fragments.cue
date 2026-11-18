@@ -4,30 +4,9 @@ package bootstrap
 #PrattLowering: #LoweringPolicy & {
 	let L = {op: "lower", field: "left"}
 	let R = {op: "lower", field: "right"}
-	let MinimumCalls = {parseRecordValue: "parse_record_value", parseIndex: "parse_index", parseListElement: "parse_list_element", parseGroup: "parse_group", parseNot: "parse_not", parseNegation: "parse_negation"}
+	let MinimumCalls = {parseSliceUpper: "parse_slice_upper", parseRecordValue: "parse_record_value", parseIndex: "parse_index", parseListElement: "parse_list_element", parseGroup: "parse_group", parseNot: "parse_not", parseNegation: "parse_negation"}
 	aliases: {for name, _ in MinimumCalls {"\(name)": "parseMinimum"}}
 	let SelectorCalls = {scanSelector: "scan_selector", advanceSelector: "advance_selector", selectorWhitespace: "selector_whitespace", scanSelectorString: "scan_selector_string", parseSelectorString: "parse_selector_string", parseSelectorIdentifier: "parse_selector_identifier", buildSelector: "build_selector"}
-	let Calls = {
-		scanIndex:         "scan_index", advanceIndex:               "advance_index", closeIndex:              "close_index"
-		scanList:          "scan_list", advanceList:                 "advance_list", probeListEnd:             "probe_list_end"
-		appendListElement: "append_list_element", advanceListTail:   "advance_list_tail", buildList:           "build_list"
-		firstItem:         "first_item", lastItem:                   "last_item", evaluateItem:                "evaluate_item"
-		appendItem:        "append_item", nextItem:                  "next_item", previousItem:                "previous_item"
-		rejectItem:        "reject_item", finishList:                "finish_list", finishRecord:              "finish_record"
-		record:            "record", advanceRecord:                  "advance_record", openRecordCall:         "open_record_call", recordWhitespace:    "record_whitespace", openRecordBody: "open_record_body"
-		probeRecordEnd:    "probe_record_end", requireRecordLabel:   "require_record_label", parseRecordLabel: "parse_record_label", recordLabelTrivia: "record_label_trivia", recordColon:  "record_colon"
-		appendRecordField: "append_record_field", advanceRecordTail: "advance_record_tail", closeRecordCall:   "close_record_call", buildRecord:        "build_record"
-		advanceCall:       "advance_call"
-		primary:           "primary", afterOperand:            "after_operand", afterWordOperator: "after_word_operator"
-		lookupOperator:    "lookup_operator", advanceOperator: "advance_operator"
-		parseRight:        "parse_right", buildBinary:         "build_binary", whitespace:  "whitespace"
-		scanGroup:         "scan_group", advanceGroup:         "advance_group", closeGroup: "close_group"
-		scanBound:         "scan_bound", advanceBound:         "advance_bound", parseBound: "parse_bound"
-		scanIdentifier:    "scan_identifier", parseAtom:       "parse_atom", parseInteger:  "parse_integer"
-		scanString:        "scan_string", parseString:         "parse_string"
-		scanNot:           "scan_not", advanceNot:             "advance_not", buildNot:           "build_not"
-		scanNegation:      "scan_negation", advanceNegation:   "advance_negation", buildNegation: "build_negation"
-	}
 	cases: {
 		selectorAction: {op: "concat", parts: [
 			{op: "text", value: "_frame.step()?;\n_frame."},
@@ -36,9 +15,7 @@ package bootstrap
 		]}
 		action: {op: "concat", parts: [
 			{op: "text", value: "_frame.step()?;\n_frame."},
-			{op: "select", field: "action", cases: {
-				for name, method in Calls {"\(name)": {op: "text", value: method}}
-			}}, {op: "text", value: "()?;\n"},
+			{op: "identifier", field: "action", snake: true}, {op: "text", value: "()?;\n"},
 		]}
 		program: {op: "concat", parts: [
 			{op: "select", field: "target", cases: {
@@ -70,6 +47,7 @@ package bootstrap
 		hasRecord: {op: "text", value: "_frame.has_record()?"}
 		hasRecordField: {op: "text", value: "_frame.has_record_field()?"}
 		hasList: {op: "text", value: "_frame.has_list()?"}
+		hasSlice: {op: "text", value: "_frame.has_slice()?"}
 		hasIndex: {op: "text", value: "_frame.has_index()?"}
 		hasPostfix: {op: "text", value: "_frame.has_postfix()?"}
 		hasSelectorString: {op: "text", value: "_frame.has_selector_string()?"}

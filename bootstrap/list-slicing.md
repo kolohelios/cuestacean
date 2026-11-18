@@ -5,7 +5,8 @@
 Add JSON AST `listSlice {operand:Expression,lower:Expression,upper:Expression}`,
 with all three fields required. One slice node and three ordinary child ASTs;
 no synthetic endpoint/container nodes, absent-endpoint defaults or duplicated
-operand evaluation. Source slicing syntax remains excluded in this slice.
+operand evaluation. This original JSON-only slice is extended by
+[source explicit slices](source-slices.md); omitted endpoints remain excluded.
 
 Evaluate operand, lower, upper exactly once in that order through the selected
 evaluator and shared EvaluationContext. All child errors precede enclosing domain
@@ -31,7 +32,7 @@ storage, shares immutable completed children, and cannot reset mixed depth32 /
 Extend the existing finite unification-control compiler, not its seed count or
 native emitter count, with function listSlice and input side third. Preserve
 existing unary and binary signatures/renderings. A ternary generated control is
-`execute(_left:Value,_right:Value,_third:Value)`; the public reference API is
+`list_slice(_left:Value,_right:Value,_third:Value)`; the public reference API is
 `interpret_ternary(program,left,right,third)`. Existing interpret and
 interpret_unary reject arity mismatch; ternary API rejects unary/binary programs.
 Original-wire validation eagerly rejects third references in unary/binary

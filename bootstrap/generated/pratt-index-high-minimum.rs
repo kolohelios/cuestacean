@@ -24,7 +24,19 @@ pub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {
             _frame.step()?;
             _frame.parse_index(100u8)?;
             _frame.step()?;
-            _frame.close_index()?;
+            _frame.scan_slice()?;
+            _frame.step()?;
+            if _frame.has_slice()? {
+                _frame.step()?;
+                _frame.advance_slice()?;
+                _frame.step()?;
+                _frame.parse_slice_upper(0u8)?;
+                _frame.step()?;
+                _frame.close_slice()?;
+            } else {
+                _frame.step()?;
+                _frame.close_index()?;
+            }
         } else {
             _frame.step()?;
             _frame.advance_selector()?;

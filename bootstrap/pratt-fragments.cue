@@ -3,9 +3,17 @@ package bootstrap
 #PrattControl: #PrattProgram & {
 	_postfix:       *true | false
 	_selectors:     *true | false
+	_slices:        *true | false
+	_sliceMinimum:  *0 | 100
 	_associativity: *true | false
 	_indexMinimum:  *0 | 100
-	let Index = [{op: "advanceIndex"}, {op: "parseIndex", minimum: {op: "integer", value: _indexMinimum}}, {op: "closeIndex"}]
+	let Index = [{op: "advanceIndex"}, {op: "parseIndex", minimum: {op: "integer", value: _indexMinimum}},
+		if _slices {op: "scanSlice"}, if _slices {
+			op: "if", condition: {op: "hasSlice"}
+			then: [{op: "advanceSlice"}, {op: "parseSliceUpper", minimum: {op: "integer", value: _sliceMinimum}}, {op: "closeSlice"}]
+			else: [{op: "closeIndex"}]
+		}, if !_slices {op: "closeIndex"},
+	]
 	let ProbeSelector = {op: "if", condition: {op: "hasIndex"}, then: [], else: [{op: "scanSelector"}]}
 	let Selector = [{op: "advanceSelector"}, {op: "selectorWhitespace"}, {op: "scanSelectorString"}, {
 		op: "if", condition: {op: "hasSelectorString"}, then: [{op: "parseSelectorString"}], else: [{op: "parseSelectorIdentifier"}]

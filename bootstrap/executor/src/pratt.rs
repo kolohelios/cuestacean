@@ -51,6 +51,7 @@ enum Condition {
     },
     HasOperator {},
     HasIndex {},
+    HasSlice {},
     HasPostfix {},
     HasSelectorString {},
     LeftAssociative {},
@@ -104,6 +105,12 @@ enum Statement {
     ParseSelectorString {},
     ParseSelectorIdentifier {},
     BuildSelector {},
+    ScanSlice {},
+    AdvanceSlice {},
+    ParseSliceUpper {
+        minimum: Number,
+    },
+    CloseSlice {},
     ScanIndex {},
     AdvanceIndex {},
     ParseIndex {
@@ -313,6 +320,7 @@ impl Condition {
             Self::HasItem {} | Self::ItemKindIs { .. } => unreachable!("validated parser target"),
             Self::HasOperator {} => frame.has_operator(),
             Self::HasIndex {} => frame.has_index()?,
+            Self::HasSlice {} => frame.has_slice()?,
             Self::HasPostfix {} => frame.has_postfix()?,
             Self::HasSelectorString {} => frame.has_selector_string()?,
             Self::LeftAssociative {} => frame.left_associative()?,
@@ -339,14 +347,18 @@ enum Flow {
     Return,
 }
 
-// Keep selector Result temporaries out of every recursive reference-VM frame.
+// Keep postfix Result temporaries out of every recursive reference-VM frame.
 // Dispatches checked intrinsics only; traversal/selection policy remains CUE.
 #[cfg(feature = "source")]
-fn selector_action(
+fn postfix_action(
     statement: &Statement,
     frame: &mut crate::parser::Frame<'_, '_>,
 ) -> Result<(), crate::parser::Error> {
     match statement {
+        Statement::ScanSlice {} => frame.scan_slice(),
+        Statement::AdvanceSlice {} => frame.advance_slice(),
+        Statement::ParseSliceUpper { minimum } => frame.parse_slice_upper(minimum.value(frame)?),
+        Statement::CloseSlice {} => frame.close_slice(),
         Statement::ScanSelector {} => frame.scan_selector(),
         Statement::AdvanceSelector {} => frame.advance_selector(),
         Statement::SelectorWhitespace {} => frame.selector_whitespace(),
@@ -386,13 +398,17 @@ fn execute(
                     Statement::AdvanceOperator {} => frame.advance_operator()?,
                     Statement::ParseRight {} => frame.parse_right()?,
                     Statement::BuildBinary {} => frame.build_binary()?,
-                    Statement::ScanSelector {}
+                    Statement::ScanSlice {}
+                    | Statement::AdvanceSlice {}
+                    | Statement::ParseSliceUpper { .. }
+                    | Statement::CloseSlice {}
+                    | Statement::ScanSelector {}
                     | Statement::AdvanceSelector {}
                     | Statement::SelectorWhitespace {}
                     | Statement::ScanSelectorString {}
                     | Statement::ParseSelectorString {}
                     | Statement::ParseSelectorIdentifier {}
-                    | Statement::BuildSelector {} => selector_action(statement, frame)?,
+                    | Statement::BuildSelector {} => postfix_action(statement, frame)?,
                     Statement::ScanIndex {} => frame.scan_index()?,
                     Statement::AdvanceIndex {} => frame.advance_index()?,
                     Statement::ParseIndex { minimum } => {
@@ -777,6 +793,10 @@ mod target_tests {
     #[test]
     fn index_operations_are_parser_only_and_minimum_is_typed() {
         for op in [
+            "scanSlice",
+            "advanceSlice",
+            "parseSliceUpper",
+            "closeSlice",
             "scanIndex",
             "advanceIndex",
             "parseIndex",
@@ -790,7 +810,7 @@ mod target_tests {
             "buildSelector",
         ] {
             let mut action = serde_json::json!({"op":op});
-            if op == "parseIndex" {
+            if matches!(op, "parseIndex" | "parseSliceUpper") {
                 action["minimum"] = serde_json::json!({"op":"integer","value":0});
             }
             let mut input = serde_json::json!({"formatVersion":1,"body":[action]});
@@ -800,7 +820,7 @@ mod target_tests {
                 assert!(parse(&input.to_string()).is_err(), "{target}: {op}");
             }
         }
-        for condition in ["hasIndex", "hasPostfix", "hasSelectorString"] {
+        for condition in ["hasSlice", "hasIndex", "hasPostfix", "hasSelectorString"] {
             let mut input = serde_json::json!({"formatVersion":1,"body":[
                 {"op":"if","condition":{"op":condition},"then":[]}
             ]});
@@ -810,11 +830,13 @@ mod target_tests {
                 assert!(parse(&input.to_string()).is_err());
             }
         }
-        for minimum in [serde_json::json!(256), serde_json::json!({"op":"hasIndex"})] {
-            let input = serde_json::json!({"formatVersion":1,"body":[
-                {"op":"parseIndex","minimum":minimum}
-            ]});
-            assert!(parse(&input.to_string()).is_err());
+        for op in ["parseIndex", "parseSliceUpper"] {
+            for minimum in [serde_json::json!(256), serde_json::json!({"op":"hasIndex"})] {
+                let input = serde_json::json!({"formatVersion":1,"body":[
+                    {"op":op,"minimum":minimum}
+                ]});
+                assert!(parse(&input.to_string()).is_err());
+            }
         }
     }
 

@@ -40,6 +40,7 @@ fn with_frame(source: &str, test: impl FnOnce(&mut Frame<'_, '_>) -> TestResult)
         record_state: None,
         index_state: None,
         selector_state: None,
+        slice_upper: None,
     })
 }
 

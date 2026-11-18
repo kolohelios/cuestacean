@@ -16,6 +16,7 @@
     let
       scannerFixtures = [
         "selector-open"
+        "slice-separator"
         "selector-identifier"
         "record-open"
         "record-close"
@@ -67,6 +68,7 @@
         "ast-integer"
         "ast-text"
         "ast-binary"
+        "ast-ternary"
         "ast-unary"
         "ast-record-field"
         "tests/valid/ast-program-v2"
@@ -103,6 +105,8 @@
         "tests/valid/primary-cross-phase"
         "pratt"
         "tests/valid/pratt-no-selectors"
+        "tests/valid/pratt-no-slices"
+        "tests/valid/pratt-slice-high-minimum"
         "tests/valid/pratt-no-index"
         "tests/valid/pratt-index-high-minimum"
         "tests/valid/pratt-right"
@@ -248,6 +252,7 @@
         "tests/valid/strings-mixed"
         "evaluation"
         "grammar"
+        "tests/valid/grammar-no-brackets"
         "tests/valid/evaluation-left-twice"
         "tests/valid/pratt-lowering-no-increment"
         "tests/valid/unify-lowering-permissive"
@@ -318,7 +323,7 @@
               # for a literal can exhaust the CI runner while checking unused CUE.
               fragments=()
               case "$fixture" in
-                pratt|tests/valid/pratt-no-selectors|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
+                pratt|tests/valid/pratt-no-slices|tests/valid/pratt-slice-high-minimum|tests/valid/pratt-no-selectors|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
                 list-control|tests/valid/list-control-reverse|tests/valid/list-control-scalars|tests/valid/list-control-homogeneous) fragments=(list-control-fragments) ;;
                 record-control|tests/valid/record-control-reverse|tests/valid/record-control-scalars|tests/valid/record-control-homogeneous) fragments=(record-control-fragments) ;;
                 record-primary|tests/valid/record-primary-high-minimum) fragments=(record-primary-fragments) ;;
@@ -687,7 +692,7 @@
                   test -s error
                 done
                 # These selected domain/syntax rejections must also fail upstream.
-                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/call-{domain,arity,empty,name-newline}.cue ${../../bootstrap/source}/rejected/list-index-{range,negative,type,close}.cue ${../../bootstrap/source}/rejected/bounds-exclusive-domain.cue ${../../bootstrap/source}/rejected/not-integer.cue ${../../bootstrap/source}/rejected/null-conflict.cue ${../../bootstrap/source}/rejected/radix-uppercase-{binary,octal}.cue; do
+                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/call-{domain,arity,empty,name-newline}.cue ${../../bootstrap/source}/rejected/list-index-{range,negative,type,close}.cue ${../../bootstrap/source}/rejected/slice-{range,domain,stride}.cue ${../../bootstrap/source}/rejected/bounds-exclusive-domain.cue ${../../bootstrap/source}/rejected/not-integer.cue ${../../bootstrap/source}/rejected/null-conflict.cue ${../../bootstrap/source}/rejected/radix-uppercase-{binary,octal}.cue; do
                   if cue export "$source" --out json > expected 2> cue-error; then exit 1; fi
                   test ! -s expected
                   test -s cue-error

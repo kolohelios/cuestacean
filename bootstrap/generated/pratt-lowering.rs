@@ -9,7 +9,7 @@ impl Driver for Compiled {
         match lowering::instruction_op(_node)? {
             "action" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame."))?;
-parts.arg(|ctx| ctx.select(_node, "action", |ctx, tag| match tag { "advanceBound" => ctx.text("advance_bound"), "advanceCall" => ctx.text("advance_call"), "advanceGroup" => ctx.text("advance_group"), "advanceIndex" => ctx.text("advance_index"), "advanceList" => ctx.text("advance_list"), "advanceListTail" => ctx.text("advance_list_tail"), "advanceNegation" => ctx.text("advance_negation"), "advanceNot" => ctx.text("advance_not"), "advanceOperator" => ctx.text("advance_operator"), "advanceRecord" => ctx.text("advance_record"), "advanceRecordTail" => ctx.text("advance_record_tail"), "afterOperand" => ctx.text("after_operand"), "afterWordOperator" => ctx.text("after_word_operator"), "appendItem" => ctx.text("append_item"), "appendListElement" => ctx.text("append_list_element"), "appendRecordField" => ctx.text("append_record_field"), "buildBinary" => ctx.text("build_binary"), "buildList" => ctx.text("build_list"), "buildNegation" => ctx.text("build_negation"), "buildNot" => ctx.text("build_not"), "buildRecord" => ctx.text("build_record"), "closeGroup" => ctx.text("close_group"), "closeIndex" => ctx.text("close_index"), "closeRecordCall" => ctx.text("close_record_call"), "evaluateItem" => ctx.text("evaluate_item"), "finishList" => ctx.text("finish_list"), "finishRecord" => ctx.text("finish_record"), "firstItem" => ctx.text("first_item"), "lastItem" => ctx.text("last_item"), "lookupOperator" => ctx.text("lookup_operator"), "nextItem" => ctx.text("next_item"), "openRecordBody" => ctx.text("open_record_body"), "openRecordCall" => ctx.text("open_record_call"), "parseAtom" => ctx.text("parse_atom"), "parseBound" => ctx.text("parse_bound"), "parseInteger" => ctx.text("parse_integer"), "parseRecordLabel" => ctx.text("parse_record_label"), "parseRight" => ctx.text("parse_right"), "parseString" => ctx.text("parse_string"), "previousItem" => ctx.text("previous_item"), "primary" => ctx.text("primary"), "probeListEnd" => ctx.text("probe_list_end"), "probeRecordEnd" => ctx.text("probe_record_end"), "record" => ctx.text("record"), "recordColon" => ctx.text("record_colon"), "recordLabelTrivia" => ctx.text("record_label_trivia"), "recordWhitespace" => ctx.text("record_whitespace"), "rejectItem" => ctx.text("reject_item"), "requireRecordLabel" => ctx.text("require_record_label"), "scanBound" => ctx.text("scan_bound"), "scanGroup" => ctx.text("scan_group"), "scanIdentifier" => ctx.text("scan_identifier"), "scanIndex" => ctx.text("scan_index"), "scanList" => ctx.text("scan_list"), "scanNegation" => ctx.text("scan_negation"), "scanNot" => ctx.text("scan_not"), "scanString" => ctx.text("scan_string"), "whitespace" => ctx.text("whitespace"), tag => Err(lowering::missing_selection(tag)), }))?;
+parts.arg(|ctx| ctx.identifier(_node, "action", true, false))?;
 parts.arg(|ctx| ctx.text("()?;\n"))?;
 Ok(())
 }),
@@ -49,6 +49,7 @@ Ok(())
             "hasRecord" => ctx.text("_frame.has_record()?"),
             "hasRecordField" => ctx.text("_frame.has_record_field()?"),
             "hasSelectorString" => ctx.text("_frame.has_selector_string()?"),
+            "hasSlice" => ctx.text("_frame.has_slice()?"),
             "hasString" => ctx.text("_frame.has_string()?"),
             "if" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("_frame.step()?;\nif "))?;
@@ -76,9 +77,9 @@ Ok(())
 }),
             "leftAssociative" => ctx.text("_frame.left_associative()?"),
             "minimum" => ctx.text("_frame.minimum()"),
-            "parseMinimum" | "parseGroup" | "parseIndex" | "parseListElement" | "parseNegation" | "parseNot" | "parseRecordValue" => ctx.concat(|parts| {
+            "parseMinimum" | "parseGroup" | "parseIndex" | "parseListElement" | "parseNegation" | "parseNot" | "parseRecordValue" | "parseSliceUpper" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("_frame.step()?;\n_frame."))?;
-parts.arg(|ctx| ctx.select(_node, "op", |ctx, tag| match tag { "parseGroup" => ctx.text("parse_group"), "parseIndex" => ctx.text("parse_index"), "parseListElement" => ctx.text("parse_list_element"), "parseNegation" => ctx.text("parse_negation"), "parseNot" => ctx.text("parse_not"), "parseRecordValue" => ctx.text("parse_record_value"), tag => Err(lowering::missing_selection(tag)), }))?;
+parts.arg(|ctx| ctx.select(_node, "op", |ctx, tag| match tag { "parseGroup" => ctx.text("parse_group"), "parseIndex" => ctx.text("parse_index"), "parseListElement" => ctx.text("parse_list_element"), "parseNegation" => ctx.text("parse_negation"), "parseNot" => ctx.text("parse_not"), "parseRecordValue" => ctx.text("parse_record_value"), "parseSliceUpper" => ctx.text("parse_slice_upper"), tag => Err(lowering::missing_selection(tag)), }))?;
 parts.arg(|ctx| ctx.text("("))?;
 parts.arg(|ctx| ctx.child(_node, "minimum", _depth, self))?;
 parts.arg(|ctx| ctx.text(")?;\n"))?;
