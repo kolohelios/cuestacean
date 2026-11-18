@@ -117,6 +117,10 @@ fn evaluate_node(
         "length" => runtime::length((evaluate(runtime::field(node, "operand")?, _context))?),
         "integer" => runtime::integer(node, "value"),
         "intType" => Ok::<_, Error>(runtime::Value::Int),
+        "index" => runtime::index(
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
+        ),
         "greaterEqual" => runtime::greater_equal(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,

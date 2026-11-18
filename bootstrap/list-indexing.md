@@ -25,8 +25,10 @@ postfix loop. `list-open` recognizes opening and a CUE `index-close` scanner own
 required closing/trivia/diagnostic. Existing conservative operand-newline policy
 remains, including before brackets. Optional grammar index:{kind,leftField,
 rightField} validates eagerly (distinct nonempty fields, neither kind); absence
-disables syntax without fallback. Default constructor listIndex/left/right uses
-the existing CUE binary builder, not native JSON maps.
+disables syntax without fallback. The default constructor is now
+[index/left/right](collection-indexing.md), using generic CUE collection dispatch;
+explicit listIndex metadata retains this original strict AST/API. Both use the
+existing CUE binary builder, not native JSON maps.
 
 Private native index stages check candidates/commits, selected-driver recursion,
 pending RHS and completion. Active index stages reject binary/cross-primary

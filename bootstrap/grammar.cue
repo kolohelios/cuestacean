@@ -5,7 +5,7 @@ package bootstrap
 	text: {kind: "string", valueField: "value"}
 	calls: [{token: "len", kind: "length", operandField: "operand"}]
 	list: {kind: "listExpression", elementsField: "elements"}
-	index: {kind: "listIndex", leftField: "left", rightField: "right"}
+	index: {kind: "index", leftField: "left", rightField: "right"}
 	atoms: [{token: "int", kind: "intType"}, {token: "bool", kind: "boolType"},
 		{token: "true", kind: "true"}, {token: "false", kind: "false"}, {token: "string", kind: "stringType"}, {token: "null", kind: "null"}, {token: "_", kind: "top"}]
 	bounds: [

@@ -46,6 +46,10 @@ fn evaluate_node(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,
         ),
+        "index" => runtime::index(
+            (evaluate(runtime::field(node, "left")?, _context))?,
+            (evaluate(runtime::field(node, "right")?, _context))?,
+        ),
         "intType" => Ok::<_, Error>(runtime::Value::Int),
         "integer" => runtime::integer(node, "value"),
         "length" => runtime::length((evaluate(runtime::field(node, "operand")?, _context))?),

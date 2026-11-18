@@ -34,6 +34,7 @@ advantages remain a hypothesis, not a measured result.
 | Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` compiler/reference engine/shared kernel; generated Rust driver; native checked primitives |
 | Record field evaluation (JSON AST) | `bootstrap/record-control{,-fragments}.cue`, [contract](../bootstrap/record-expressions.md) | Existing control compiler record target; CUE traversal/concrete-child admission, native checked cursor/map/callback |
 | Closed records (JSON AST) | [Ownership/profile contract](closed-records.md), `bootstrap/record-{index,length}.cue` | Immutable certified bounded map/flat codec; CUE domain/closedness/lookup/count/equality/logical policy |
+| Generic collection indexing | `bootstrap/index.cue`, [contract](../bootstrap/collection-indexing.md) | CUE list+i64/record+text dispatch; existing checked range/presence/getter kernels; source brackets select generic AST |
 | Closed-list indexing | `bootstrap/list-index.cue`, [contract](../bootstrap/list-indexing.md) | CUE domain/range and postfix loops; native checked extraction/frame operations |
 | List element evaluation | `bootstrap/list-control{,-fragments}.cue`, [contract](../bootstrap/list-expressions.md) | Typed list target of existing control compiler; native checked cursor/callback/buffer |
 | Evaluation rules | `bootstrap/evaluation.cue`, expression/rule schemas | `src/lib.rs`, `src/codegen.rs`; interpreted and generated rule execution |
@@ -82,7 +83,8 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   [source lists and `len(expression)`](../bootstrap/source-lists.md) for concrete
   arrays and text-byte/list-element length, including
   [bounded nested expression values](nested-list-values.md);
-  [closed-list indexing](../bootstrap/list-indexing.md) with computed i64 indices;
+  [postfix indexing](../bootstrap/collection-indexing.md) with computed indices
+  (source currently constructs lists; generic JSON index also admits record/text);
   parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary `!` and expression negation;
   `div`, `mod`, `quo`, `rem`; concrete scalar `==` / `!=`; integer/text `<` / `<=` / `>` / `>=`; CUE-owned UTF-8 `//` comment trivia.
 - Binary operators are left-associative by default. `div/mod/quo/rem` share
@@ -248,6 +250,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#137](https://github.com/kolohelios/cuestacean/pull/137) | Bounded closed scalar records, CUE field lookup and count |
 | [#139](https://github.com/kolohelios/cuestacean/pull/139) | CUE traversal and checked JSON record-expression fields |
 | [#141](https://github.com/kolohelios/cuestacean/pull/141) | Bounded nested immutable closed-record values |
+| [#143](https://github.com/kolohelios/cuestacean/pull/143) | Shared certificates and bounded mixed closed collections |
 
 ## Build and validation runbook
 

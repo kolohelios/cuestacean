@@ -65,6 +65,7 @@ enum Function {
     LogicalNot,
     StringLength,
     ListLength,
+    Index,
     ListIndex,
     RecordIndex,
     RecordLength,
@@ -167,6 +168,7 @@ enum Expr {
 #[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Failure {
+    CollectionIndexOperands,
     IndexOperands,
     IndexRange,
     RecordIndexOperands,
@@ -577,6 +579,7 @@ pub fn text_compare(left: &Value, right: &Value, relation: Relation) -> Result<b
 }
 pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate::Error> {
     match reason {
+        Failure::CollectionIndexOperands => Err(crate::Error::CollectionIndexOperands),
         Failure::IndexOperands => Err(crate::Error::IndexOperands),
         Failure::IndexRange => Err(crate::Error::IndexRange),
         Failure::RecordIndexOperands => Err(crate::Error::RecordIndexOperands),

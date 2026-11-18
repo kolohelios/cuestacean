@@ -145,6 +145,11 @@ production now explicitly admits [nested closed values](../../docs/nested-list-v
 `list-control-homogeneous` retains that nested-list-only program byte-exact.
 Checked native append/final construction enforce cached 32-level/4096-node shape
 across alternating kinds, never resetting limits at a list/record boundary.
+`index` adds [generic collection indexing](../collection-indexing.md): CUE chooses
+list+i64/range or record+text/presence over existing checked kernels. `index-zero`
+is a real same-name/arity compiled alternate; typed index APIs remain strict.
+Default source bracket metadata selects the generic AST; parser drivers stay
+byte-identical and explicit old metadata still selects listIndex.
 `record-index` / `record-length` add [closed scalar record](../../docs/closed-records.md)
 lookup/count; `record-index-zero` is an actual same-name/arity compiled alternate.
 Record literal data uses a checked native codec; CUE owns domain/presence,
@@ -249,7 +254,7 @@ done
 bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/pratt.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/pratt-lowering-no-increment.json" \
   | rustfmt --edition 2024 > bootstrap/generated/pratt-no-increment.rs
-for control in record-index record-length tests/valid/record-index-zero lower-exclusive-bound upper-exclusive-bound tests/valid/exclusive-reversed list-index tests/valid/list-index-zero length-control list-length-control tests/valid/list-length-zero string-length-control tests/valid/length-zero lower-bound upper-bound tests/valid/bound-reversed tests/valid/unary-bound-endpoints json-output integer-output tests/valid/output-zero divide-control modulo-control quotient-control remainder-control tests/valid/integer-literals negate-control difference-control product-control unify sum equal not-equal less less-equal greater greater-equal logical-and logical-or logical-not tests/valid/not-true tests/valid/control-default tests/valid/unary-conditions tests/valid/logic-false tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
+for control in index tests/valid/index-zero record-index record-length tests/valid/record-index-zero lower-exclusive-bound upper-exclusive-bound tests/valid/exclusive-reversed list-index tests/valid/list-index-zero length-control list-length-control tests/valid/list-length-zero string-length-control tests/valid/length-zero lower-bound upper-bound tests/valid/bound-reversed tests/valid/unary-bound-endpoints json-output integer-output tests/valid/output-zero divide-control modulo-control quotient-control remainder-control tests/valid/integer-literals negate-control difference-control product-control unify sum equal not-equal less less-equal greater greater-equal logical-and logical-or logical-not tests/valid/not-true tests/valid/control-default tests/valid/unary-conditions tests/valid/logic-false tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
   name=$(basename "$control")
   bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"

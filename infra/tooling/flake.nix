@@ -100,6 +100,8 @@
       ];
       prattNames = builtins.concatStringsSep " " prattFixtures;
       unifyFixtures = [
+        "index"
+        "tests/valid/index-zero"
         "record-index"
         "record-length"
         "tests/valid/record-index-zero"
@@ -204,6 +206,8 @@
         "records-conflict"
         "records-fields-conflict"
         "list-indexing"
+        "collection-index"
+        "collection-index-record"
         "tests/valid/lists-unify"
         "tests/valid/lists-capacity"
         "tests/valid/lists-equal"
@@ -687,7 +691,7 @@
               }
               ''
                 set -euo pipefail
-                for fixture in lists list-expressions nested-lists records records-unify record-expressions nested-records nested-records-unify mixed-collections mixed-unify tests/valid/lists-unify; do
+                for fixture in lists list-expressions nested-lists records records-unify record-expressions nested-records nested-records-unify mixed-collections mixed-unify collection-index-record tests/valid/lists-unify; do
                   probe="''${fixture##*/}"
                   # Marshal in pinned CUE, not jq: keep every i64 exact.
                   printf '%s\n' "$(cue export ${../../bootstrap/tests/upstream}/"$probe.cue" --out text)" > expected
@@ -715,7 +719,7 @@
                     grep -Fx 'conflicting closed record values' error
                   done
                 done
-                for fixture in list-length lists-equal list-indexing exclusive-bounds records-index records-length records-equal records-logical; do
+                for fixture in list-length lists-equal list-indexing collection-index exclusive-bounds records-index records-length records-equal records-logical; do
                   cue export ${../../bootstrap/tests/upstream}/"$fixture.cue" --out json > expected
                   if [ "$fixture" = lists-equal ]; then input=tests/valid/$fixture; else input=$fixture; fi
                   bootstrap-executor ${jsonExports pkgs}/"$input.json" ${jsonExports pkgs}/evaluation.json > actual
