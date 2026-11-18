@@ -33,7 +33,9 @@ fields were not added by the literal slice. [Record expression control](../boots
 now additionally evaluates `{name,value:AST}` entries through the same immutable
 bounded constructor, shared AST context and checked per-field admission.
 
-Binary AST/rule `recordIndex {left,right}` eagerly evaluates record/key in that
+[Generic collection indexing](../bootstrap/collection-indexing.md) adds `index`
+for list+i64 or record+text through CUE dispatch. The original strict
+binary AST/rule `recordIndex {left,right}` eagerly evaluates record/key in that
 order with the shared context. CUE requires Record/Text, tests field presence,
 then chooses checked extraction or missing-field failure. Native always-available
 record_get/record_has defensively validate operands; record_count counts fields.

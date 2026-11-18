@@ -60,7 +60,7 @@ fn postfix_state_cursor_ownership_and_shared_fuel() -> Result<(), Box<dyn std::e
     frame.close_index()?;
     assert_eq!(
         frame.left,
-        Some(serde_json::json!({"kind":"listIndex",
+        Some(serde_json::json!({"kind":"index",
         "left":{"kind":"integer","value":7}, "right":{"kind":"integer","value":0}}))
     );
     assert!(frame.right.is_none());

@@ -226,7 +226,7 @@ fn compiled_entry_name_and_arity_do_not_supply_indexing_semantics() {
 #[test]
 fn independent_postfix_trees_precedence_minimum_zero_and_left_associative_chains() {
     let items = array(json!([integer(10), integer(20)]));
-    let index = |right| binary("listIndex", items.clone(), right);
+    let index = |right| binary("index", items.clone(), right);
     for (source, expected, value) in [
         (
             "[10,20][0+1]",
@@ -250,7 +250,7 @@ fn independent_postfix_trees_precedence_minimum_zero_and_left_associative_chains
         ("([10,20]) [ // index\n1]", index(integer(1)), json!(20)),
         (
             "[10,20][0][0]",
-            binary("listIndex", index(integer(0)), integer(0)),
+            binary("index", index(integer(0)), integer(0)),
             J::Null,
         ),
     ] {
@@ -263,7 +263,7 @@ fn independent_postfix_trees_precedence_minimum_zero_and_left_associative_chains
             );
             for result in evaluations(tree["entry"].clone()) {
                 if source.ends_with("[0][0]") {
-                    assert!(matches!(result, Err(Error::IndexOperands)));
+                    assert!(matches!(result, Err(Error::CollectionIndexOperands)));
                 } else {
                     assert_eq!(result.expect(source), value, "{source}");
                 }
@@ -286,7 +286,7 @@ fn optional_index_metadata_disables_syntax_and_validates_even_when_unused() {
     let mut grammar: J = serde_json::from_str(&export("grammar")).expect("grammar");
     assert_eq!(
         grammar["index"],
-        json!({"kind":"listIndex","leftField":"left","rightField":"right"})
+        json!({"kind":"index","leftField":"left","rightField":"right"})
     );
     grammar["index"] = json!({"kind":"customIndex","leftField":"base","rightField":"offset"});
     for parsed in parses("[1][0]", &grammar.to_string()) {
@@ -330,7 +330,7 @@ fn selected_expression_drivers_propagate_into_index_groups_calls_and_right_sides
         integer(1),
         binary("subtract", integer(1), integer(1)),
     );
-    let index = binary("listIndex", items, rhs);
+    let index = binary("index", items, rhs);
     for source in ["[10,20][1-1-1]", "([10,20][1-1-1])", "1+[10,20][1-1-1]"] {
         let (expected, value) = if source.starts_with("1+") {
             (binary("add", integer(1), index.clone()), 21)

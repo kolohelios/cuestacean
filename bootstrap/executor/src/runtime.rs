@@ -51,6 +51,10 @@ mod generated_list_length;
 mod generated_length;
 
 #[cfg(feature = "semantics")]
+#[path = "../../generated/index.rs"]
+mod generated_index;
+
+#[cfg(feature = "semantics")]
 #[path = "../../generated/list-index.rs"]
 mod generated_list_index;
 
@@ -1051,6 +1055,12 @@ pub fn record_index(left: Value, right: Value) -> Result<Value, Error> {
 #[cfg(feature = "semantics")]
 pub fn record_length(value: Value) -> Result<Value, Error> {
     generated_record_length::record_length(value)
+}
+
+/// Index a closed collection using generated CUE domain and selection policy.
+#[cfg(feature = "semantics")]
+pub fn index(left: Value, right: Value) -> Result<Value, Error> {
+    generated_index::index(left, right)
 }
 
 /// Index a closed list using generated CUE domain and range policy.

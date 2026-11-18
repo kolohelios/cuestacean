@@ -8,7 +8,7 @@ import "list"
 // Factor the identical recursive shape; separate recursive disjuncts expand
 // combinatorially in the upstream exporter as binary node kinds accumulate.
 #BinaryExpression: {
-	kind:  "recordIndex" | "listIndex" | "add" | "subtract" | "multiply" | "divide" | "modulo" | "quotient" | "remainder" | "unify" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr"
+	kind:  "index" | "recordIndex" | "listIndex" | "add" | "subtract" | "multiply" | "divide" | "modulo" | "quotient" | "remainder" | "unify" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr"
 	left:  #Expression
 	right: #Expression
 }
@@ -125,8 +125,8 @@ import "list"
 	op: "if", condition: #UnifyCondition, then: #UnifyExpression, else: #UnifyExpression
 } | {
 	op: "letBounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint, result: #UnifyExpression
-} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: #OutputFailure | "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering" | "logical" | "divisionByZero" | "boundThreshold" | "length" | "lists" | "listLength" | "lengthOperand" | "indexOperands" | "indexRange" | "emptyBound" | "records" | "recordLength" | "recordIndexOperands" | "recordMissing"}
-#BinaryControlProgram: {formatVersion: 1, function?: "recordIndex" | "listIndex" | "unify" | "sum" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr" | "difference" | "product" | "divide" | "modulo" | "quotient" | "remainder", result: #UnifyExpression}
+} | {op: "bounds", lower: #UnifyEndpoint, upper: #UnifyEndpoint} | {op: "fail", reason: #OutputFailure | "integers" | "bounds" | "booleans" | "types" | "strings" | "arithmetic" | "comparison" | "ordering" | "logical" | "divisionByZero" | "boundThreshold" | "length" | "lists" | "listLength" | "lengthOperand" | "indexOperands" | "indexRange" | "emptyBound" | "records" | "recordLength" | "recordIndexOperands" | "recordMissing" | "collectionIndexOperands"}
+#BinaryControlProgram: {formatVersion: 1, function?: "index" | "recordIndex" | "listIndex" | "unify" | "sum" | "equal" | "notEqual" | "less" | "lessEqual" | "greater" | "greaterEqual" | "logicalAnd" | "logicalOr" | "difference" | "product" | "divide" | "modulo" | "quotient" | "remainder", result: #UnifyExpression}
 #UnaryControlCondition: {op: "compare", left: #UnaryControlEndpoint, right: #UnaryControlEndpoint, relation: #UnifyRelation} | {op: "kindIs", input: "left", kind: #UnifyKind} | {op: "booleanIs", input: "left", value: bool} | {op: "and" | "or", left: #UnaryControlCondition, right: #UnaryControlCondition}
 #UnaryControlEndpoint: {op: "offset", value: #UnaryControlEndpoint, delta: -1 | 1} | #ControlInteger | {op: "input", input: "left", endpoint: #UnifyEndpointName} | {op: "empty"} | {
 	op: "choose", condition: #UnaryControlCondition, then: #UnaryControlEndpoint, else: #UnaryControlEndpoint
@@ -338,6 +338,7 @@ import "list"
 		record: result: {op: "record", field: "fields"}
 		recordExpression: result: {op: "recordExpression", field: "fields"}
 		recordIndex: result: {op: "recordIndex", left: #EvaluateChild, right: #EvaluateChild}
+		index: result: {op: "index", left: #EvaluateChild, right: #EvaluateChild}
 		recordLength: result: {op: "recordLength", value: {op: "evaluate", field: "operand"}}
 		integer: result: {
 			op:    "field"

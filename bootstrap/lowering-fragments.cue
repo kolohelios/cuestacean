@@ -15,7 +15,7 @@ package bootstrap
 		lowerBound:          "lower_bound", upperBound:                    "upper_bound", negate:  "negate"
 		logicalNot:          "logical_not", length:                        "length", stringLength: "string_length", listLength: "list_length", recordLength: "record_length"
 	}
-	let Binary = {difference: "difference", product: "product", divide: "divide", modulo: "modulo", quotient: "quotient"}
+	let Binary = {index: "index", difference: "difference", product: "product", divide: "divide", modulo: "modulo", quotient: "quotient"}
 	aliases: {
 		for name, _ in Unary {"\(name)": "unaryRuntime"}
 		for name, _ in Binary {"\(name)": "binaryRuntime"}

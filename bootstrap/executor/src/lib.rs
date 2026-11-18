@@ -187,6 +187,10 @@ pub enum Error {
     Length,
     #[snafu(display("length requires a concrete string or closed collection"))]
     LengthOperand,
+    #[snafu(display(
+        "indexing requires a concrete closed list and integer or closed record and string"
+    ))]
+    CollectionIndexOperands,
     #[snafu(display("indexing requires a concrete closed list and integer"))]
     IndexOperands,
     #[snafu(display("list index out of range"))]
@@ -285,6 +289,10 @@ enum Instruction {
     },
     Negate {
         value: Box<Instruction>,
+    },
+    Index {
+        left: Box<Instruction>,
+        right: Box<Instruction>,
     },
     #[serde(rename = "listIndex")]
     ListIndex {
@@ -510,6 +518,9 @@ fn instruction(
         }
         Instruction::RecordIndex { left, right } => {
             binary_instruction(left, right, node, rules, context, runtime::record_index)
+        }
+        Instruction::Index { left, right } => {
+            binary_instruction(left, right, node, rules, context, runtime::index)
         }
         Instruction::ListIndex { left, right } => {
             binary_instruction(left, right, node, rules, context, runtime::list_index)

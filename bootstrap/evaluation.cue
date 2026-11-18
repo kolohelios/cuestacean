@@ -26,6 +26,7 @@ package bootstrap
 		listIndex: result: {op: "listIndex", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
 		record: result: {op: "record", field: "fields"}
 		recordExpression: result: {op: "recordExpression", field: "fields"}
+		index: result: {op: "index", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
 		recordIndex: result: {op: "recordIndex", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
 		recordLength: result: {op: "recordLength", value: {op: "evaluate", field: "operand"}}
 		negate: result: {op: "negate", value: {op: "evaluate", field: "operand"}}

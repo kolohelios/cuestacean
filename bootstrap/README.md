@@ -24,6 +24,8 @@
   checked scalar/closed-collection admission with shared bounded cached shape;
   [contract](record-expressions.md). Raw `record` stays
   a scalar-data codec, not recursive AST traversal.
+- `index`: generic CUE list+i64 or record+text dispatch; [contract](collection-indexing.md).
+  Source postfix brackets select this AST by default; typed index APIs stay strict.
 - `recordIndex`: eager record/key AST children, CUE domain/presence policy.
 - `recordLength`: record-only count; generic `length` also admits records.
 - `listIndex`: binary `left`/`right`, CUE closed-list/integer domain and range
