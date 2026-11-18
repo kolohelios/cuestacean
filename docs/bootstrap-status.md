@@ -31,13 +31,13 @@ original two-file atom proof or changing exporter language/resource limits.
 The [DSL/native audit](dsl-boundaries.md) traces actual ownership and guard pressure;
 the [architecture walkthrough](architecture.md) is the reader-facing entry point.
 
-**Completed #169; next closure step #171:** the reviewed
-[scoped-schema/readiness contract](native-spec-export.md) established the independent
-AST atom export. The user's continuation request selects the complete AST builder
-family and native production provider, with a separate full-build-graph proof and
-oracle/downstream check. Compiler policies/import closures and semantic-policy
-migration remain later bounded selections, not authorization for routine syntax
-expansion, raised guards, general solving or six-seed closure.
+**Completed #169/#171; next prerequisite #173:** native AST atom/family exports
+now feed the production bundle. [Scoped `let` bindings](native-let-bindings.md)
+are the next bounded requirement from the real AST-lowering and identifier
+specifications. This does not complete their default/pattern/import closures.
+Compiler-policy closure and semantic-policy migration remain later bounded
+selections, not authorization for routine source expansion, raised guards,
+general solving or six-seed closure.
 
 Retain the eager evaluator for ready computations in its current subset. A future
 graph can track/refine dependencies and suspended constraints; their production

@@ -138,6 +138,21 @@ impl Evaluator<'_> {
                         split = true;
                         break;
                     }
+                    Expr::Name { .. } => {
+                        return Err(Error::Unsupported("unresolved binding name"));
+                    }
+                    Expr::Binding(id) => {
+                        self.step(1)?;
+                        if state.active.contains(id) {
+                            return Err(Error::Unsupported("binding cycle"));
+                        }
+                        state.active.push(*id);
+                        state.tasks.push(Task::Leave(*id));
+                        state.tasks.push(Task::Visit(Term {
+                            id: *id,
+                            groups: term.groups,
+                        }));
+                    }
                     Expr::Ref(name) => {
                         self.step(1)?;
                         let id = *self
@@ -375,5 +390,33 @@ impl Evaluator<'_> {
             }
             _ => Err(Error::Incomplete),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn malformed_unresolved_or_cyclic_binding_nodes_fail_defensively() {
+        let document = |nodes| Document {
+            nodes,
+            definitions: BTreeMap::new(),
+            roots: vec![0],
+        };
+        let unresolved = document(vec![Expr::Name {
+            scope: 0,
+            excluded: vec![],
+            name: "x".into(),
+        }]);
+        assert_eq!(
+            evaluate(&unresolved, 4096),
+            Err(Error::Unsupported("unresolved binding name"))
+        );
+        let cyclic = document(vec![Expr::Binding(0)]);
+        assert_eq!(
+            evaluate(&cyclic, 4096),
+            Err(Error::Unsupported("binding cycle"))
+        );
     }
 }

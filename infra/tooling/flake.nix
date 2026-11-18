@@ -535,6 +535,7 @@
               ../../bootstrap/spec-export/src/model.rs
               ../../bootstrap/spec-export/src/parser.rs
               ../../bootstrap/spec-export/src/eval.rs
+              ../../bootstrap/spec-export/src/bindings.rs
               ../../bootstrap/spec-export/Cargo.toml
               ../../bootstrap/spec-export/Cargo.lock
             ]

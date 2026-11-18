@@ -14,6 +14,14 @@ pub(crate) enum Expr {
     Struct(Vec<(String, Id)>),
     List(Vec<Id>, Option<Id>),
     Ref(String),
+    // Parser-only lexical context; admission replaces every Name before evaluation.
+    Name {
+        scope: usize,
+        excluded: Vec<usize>,
+        name: String,
+    },
+    // Direct body arena ID, not an index into the parser's binding table.
+    Binding(Id),
     And(Id, Id),
     Or(Id, Id),
 }
@@ -39,7 +47,7 @@ impl fmt::Display for Error {
             Self::Syntax(s) => write!(f, "syntax: {s}"),
             Self::Unsupported(s) => write!(f, "unsupported: {s}"),
             Self::Range => f.write_str("unsupported integer range"),
-            Self::Unknown(s) => write!(f, "unknown definition: {s}"),
+            Self::Unknown(s) => write!(f, "unknown reference: {s}"),
             Self::Conflict => f.write_str("conflicting constraints"),
             Self::Incomplete => f.write_str("incomplete export demand"),
             Self::Limit(s) => write!(f, "resource limit: {s}"),

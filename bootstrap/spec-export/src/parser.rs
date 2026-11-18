@@ -1,5 +1,8 @@
 //! Bounded syntax admission for the isolated native specification exporter.
-use crate::model::{Document, Error, Expr, Id, Type};
+use crate::{
+    bindings::{self, Binding, Scope},
+    model::{Document, Error, Expr, Id},
+};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -132,11 +135,11 @@ fn lex(source: &str, count: &mut usize) -> Result<Vec<Token>, Error> {
             b'&' | b'|' if bytes.get(pos + 1) == Some(&bytes[pos]) => {
                 return Err(Error::Unsupported("logical operation"));
             }
-            b'{' | b'}' | b'[' | b']' | b'(' | b')' | b':' | b',' | b'&' | b'|' => {
+            b'{' | b'}' | b'[' | b']' | b'(' | b')' | b':' | b',' | b'&' | b'|' | b'=' => {
                 pos += 1;
                 Token::Symbol(bytes[start])
             }
-            b'*' | b'?' | b'!' | b'=' | b'+' | b'/' | b'<' | b'>' | b'.' | b'\'' => {
+            b'*' | b'?' | b'!' | b'+' | b'/' | b'<' | b'>' | b'.' | b'\'' => {
                 return Err(Error::Unsupported("syntax outside export profile"));
             }
             _ => return Err(Error::Unsupported("source character")),
@@ -156,6 +159,10 @@ struct Parser {
     pos: usize,
     document: Document,
     heights: Vec<usize>,
+    scopes: Vec<Scope>,
+    bindings: Vec<Binding>,
+    scope: usize,
+    initializers: Vec<usize>,
 }
 
 impl Parser {
@@ -231,13 +238,22 @@ impl Parser {
             Token::Text(value) => self.node(Expr::Literal(value.into()))?,
             Token::Integer(value) => self.node(Expr::Literal(value.into()))?,
             Token::Word(word) => match word.as_str() {
-                "string" => self.node(Expr::Type(Type::String))?,
-                "int" => self.node(Expr::Type(Type::Int))?,
                 _ if word.starts_with('#') => {
                     label(&word)?;
                     self.node(Expr::Ref(word))?
                 }
-                _ => return Err(Error::Unsupported("value reference or type")),
+                "let" | "for" | "if" | "in" | "import" | "package" | "true" | "false" | "null"
+                | "_" => {
+                    return Err(Error::Unsupported("value reference or type"));
+                }
+                _ => {
+                    label(&word)?;
+                    self.node(Expr::Name {
+                        scope: self.scope,
+                        excluded: self.initializers.clone(),
+                        name: word,
+                    })?
+                }
             },
             Token::NotEqual => {
                 self.newlines();
@@ -284,10 +300,75 @@ impl Parser {
         }
         Ok(left)
     }
+    fn enter_scope(&mut self, parent: Option<usize>) {
+        self.scope = self.scopes.len();
+        self.scopes.push(Scope {
+            parent,
+            bindings: BTreeMap::new(),
+            fields: Default::default(),
+            excluded: self.initializers.clone(),
+        });
+    }
+    fn binding(&mut self, depth: usize) -> Result<(), Error> {
+        self.take(); // let
+        let name = match self.take() {
+            Token::Word(name)
+                if !name.starts_with('#')
+                    && !matches!(
+                        name.as_str(),
+                        "let"
+                            | "for"
+                            | "if"
+                            | "in"
+                            | "import"
+                            | "package"
+                            | "true"
+                            | "false"
+                            | "null"
+                    ) =>
+            {
+                name
+            }
+            _ => return Err(Error::Unsupported("binding name")),
+        };
+        label(&name)?;
+        if self.scopes[self.scope].bindings.contains_key(&name) {
+            return Err(Error::Unsupported("duplicate binding"));
+        }
+        if self.bindings.len() >= 64 {
+            return Err(Error::Limit("bindings"));
+        }
+        self.expect(b'=')?;
+        self.newlines();
+        let index = self.bindings.len();
+        self.scopes[self.scope].bindings.insert(name.clone(), index);
+        self.bindings.push(Binding {
+            name,
+            scope: self.scope,
+            body: None,
+        });
+        self.initializers.push(index);
+        let body = self.expression(depth, 0)?;
+        self.initializers.pop();
+        self.bindings[index].body = Some(body);
+        Ok(())
+    }
     fn structure(&mut self, depth: usize) -> Result<Id, Error> {
+        let parent = self.scope;
+        self.enter_scope(Some(parent));
         let mut fields = Vec::new();
         self.newlines();
         while !self.symbol(b'}') {
+            if self.peek() == &Token::Word("let".into()) {
+                self.binding(depth + 1)?;
+                if self.symbol(b'}') {
+                    break;
+                }
+                if !self.separators() {
+                    return Err(Error::Syntax("field separator"));
+                }
+                continue;
+            }
             if fields.len() >= 64 {
                 return Err(Error::Limit("container items"));
             }
@@ -304,7 +385,10 @@ impl Parser {
                 {
                     return Err(Error::Unsupported("declaration"));
                 }
-                Token::Word(name) => name,
+                Token::Word(name) => {
+                    self.scopes[self.scope].fields.insert(name.clone());
+                    name
+                }
                 Token::Ellipsis => return Err(Error::Unsupported("struct ellipsis")),
                 Token::Symbol(b'[') => return Err(Error::Unsupported("pattern field")),
                 _ => return Err(Error::Syntax("field label")),
@@ -321,6 +405,7 @@ impl Parser {
                 return Err(Error::Syntax("field separator"));
             }
         }
+        self.scope = parent;
         self.node(Expr::Struct(fields))
     }
     fn list(&mut self, depth: usize) -> Result<Id, Error> {
@@ -351,6 +436,7 @@ impl Parser {
         self.node(Expr::List(items, None))
     }
     fn file(&mut self) -> Result<String, Error> {
+        self.enter_scope(None);
         self.newlines();
         if self.take() != Token::Word("package".into()) {
             return Err(Error::Syntax("package declaration"));
@@ -364,7 +450,9 @@ impl Parser {
         }
         self.newlines();
         while self.peek() != &Token::End {
-            if matches!(self.peek(), Token::Word(name) if name.starts_with('#'))
+            if self.peek() == &Token::Word("let".into()) {
+                self.binding(1)?;
+            } else if matches!(self.peek(), Token::Word(name) if name.starts_with('#'))
                 && self.tokens.get(self.pos + 1) == Some(&Token::Symbol(b':'))
             {
                 let Token::Word(name) = self.take() else {
@@ -408,6 +496,10 @@ pub(crate) fn parse(schema: &str, program: &str) -> Result<Document, Error> {
         tokens: first,
         pos: 0,
         heights: Vec::new(),
+        scopes: Vec::new(),
+        bindings: Vec::new(),
+        scope: 0,
+        initializers: Vec::new(),
         document: Document {
             nodes: Vec::new(),
             definitions: BTreeMap::new(),
@@ -423,12 +515,6 @@ pub(crate) fn parse(schema: &str, program: &str) -> Result<Document, Error> {
     if parser.document.roots.is_empty() {
         return Err(Error::Syntax("missing root embedding"));
     }
-    for node in &parser.document.nodes {
-        if let Expr::Ref(name) = node
-            && !parser.document.definitions.contains_key(name)
-        {
-            return Err(Error::Unknown(name.clone()));
-        }
-    }
+    bindings::resolve(&mut parser.document, &parser.scopes, &parser.bindings)?;
     Ok(parser.document)
 }

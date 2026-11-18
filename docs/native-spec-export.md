@@ -3,9 +3,10 @@
 Milestone [#169](https://github.com/kolohelios/cuestacean/issues/169), agreed after
 #161. Two focused contract reviews preceded parser/evaluator implementation. The target is the unmodified `bootstrap/ast-schema.cue` plus
 `bootstrap/ast-atom.cue`, not general CUE or replacement of the six compilers.
-The [#171 family extension](native-builder-family.md) reuses this unchanged
+The [#171 family extension](native-builder-family.md) reused the initial
 language/implementation for all 12 current builder specs with its own artifact and
-proof. The original atom artifact and two-file attestation stay unchanged.
+proof. [#173 lexical bindings](native-let-bindings.md) extend this native subset
+without changing those raw builder inputs or their JSON/Rust results. The original atom artifact and two-file attestation stay unchanged.
 
 ## Boundary and ownership
 
@@ -29,7 +30,8 @@ existing policy/resource limits change.
 Both sources declare the same ASCII package name. Parse named `#` definitions,
 one or more root embeddings, regular identifier/quoted field labels, structs,
 fixed lists, typed open lists `[...T]`, parentheses, references to definitions,
-`string`/`int`, JSON-style quoted strings, decimal i64 literals, conjunction `&`,
+predeclared `string`/`int`, scoped [let bindings](native-let-bindings.md), JSON-style
+quoted strings, decimal i64 literals, conjunction `&`,
 disjunction `|`, and literal inequality `!=`. `&` binds more tightly than `|`.
 Comments are `//`; newline/comma separation must not accept missing separators.
 
@@ -41,7 +43,7 @@ instantiation has its own constraint collection and data path; specializing one
 use must not mutate a shared template or another list item.
 
 Explicitly reject unsupported syntax: imports, defaults, optional/required field
-markers, hidden fields, value references, let/comprehensions/patterns/interpolation,
+markers, hidden fields, field-value references, comprehensions/patterns/interpolation,
 boolean/null literals, other numeric forms, computed operations and open struct ellipses. Duplicate
 named definition declarations are initially Unsupported (their closedness/merge
 semantics need a separate contract). Duplicate ordinary fields are conjuncts, not
@@ -105,7 +107,8 @@ pub enum Type { String, Int }
 pub enum Expr {
     Literal(serde_json::Value), Type(Type), NotEqual(serde_json::Value),
     Struct(Vec<(String, Id)>), List(Vec<Id>, Option<Id>), Ref(String),
-    And(Id, Id), Or(Id, Id),
+    And(Id, Id), Or(Id, Id), Binding(Id),
+    Name { scope: usize, excluded: Vec<usize>, name: String },
 }
 pub struct Document {
     pub nodes: Vec<Expr>, pub definitions: std::collections::BTreeMap<String, Id>,
@@ -125,7 +128,7 @@ Use non-owning IDs for references; recursive evaluator frames are bounded by the
 export-depth limit and syntax parsing by its own depth limit.
 
 Initial isolated caps: 64 KiB combined source, 4096 tokens, 2048 expression nodes,
-64 definitions, 64 fields/items per explicit container, 1..64-byte field/definition
+64 definitions, 64 let bindings, 64 fields/items per explicit container, 1..64-byte field/definition
 labels (including the leading `#` for definitions), 32 syntax levels, 32
 root-inclusive demanded output levels, 4096 evaluation steps, 2048 output value
 occurrences across trial branches, 64 KiB copied value-string bytes and 64 KiB
@@ -169,7 +172,7 @@ nix build --no-link ./infra/tooling#checks.x86_64-linux.native-spec-tests \
   ./infra/tooling#checks.x86_64-linux.native-spec-closure
 ```
 
-`specSources(false)` contains Cargo metadata and the five handwritten source files
+`specSources(false)` contains Cargo metadata and the six handwritten source files
 only. The test-source variant adds oracle fixtures/expected-answer tests, but is
 not an input of `specExporter` or `nativeAtom`. The artifact receives a separate
 source fileset containing exactly the two CUE files. `nativeBuildClosure` roots
