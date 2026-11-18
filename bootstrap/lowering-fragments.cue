@@ -17,7 +17,7 @@ package bootstrap
 	}
 	let Binary = {
 		index:       "index", difference:       "difference", product:    "product", divide: "divide", modulo: "modulo", quotient: "quotient"
-		recordIndex: "record_index", listIndex: "list_index", logicalAnd: "logical_and"
+		recordIndex: "record_index", listIndex: "list_index", logicalAnd: "logical_and", logicalOr: "logical_or"
 	}
 	aliases: {
 		for name, _ in Unary {"\(name)": "unaryRuntime"}
@@ -81,7 +81,6 @@ package bootstrap
 		]}
 		sum: {op: "call", path: "runtime::sum", args: [L, R]}
 		conjunction: {op: "call", path: "runtime::conjunction", args: [Node, Field, Context, {op: "path", value: "evaluate"}]}
-		logicalOr: {op: "call", path: "runtime::logical_or", args: [L, R]}
 		less: {op: "call", path: "runtime::less", args: [L, R]}
 		lessEqual: {op: "call", path: "runtime::less_equal", args: [L, R]}
 		greater: {op: "call", path: "runtime::greater", args: [L, R]}
@@ -89,10 +88,15 @@ package bootstrap
 		equal: {op: "call", path: "runtime::equal", args: [L, R]}
 		notEqual: {op: "call", path: "runtime::not_equal", args: [L, R]}
 		remainder: {op: "call", path: "runtime::remainder", args: [L, R]}
-		unify: {op: "call", path: "runtime::unify", args: [L, R]}
-		listSlice: {op: "call", path: "runtime::list_slice", args: [V,
-			{op: "try", value: {op: "group", value: {op: "lower", field: "lower"}}},
-			{op: "try", value: {op: "group", value: {op: "lower", field: "upper"}}},
+		// Keep wide owned temporaries out of unrelated recursive match arms.
+		unify: {op: "concat", parts: [{op: "text", value: "(|_context: &mut runtime::EvaluationContext| "},
+			{op: "call", path: "runtime::unify", args: [L, R]}, {op: "text", value: ")(_context)"},
+		]}
+		listSlice: {op: "concat", parts: [{op: "text", value: "(|_context: &mut runtime::EvaluationContext| "},
+			{op: "call", path: "runtime::list_slice", args: [V,
+				{op: "try", value: {op: "group", value: {op: "lower", field: "lower"}}},
+				{op: "try", value: {op: "group", value: {op: "lower", field: "upper"}}},
+			]}, {op: "text", value: ")(_context)"},
 		]}
 	}
 }

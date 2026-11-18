@@ -90,13 +90,23 @@ fn default_policy_matches_independent_instruction_expressions() {
         ("logicalOr", "logical_or"),
     ] {
         let input = json!({"op":op, "left":left, "right":right});
-        assert_eq!(
-            lower(&policy, input),
-            format!(
-                "runtime::{function}((evaluate(runtime::field(node, \"left\")?, _context))?, (evaluate(runtime::field(node, \"right\")?, _context))?)"
-            )
+        let call = format!(
+            "runtime::{function}((evaluate(runtime::field(node, \"left\")?, _context))?, (evaluate(runtime::field(node, \"right\")?, _context))?)"
         );
+        let expected = if op == "unify" {
+            format!("(|_context: &mut runtime::EvaluationContext| {call})(_context)")
+        } else {
+            call
+        };
+        assert_eq!(lower(&policy, input), expected);
     }
+    assert_eq!(
+        lower(
+            &policy,
+            json!({"op":"listSlice","value":{"op":"evaluate","field":"operand"},"lower":left,"upper":right})
+        ),
+        "(|_context: &mut runtime::EvaluationContext| runtime::list_slice((evaluate(runtime::field(node, \"operand\")?, _context))?, (evaluate(runtime::field(node, \"left\")?, _context))?, (evaluate(runtime::field(node, \"right\")?, _context))?))(_context)"
+    );
 }
 
 #[test]

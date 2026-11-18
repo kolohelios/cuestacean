@@ -302,6 +302,11 @@ adds conjunction-primary and its actual high-minimum alternate, preserving prior
 primary as primary-no-conjunction. Existing hooks default the fourth driver;
 all four inherit through recursion. See [conjunction](../conjunction.md).
 
+[Wide-operand frame layout](../generated-operand-frames.md) deliberately places
+listSlice/unify evaluation in immediate CUE-emitted closures, preserving the same
+context/child order while keeping their temporaries out of unrelated match arms.
+No larger stacks or resource guards are used.
+
 ## Fresh Nix builds
 
 The pinned formatter defines the Rust artifact's byte layout. Nix builds in two

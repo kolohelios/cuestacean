@@ -24,10 +24,12 @@ fn evaluate_node(
     _context: &mut runtime::EvaluationContext,
 ) -> Result<runtime::Value, Error> {
     match runtime::kind(node)? {
-        "kind\"\\\nλ" => runtime::unify(
-            (runtime::lower_bound((runtime::integer(node, "payload\"\\\nλ"))?))?,
-            (runtime::integer(node, "payload\"\\\nλ"))?,
-        ),
+        "kind\"\\\nλ" => (|_context: &mut runtime::EvaluationContext| {
+            runtime::unify(
+                (runtime::lower_bound((runtime::integer(node, "payload\"\\\nλ"))?))?,
+                (runtime::integer(node, "payload\"\\\nλ"))?,
+            )
+        })(_context),
         "true" => Ok::<_, Error>(runtime::Value::Boolean(false)),
         kind => Err(Error::MissingRule {
             kind: kind.to_string(),

@@ -8,32 +8,37 @@ impl Driver for Compiled {
     fn render(&self, ctx: &mut Context, _node: &Value, _depth: usize) -> Result<String, Error> {
         match lowering::instruction_op(_node)? {
             "binaryRuntime" | "difference" | "divide" | "index" | "listIndex" | "logicalAnd"
-            | "modulo" | "product" | "quotient" | "recordIndex" => ctx.concat(|parts| {
-                parts.arg(|ctx| {
-                    ctx.select(_node, "op", |ctx, tag| match tag {
-                        "difference" => ctx.text("runtime::difference"),
-                        "divide" => ctx.text("runtime::divide"),
-                        "index" => ctx.text("runtime::index"),
-                        "listIndex" => ctx.text("runtime::list_index"),
-                        "logicalAnd" => ctx.text("runtime::logical_and"),
-                        "modulo" => ctx.text("runtime::modulo"),
-                        "product" => ctx.text("runtime::product"),
-                        "quotient" => ctx.text("runtime::quotient"),
-                        "recordIndex" => ctx.text("runtime::record_index"),
-                        tag => Err(lowering::missing_selection(tag)),
-                    })
-                })?;
-                parts.arg(|ctx| ctx.text("("))?;
-                parts.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
-                })?;
-                parts.arg(|ctx| ctx.text(", "))?;
-                parts.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
-                })?;
-                parts.arg(|ctx| ctx.text(")"))?;
-                Ok(())
-            }),
+            | "logicalOr" | "modulo" | "product" | "quotient" | "recordIndex" => {
+                ctx.concat(|parts| {
+                    parts.arg(|ctx| {
+                        ctx.select(_node, "op", |ctx, tag| match tag {
+                            "difference" => ctx.text("runtime::difference"),
+                            "divide" => ctx.text("runtime::divide"),
+                            "index" => ctx.text("runtime::index"),
+                            "listIndex" => ctx.text("runtime::list_index"),
+                            "logicalAnd" => ctx.text("runtime::logical_and"),
+                            "logicalOr" => ctx.text("runtime::logical_or"),
+                            "modulo" => ctx.text("runtime::modulo"),
+                            "product" => ctx.text("runtime::product"),
+                            "quotient" => ctx.text("runtime::quotient"),
+                            "recordIndex" => ctx.text("runtime::record_index"),
+                            tag => Err(lowering::missing_selection(tag)),
+                        })
+                    })?;
+                    parts.arg(|ctx| ctx.text("("))?;
+                    parts.arg(|ctx| {
+                        ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                    })?;
+                    parts.arg(|ctx| ctx.text(", "))?;
+                    parts.arg(|ctx| {
+                        ctx.try_value(|ctx| {
+                            ctx.group(|ctx| ctx.child(_node, "right", _depth, self))
+                        })
+                    })?;
+                    parts.arg(|ctx| ctx.text(")"))?;
+                    Ok(())
+                })
+            }
             "bool" => ctx.ok(|ctx| ctx.path("runtime::Value::Bool")),
             "boolean" => ctx.ok(|ctx| {
                 ctx.call("runtime::Value::Boolean", |call| {
@@ -124,25 +129,29 @@ impl Driver for Compiled {
                 call.arg(|ctx| ctx.path("evaluate"))?;
                 Ok(())
             }),
-            "listSlice" => ctx.call("runtime::list_slice", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
+            "listSlice" => ctx.concat(|parts| {
+                parts.arg(|ctx| ctx.text("(|_context: &mut runtime::EvaluationContext| "))?;
+                parts.arg(|ctx| {
+                    ctx.call("runtime::list_slice", |call| {
+                        call.arg(|ctx| {
+                            ctx.try_value(|ctx| {
+                                ctx.group(|ctx| ctx.child(_node, "value", _depth, self))
+                            })
+                        })?;
+                        call.arg(|ctx| {
+                            ctx.try_value(|ctx| {
+                                ctx.group(|ctx| ctx.child(_node, "lower", _depth, self))
+                            })
+                        })?;
+                        call.arg(|ctx| {
+                            ctx.try_value(|ctx| {
+                                ctx.group(|ctx| ctx.child(_node, "upper", _depth, self))
+                            })
+                        })?;
+                        Ok(())
+                    })
                 })?;
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "lower", _depth, self)))
-                })?;
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "upper", _depth, self)))
-                })?;
-                Ok(())
-            }),
-            "logicalOr" => ctx.call("runtime::logical_or", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
-                })?;
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
-                })?;
+                parts.arg(|ctx| ctx.text(")(_context)"))?;
                 Ok(())
             }),
             "notEqual" => ctx.call("runtime::not_equal", |call| {
@@ -225,13 +234,24 @@ impl Driver for Compiled {
                 parts.arg(|ctx| ctx.text(")"))?;
                 Ok(())
             }),
-            "unify" => ctx.call("runtime::unify", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+            "unify" => ctx.concat(|parts| {
+                parts.arg(|ctx| ctx.text("(|_context: &mut runtime::EvaluationContext| "))?;
+                parts.arg(|ctx| {
+                    ctx.call("runtime::unify", |call| {
+                        call.arg(|ctx| {
+                            ctx.try_value(|ctx| {
+                                ctx.group(|ctx| ctx.child(_node, "left", _depth, self))
+                            })
+                        })?;
+                        call.arg(|ctx| {
+                            ctx.try_value(|ctx| {
+                                ctx.group(|ctx| ctx.child(_node, "right", _depth, self))
+                            })
+                        })?;
+                        Ok(())
+                    })
                 })?;
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
-                })?;
+                parts.arg(|ctx| ctx.text(")(_context)"))?;
                 Ok(())
             }),
             op => Err(lowering::missing_case(op)),
