@@ -13,6 +13,7 @@ package bootstrap
 		upperBound: result: {op: "upperBound", value: {op: "field", field: "value"}}
 		integer: result: {op: "field", field: "value"}
 		listIndex: result: {op: "listIndex", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
+		recordIndex: result: {op: "recordIndex", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
 		logicalNot: result: {op: "logicalNot", value: {op: "evaluate", field: "operand"}}
 		negate: result: {op: "negate", value: {op: "evaluate", field: "operand"}}
 		add: result: {

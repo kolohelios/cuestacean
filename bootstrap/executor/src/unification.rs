@@ -37,6 +37,7 @@ pub enum Kind {
     Text,
     String,
     List,
+    Record,
 }
 #[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -65,6 +66,8 @@ enum Function {
     StringLength,
     ListLength,
     ListIndex,
+    RecordIndex,
+    RecordLength,
     Length,
     IntegerOutput,
     JsonOutput,
@@ -87,6 +90,7 @@ impl Function {
             Self::LogicalNot
                 | Self::StringLength
                 | Self::ListLength
+                | Self::RecordLength
                 | Self::Length
                 | Self::Negate
                 | Self::IntegerOutput
@@ -147,6 +151,8 @@ enum Expr {
     TextLength {},
     ListCount {},
     ListElement {},
+    RecordGet {},
+    RecordCount {},
     #[serde(rename(serialize = "integerValue", deserialize = "integer"))]
     Integer {
         value: i64,
@@ -163,6 +169,10 @@ enum Expr {
 pub enum Failure {
     IndexOperands,
     IndexRange,
+    RecordIndexOperands,
+    RecordMissing,
+    RecordLength,
+    Records,
     LengthOperand,
     Length,
     ListLength,
@@ -219,6 +229,7 @@ enum End {
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum Condition {
     Same {},
+    RecordHas {},
     TextCompare {
         relation: Relation,
     },
@@ -295,6 +306,7 @@ impl Expr {
             | Self::Boolean { .. }
             | Self::TextLength {}
             | Self::ListCount {}
+            | Self::RecordCount {}
             | Self::IntegerPrimitive {
                 operation: IntegerOperation::Negate,
             }
@@ -303,6 +315,7 @@ impl Expr {
                     Failure::Logical
                     | Failure::Length
                     | Failure::ListLength
+                    | Failure::RecordLength
                     | Failure::LengthOperand
                     | Failure::BoundThreshold
                     | Failure::EmptyBound
@@ -342,6 +355,8 @@ impl Expr {
             | Self::IntegerPrimitive { .. }
             | Self::TextConcat {}
             | Self::ListElement {}
+            | Self::RecordGet {}
+            | Self::RecordCount {}
             | Self::TextLength {}
             | Self::ListCount {}
             | Self::Integer { .. }
@@ -451,6 +466,7 @@ impl Condition {
             Self::KindIs { .. }
             | Self::BooleanIs { .. }
             | Self::Same {}
+            | Self::RecordHas {}
             | Self::TextCompare { .. } => Ok(()),
             Self::HasEndpoint { value } => value.validate(bound),
             Self::Compare { left, right, .. } => {
@@ -496,6 +512,7 @@ pub fn endpoint(value: &Value, end: Endpoint) -> Option<i64> {
         | Value::Boolean(_)
         | Value::Text(_)
         | Value::List(_)
+        | Value::Record(_)
         | Value::String => None,
         Value::Bounds { lower, upper } => match end {
             Endpoint::Lower => *lower,
@@ -516,6 +533,7 @@ pub fn kind_is(value: &Value, kind: Kind) -> bool {
             | (Value::Text(_), Kind::Text)
             | (Value::String, Kind::String)
             | (Value::List(_), Kind::List)
+            | (Value::Record(_), Kind::Record)
     )
 }
 /// Compare a concrete boolean representation against a literal.
@@ -561,6 +579,17 @@ pub fn fail(reason: Failure, left: &Value, right: &Value) -> Result<Value, crate
     match reason {
         Failure::IndexOperands => Err(crate::Error::IndexOperands),
         Failure::IndexRange => Err(crate::Error::IndexRange),
+        Failure::RecordIndexOperands => Err(crate::Error::RecordIndexOperands),
+        Failure::RecordMissing => {
+            let (Value::Record(_), Value::Text(field)) = (left, right) else {
+                return Err(crate::Error::RecordIndexOperands);
+            };
+            Err(crate::Error::RecordMissing {
+                field: field.to_string(),
+            })
+        }
+        Failure::RecordLength => Err(crate::Error::RecordLength),
+        Failure::Records => Err(crate::Error::RecordConflict),
         Failure::LengthOperand => Err(crate::Error::LengthOperand),
         Failure::Length => Err(crate::Error::Length),
         Failure::ListLength => Err(crate::Error::ListLength),
@@ -715,6 +744,7 @@ impl Condition {
     ) -> Result<bool, crate::Error> {
         Ok(match self {
             Self::Same {} => l == r,
+            Self::RecordHas {} => crate::runtime::record_has(l, r)?,
             Self::TextCompare { relation } => text_compare(l, r, *relation)?,
             Self::Or { left, right } => left.eval(l, r, locals)? || right.eval(l, r, locals)?,
             Self::KindIs { input, kind } => kind_is(input.value(l, r), *kind),
@@ -742,6 +772,10 @@ impl Expr {
             } => Err(crate::Error::LengthOperand),
             Self::TextLength {} => crate::runtime::text_length(left),
             Self::ListCount {} => crate::runtime::list_count(left),
+            Self::RecordCount {} => crate::runtime::record_count(left),
+            Self::Fail {
+                reason: Failure::RecordLength,
+            } => Err(crate::Error::RecordLength),
             Self::Fail {
                 reason: Failure::ListLength,
             } => Err(crate::Error::ListLength),
@@ -843,6 +877,8 @@ impl Expr {
                 IntegerOperation::Remainder => crate::runtime::integer_remainder(l, r),
             },
             Self::ListElement {} => crate::runtime::list_at(l, r),
+            Self::RecordGet {} => crate::runtime::record_get(l, r),
+            Self::RecordCount {} => crate::runtime::record_count(l),
             Self::TextConcat {} => crate::runtime::text_concat(l, r),
             Self::TextLength {} => crate::runtime::text_length(l),
             Self::ListCount {} => crate::runtime::list_count(l),

@@ -66,43 +66,29 @@ pub fn unify(_left: Value, _right: Value) -> Result<Value, Error> {
                     if (Ok::<_, Error>(
                         (Ok::<_, Error>(crate::unification::kind_is(
                             &_left,
-                            crate::unification::Kind::String,
+                            crate::unification::Kind::Record,
                         )))? || (Ok::<_, Error>(crate::unification::kind_is(
-                            &_left,
-                            crate::unification::Kind::Text,
+                            &_right,
+                            crate::unification::Kind::Record,
                         )))?,
                     ))? {
                         if (Ok::<_, Error>(
                             (Ok::<_, Error>(crate::unification::kind_is(
+                                &_left,
+                                crate::unification::Kind::Record,
+                            )))? && (Ok::<_, Error>(crate::unification::kind_is(
                                 &_right,
-                                crate::unification::Kind::String,
-                            )))? || (Ok::<_, Error>(crate::unification::kind_is(
-                                &_right,
-                                crate::unification::Kind::Text,
+                                crate::unification::Kind::Record,
                             )))?,
                         ))? {
-                            if (Ok::<_, Error>(crate::unification::kind_is(
-                                &_left,
-                                crate::unification::Kind::String,
-                            )))? {
-                                Ok::<_, Error>(_right.clone())
+                            if (Ok::<_, Error>(_left == _right))? {
+                                Ok::<_, Error>(_left.clone())
                             } else {
-                                if (Ok::<_, Error>(crate::unification::kind_is(
+                                crate::unification::fail(
+                                    crate::unification::Failure::Records,
+                                    &_left,
                                     &_right,
-                                    crate::unification::Kind::String,
-                                )))? {
-                                    Ok::<_, Error>(_left.clone())
-                                } else {
-                                    if (Ok::<_, Error>(_left == _right))? {
-                                        Ok::<_, Error>(_left.clone())
-                                    } else {
-                                        crate::unification::fail(
-                                            crate::unification::Failure::Strings,
-                                            &_left,
-                                            &_right,
-                                        )
-                                    }
-                                }
+                                )
                             }
                         } else {
                             crate::unification::fail(
@@ -114,133 +100,183 @@ pub fn unify(_left: Value, _right: Value) -> Result<Value, Error> {
                     } else {
                         if (Ok::<_, Error>(
                             (Ok::<_, Error>(crate::unification::kind_is(
-                                &_right,
+                                &_left,
                                 crate::unification::Kind::String,
                             )))? || (Ok::<_, Error>(crate::unification::kind_is(
-                                &_right,
+                                &_left,
                                 crate::unification::Kind::Text,
                             )))?,
                         ))? {
-                            crate::unification::fail(
-                                crate::unification::Failure::Types,
-                                &_left,
-                                &_right,
-                            )
+                            if (Ok::<_, Error>(
+                                (Ok::<_, Error>(crate::unification::kind_is(
+                                    &_right,
+                                    crate::unification::Kind::String,
+                                )))? || (Ok::<_, Error>(crate::unification::kind_is(
+                                    &_right,
+                                    crate::unification::Kind::Text,
+                                )))?,
+                            ))? {
+                                if (Ok::<_, Error>(crate::unification::kind_is(
+                                    &_left,
+                                    crate::unification::Kind::String,
+                                )))? {
+                                    Ok::<_, Error>(_right.clone())
+                                } else {
+                                    if (Ok::<_, Error>(crate::unification::kind_is(
+                                        &_right,
+                                        crate::unification::Kind::String,
+                                    )))? {
+                                        Ok::<_, Error>(_left.clone())
+                                    } else {
+                                        if (Ok::<_, Error>(_left == _right))? {
+                                            Ok::<_, Error>(_left.clone())
+                                        } else {
+                                            crate::unification::fail(
+                                                crate::unification::Failure::Strings,
+                                                &_left,
+                                                &_right,
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                crate::unification::fail(
+                                    crate::unification::Failure::Types,
+                                    &_left,
+                                    &_right,
+                                )
+                            }
                         } else {
                             if (Ok::<_, Error>(
                                 (Ok::<_, Error>(crate::unification::kind_is(
-                                    &_left,
-                                    crate::unification::Kind::Bool,
+                                    &_right,
+                                    crate::unification::Kind::String,
                                 )))? || (Ok::<_, Error>(crate::unification::kind_is(
-                                    &_left,
-                                    crate::unification::Kind::Boolean,
+                                    &_right,
+                                    crate::unification::Kind::Text,
                                 )))?,
                             ))? {
-                                if (Ok::<_, Error>(
-                                    (Ok::<_, Error>(crate::unification::kind_is(
-                                        &_right,
-                                        crate::unification::Kind::Bool,
-                                    )))? || (Ok::<_, Error>(crate::unification::kind_is(
-                                        &_right,
-                                        crate::unification::Kind::Boolean,
-                                    )))?,
-                                ))? {
-                                    if (Ok::<_, Error>(crate::unification::kind_is(
-                                        &_left,
-                                        crate::unification::Kind::Bool,
-                                    )))? {
-                                        Ok::<_, Error>(_right.clone())
-                                    } else {
-                                        if (Ok::<_, Error>(crate::unification::kind_is(
-                                            &_right,
-                                            crate::unification::Kind::Bool,
-                                        )))? {
-                                            Ok::<_, Error>(_left.clone())
-                                        } else {
-                                            if (Ok::<_, Error>(_left == _right))? {
-                                                Ok::<_, Error>(_left.clone())
-                                            } else {
-                                                crate::unification::fail(
-                                                    crate::unification::Failure::Booleans,
-                                                    &_left,
-                                                    &_right,
-                                                )
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    crate::unification::fail(
-                                        crate::unification::Failure::Types,
-                                        &_left,
-                                        &_right,
-                                    )
-                                }
+                                crate::unification::fail(
+                                    crate::unification::Failure::Types,
+                                    &_left,
+                                    &_right,
+                                )
                             } else {
                                 if (Ok::<_, Error>(
                                     (Ok::<_, Error>(crate::unification::kind_is(
-                                        &_right,
+                                        &_left,
                                         crate::unification::Kind::Bool,
                                     )))? || (Ok::<_, Error>(crate::unification::kind_is(
-                                        &_right,
+                                        &_left,
                                         crate::unification::Kind::Boolean,
                                     )))?,
                                 ))? {
-                                    crate::unification::fail(
-                                        crate::unification::Failure::Types,
-                                        &_left,
-                                        &_right,
-                                    )
-                                } else {
-                                    if (Ok::<_, Error>(crate::unification::kind_is(
-                                        &_left,
-                                        crate::unification::Kind::Int,
-                                    )))? {
-                                        Ok::<_, Error>(_right.clone())
-                                    } else {
-                                        if (Ok::<_, Error>(crate::unification::kind_is(
+                                    if (Ok::<_, Error>(
+                                        (Ok::<_, Error>(crate::unification::kind_is(
                                             &_right,
-                                            crate::unification::Kind::Int,
+                                            crate::unification::Kind::Bool,
+                                        )))? || (Ok::<_, Error>(crate::unification::kind_is(
+                                            &_right,
+                                            crate::unification::Kind::Boolean,
+                                        )))?,
+                                    ))? {
+                                        if (Ok::<_, Error>(crate::unification::kind_is(
+                                            &_left,
+                                            crate::unification::Kind::Bool,
                                         )))? {
-                                            Ok::<_, Error>(_left.clone())
+                                            Ok::<_, Error>(_right.clone())
                                         } else {
-                                            if (Ok::<_, Error>(
-                                                (Ok::<_, Error>(crate::unification::kind_is(
-                                                    &_left,
-                                                    crate::unification::Kind::Integer,
-                                                )))? && (Ok::<_, Error>(
-                                                    crate::unification::kind_is(
-                                                        &_right,
-                                                        crate::unification::Kind::Integer,
-                                                    ),
-                                                ))?,
-                                            ))? {
-                                                if (crate::unification::compare(
-                                                    (Ok::<_, Error>(
-                                                        crate::unification::endpoint(
-                                                            &_left,
-                                                            crate::unification::Endpoint::Lower,
-                                                        ),
-                                                    ))?,
-                                                    (Ok::<_, Error>(
-                                                        crate::unification::endpoint(
-                                                            &_right,
-                                                            crate::unification::Endpoint::Lower,
-                                                        ),
-                                                    ))?,
-                                                    crate::unification::Relation::Equal,
-                                                ))? {
+                                            if (Ok::<_, Error>(crate::unification::kind_is(
+                                                &_right,
+                                                crate::unification::Kind::Bool,
+                                            )))? {
+                                                Ok::<_, Error>(_left.clone())
+                                            } else {
+                                                if (Ok::<_, Error>(_left == _right))? {
                                                     Ok::<_, Error>(_left.clone())
                                                 } else {
                                                     crate::unification::fail(
-                                                        crate::unification::Failure::Integers,
+                                                        crate::unification::Failure::Booleans,
                                                         &_left,
                                                         &_right,
                                                     )
                                                 }
+                                            }
+                                        }
+                                    } else {
+                                        crate::unification::fail(
+                                            crate::unification::Failure::Types,
+                                            &_left,
+                                            &_right,
+                                        )
+                                    }
+                                } else {
+                                    if (Ok::<_, Error>(
+                                        (Ok::<_, Error>(crate::unification::kind_is(
+                                            &_right,
+                                            crate::unification::Kind::Bool,
+                                        )))? || (Ok::<_, Error>(crate::unification::kind_is(
+                                            &_right,
+                                            crate::unification::Kind::Boolean,
+                                        )))?,
+                                    ))? {
+                                        crate::unification::fail(
+                                            crate::unification::Failure::Types,
+                                            &_left,
+                                            &_right,
+                                        )
+                                    } else {
+                                        if (Ok::<_, Error>(crate::unification::kind_is(
+                                            &_left,
+                                            crate::unification::Kind::Int,
+                                        )))? {
+                                            Ok::<_, Error>(_right.clone())
+                                        } else {
+                                            if (Ok::<_, Error>(crate::unification::kind_is(
+                                                &_right,
+                                                crate::unification::Kind::Int,
+                                            )))? {
+                                                Ok::<_, Error>(_left.clone())
                                             } else {
-                                                {
-                                                    let (_lower, _upper) = ((if (Ok::<_, Error>((Ok::<_, Error>(crate::unification::endpoint(&_left, crate::unification::Endpoint::Lower)))?.is_some()))? { if (Ok::<_, Error>((Ok::<_, Error>((Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Lower)))?.is_some()))? && (crate::unification::compare((Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Lower)))?, (Ok::<_, Error>(crate::unification::endpoint(&_left, crate::unification::Endpoint::Lower)))?, crate::unification::Relation::Greater))?))? { Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Lower)) } else { Ok::<_, Error>(crate::unification::endpoint(&_left, crate::unification::Endpoint::Lower)) } } else { Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Lower)) })?, (if (Ok::<_, Error>((Ok::<_, Error>(crate::unification::endpoint(&_left, crate::unification::Endpoint::Upper)))?.is_some()))? { if (Ok::<_, Error>((Ok::<_, Error>((Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Upper)))?.is_some()))? && (crate::unification::compare((Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Upper)))?, (Ok::<_, Error>(crate::unification::endpoint(&_left, crate::unification::Endpoint::Upper)))?, crate::unification::Relation::Less))?))? { Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Upper)) } else { Ok::<_, Error>(crate::unification::endpoint(&_left, crate::unification::Endpoint::Upper)) } } else { Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Upper)) })?);
-                                                    if (Ok::<_, Error>((Ok::<_, Error>((Ok::<_, Error>(_lower))?.is_some()))? && (Ok::<_, Error>((Ok::<_, Error>((Ok::<_, Error>(_upper))?.is_some()))? && (crate::unification::compare((Ok::<_, Error>(_lower))?, (Ok::<_, Error>(_upper))?, crate::unification::Relation::Greater))?))?))? { crate::unification::fail(crate::unification::Failure::Bounds, &_left, &_right) } else { if (Ok::<_, Error>(crate::unification::kind_is(&_left, crate::unification::Kind::Integer)))? { Ok::<_, Error>(_left.clone()) } else { if (Ok::<_, Error>(crate::unification::kind_is(&_right, crate::unification::Kind::Integer)))? { Ok::<_, Error>(_right.clone()) } else { Ok::<_, Error>(Value::Bounds { lower: (Ok::<_, Error>(_lower))?, upper: (Ok::<_, Error>(_upper))? }) } } }
+                                                if (Ok::<_, Error>(
+                                                    (Ok::<_, Error>(crate::unification::kind_is(
+                                                        &_left,
+                                                        crate::unification::Kind::Integer,
+                                                    )))? && (Ok::<_, Error>(
+                                                        crate::unification::kind_is(
+                                                            &_right,
+                                                            crate::unification::Kind::Integer,
+                                                        ),
+                                                    ))?,
+                                                ))? {
+                                                    if (crate::unification::compare(
+                                                        (Ok::<_, Error>(
+                                                            crate::unification::endpoint(
+                                                                &_left,
+                                                                crate::unification::Endpoint::Lower,
+                                                            ),
+                                                        ))?,
+                                                        (Ok::<_, Error>(
+                                                            crate::unification::endpoint(
+                                                                &_right,
+                                                                crate::unification::Endpoint::Lower,
+                                                            ),
+                                                        ))?,
+                                                        crate::unification::Relation::Equal,
+                                                    ))? {
+                                                        Ok::<_, Error>(_left.clone())
+                                                    } else {
+                                                        crate::unification::fail(
+                                                            crate::unification::Failure::Integers,
+                                                            &_left,
+                                                            &_right,
+                                                        )
+                                                    }
+                                                } else {
+                                                    {
+                                                        let (_lower, _upper) = ((if (Ok::<_, Error>((Ok::<_, Error>(crate::unification::endpoint(&_left, crate::unification::Endpoint::Lower)))?.is_some()))? { if (Ok::<_, Error>((Ok::<_, Error>((Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Lower)))?.is_some()))? && (crate::unification::compare((Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Lower)))?, (Ok::<_, Error>(crate::unification::endpoint(&_left, crate::unification::Endpoint::Lower)))?, crate::unification::Relation::Greater))?))? { Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Lower)) } else { Ok::<_, Error>(crate::unification::endpoint(&_left, crate::unification::Endpoint::Lower)) } } else { Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Lower)) })?, (if (Ok::<_, Error>((Ok::<_, Error>(crate::unification::endpoint(&_left, crate::unification::Endpoint::Upper)))?.is_some()))? { if (Ok::<_, Error>((Ok::<_, Error>((Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Upper)))?.is_some()))? && (crate::unification::compare((Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Upper)))?, (Ok::<_, Error>(crate::unification::endpoint(&_left, crate::unification::Endpoint::Upper)))?, crate::unification::Relation::Less))?))? { Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Upper)) } else { Ok::<_, Error>(crate::unification::endpoint(&_left, crate::unification::Endpoint::Upper)) } } else { Ok::<_, Error>(crate::unification::endpoint(&_right, crate::unification::Endpoint::Upper)) })?);
+                                                        if (Ok::<_, Error>((Ok::<_, Error>((Ok::<_, Error>(_lower))?.is_some()))? && (Ok::<_, Error>((Ok::<_, Error>((Ok::<_, Error>(_upper))?.is_some()))? && (crate::unification::compare((Ok::<_, Error>(_lower))?, (Ok::<_, Error>(_upper))?, crate::unification::Relation::Greater))?))?))? { crate::unification::fail(crate::unification::Failure::Bounds, &_left, &_right) } else { if (Ok::<_, Error>(crate::unification::kind_is(&_left, crate::unification::Kind::Integer)))? { Ok::<_, Error>(_left.clone()) } else { if (Ok::<_, Error>(crate::unification::kind_is(&_right, crate::unification::Kind::Integer)))? { Ok::<_, Error>(_right.clone()) } else { Ok::<_, Error>(Value::Bounds { lower: (Ok::<_, Error>(_lower))?, upper: (Ok::<_, Error>(_upper))? }) } } }
+                                                    }
                                                 }
                                             }
                                         }

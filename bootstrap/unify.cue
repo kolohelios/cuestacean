@@ -28,6 +28,15 @@ package bootstrap
 			then: {op: "if", condition: {op: "same"}, then: {op: "input", input: "left"}, else: {op: "fail", reason: "lists"}}
 			else: {op: "fail", reason: "types"}
 		}
+		else: Records
+	}
+	let Records = {
+		op: "if", condition: {op: "or", left: {op: "kindIs", input: "left", kind: "record"}, right: {op: "kindIs", input: "right", kind: "record"}}
+		then: {
+			op: "if", condition: {op: "and", left: {op: "kindIs", input: "left", kind: "record"}, right: {op: "kindIs", input: "right", kind: "record"}}
+			then: {op: "if", condition: {op: "same"}, then: {op: "input", input: "left"}, else: {op: "fail", reason: "records"}}
+			else: {op: "fail", reason: "types"}
+		}
 		else: Scalar
 	}
 	let Scalar = {

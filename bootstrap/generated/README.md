@@ -132,6 +132,11 @@ No native production element-evaluation loop or new seed is introduced.
 `list-control-scalars` preserves that actual earlier admission program byte-exact;
 production now explicitly admits [nested closed values](../../docs/nested-list-values.md).
 Checked native append/final construction enforce cached 32-level/4096-node shape.
+`record-index` / `record-length` add [closed scalar record](../../docs/closed-records.md)
+lookup/count; `record-index-zero` is an actual same-name/arity compiled alternate.
+Record literal data uses a checked native codec; CUE owns domain/presence,
+closed-record unification and concrete equality/logical/length admission.
+No source struct syntax, open constraints, nested records or list admission.
 `list-length-control` adds [closed scalar list](../../docs/closed-lists.md) length;
 `list-length-zero` is an actual compiled alternate. Native bounded literal codecs
 supply owned arrays; CUE owns list isolation/equality/logical/output admission.
@@ -230,7 +235,7 @@ done
 bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/pratt.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/pratt-lowering-no-increment.json" \
   | rustfmt --edition 2024 > bootstrap/generated/pratt-no-increment.rs
-for control in lower-exclusive-bound upper-exclusive-bound tests/valid/exclusive-reversed list-index tests/valid/list-index-zero length-control list-length-control tests/valid/list-length-zero string-length-control tests/valid/length-zero lower-bound upper-bound tests/valid/bound-reversed tests/valid/unary-bound-endpoints json-output integer-output tests/valid/output-zero divide-control modulo-control quotient-control remainder-control tests/valid/integer-literals negate-control difference-control product-control unify sum equal not-equal less less-equal greater greater-equal logical-and logical-or logical-not tests/valid/not-true tests/valid/control-default tests/valid/unary-conditions tests/valid/logic-false tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
+for control in record-index record-length tests/valid/record-index-zero lower-exclusive-bound upper-exclusive-bound tests/valid/exclusive-reversed list-index tests/valid/list-index-zero length-control list-length-control tests/valid/list-length-zero string-length-control tests/valid/length-zero lower-bound upper-bound tests/valid/bound-reversed tests/valid/unary-bound-endpoints json-output integer-output tests/valid/output-zero divide-control modulo-control quotient-control remainder-control tests/valid/integer-literals negate-control difference-control product-control unify sum equal not-equal less less-equal greater greater-equal logical-and logical-or logical-not tests/valid/not-true tests/valid/control-default tests/valid/unary-conditions tests/valid/logic-false tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
   name=$(basename "$control")
   bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"

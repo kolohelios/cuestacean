@@ -161,6 +161,20 @@ impl Driver for Compiled {
                 })?;
                 Ok(())
             }),
+            "record" => ctx.call("runtime::record", |call| {
+                call.arg(|ctx| ctx.path("node"))?;
+                call.arg(|ctx| ctx.string(_node, "field"))?;
+                Ok(())
+            }),
+            "recordIndex" => ctx.call("runtime::record_index", |call| {
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
+                })?;
+                Ok(())
+            }),
             "remainder" => ctx.call("runtime::remainder", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
@@ -193,6 +207,7 @@ impl Driver for Compiled {
             | "lowerBound"
             | "lowerExclusiveBound"
             | "negate"
+            | "recordLength"
             | "stringLength"
             | "upperBound"
             | "upperExclusiveBound" => ctx.concat(|parts| {
@@ -204,6 +219,7 @@ impl Driver for Compiled {
                         "lowerBound" => ctx.text("runtime::lower_bound"),
                         "lowerExclusiveBound" => ctx.text("runtime::lower_exclusive_bound"),
                         "negate" => ctx.text("runtime::negate"),
+                        "recordLength" => ctx.text("runtime::record_length"),
                         "stringLength" => ctx.text("runtime::string_length"),
                         "upperBound" => ctx.text("runtime::upper_bound"),
                         "upperExclusiveBound" => ctx.text("runtime::upper_exclusive_bound"),

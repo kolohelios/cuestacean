@@ -138,6 +138,9 @@ parts.arg(|ctx| ctx.child(_node, "result", _depth, self))?;
 parts.arg(|ctx| ctx.text("\n}\n"))?;
 Ok(())
 }),
+            "recordCount" => ctx.text("crate::runtime::record_count(&_left)"),
+            "recordGet" => ctx.text("crate::runtime::record_get(&_left, &_right)"),
+            "recordHas" => ctx.text("crate::runtime::record_has(&_left, &_right)"),
             "same" => ctx.text("Ok::<_, Error>(_left == _right)"),
             "textCompare" => ctx.concat(|parts| {
 parts.arg(|ctx| ctx.text("crate::unification::text_compare(&_left, &_right, crate::unification::Relation::"))?;
@@ -147,7 +150,7 @@ Ok(())
 }),
             "textConcat" => ctx.text("crate::runtime::text_concat(&_left, &_right)"),
             "textLength" => ctx.text("crate::runtime::text_length(&_left)"),
-            "unaryFail" => ctx.select(_node, "reason", |ctx, tag| match tag { "arithmetic" => ctx.text("Err(Error::Arithmetic)"), "boundThreshold" => ctx.text("Err(Error::BoundThreshold)"), "emptyBound" => ctx.text("Err(Error::EmptyBound)"), "incompleteBool" => ctx.text("Err(Error::IncompleteBool)"), "incompleteBounds" => ctx.text("Err(Error::IncompleteBounds)"), "incompleteInt" => ctx.text("Err(Error::Incomplete)"), "incompleteString" => ctx.text("Err(Error::IncompleteString)"), "incompleteValue" => ctx.text("Err(Error::IncompleteValue)"), "integerOutput" => ctx.text("Err(Error::IntegerOutput)"), "length" => ctx.text("Err(Error::Length)"), "lengthOperand" => ctx.text("Err(Error::LengthOperand)"), "listLength" => ctx.text("Err(Error::ListLength)"), "logical" => ctx.text("Err(Error::Logical)"), tag => Err(lowering::missing_selection(tag)), }),
+            "unaryFail" => ctx.select(_node, "reason", |ctx, tag| match tag { "arithmetic" => ctx.text("Err(Error::Arithmetic)"), "boundThreshold" => ctx.text("Err(Error::BoundThreshold)"), "emptyBound" => ctx.text("Err(Error::EmptyBound)"), "incompleteBool" => ctx.text("Err(Error::IncompleteBool)"), "incompleteBounds" => ctx.text("Err(Error::IncompleteBounds)"), "incompleteInt" => ctx.text("Err(Error::Incomplete)"), "incompleteString" => ctx.text("Err(Error::IncompleteString)"), "incompleteValue" => ctx.text("Err(Error::IncompleteValue)"), "integerOutput" => ctx.text("Err(Error::IntegerOutput)"), "length" => ctx.text("Err(Error::Length)"), "lengthOperand" => ctx.text("Err(Error::LengthOperand)"), "listLength" => ctx.text("Err(Error::ListLength)"), "logical" => ctx.text("Err(Error::Logical)"), "recordLength" => ctx.text("Err(Error::RecordLength)"), tag => Err(lowering::missing_selection(tag)), }),
             op => Err(lowering::missing_case(op)),
         }
     }

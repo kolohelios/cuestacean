@@ -127,11 +127,17 @@ fn child_and_abstract_admission_failures_precede_enclosing_length() {
     for (source, message) in [
         ("[1 div 0]", "integer division by zero"),
         ("len([1 div 0])", "integer division by zero"),
-        ("len(3)", "length requires a concrete string or closed list"),
-        ("len(_)", "length requires a concrete string or closed list"),
+        (
+            "len(3)",
+            "length requires a concrete string or closed collection",
+        ),
+        (
+            "len(_)",
+            "length requires a concrete string or closed collection",
+        ),
         (
             "len(string)",
-            "length requires a concrete string or closed list",
+            "length requires a concrete string or closed collection",
         ),
     ] {
         for parsed in parses(source, &grammar) {
