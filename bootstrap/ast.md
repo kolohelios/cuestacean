@@ -28,7 +28,7 @@ self-hosted yet.
 
 ## Expression contract
 
-`#BuildProgram` in `schema.cue` contains `formatVersion: 1`, ordered `parameters`,
+`#BuildProgram` in `ast-schema.cue` contains `formatVersion: 1`, ordered `parameters`,
 and a `result` expression. Parameters have unique nonempty names and one type:
 `string`, `integer` (i64), or `json` (any JSON value, not a validated AST).
 

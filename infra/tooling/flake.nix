@@ -294,6 +294,7 @@
             fileset = pkgs.lib.fileset.unions (
               [
                 ../../bootstrap/schema.cue
+                ../../bootstrap/ast-schema.cue
                 ../../bootstrap/scanner-fragments.cue
                 ../../bootstrap/decimal-fragments.cue
                 ../../bootstrap/primary-fragments.cue
@@ -339,6 +340,10 @@
               echo "exporting $fixture"
               # Load only the fixture's definition closure. Loading every compiler
               # for a literal can exhaust the CI runner while checking unused CUE.
+              schema=schema
+              case "$fixture" in
+                ${builtins.concatStringsSep "|" builderFixtures}|tests/valid/ast-literal) schema=ast-schema ;;
+              esac
               fragments=()
               case "$fixture" in
                 pratt|tests/valid/pratt-no-slices|tests/valid/pratt-slice-high-minimum|tests/valid/pratt-no-selectors|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
@@ -370,7 +375,7 @@
                 difference-control|product-control) fragments=(integer-control-fragments) ;;
                 divide-control|modulo-control|quotient-control|remainder-control) fragments=(division-control-fragments) ;;
               esac
-              inputs=(${cueSources}/schema.cue)
+              inputs=("${cueSources}/$schema.cue")
               for fragment in "''${fragments[@]}"; do inputs+=("${cueSources}/$fragment.cue"); done
               inputs+=("${cueSources}/$fixture.cue")
               cue export "''${inputs[@]}" --out json | jq -S . > first.json
@@ -380,7 +385,7 @@
               cp first.json "$out/$fixture.json"
             done
             for fixture in ${cueSources}/tests/invalid/*.cue; do
-              if cue export ${cueSources}/schema.cue "$fixture" --out json > invalid.log 2>&1; then
+              if cue export ${cueSources}/schema.cue ${cueSources}/ast-schema.cue "$fixture" --out json > invalid.log 2>&1; then
                 echo "Expected rejection: $fixture" >&2
                 exit 1
               fi
@@ -405,7 +410,7 @@
           nativeCheckInputs = [
             pkgs.rustfmt
             pkgs.clippy
-            # Test-only solver spike runs mandatory pinned upstream probes.
+            # Architecture tests run mandatory pinned upstream probes.
             pkgs.cue
           ];
           preCheck = ''

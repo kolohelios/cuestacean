@@ -28,13 +28,16 @@ whitespace, and the [bootstrap export](../../bootstrap/README.md). The flake's
 `bootstrap-export` check builds the `exports` output: it exports each CUE
 fixture twice, compares the results, and requires malformed expression trees
 and evaluation-rule descriptions to fail export. JSON is not committed.
-Each fixture loads `schema.cue` plus only its required fragment definitions,
-selected by the explicit closure table in `flake.nix`. CI export processes were killed (exit 137). Narrowed closures alone did not
-resolve this: the recursive AST schema also needed its identical binary shapes
+AST builders load the isolated `ast-schema.cue`; other fixtures load `schema.cue`
+plus only their required fragment definitions, selected by the explicit closure
+table in `flake.nix`. See the [closure inventory](../../docs/bootstrap-closure.md)
+for actual dependency edges and the first proposed no-Go-CUE target. CI export processes were killed (exit 137). Narrowed closures alone did not
+resolve this: the recursive expression schema also needed its identical binary shapes
 factored into one tagged definition, retaining constructor aliases and closed
 fields. Both changes were checked against the previous complete JSON output
 and retained identical bytes. When adding a fixture that references a fragment,
-update that table; current invalid fixtures reference schema definitions only.
+update that table. Invalid fixtures load both schemas; AST-negative fixtures
+also have isolated small-schema checks.
 Missing-reference diagnostics fail fixture setup rather than count as schema
 rejections. Both repeated exports and all negative-schema checks remain mandatory. The
 `bootstrap-executor` check builds handwritten evaluator/scanner/AST/Pratt/unification compiler seeds
