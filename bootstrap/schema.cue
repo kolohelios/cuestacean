@@ -3,7 +3,7 @@ package bootstrap
 import "list"
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #ListSliceExpression | #SelectorExpression | #RecordExpression | #RecordLiteral | #ListExpression | #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
+#Expression: #ConjunctionExpression | #ListSliceExpression | #SelectorExpression | #RecordExpression | #RecordLiteral | #ListExpression | #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
 
 // Factor the identical recursive shape; separate recursive disjuncts expand
 // combinatorially in the upstream exporter as binary node kinds accumulate.
@@ -13,6 +13,7 @@ import "list"
 	right: #Expression
 }
 
+#ConjunctionExpression: {kind: "conjunction", operands: [...#Expression] & list.MaxItems(64)}
 #ListSliceExpression: {kind: "listSlice", operand: #Expression, lower: #Expression, upper: #Expression}
 #SelectorExpression: {kind: "select", operand: #Expression, label: string}
 
@@ -195,12 +196,16 @@ import "list"
 } | {
 	op: "if", condition: #ListControlCondition, then: [...#RecordControlStatement], else: *[] | [...#RecordControlStatement]
 }
+#ConjunctionControlStatement: {op: "seedTop" | "firstItem" | "lastItem" | "evaluateItem" | "unifyItem" | "nextItem" | "previousItem" | "finishConjunction" | "return"} | {
+	op: "while", condition: #ListControlCondition, body: [...#ConjunctionControlStatement]
+} | {op: "if", condition: #ListControlCondition, then: [...#ConjunctionControlStatement], else: *[] | [...#ConjunctionControlStatement]}
 #PrattProgram: {
 	formatVersion: 1
-	target:        *"parser" | "list" | "record"
+	target:        *"parser" | "list" | "record" | "conjunction"
 	if target == "parser" {body: [...#PrattStatement]}
 	if target == "list" {body: [...#ListControlStatement]}
 	if target == "record" {body: [...#RecordControlStatement]}
+	if target == "conjunction" {body: [...#ConjunctionControlStatement]}
 }
 
 // Typed JSON construction expressions used by the parser's AST builders.
@@ -354,6 +359,7 @@ import "list"
 		length: result: {op: "length", value: {op: "evaluate", field: "operand"}}
 		stringLength: result: {op: "stringLength", value: {op: "evaluate", field: "operand"}}
 		list: result: {op: "list", field: "value"}
+		conjunction: result: {op: "conjunction", field: "operands"}
 		listExpression: result: {op: "listExpression", field: "elements"}
 		listLength: result: {op: "listLength", value: {op: "evaluate", field: "operand"}}
 		listSlice: result: {op: "listSlice", value: {op: "evaluate", field: "operand"}, lower: {op: "evaluate", field: "lower"}, upper: {op: "evaluate", field: "upper"}}

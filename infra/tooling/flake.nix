@@ -77,6 +77,9 @@
       ];
       builderNames = builtins.concatStringsSep " " builderFixtures;
       prattFixtures = [
+        "conjunction-control"
+        "tests/valid/conjunction-control-reverse"
+        "tests/valid/conjunction-control-tail"
         "list-control"
         "tests/valid/list-control-homogeneous"
         "record-control"
@@ -206,6 +209,8 @@
         "lists"
         "list-length"
         "list-expressions"
+        "conjunction"
+        "conjunction-conflict"
         "record-expressions"
         "mixed-collections"
         "mixed-unify"
@@ -285,6 +290,7 @@
                 ../../bootstrap/pratt-fragments.cue
                 ../../bootstrap/list-control-fragments.cue
                 ../../bootstrap/record-control-fragments.cue
+                ../../bootstrap/conjunction-control-fragments.cue
                 ../../bootstrap/record-primary-fragments.cue
                 ../../bootstrap/string-literal-fragments.cue
                 ../../bootstrap/equality-fragments.cue
@@ -325,6 +331,7 @@
               case "$fixture" in
                 pratt|tests/valid/pratt-no-slices|tests/valid/pratt-slice-high-minimum|tests/valid/pratt-no-selectors|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
                 list-control|tests/valid/list-control-reverse|tests/valid/list-control-scalars|tests/valid/list-control-homogeneous) fragments=(list-control-fragments) ;;
+                conjunction-control|tests/valid/conjunction-control-reverse|tests/valid/conjunction-control-tail) fragments=(conjunction-control-fragments) ;;
                 record-control|tests/valid/record-control-reverse|tests/valid/record-control-scalars|tests/valid/record-control-homogeneous) fragments=(record-control-fragments) ;;
                 record-primary|tests/valid/record-primary-high-minimum) fragments=(record-primary-fragments) ;;
                 primary|tests/valid/primary-bound-high-minimum|tests/valid/primary-call-high-minimum|tests/valid/primary-no-lists|tests/valid/primary-no-records) fragments=(primary-fragments) ;;
@@ -718,7 +725,7 @@
               }
               ''
                 set -euo pipefail
-                for fixture in lists list-expressions list-slicing nested-lists records records-unify record-expressions nested-records nested-records-unify mixed-collections mixed-unify collection-index-record tests/valid/lists-unify; do
+                for fixture in lists list-expressions conjunction list-slicing nested-lists records records-unify record-expressions nested-records nested-records-unify mixed-collections mixed-unify collection-index-record tests/valid/lists-unify; do
                   probe="''${fixture##*/}"
                   # Marshal in pinned CUE, not jq: keep every i64 exact.
                   printf '%s\n' "$(cue export ${../../bootstrap/tests/upstream}/"$probe.cue" --out text)" > expected
@@ -730,6 +737,18 @@
                     fi
                     diff -u expected actual
                   done
+                done
+                if cue export ${../../bootstrap/tests/upstream/conjunction-conflict.cue} --out json > expected 2> cue-error; then exit 1; fi
+                test ! -s expected
+                test -s cue-error
+                for binary in bootstrap-executor bootstrap-generated; do
+                  if [ "$binary" = bootstrap-executor ]; then
+                    if "$binary" ${jsonExports pkgs}/conjunction-conflict.json ${jsonExports pkgs}/evaluation.json > actual 2> error; then exit 1; fi
+                  else
+                    if "$binary" ${jsonExports pkgs}/conjunction-conflict.json > actual 2> error; then exit 1; fi
+                  fi
+                  test ! -s actual
+                  grep -Fx 'conflicting integer values 1 and 2' error
                 done
                 for mode in range domain; do
                   fixture="list-slicing-$mode"
