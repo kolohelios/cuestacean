@@ -5,7 +5,8 @@
 Add JSON AST `conjunction {operands:[Expression...]}` and rule instruction
 `conjunction {field}`. This is an n-ary unification expression, not a runtime list:
 abstract int/bool/string/bounds/top values may be operands without widening the
-concrete closed-list/record profile. No source and(...) syntax yet, disjunctions,
+concrete closed-list/record profile. [Source and([...])](source-conjunction.md)
+now lowers directly to this AST without a list wrapper. No disjunctions,
 references, mutable graph, new value representation or general solving.
 
 At most 64 operand entries; capacity checks before any child callback. The parent

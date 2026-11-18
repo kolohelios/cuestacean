@@ -64,6 +64,7 @@ enum Condition {
     HasIdentifier {},
     HasCall {},
     HasRecord {},
+    HasConjunction {},
     HasRecordField {},
     HasNegation {},
     HasNot {},
@@ -141,6 +142,12 @@ enum Statement {
     BuildList {},
     ScanIdentifier {},
     AdvanceCall {},
+    Conjunction {},
+    AdvanceConjunction {},
+    OpenConjunctionCall {},
+    OpenConjunctionList {},
+    CloseConjunctionCall {},
+    BuildConjunction {},
     Record {},
     AdvanceRecord {},
     OpenRecordCall {},
@@ -340,6 +347,7 @@ impl Condition {
             Self::HasIdentifier {} => frame.has_identifier()?,
             Self::HasCall {} => frame.has_call()?,
             Self::HasRecord {} => frame.has_record()?,
+            Self::HasConjunction {} => frame.has_conjunction()?,
             Self::HasRecordField {} => frame.has_record_field()?,
             Self::HasNegation {} => frame.has_negation()?,
             Self::HasNot {} => frame.has_not()?,
@@ -355,14 +363,20 @@ enum Flow {
     Return,
 }
 
-// Keep postfix Result temporaries out of every recursive reference-VM frame.
+// Keep extended-primary/postfix Result temporaries out of recursive VM frames.
 // Dispatches checked intrinsics only; traversal/selection policy remains CUE.
 #[cfg(feature = "source")]
-fn postfix_action(
+fn extended_action(
     statement: &Statement,
     frame: &mut crate::parser::Frame<'_, '_>,
 ) -> Result<(), crate::parser::Error> {
     match statement {
+        Statement::Conjunction {} => frame.conjunction(),
+        Statement::AdvanceConjunction {} => frame.advance_conjunction(),
+        Statement::OpenConjunctionCall {} => frame.open_conjunction_call(),
+        Statement::OpenConjunctionList {} => frame.open_conjunction_list(),
+        Statement::CloseConjunctionCall {} => frame.close_conjunction_call(),
+        Statement::BuildConjunction {} => frame.build_conjunction(),
         Statement::ScanSlice {} => frame.scan_slice(),
         Statement::AdvanceSlice {} => frame.advance_slice(),
         Statement::ParseSliceUpper { minimum } => frame.parse_slice_upper(minimum.value(frame)?),
@@ -406,7 +420,13 @@ fn execute(
                     Statement::AdvanceOperator {} => frame.advance_operator()?,
                     Statement::ParseRight {} => frame.parse_right()?,
                     Statement::BuildBinary {} => frame.build_binary()?,
-                    Statement::ScanSlice {}
+                    Statement::Conjunction {}
+                    | Statement::AdvanceConjunction {}
+                    | Statement::OpenConjunctionCall {}
+                    | Statement::OpenConjunctionList {}
+                    | Statement::CloseConjunctionCall {}
+                    | Statement::BuildConjunction {}
+                    | Statement::ScanSlice {}
                     | Statement::AdvanceSlice {}
                     | Statement::ParseSliceUpper { .. }
                     | Statement::CloseSlice {}
@@ -416,7 +436,7 @@ fn execute(
                     | Statement::ScanSelectorString {}
                     | Statement::ParseSelectorString {}
                     | Statement::ParseSelectorIdentifier {}
-                    | Statement::BuildSelector {} => postfix_action(statement, frame)?,
+                    | Statement::BuildSelector {} => extended_action(statement, frame)?,
                     Statement::ScanIndex {} => frame.scan_index()?,
                     Statement::AdvanceIndex {} => frame.advance_index()?,
                     Statement::ParseIndex { minimum } => {
@@ -797,8 +817,15 @@ mod target_tests {
     }
 
     #[test]
-    fn source_record_operations_are_parser_only_even_in_dead_arms() {
+    fn source_record_and_conjunction_operations_are_parser_only_even_in_dead_arms() {
         for op in [
+            "conjunction",
+            "advanceConjunction",
+            "openConjunctionCall",
+            "openConjunctionList",
+            "closeConjunctionCall",
+            "buildConjunction",
+            "hasConjunction",
             "record",
             "advanceRecord",
             "openRecordCall",
@@ -827,7 +854,7 @@ mod target_tests {
             let body = serde_json::json!([{"op":"if","condition":{"op":"boolean","value":false},"then":[action]}]);
             let mut input = serde_json::json!({"formatVersion":1,"body":body});
             assert!(parse(&input.to_string()).is_ok(), "{op}");
-            for target in ["list", "record"] {
+            for target in ["list", "record", "conjunction"] {
                 input["target"] = serde_json::json!(target);
                 assert!(parse(&input.to_string()).is_err(), "{target}: {op}");
             }

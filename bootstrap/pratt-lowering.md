@@ -29,8 +29,8 @@ replace ordinary method selection with CUE checked snake identifier rendering of
 the validated canonical action name, retaining seven explicit selector methods.
 Seven parse-with-minimum calls share one CUE template via existing one-hop aliases.
 Actual prior full/no-selector/no-index driver sources stay byte-identical. Current
-backend is 333 original values after the conjunction header (330 at source
-slices), below unchanged 512/64 guards. Internal action/
+backend is 336 original values after source-conjunction selection (333 at the
+reduction header, 330 at source slices), below unchanged 512/64 guards. Internal action/
 parseMinimum tags and extra fields still reject eagerly on wire; no native source
 emitter or token/type-policy fallback is introduced.
 

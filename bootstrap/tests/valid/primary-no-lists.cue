@@ -1,3 +1,3 @@
 package bootstrap
 
-#PrimaryControl & {_lists: false, _records: false}
+#PrimaryControl & {_lists: false, _records: false, _conjunctions: false}

@@ -76,6 +76,9 @@ mod generated_selector_open;
 mod generated_slice_separator;
 
 #[cfg(feature = "source")]
+#[path = "../../generated/conjunction-open.rs"]
+mod generated_conjunction_open;
+#[cfg(feature = "source")]
 #[path = "../../generated/record-open.rs"]
 mod generated_record_open;
 #[cfg(feature = "source")]
@@ -680,6 +683,11 @@ pub fn selector_identifier(source: &str, offset: usize) -> Result<Scan, Error> {
 #[cfg(feature = "source")]
 pub fn record_open(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_record_open::scan(source, offset)
+}
+
+#[cfg(feature = "source")]
+pub fn conjunction_open(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_conjunction_open::scan(source, offset)
 }
 #[cfg(feature = "source")]
 pub fn record_close(source: &str, offset: usize) -> Result<Scan, Error> {

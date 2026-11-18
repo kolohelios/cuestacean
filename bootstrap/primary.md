@@ -1,7 +1,7 @@
 # CUE-hosted primary dispatch
 
 [`primary.cue`](primary.cue), using `primary-fragments.cue`, chooses groups, negation prefixes, bounds, strings,
-[source lists](source-lists.md), registered unary calls, atoms and integers using the same [control DSL](pratt.md) as the expression loop. The
+[source lists](source-lists.md), [source conjunction](source-conjunction.md), registered unary calls, atoms and integers using the same [control DSL](pratt.md) as the expression loop. The
 existing `bootstrap-pratt-codegen` compiler emits its branches and frame calls;
 there is no second compiler or native primary-dispatch fallback.
 
@@ -27,7 +27,10 @@ The primary program explicitly sequences:
   `hasListElement` loop parses one selected-driver expression at minimum 0,
   appends, scans/commits the tail and probes for a trailing-comma close;
   `buildList` uses the unary builder with a buffered JSON array, then return;
-- `scanIdentifier`, then optional `hasRecord`/`record` dispatches the separate
+- `scanIdentifier`, then optional `hasConjunction`/`conjunction` dispatches a
+  fourth selected CUE driver, parsing literal operand brackets directly into
+  conjunction AST through paired list stages without a wrapper or new frame field;
+- optional `hasRecord`/`record` dispatches the separate
   [closed-record source controller](source-records.md) on the same frame/fuel;
 - otherwise `hasCall`, then `advanceCall` and the existing group
   scan/advance/parse/close sequence at CUE argument minimum 0, followed by return;
@@ -56,10 +59,11 @@ requires forward progress and a valid in-bounds UTF-8 boundary.
 Primary actions use the expression frame's existing 4096-step budget, not a
 fresh budget. Recursive expressions still have the existing 32-level and
 64-node limits. Every nested expression propagates the selected expression,
-primary and record-primary engines, including unary recursion. `parse_interpreted`
-interprets all three production programs; explicit three-driver hooks expose each.
-The legacy `parse_with_drivers`/`parse_interpreted_with_primary` signatures remain
-compatible and select the default record-primary engine. Arbitrary Rust drivers are not sandboxed.
+primary, record-primary and conjunction-primary engines, including unary recursion.
+`parse_interpreted` interprets all four production programs; explicit four-driver
+hooks expose each. Existing two-/three-driver hook signatures remain compatible
+and select mode-appropriate defaults for omitted record/conjunction engines.
+Arbitrary Rust drivers are not sandboxed.
 
 Unary expression negation expands the subset, but does **not** close the Go
 bootstrap or make the parser/compiler fully self-hosted. Grammar validation, lookup,
