@@ -24,6 +24,21 @@ is test-only; its reference/default/cycle results are not production capabilitie
 The [#163 closure inventory](bootstrap-closure.md) isolates the AST atom builder's
 two-file schema/program closure as the first proposed native-export target; the
 exporter is not implemented, and existing seeds still depend on Go CUE exports.
+The [DSL/native audit](dsl-boundaries.md) traces actual ownership and guard pressure;
+the [architecture walkthrough](architecture.md) is the reader-facing entry point.
+
+**Proposed next milestone, not yet agreed:** review a scoped recursive-schema and
+demanded-completeness contract, then implement the isolated artifact-free AST atom
+specification export defined in #163, with an explicit CUE/native policy boundary
+and separate upstream oracle. This is neither full solving nor six-seed closure.
+The audit's factoring/measurement recommendations are not selected feature work.
+Review the combined findings and obtain user agreement under #161 before coding.
+
+Retain the eager evaluator for ready computations in its current subset. A future
+graph can track/refine dependencies and suspended constraints; their production
+readiness/demand interface is not established. Never retry an eager evaluation
+error through a graph fallback. Recursive schema templates are not automatically
+covered by the test-only arithmetic-cycle spike.
 
 ### Executable CUE-owned machinery
 

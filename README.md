@@ -7,6 +7,10 @@ Cuestacean is an experimental project to reimplement
 and Rust as the execution target. The ambition is full self-hosting, not merely
 using CUE to configure a handwritten Rust compiler.
 
+**Start with the [architecture walkthrough](docs/architecture.md)** for one
+expression's path to `42`, the separate implementation-build path, and the
+current CUE/Rust boundary. Detailed component contracts remain below.
+
 There is no general CUE implementation yet. The [bootstrap fixtures](bootstrap/README.md)
 define scalar values and constraints, inclusive bounds, arithmetic and unification trees, plus evaluation
 rules, in CUE and export them to build-only JSON using upstream CUE. A small
@@ -25,8 +29,8 @@ now uses another policy through that same engine. [AST-builder compilation](boot
 now uses CUE layout/clone/move policy with native checked binding/use-count facts.
 [Scanner compilation](bootstrap/scan-lowering.md) also uses shared CUE source/branch
 layout, with explicit native flow facts and bounded pattern rendering.
-Nix builds native generator/VM seeds, regenerates JSON and Rust from the CUE specifications, then compiles and
-tests the final executables. A [source frontend](bootstrap/source/README.md)
+Nix exports specification JSON, builds artifact-free native generator/VM seeds
+using those policies, regenerates Rust, then compiles and tests the final executables. A [source frontend](bootstrap/source/README.md)
 now handles a tiny checked-integer subset (decimal and 0b/0o/0x/0X literals) with addition, subtraction,
 multiplication, integer division/remainder, unary negation, `true`/`false`, `bool`/`int` constraints,
 inclusive bounds, unification, parentheses, and Unicode `//` comment trivia
