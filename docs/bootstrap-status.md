@@ -38,10 +38,13 @@ value/default pairs lose preference-support provenance under contextual refineme
 The [#176 test-only provenance spike](default-provenance-spike.md) distinguishes
 support elimination from conflicting preferences, but an independent both-order
 counterexample shows this static recipe is insufficient. Production defaults
-remain held; contextual preference lifetime/readiness needs a further design.
-Pinned CUE order discrepancies are separate evidence, not an excuse for that gap.
-Production parsing/evaluation stays unchanged. Neither experiment completes the real policies'
-default/pattern/optional-field/import closures.
+remain held. The [#178 test-only demand boundary](default-readiness.md) audits
+retained/suppressed recipes and defers unresolved nested preference policy rather
+than guessing a value. It is a conservative experimental classification, not a
+completed contextual default calculus. Pinned CUE order discrepancies are separate
+evidence, not an excuse for the compatibility gap.
+Production parsing/evaluation stays unchanged. These experiments do not complete
+the real policies' default/pattern/optional-field/import closures.
 Compiler-policy closure and semantic-policy migration remain later bounded
 selections, not authorization for routine source expansion, raised guards,
 general solving or six-seed closure.

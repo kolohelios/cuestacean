@@ -45,6 +45,47 @@ pub struct Report {
     pub work: usize,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub enum Support {
+    Unentered,
+    Unmarked,
+    MarkedLive,
+    MarkedEliminated,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct GroupFact {
+    pub group: usize,
+    pub support: Support,
+    pub retained: Vec<usize>,
+    pub suppressed: Vec<usize>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum Readiness {
+    ConstraintOnly,
+    FlatPreference,
+    DeferredNested,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum Demand {
+    Concrete(i64),
+    Incomplete,
+    Conflict,
+    Suspended,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct DemandReport {
+    pub constraints: Vec<Domain>,
+    pub groups: Vec<GroupFact>,
+    pub preferred: Option<Preference>,
+    pub readiness: Readiness,
+    pub demand: Demand,
+    pub work: usize,
+}
+
 const MAX_NODES: usize = 128;
 const MAX_DEPTH: usize = 16;
 const MAX_GROUPS: usize = 16;
@@ -245,6 +286,145 @@ impl Graph {
             outcome,
             work: work.used,
         })
+    }
+
+    pub fn demand(&self, refinement: Domain, work_limit: usize) -> Result<DemandReport, Error> {
+        if work_limit > MAX_WORK {
+            return Err(Error::Limit("work allowance exceeds hard cap"));
+        }
+        let mut work = Work {
+            used: 0,
+            limit: work_limit,
+        };
+        let ordinary = self.ordinary(self.root, &mut work)?;
+        // Inspect, meet and copy each world before allocating its refined table.
+        // Do not merge equal domains: their occurrence lineages remain distinct.
+        work.charge(ordinary.len() * 3)?;
+        let mut worlds = Vec::with_capacity(ordinary.len());
+        for world in ordinary {
+            if let Some(domain) = meet(world.domain, refinement) {
+                worlds.push(World {
+                    domain,
+                    lineage: world.lineage,
+                });
+            }
+        }
+        let mut groups = Vec::new();
+        let mut nested = false;
+        self.audit(self.root, 0, &worlds, &mut groups, &mut nested, &mut work)?;
+        let constraints = project(&worlds, None, &mut work)?;
+        let (readiness, demand, preferred) = if worlds.is_empty() {
+            (Readiness::ConstraintOnly, Demand::Conflict, None)
+        } else if let [Domain::Value(value)] = constraints.as_slice() {
+            (Readiness::ConstraintOnly, Demand::Concrete(*value), None)
+        } else if !self.nodes[self.root].recipe {
+            (Readiness::ConstraintOnly, Demand::Incomplete, None)
+        } else if nested {
+            (Readiness::DeferredNested, Demand::Suspended, None)
+        } else {
+            let association = self.preference(self.root, 0, &worlds, &mut work)?;
+            let preferred = match association {
+                Association::Absent => Preference::Absent,
+                Association::Present(0) => Preference::Bottom,
+                Association::Present(selected) => {
+                    Preference::Values(project(&worlds, Some(selected), &mut work)?)
+                }
+            };
+            let selected = match &preferred {
+                Preference::Values(values) => values,
+                Preference::Absent | Preference::Bottom => &constraints,
+            };
+            let demand = match selected.as_slice() {
+                [Domain::Value(value)] => Demand::Concrete(*value),
+                _ => Demand::Incomplete,
+            };
+            (Readiness::FlatPreference, demand, Some(preferred))
+        };
+        work.charge(1)?;
+        Ok(DemandReport {
+            constraints,
+            groups,
+            preferred,
+            readiness,
+            demand,
+            work: work.used,
+        })
+    }
+
+    // Traverse every source occurrence, including impossible and M3-suppressed
+    // children. This observes syntax and ordinary support, never preferences.
+    // Compilation uses postorder IDs, so postorder emission sorts group facts.
+    fn audit(
+        &self,
+        id: Id,
+        context: u128,
+        worlds: &[World],
+        groups: &mut Vec<GroupFact>,
+        nested: &mut bool,
+        work: &mut Work,
+    ) -> Result<(), Error> {
+        work.charge(1)?;
+        match &self.nodes[id].kind {
+            NodeKind::Atom(_) => {}
+            NodeKind::And(left, right) => {
+                self.audit(*left, context, worlds, groups, nested, work)?;
+                self.audit(*right, context, worlds, groups, nested, work)?;
+            }
+            NodeKind::Or(alternatives) => {
+                let entered = support(context, worlds, work)? != 0;
+                let mut marked = false;
+                for alternative in alternatives {
+                    work.charge(1)?;
+                    marked |= alternative.marked;
+                }
+                let mut live_mark = false;
+                let mut retained = Vec::new();
+                let mut suppressed = Vec::new();
+                for alternative in alternatives {
+                    work.charge(1)?;
+                    let child_context = context | alternative.choice;
+                    if alternative.marked {
+                        live_mark |= support(child_context, worlds, work)? != 0;
+                    }
+                    if self.nodes[alternative.child].recipe {
+                        *nested |= entered;
+                        // Charge the copied ID and prospective list allocation
+                        // before enqueue, even for unentered source recipes.
+                        work.charge(2)?;
+                        if marked && !alternative.marked {
+                            suppressed.push(alternative.child);
+                        } else {
+                            retained.push(alternative.child);
+                        }
+                    }
+                    self.audit(
+                        alternative.child,
+                        child_context,
+                        worlds,
+                        groups,
+                        nested,
+                        work,
+                    )?;
+                }
+                let support = if !entered {
+                    Support::Unentered
+                } else if !marked {
+                    Support::Unmarked
+                } else if live_mark {
+                    Support::MarkedLive
+                } else {
+                    Support::MarkedEliminated
+                };
+                work.charge(1)?;
+                groups.push(GroupFact {
+                    group: id,
+                    support,
+                    retained,
+                    suppressed,
+                });
+            }
+        }
+        Ok(())
     }
 
     fn ordinary(&self, id: Id, work: &mut Work) -> Result<Vec<World>, Error> {
