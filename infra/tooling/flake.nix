@@ -405,6 +405,8 @@
           nativeCheckInputs = [
             pkgs.rustfmt
             pkgs.clippy
+            # Test-only solver spike runs mandatory pinned upstream probes.
+            pkgs.cue
           ];
           preCheck = ''
             cargo fmt --check
@@ -417,6 +419,7 @@
             )
             cargo check --offline --no-default-features --features compiled-lowering --bins
             cargo test --offline --no-default-features --lib
+            cargo test --offline --no-default-features --test solver_spike
           '';
         };
 
