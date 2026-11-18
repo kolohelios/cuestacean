@@ -30,6 +30,9 @@
   Source postfix brackets select this AST by default; typed index APIs stay strict.
 - `recordIndex`: eager record/key AST children, CUE domain/presence policy.
 - `recordLength`: record-only count; generic `length` also admits records.
+- `slice`: optional `lower`/`upper` AST endpoints, with CUE-selected zero/count
+  defaults and a single ordinary `operand` entry; [contract](optional-slices.md).
+  Existing strict listSlice and source explicit endpoints remain unchanged.
 - `listSlice`: required `operand`/`lower`/`upper` ASTs, evaluated in order before
   CUE half-open range checks and immutable certified slicing; [contract](list-slicing.md).
   [Source `a[low:high]`](source-slices.md) requires both endpoints; omitted

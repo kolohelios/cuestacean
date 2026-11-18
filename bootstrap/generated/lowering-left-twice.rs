@@ -7,13 +7,14 @@ pub struct Compiled;
 impl Driver for Compiled {
     fn render(&self, ctx: &mut Context, _node: &Value, _depth: usize) -> Result<String, Error> {
         match lowering::instruction_op(_node)? {
-            "binaryRuntime" | "difference" | "divide" | "index" | "listIndex" | "logicalAnd"
-            | "logicalOr" | "modulo" | "product" | "quotient" | "recordIndex" => {
-                ctx.concat(|parts| {
+            "binaryRuntime" | "difference" | "divide" | "equal" | "index" | "listIndex"
+            | "logicalAnd" | "logicalOr" | "modulo" | "product" | "quotient" | "recordIndex" => ctx
+                .concat(|parts| {
                     parts.arg(|ctx| {
                         ctx.select(_node, "op", |ctx, tag| match tag {
                             "difference" => ctx.text("runtime::difference"),
                             "divide" => ctx.text("runtime::divide"),
+                            "equal" => ctx.text("runtime::equal"),
                             "index" => ctx.text("runtime::index"),
                             "listIndex" => ctx.text("runtime::list_index"),
                             "logicalAnd" => ctx.text("runtime::logical_and"),
@@ -37,8 +38,7 @@ impl Driver for Compiled {
                     })?;
                     parts.arg(|ctx| ctx.text(")"))?;
                     Ok(())
-                })
-            }
+                }),
             "bool" => ctx.ok(|ctx| ctx.path("runtime::Value::Bool")),
             "boolean" => ctx.ok(|ctx| {
                 ctx.call("runtime::Value::Boolean", |call| {
@@ -51,15 +51,6 @@ impl Driver for Compiled {
                 call.arg(|ctx| ctx.string(_node, "field"))?;
                 call.arg(|ctx| ctx.path("_context"))?;
                 call.arg(|ctx| ctx.path("evaluate"))?;
-                Ok(())
-            }),
-            "equal" => ctx.call("runtime::equal", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
-                })?;
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
-                })?;
                 Ok(())
             }),
             "evaluate" => ctx.call("evaluate", |call| {
@@ -183,6 +174,15 @@ impl Driver for Compiled {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
                 })?;
+                Ok(())
+            }),
+            "slice" => ctx.call("runtime::slice_fields", |call| {
+                call.arg(|ctx| ctx.path("node"))?;
+                call.arg(|ctx| ctx.string(_node, "operandField"))?;
+                call.arg(|ctx| ctx.string(_node, "lowerField"))?;
+                call.arg(|ctx| ctx.string(_node, "upperField"))?;
+                call.arg(|ctx| ctx.path("_context"))?;
+                call.arg(|ctx| ctx.path("evaluate"))?;
                 Ok(())
             }),
             "stringType" => ctx.ok(|ctx| ctx.path("runtime::Value::String")),

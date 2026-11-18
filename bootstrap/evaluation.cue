@@ -21,6 +21,7 @@ package bootstrap
 		length: result: {op: "length", value: {op: "evaluate", field: "operand"}}
 		stringLength: result: {op: "stringLength", value: {op: "evaluate", field: "operand"}}
 		list: result: {op: "list", field: "value"}
+		slice: result: {op: "slice", operandField: "operand", lowerField: "lower", upperField: "upper"}
 		conjunction: result: {op: "conjunction", field: "operands"}
 		listExpression: result: {op: "listExpression", field: "elements"}
 		listLength: result: {op: "listLength", value: {op: "evaluate", field: "operand"}}

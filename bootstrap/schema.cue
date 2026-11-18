@@ -3,7 +3,7 @@ package bootstrap
 import "list"
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #ConjunctionExpression | #ListSliceExpression | #SelectorExpression | #RecordExpression | #RecordLiteral | #ListExpression | #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
+#Expression: #OptionalSliceExpression | #ConjunctionExpression | #ListSliceExpression | #SelectorExpression | #RecordExpression | #RecordLiteral | #ListExpression | #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
 
 // Factor the identical recursive shape; separate recursive disjuncts expand
 // combinatorially in the upstream exporter as binary node kinds accumulate.
@@ -13,6 +13,7 @@ import "list"
 	right: #Expression
 }
 
+#OptionalSliceExpression: {kind: "slice", operand: #Expression, lower?: #Expression, upper?: #Expression}
 #ConjunctionExpression: {kind: "conjunction", operands: [...#Expression] & list.MaxItems(64)}
 #ListSliceExpression: {kind: "listSlice", operand: #Expression, lower: #Expression, upper: #Expression}
 #SelectorExpression: {kind: "select", operand: #Expression, label: string}
@@ -199,13 +200,20 @@ import "list"
 #ConjunctionControlStatement: {op: "seedTop" | "firstItem" | "lastItem" | "evaluateItem" | "unifyItem" | "nextItem" | "previousItem" | "finishConjunction" | "return"} | {
 	op: "while", condition: #ListControlCondition, body: [...#ConjunctionControlStatement]
 } | {op: "if", condition: #ListControlCondition, then: [...#ConjunctionControlStatement], else: *[] | [...#ConjunctionControlStatement]}
+#SliceControlCondition: {op: "hasLower" | "hasUpper"} | {op: "sliceKindIs", kind: #UnifyKind} | {op: "boolean", value: bool} | {op: "and", left: #SliceControlCondition, right: #SliceControlCondition}
+#SliceControlStatement: {op: "evaluateSliceOperand" | "evaluateSliceLower" | "evaluateSliceUpper" | "defaultSliceUpper" | "rejectSliceOperand" | "finishSlice" | "return"} | {
+	op: "defaultSliceLower", value: int & >=-9223372036854775808 & <=9223372036854775807
+} | {op: "while", condition: #SliceControlCondition, body: [...#SliceControlStatement]} | {
+	op: "if", condition: #SliceControlCondition, then: [...#SliceControlStatement], else: *[] | [...#SliceControlStatement]
+}
 #PrattProgram: {
 	formatVersion: 1
-	target:        *"parser" | "list" | "record" | "conjunction"
+	target:        *"parser" | "list" | "record" | "conjunction" | "slice"
 	if target == "parser" {body: [...#PrattStatement]}
 	if target == "list" {body: [...#ListControlStatement]}
 	if target == "record" {body: [...#RecordControlStatement]}
 	if target == "conjunction" {body: [...#ConjunctionControlStatement]}
+	if target == "slice" {body: [...#SliceControlStatement]}
 }
 
 // Typed JSON construction expressions used by the parser's AST builders.
@@ -360,6 +368,7 @@ import "list"
 		length: result: {op: "length", value: {op: "evaluate", field: "operand"}}
 		stringLength: result: {op: "stringLength", value: {op: "evaluate", field: "operand"}}
 		list: result: {op: "list", field: "value"}
+		slice: result: {op: "slice", operandField: "operand", lowerField: "lower", upperField: "upper"}
 		conjunction: result: {op: "conjunction", field: "operands"}
 		listExpression: result: {op: "listExpression", field: "elements"}
 		listLength: result: {op: "listLength", value: {op: "evaluate", field: "operand"}}

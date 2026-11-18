@@ -251,7 +251,7 @@ done
 bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-literal.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-lowering-forced.json" \
   | rustfmt --edition 2024 > bootstrap/generated/ast-forced-integer.rs
-for control in conjunction-primary tests/valid/conjunction-primary-high-minimum tests/valid/primary-no-conjunction conjunction-control tests/valid/conjunction-control-reverse tests/valid/conjunction-control-tail tests/valid/pratt-no-slices tests/valid/pratt-slice-high-minimum tests/valid/pratt-no-selectors record-primary tests/valid/record-primary-high-minimum tests/valid/primary-no-records tests/valid/list-control-homogeneous tests/valid/record-control-homogeneous record-control tests/valid/record-control-scalars tests/valid/record-control-reverse tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
+for control in slice-control tests/valid/slice-control-lower-one tests/valid/slice-control-tail conjunction-primary tests/valid/conjunction-primary-high-minimum tests/valid/primary-no-conjunction conjunction-control tests/valid/conjunction-control-reverse tests/valid/conjunction-control-tail tests/valid/pratt-no-slices tests/valid/pratt-slice-high-minimum tests/valid/pratt-no-selectors record-primary tests/valid/record-primary-high-minimum tests/valid/primary-no-records tests/valid/list-control-homogeneous tests/valid/record-control-homogeneous record-control tests/valid/record-control-scalars tests/valid/record-control-reverse tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
   primary tests/valid/primary-no-calls tests/valid/primary-call-high-minimum tests/valid/primary-nested tests/valid/primary-return tests/valid/primary-return-empty tests/valid/pratt-return-loop \
   tests/valid/primary-bound-high-minimum tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
   tests/valid/primary-cross-phase tests/valid/primary-low-negation \
@@ -306,6 +306,10 @@ all four inherit through recursion. See [conjunction](../conjunction.md).
 listSlice/unify evaluation in immediate CUE-emitted closures, preserving the same
 context/child order while keeping their temporaries out of unrelated match arms.
 No larger stacks or resource guards are used.
+
+`slice-control` selects optional JSON endpoint evaluation/defaults through the
+same compiler. The compiled lower-one alternate changes only missing lower;
+tail control pins presence/default/return charging. [Contract](../optional-slices.md).
 
 ## Fresh Nix builds
 

@@ -141,6 +141,10 @@ pub enum Error {
     ListSliceOperands,
     #[snafu(display("list slice out of range"))]
     ListSliceRange,
+    #[snafu(display("invalid slice control: {reason}"))]
+    SliceState { reason: &'static str },
+    #[snafu(display("slice control exceeds 4096 steps"))]
+    SliceControlBudget,
     #[snafu(display("missing closed record field {field:?}"))]
     RecordMissing { field: String },
     #[snafu(display("signed 64-bit integer addition overflow"))]
@@ -306,6 +310,14 @@ enum Instruction {
     Index {
         left: Box<Instruction>,
         right: Box<Instruction>,
+    },
+    Slice {
+        #[serde(rename = "operandField")]
+        operand_field: String,
+        #[serde(rename = "lowerField")]
+        lower_field: String,
+        #[serde(rename = "upperField")]
+        upper_field: String,
     },
     #[serde(rename = "listSlice")]
     ListSlice {
@@ -565,6 +577,20 @@ fn instruction(
         Instruction::Index { left, right } => {
             binary_instruction(left, right, node, rules, context, runtime::index)
         }
+        Instruction::Slice {
+            operand_field,
+            lower_field,
+            upper_field,
+        } => runtime::slice_interpreted(
+            node,
+            [operand_field, lower_field, upper_field],
+            context,
+            |node, context| evaluate(node, rules, context),
+            include_str!(concat!(
+                env!("CUESTACEAN_BOOTSTRAP_JSON"),
+                "/slice-control.json"
+            )),
+        ),
         Instruction::ListSlice {
             value,
             lower,

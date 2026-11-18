@@ -28,6 +28,7 @@ enum Target {
     List,
     Record,
     Conjunction,
+    Slice,
 }
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
@@ -47,6 +48,11 @@ enum Number {
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 enum Condition {
     HasItem {},
+    HasLower {},
+    HasUpper {},
+    SliceKindIs {
+        kind: crate::unification::Kind,
+    },
     ItemKindIs {
         kind: crate::unification::Kind,
     },
@@ -92,6 +98,15 @@ enum Statement {
     RejectItem {},
     FinishList {},
     FinishRecord {},
+    EvaluateSliceOperand {},
+    EvaluateSliceLower {},
+    EvaluateSliceUpper {},
+    DefaultSliceLower {
+        value: i64,
+    },
+    DefaultSliceUpper {},
+    RejectSliceOperand {},
+    FinishSlice {},
     SeedTop {},
     UnifyItem {},
     FinishConjunction {},
@@ -241,7 +256,12 @@ fn validate_family(body: &[Statement], target: Target) -> Result<(), Error> {
             Condition::And { left, right } => {
                 condition_valid(left, target) && condition_valid(right, target)
             }
-            Condition::HasItem {} | Condition::ItemKindIs { .. } => target != Target::Parser,
+            Condition::HasItem {} | Condition::ItemKindIs { .. } => {
+                matches!(target, Target::List | Target::Record | Target::Conjunction)
+            }
+            Condition::HasLower {} | Condition::HasUpper {} | Condition::SliceKindIs { .. } => {
+                target == Target::Slice
+            }
             _ => target == Target::Parser,
         }
     }
@@ -265,13 +285,22 @@ fn validate_family(body: &[Statement], target: Target) -> Result<(), Error> {
             | Statement::LastItem {}
             | Statement::EvaluateItem {}
             | Statement::NextItem {}
-            | Statement::PreviousItem {} => target != Target::Parser,
+            | Statement::PreviousItem {} => {
+                matches!(target, Target::List | Target::Record | Target::Conjunction)
+            }
             Statement::AppendItem {} | Statement::RejectItem {} => {
                 matches!(target, Target::List | Target::Record)
             }
             Statement::SeedTop {} | Statement::UnifyItem {} | Statement::FinishConjunction {} => {
                 target == Target::Conjunction
             }
+            Statement::EvaluateSliceOperand {}
+            | Statement::EvaluateSliceLower {}
+            | Statement::EvaluateSliceUpper {}
+            | Statement::DefaultSliceLower { .. }
+            | Statement::DefaultSliceUpper {}
+            | Statement::RejectSliceOperand {}
+            | Statement::FinishSlice {} => target == Target::Slice,
             Statement::FinishList {} => target == Target::List,
             Statement::FinishRecord {} => target == Target::Record,
             _ => target == Target::Parser,
@@ -332,7 +361,11 @@ impl Condition {
     #[cfg(feature = "source")]
     fn test(&self, frame: &crate::parser::Frame<'_, '_>) -> Result<bool, crate::parser::Error> {
         Ok(match self {
-            Self::HasItem {} | Self::ItemKindIs { .. } => unreachable!("validated parser target"),
+            Self::HasItem {}
+            | Self::ItemKindIs { .. }
+            | Self::HasLower {}
+            | Self::HasUpper {}
+            | Self::SliceKindIs { .. } => unreachable!("validated parser target"),
             Self::HasOperator {} => frame.has_operator(),
             Self::HasIndex {} => frame.has_index()?,
             Self::HasSlice {} => frame.has_slice()?,
@@ -574,11 +607,26 @@ pub fn interpret_conjunction(
     execute_items(&program.body, &mut ItemFrame::Conjunction(frame)).map(|_| ())
 }
 
-// Dispatch only checked frame primitives, never collection traversal policy.
+/// Execute validated optional-slice control through the shared structured VM.
+pub fn interpret_slice(
+    input: &str,
+    frame: &mut crate::runtime::SliceFrame<'_>,
+) -> Result<(), crate::Error> {
+    let program = parse(input).map_err(|source| crate::Error::ControlProgram { source })?;
+    if program.target != Target::Slice {
+        return Err(crate::Error::SliceState {
+            reason: "slice control target required",
+        });
+    }
+    execute_items(&program.body, &mut ItemFrame::Slice(frame)).map(|_| ())
+}
+
+// Dispatch only checked frame primitives, never traversal/default selection policy.
 enum ItemFrame<'a, 'b> {
     List(&'a mut crate::runtime::ListFrame<'b>),
     Record(&'a mut crate::runtime::RecordFrame<'b>),
     Conjunction(&'a mut crate::runtime::ConjunctionFrame<'b>),
+    Slice(&'a mut crate::runtime::SliceFrame<'b>),
 }
 macro_rules! item_call {
     ($frame:expr, $method:ident($($arg:expr),*)) => {
@@ -586,25 +634,62 @@ macro_rules! item_call {
             ItemFrame::List(frame) => frame.$method($($arg),*),
             ItemFrame::Record(frame) => frame.$method($($arg),*),
             ItemFrame::Conjunction(frame) => frame.$method($($arg),*),
+            ItemFrame::Slice(_) => unreachable!("validated item target"),
         }
     };
+}
+
+fn item_step(frame: &mut ItemFrame<'_, '_>) -> Result<(), crate::Error> {
+    match frame {
+        ItemFrame::Slice(frame) => frame.step(),
+        _ => item_call!(frame, step()),
+    }
 }
 
 fn item_test(condition: &Condition, frame: &ItemFrame<'_, '_>) -> Result<bool, crate::Error> {
     Ok(match condition {
         Condition::Boolean { value } => *value,
         Condition::And { left, right } => item_test(left, frame)? && item_test(right, frame)?,
+        Condition::HasLower {} => match frame {
+            ItemFrame::Slice(frame) => frame.has_lower()?,
+            _ => unreachable!("validated slice target"),
+        },
+        Condition::HasUpper {} => match frame {
+            ItemFrame::Slice(frame) => frame.has_upper()?,
+            _ => unreachable!("validated slice target"),
+        },
+        Condition::SliceKindIs { kind } => match frame {
+            ItemFrame::Slice(frame) => frame.slice_kind_is(*kind)?,
+            _ => unreachable!("validated slice target"),
+        },
         Condition::HasItem {} => item_call!(frame, has_item())?,
         Condition::ItemKindIs { kind } => item_call!(frame, item_kind_is(*kind))?,
         _ => unreachable!("validated collection target"),
     })
 }
 
+// Keep slice-only Result temporaries out of other recursive control frames.
+fn slice_action(
+    statement: &Statement,
+    frame: &mut crate::runtime::SliceFrame<'_>,
+) -> Result<(), crate::Error> {
+    match statement {
+        Statement::EvaluateSliceOperand {} => frame.evaluate_slice_operand(),
+        Statement::EvaluateSliceLower {} => frame.evaluate_slice_lower(),
+        Statement::EvaluateSliceUpper {} => frame.evaluate_slice_upper(),
+        Statement::DefaultSliceLower { value } => frame.default_slice_lower(*value),
+        Statement::DefaultSliceUpper {} => frame.default_slice_upper(),
+        Statement::RejectSliceOperand {} => frame.reject_slice_operand(),
+        Statement::FinishSlice {} => frame.finish_slice(),
+        _ => unreachable!("validated slice action"),
+    }
+}
+
 fn execute_items(body: &[Statement], frame: &mut ItemFrame<'_, '_>) -> Result<Flow, crate::Error> {
     for statement in body {
         if let Statement::While { condition, body } = statement {
             while {
-                item_call!(&mut *frame, step())?;
+                item_step(frame)?;
                 item_test(condition, frame)?
             } {
                 if execute_items(body, frame)? == Flow::Return {
@@ -613,12 +698,22 @@ fn execute_items(body: &[Statement], frame: &mut ItemFrame<'_, '_>) -> Result<Fl
             }
             continue;
         }
-        item_call!(&mut *frame, step())?;
+        item_step(frame)?;
         match statement {
             Statement::Return {} => return Ok(Flow::Return),
             Statement::FirstItem {} => item_call!(&mut *frame, first_item())?,
             Statement::LastItem {} => item_call!(&mut *frame, last_item())?,
             Statement::EvaluateItem {} => item_call!(&mut *frame, evaluate_item())?,
+            Statement::EvaluateSliceOperand {}
+            | Statement::EvaluateSliceLower {}
+            | Statement::EvaluateSliceUpper {}
+            | Statement::DefaultSliceLower { .. }
+            | Statement::DefaultSliceUpper {}
+            | Statement::RejectSliceOperand {}
+            | Statement::FinishSlice {} => match frame {
+                ItemFrame::Slice(frame) => slice_action(statement, frame)?,
+                _ => unreachable!("validated slice target"),
+            },
             Statement::SeedTop {} => match frame {
                 ItemFrame::Conjunction(frame) => frame.seed_top()?,
                 _ => unreachable!("validated conjunction target"),
@@ -951,6 +1046,56 @@ mod target_tests {
         assert!(
             super::generate_with_policy(
                 ignored,
+                r#"{"formatVersion":1,"cases":{"program":{"op":"text","value":"ignored"}}}"#
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn optional_slice_wire_is_typed_and_target_checked_in_dead_arms() {
+        for op in [
+            "evaluateSliceOperand",
+            "evaluateSliceLower",
+            "evaluateSliceUpper",
+            "defaultSliceLower",
+            "defaultSliceUpper",
+            "rejectSliceOperand",
+            "finishSlice",
+        ] {
+            let mut action = serde_json::json!({"op":op});
+            if op == "defaultSliceLower" {
+                action["value"] = serde_json::json!(i64::MIN);
+            }
+            let mut input = serde_json::json!({"formatVersion":1,"target":"slice","body":[{"op":"if","condition":{"op":"boolean","value":false},"then":[action]}]});
+            assert!(parse(&input.to_string()).is_ok(), "{op}");
+            for target in ["parser", "list", "record", "conjunction"] {
+                input["target"] = serde_json::json!(target);
+                assert!(parse(&input.to_string()).is_err(), "{target}: {op}");
+            }
+        }
+        for action in [
+            serde_json::json!({"op":"firstItem"}),
+            serde_json::json!({"op":"seedTop"}),
+            serde_json::json!({"op":"parseSliceUpper","minimum":{"op":"integer","value":0}}),
+            serde_json::json!({"op":"action","action":"finishSlice"}),
+            serde_json::json!({"op":"defaultSliceLower","value":true}),
+        ] {
+            let input = serde_json::json!({"formatVersion":1,"target":"slice","body":[{"op":"if","condition":{"op":"boolean","value":false},"then":[action]}]});
+            assert!(parse(&input.to_string()).is_err());
+        }
+        for condition in [
+            serde_json::json!({"op":"hasItem"}),
+            serde_json::json!({"op":"hasSlice"}),
+        ] {
+            let input = serde_json::json!({"formatVersion":1,"target":"slice","body":[{"op":"if","condition":condition,"then":[]}]});
+            assert!(parse(&input.to_string()).is_err());
+        }
+        assert!(parse(r#"{"formatVersion":1,"target":"slice","body":[{"op":"defaultSliceLower","value":9223372036854775808}]}"#).is_err());
+        assert!(parse(r#"{"formatVersion":1,"target":"slice","body":[{"op":"finishSlice","op":"return"}]}"#).is_err());
+        assert!(
+            super::generate_with_policy(
+                r#"{"formatVersion":1,"target":"slice","body":[{"op":"appendItem"}]}"#,
                 r#"{"formatVersion":1,"cases":{"program":{"op":"text","value":"ignored"}}}"#
             )
             .is_err()
