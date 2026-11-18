@@ -24,7 +24,8 @@ not invoke Go CUE at runtime.
 ```text
 BUILD THE IMPLEMENTATION
 CUE specifications: schemas + grammar + executable DSL programs/policies
-    | pinned Go CUE evaluates declarations/references/defaults/comprehensions
+    | native exporter evaluates AST-builder specification closures
+    | pinned Go CUE evaluates the other closures (including defaults/comprehensions)
     v
 build-only JSON: validated grammar data and represented DSL programs/policies
     | six artifact-free native Rust compiler seeds interpret lowering policies
@@ -80,8 +81,10 @@ and [addition](../bootstrap/sum.md) contracts for the exact interfaces.
 
 ## What still lives where?
 
-- **Go CUE** remains the specification evaluator/exporter and a separate test
-  oracle. Export inputs do not depend on compiler seeds or committed artifacts.
+- **Go CUE** evaluates the other specification closures and remains a separate
+  test oracle. The [complete AST builder family](native-builder-family.md) now has
+  an independently native export path used by the production JSON bundle.
+  Export inputs do not depend on compiler seeds or committed artifacts.
 - **Shared lowering machinery** interprets CUE-authored policies in fresh seeds;
   default production generators use compiled policy drivers. The AST, scanner,
   Pratt, unification and meta backends share checked rendering machinery. The
@@ -131,5 +134,5 @@ nix develop "path:$PWD?dir=infra/tooling" --command cargo test \
 
 On x86_64-linux, these runs printed `42` and passed all 26 focused tests. The
 complete Rust suite, strict Clippy and pinned preflight passed (13/13, 7 inapplicable
-checks skipped); all five Nix checks were explicitly sandbox-rebuilt. Other
+checks skipped); the declared Nix checks were exercised in actual sandboxes. Other
 architectures were not validated. See the [checkpoint runbook](bootstrap-status.md#build-and-validation-runbook).

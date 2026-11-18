@@ -24,18 +24,20 @@ is test-only; its reference/default/cycle results are not production capabilitie
 The [#163 closure inventory](bootstrap-closure.md) isolates the AST atom builder's
 two-file schema/program closure as the first native-export target. The isolated
 [#169 exporter](native-spec-export.md) implements that path; existing six compiler
-seeds and the default export pipeline still depend on Go CUE.
+seeds and the rest of the default export pipeline still depend on Go CUE.
+The [#171 builder-family closure](native-builder-family.md) now supplies all 12
+AST builder specifications natively to that pipeline, without widening the
+original two-file atom proof or changing exporter language/resource limits.
 The [DSL/native audit](dsl-boundaries.md) traces actual ownership and guard pressure;
 the [architecture walkthrough](architecture.md) is the reader-facing entry point.
 
-**Agreed milestone ([#169](https://github.com/kolohelios/cuestacean/issues/169)):**
-review the [scoped recursive-schema and
-demanded-completeness contract](native-spec-export.md), then implement the isolated artifact-free AST atom
-specification export defined in #163, with an explicit CUE/native policy boundary
-and separate upstream oracle. This is neither full solving nor six-seed closure.
-The audit's factoring/measurement recommendations are not selected feature work.
-The user approved this direction after the #161 review. Review the new contract
-before implementation; unrelated feature expansion remains deferred.
+**Completed #169; next closure step #171:** the reviewed
+[scoped-schema/readiness contract](native-spec-export.md) established the independent
+AST atom export. The user's continuation request selects the complete AST builder
+family and native production provider, with a separate full-build-graph proof and
+oracle/downstream check. Compiler policies/import closures and semantic-policy
+migration remain later bounded selections, not authorization for routine syntax
+expansion, raised guards, general solving or six-seed closure.
 
 Retain the eager evaluator for ready computations in its current subset. A future
 graph can track/refine dependencies and suspended constraints; their production

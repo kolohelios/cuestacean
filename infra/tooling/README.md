@@ -25,13 +25,17 @@ lockfile pins both FlakeHub inputs and upstream CUE through Nixpkgs.
 
 Within this directory, `just validate` checks Nix formatting, flake evaluation,
 whitespace, and the [bootstrap export](../../bootstrap/README.md). The flake's
-`bootstrap-export` check builds the `exports` output: it exports each CUE
-fixture twice, compares the results, and requires malformed expression trees
-and evaluation-rule descriptions to fail export. JSON is not committed.
-AST builders load the isolated `ast-schema.cue`; other fixtures load `schema.cue`
-plus only their required fragment definitions, selected by the explicit closure
-table in `flake.nix`. See the [closure inventory](../../docs/bootstrap-closure.md)
-for actual dependency edges and the first proposed no-Go-CUE target. CI export processes were killed (exit 137). Narrowed closures alone did not
+`bootstrap-export` check builds the `exports` output. Its 12 AST builder
+specifications come from the independent `native-ast-builders` producer, which
+exports each raw program with `ast-schema.cue` twice in separate native processes.
+The bundle copies those checked artifacts and never retries them through Go CUE.
+Other positive fixtures still export twice through Go CUE using `schema.cue` and
+only their required fragments. Malformed expression trees and evaluation rules
+must still fail; JSON stays build-only. `native-builder-family` separately checks
+upstream equality, every regenerated builder golden and the family's full native
+build dependency graph, preserving the original `native-ast-atom` cut/proof.
+See the [family contract](../../docs/native-builder-family.md) and
+[closure inventory](../../docs/bootstrap-closure.md) for the exact boundaries. CI export processes were killed (exit 137). Narrowed closures alone did not
 resolve this: the recursive expression schema also needed its identical binary shapes
 factored into one tagged definition, retaining constructor aliases and closed
 fields. Both changes were checked against the previous complete JSON output

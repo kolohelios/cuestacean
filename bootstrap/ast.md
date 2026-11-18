@@ -1,12 +1,13 @@
 # CUE-defined AST construction
 
-The parser's JSON-object assembly now comes from seven CUE builder programs:
+The parser's JSON-object assembly now comes from eight CUE builder programs:
 
 - `ast-program.cue`: the versioned program wrapper.
 - `ast-atom.cue`: a payload-free node with a grammar-supplied kind.
 - `ast-integer.cue`: integer and bound leaves with a dynamic payload field.
 - `ast-text.cue`: owned string leaves with grammar-selected kind/payload names.
 - `ast-binary.cue`: nodes with grammar-supplied kind and child field names.
+- `ast-ternary.cue`: nodes with three ordered children and grammar-supplied names.
 - `ast-unary.cue`: unary nodes with a dynamic kind and operand field.
 - `ast-record-field.cue`: a decoded quoted name and expression child; the wrapper
   is data, not an additional AST evaluation node.
@@ -22,9 +23,11 @@ These expressions define construction, not control flow; the separate
 The [primary control program](primary.md) supplies primary dispatch and grouping
 policy. Grammar validation/lookup, checked i64 conversion, frame safety, and
 native builder validation/use-count analysis and the reference construction
-interpreter remain handwritten. CUE owns Rust layout and clone/move selection. Specification export
-still uses upstream Go CUE. Neither the full parser nor its compiler is
-self-hosted yet.
+interpreter remain handwritten. CUE owns Rust layout and clone/move selection.
+The [native builder-family exporter](../docs/native-builder-family.md) now supplies
+all 12 normal/alternate builder-specification artifacts to the production JSON
+bundle. Go CUE remains an independent oracle and exports compiler/lowering
+policies; neither the full parser nor its compiler is self-hosted.
 
 ## Expression contract
 
@@ -71,8 +74,10 @@ retain upstream source comparisons and exact error checks.
 nix develop ./infra/tooling --command cargo test --manifest-path bootstrap/executor/Cargo.toml --test ast
 ```
 
-Nix exports builder JSON as build-only data and adds the handwritten AST
-compiler to the bootstrap seeds. With the default `source` feature disabled,
+Nix exports builder JSON natively as build-only data and adds the handwritten AST
+compiler to the bootstrap seeds. The independent producer runs each specification
+twice with no Go CUE on its input/build path; the separate family verifier compares
+fresh upstream exports and regenerated normal/alternate/forced Rust goldens. With the default `source` feature disabled,
 seeds require no generated builders or scanners. The final stage regenerates
 all Rust, enables the source frontend, and runs the complete suite. Committed
 Rust modules remain drift-check goldens. See [regeneration](generated/README.md)

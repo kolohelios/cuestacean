@@ -3,6 +3,9 @@
 Milestone [#169](https://github.com/kolohelios/cuestacean/issues/169), agreed after
 #161. Two focused contract reviews preceded parser/evaluator implementation. The target is the unmodified `bootstrap/ast-schema.cue` plus
 `bootstrap/ast-atom.cue`, not general CUE or replacement of the six compilers.
+The [#171 family extension](native-builder-family.md) reuses this unchanged
+language/implementation for all 12 current builder specs with its own artifact and
+proof. The original atom artifact and two-file attestation stay unchanged.
 
 ## Boundary and ownership
 
@@ -185,7 +188,7 @@ now accepted and compared upstream. Targeted tests distinguish copied-string,
 encoded-byte and output-depth limits, cumulative alternatives, declaration/field
 ordering, recursive instance isolation and explicit versus merged container width.
 Native production code contains no process execution or pre-exported policy load.
-Validation on x86_64-linux: nine integration tests pass in debug and release,
+Milestone #169 validation on x86_64-linux: nine integration tests pass in debug and release,
 including pinned upstream comparisons; both crates pass full tests and strict
 all-target Clippy. Preflight passes 13/13 (7 inapplicable checks skipped). The five
 existing Nix checks remain, alongside two native checks; actual native build/test/

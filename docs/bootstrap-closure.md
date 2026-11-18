@@ -6,8 +6,10 @@ The first no-Go-CUE target is **exporting the existing AST atom builder** from
 exactly `bootstrap/ast-schema.cue` and `bootstrap/ast-atom.cue`. This #163 inventory
 isolated the closure and characterized upstream behavior. Following the reviewed
 #162–#165 findings and user agreement under #161, [#169](native-spec-export.md)
-adds an isolated native exporter/artifact path. The default export pipeline and
-six compiler seeds still depend on Go CUE; wider feature expansion stays deferred.
+adds an isolated native exporter/artifact path. The [#171 family step](native-builder-family.md)
+now makes independently native artifacts the production provider for all 12 AST
+builder specifications. Other exports and the six compiler policies still depend
+on Go CUE; wider feature expansion stays deferred.
 
 The [solver spike](solver-spike.md) demonstrated bounded dependencies and separate
 default projection, not general schema evaluation. The chosen target avoids
@@ -18,11 +20,14 @@ JSON parsing or calling the eager expression VM.
 ## What actually depends on what
 
 The authoritative export manifest is `infra/tooling/flake.nix`: `exportFixtures`,
-`builderFixtures`, `cueSources`, and the per-fixture schema/fragment selection in
-`jsonExports`. Distinguish three closures:
+`builderFixtures`/`builderExportFixtures`, `cueSources`, and `jsonExports`' exact
+native-provider membership and per-CUE-fixture fragment selection. AST positive
+exports come from `nativeBuilders`; the production bundle copies them and does
+not run Go CUE for those fixtures. Distinguish three closures:
 
-1. The Nix JSON derivation contains the union of all listed source files.
-2. Each `cue export` process loads **only** its selected schema, explicit fragment
+1. The Nix JSON derivation contains listed source files plus the independently
+   produced native builder artifacts; the native family has its own minimal cut.
+2. Each remaining `cue export` process loads **only** its selected schema, explicit fragment
    files and fixture, plus their imports. Package names do not load every other
    file in the directory when the command supplies an explicit file list.
 3. Within those files, definitions reference further definitions; a reachable
@@ -86,7 +91,8 @@ See the [status and component contracts](bootstrap-status.md).
 ## Current six-seed/artifact graph and Go CUE cut
 
 ```text
-explicit CUE specification closures --Go CUE export twice--> build-only JSON
+AST builder closures --native export twice--+
+other specification closures --Go CUE-------+--> build-only JSON
                                                             |
 artifact-free native Rust sources --no-default-features------+
                          |                                  |
@@ -240,9 +246,10 @@ unchanged export boundary, not a native exporter or broader source capabilities.
 
 ## Subsequent closure milestones, not an implementation authorization
 
-1. Extend the isolated exporter to all AST builder closures, including nested
-   objects, integer payloads and alternate versions/escaped names. Establish
-   recursive-schema/demand behavior and export-versus-DSL validation boundaries.
+1. The [#171 builder-family step](native-builder-family.md) extends native export
+   to every current AST builder and makes it the production provider, including
+   nested objects, integer payloads and alternate versions/escaped names. It
+   retains export-versus-DSL validation boundaries and the original atom cut.
 2. Select one scanner/import closure (for example `identifier.cue`) and one policy
    closure, with explicit `list`/regex/default/let requirements. Do not assume the
    integer-default spike implements their list/string/struct preferences.
