@@ -32,6 +32,7 @@ advantages remain a hypothesis, not a measured result.
 | Pratt/primary compiler lowering | `bootstrap/pratt-lowering{,-fragments}.cue`, [backend contract](../bootstrap/pratt-lowering.md) | Shared lowering compiler/kernel; compiled driver; native typed bridge |
 | Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
 | Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` compiler/reference engine/shared kernel; generated Rust driver; native checked primitives |
+| Closed-record source construction | `bootstrap/record-primary{,-fragments}.cue`, [contract](../bootstrap/source-records.md) | Same parser-target compiler; CUE field loop/scanners/builders, native checked stages and selected third driver |
 | Record field evaluation (JSON AST) | `bootstrap/record-control{,-fragments}.cue`, [contract](../bootstrap/record-expressions.md) | Existing control compiler record target; CUE traversal/concrete-child admission, native checked cursor/map/callback |
 | Closed records (JSON AST) | [Ownership/profile contract](closed-records.md), `bootstrap/record-{index,length}.cue` | Immutable certified bounded map/flat codec; CUE domain/closedness/lookup/count/equality/logical policy |
 | Generic collection indexing | `bootstrap/index.cue`, [contract](../bootstrap/collection-indexing.md) | CUE list+i64/record+text dispatch; existing checked range/presence/getter kernels; source brackets select generic AST |
@@ -84,7 +85,8 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   arrays and text-byte/list-element length, including
   [bounded nested expression values](nested-list-values.md);
   [postfix indexing](../bootstrap/collection-indexing.md) with computed indices
-  (source currently constructs lists; generic JSON index also admits record/text);
+  (list+i64 or record+text), plus [closed-record source expressions](../bootstrap/source-records.md)
+  `close({"label": expression, ...})` with quoted labels and explicit commas;
   parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary `!` and expression negation;
   `div`, `mod`, `quo`, `rem`; concrete scalar `==` / `!=`; integer/text `<` / `<=` / `>` / `>=`; CUE-owned UTF-8 `//` comment trivia.
 - Binary operators are left-associative by default. `div/mod/quo/rem` share
@@ -134,7 +136,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 - Newline-after-operand and newline-after-word-operator rejection remain
   CUE-owned and conservative, not full CUE comma insertion. Only LF ends `//` comments; CR alone remains comment content.
   NUL/BOM inside comments are rejected by CUE. Block comments, declarations,
-  references, structs/open or abstract list constraints, general string syntax, further scalar types, disjunctions/defaults
+  references, bare/open structs or abstract list constraints, general string syntax, further scalar types, disjunctions/defaults
   and general constraint solving are absent.
 - JSON APIs (`execute_json`, `generated::execute_json`) support bounded nested
   concrete expression-list values; raw scalar-list literal payloads remain flat.
@@ -146,7 +148,9 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   32-level/4096-occurrence-node shape. [Mixed closed collections](mixed-collection-values.md)
   now share one private ValueShape across alternating list/record children;
   raw record/list literal codecs stay flat.
-  Source structs and general list/open-record solving remain absent.
+  Source close expressions now use a separate CUE record-primary driver with the
+  same source/AST budgets. Bare/open structs and general list/open-record solving
+  remain absent.
   They preserve null,
   strings, bools and exact i64s. Top output is `non-concrete value`. Legacy `execute` rejects concrete strings/booleans.
   JSON AST `string`/`stringType` now also come from the bounded CUE source-string profile.
@@ -166,8 +170,8 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 
 - Source parser: 64 AST nodes, 32 recursive expression levels, 4096 steps per
   expression frame shared with primary dispatch. Grouping adds depth but no AST
-  node; unary construction adds one node. Both selected drivers propagate into
-  groups, RHS expressions and unary recursion.
+  node; unary construction adds one node. All three selected drivers propagate
+  into groups, record fields, lists, RHS expressions and unary recursion.
 - Primary state is private. Reject reentry, unfinished results, out-of-order
   stages and expression mutation while primary dispatch is active.
 - Scanner: checked initial UTF-8 boundary, ASCII-only `advance`, explicit whole-
@@ -251,6 +255,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#139](https://github.com/kolohelios/cuestacean/pull/139) | CUE traversal and checked JSON record-expression fields |
 | [#141](https://github.com/kolohelios/cuestacean/pull/141) | Bounded nested immutable closed-record values |
 | [#143](https://github.com/kolohelios/cuestacean/pull/143) | Shared certificates and bounded mixed closed collections |
+| [#145](https://github.com/kolohelios/cuestacean/pull/145) | Generic CUE collection indexing and source bracket metadata |
 
 ## Build and validation runbook
 

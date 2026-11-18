@@ -8,7 +8,7 @@ nix run ./infra/tooling#source -- bootstrap/source/valid/nested.cue
 
 It prints `42`. `bootstrap-source <expression.cue>` reads source, parses it into
 the existing version-1 expression tree, then invokes the compiled generated
-evaluator. Success prints an exact JSON integer, boolean or string and newline; errors print to stderr and
+evaluator. Success prints exact JSON scalars or bounded closed collections and newline; errors print to stderr and
 exit 2 without a result. No Go process is invoked at runtime.
 
 `../grammar.cue` describes atoms, bound prefixes, infix operators, precedence,
@@ -37,21 +37,32 @@ null agrees only with null/top. Bare `_` remains incomplete. Null is concrete
 for scalar equality and ignored logical RHS selection, not arithmetic or ordering.
 These do not introduce bottom values, references, structs or general solving.
 
+[Closed-record source expressions](../source-records.md) add
+`close({"name": expression, ...})` with quoted UTF-8/escaped labels, explicit or
+trailing commas, and empty/nested/mixed values. A separate CUE record-primary
+program owns the field loop and binding minimum; scanners/builders own tokens
+and AST fields. All three selected parser engines propagate through recursion.
+One record costs one AST node; labels/field wrappers are data, so 63 scalar fields
+fit the unchanged 64-node budget. Runtime uniqueness/name/shape/admission checks
+still apply after parsing; bare/open structs, unquoted/computed labels, references
+and general field solving remain absent.
+
 [Source lists](../source-lists.md) add `[]` and `[expression,...]` with explicit
 commas (trailing comma allowed), leading/after-comma trivia, and concrete results.
 [Nested values](../../docs/nested-list-values.md) use immutable acyclic sharing,
 32 value levels and 4096 logical nodes. No open/abstract lists or implicit commas. The
 container costs one node: 63 scalar leaves fit the unchanged 64-node source limit.
-[Indexing](../list-indexing.md) adds `operand[indexExpression]` with a concrete i64
-index, CUE domain/0-inclusive/count-exclusive bounds, and no negative/from-end or
-string indexing. Postfixes chain left-associatively above unary/binary operators.
+[Indexing](../collection-indexing.md) adds `operand[indexExpression]` with CUE
+list+i64/range or record+text/presence policy, and no negative/from-end list
+indices, string indexing or coercion. Postfixes chain left-associatively above unary/binary operators.
 Each adds one node; index expressions share selected drivers and recursion limits.
-[Unary calls](../unary-calls.md) now select `length` for text bytes or list elements;
+[Unary calls](../unary-calls.md) now select `length` for text bytes, list elements or record fields;
 text length counts decoded bytes, not Unicode scalars/graphemes. Argument evaluation is
 eager and CUE selects minimum 0. Spaces before `(` are allowed; LF/CR after the
 name reject conservatively, including LF through comments. There must be exactly
 one parenthesized expression. Empty/multiple arguments, function values, other
-builtins, selectors and struct/bytes length remain outside the profile.
+builtins (apart from the separate close syntax), selectors and bytes length
+remain outside the profile.
 Optional grammar `calls` metadata selects names/kinds/operand fields or disables
 registration, without native builtin fallback. Calls add one wrapper node and one
 recursive argument level under the unchanged parser limits.

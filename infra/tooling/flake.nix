@@ -15,6 +15,11 @@
     }:
     let
       scannerFixtures = [
+        "record-open"
+        "record-close"
+        "record-label"
+        "record-colon"
+        "record-tail"
         "tests/valid/bound-inclusive-only"
         "index-close"
         "list-open"
@@ -61,6 +66,7 @@
         "ast-text"
         "ast-binary"
         "ast-unary"
+        "ast-record-field"
         "tests/valid/ast-program-v2"
         "tests/valid/ast-escaped"
         "tests/valid/ast-duplicate"
@@ -78,6 +84,9 @@
         "tests/valid/list-control-stalled"
         "tests/valid/list-control-unfinished"
         "primary"
+        "record-primary"
+        "tests/valid/record-primary-high-minimum"
+        "tests/valid/primary-no-records"
         "tests/valid/primary-nested"
         "tests/valid/primary-return"
         "tests/valid/primary-return-empty"
@@ -262,6 +271,7 @@
                 ../../bootstrap/pratt-fragments.cue
                 ../../bootstrap/list-control-fragments.cue
                 ../../bootstrap/record-control-fragments.cue
+                ../../bootstrap/record-primary-fragments.cue
                 ../../bootstrap/string-literal-fragments.cue
                 ../../bootstrap/equality-fragments.cue
                 ../../bootstrap/ordering-fragments.cue
@@ -302,7 +312,8 @@
                 pratt|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
                 list-control|tests/valid/list-control-reverse|tests/valid/list-control-scalars|tests/valid/list-control-homogeneous) fragments=(list-control-fragments) ;;
                 record-control|tests/valid/record-control-reverse|tests/valid/record-control-scalars|tests/valid/record-control-homogeneous) fragments=(record-control-fragments) ;;
-                primary|tests/valid/primary-bound-high-minimum|tests/valid/primary-call-high-minimum|tests/valid/primary-no-lists) fragments=(primary-fragments) ;;
+                record-primary|tests/valid/record-primary-high-minimum) fragments=(record-primary-fragments) ;;
+                primary|tests/valid/primary-bound-high-minimum|tests/valid/primary-call-high-minimum|tests/valid/primary-no-lists|tests/valid/primary-no-records) fragments=(primary-fragments) ;;
                 decimal|integer-literal) fragments=(decimal-fragments) ;;
                 string-literal|tests/valid/string-no-unicode|tests/valid/string-no-wide|tests/valid/string-nested|tests/valid/string-unrolled) fragments=(string-literal-fragments) ;;
                 whitespace|after-operand|after-word-operator|group-close|call-open|index-close)
@@ -630,9 +641,11 @@
                   if [ "$scalar" = "-0" ]; then printf '0\n' > expected; fi
                   bootstrap-source "$source" > actual
                   case "$scalar" in
-                    '['*)
-                      # Reimport/marshal both arrays with CUE: exact integers,
+                    '['*|'{'*)
+                      # Reimport/marshal collections with CUE: exact integers,
                       # normalized whitespace/string escapes, never jq numbers.
+                      # Record fixtures spell byte-ordered labels at every level;
+                      # independent Rust tests pin ordering of arbitrary input.
                       for side in expected actual; do
                         cue import -p probe -l '"value"' --outfile - json: "$side" > value.cue
                         cue export value.cue compact.cue -e out --out text > normalized-"$side"

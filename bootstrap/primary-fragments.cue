@@ -6,6 +6,7 @@ package bootstrap
 	_callMinimum:  *0 | 100
 	_listMinimum:  *0 | 100
 	_lists:        *true | false
+	_records:      *true | false
 	body: [{op: "whitespace"}, {op: "scanGroup"}, {
 		op: "if", condition: {op: "groupOpen"}
 		then: [{op: "advanceGroup"}, {op: "parseGroup", minimum: {op: "integer", value: 0}}, {op: "closeGroup"}, {op: "return"}]
@@ -35,7 +36,10 @@ package bootstrap
 					then: [{op: "whitespace"}, {op: "probeListEnd"}]
 				}]
 		}, {op: "buildList"}, {op: "return"}]
-	}, {op: "scanIdentifier"}, {
+	}, {op: "scanIdentifier"}, if _records {
+		op: "if", condition: {op: "hasRecord"}
+		then: [{op: "record"}, {op: "return"}]
+	}, {
 		op: "if", condition: {op: "hasCall"}
 		then: [{op: "advanceCall"}, {op: "scanGroup"}, {op: "advanceGroup"},
 			{op: "parseGroup", minimum: {op: "integer", value: _callMinimum}}, {op: "closeGroup"}, {op: "return"}]

@@ -24,6 +24,10 @@ serde parsing, wall time or arbitrary native work.
 
 ## Wire and executable policy
 
+[Source close expressions](../bootstrap/source-records.md) now construct these
+values with quoted labels and explicit commas. Bare/open structs, computed labels,
+references and general field constraints remain absent.
+
 JSON AST `record {fields:[{name:string,value:rawScalar},...]}` / instruction
 `record {field}` stores literal data, not field-expression ASTs. The entry array
 preserves duplicate names until checked. It consumes one AST visit; native

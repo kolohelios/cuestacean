@@ -10,9 +10,17 @@ use std::sync::Arc;
 mod generated;
 #[path = "../../generated/primary.rs"]
 mod generated_primary;
+#[path = "../../generated/record-primary.rs"]
+mod generated_record;
+mod record;
+use record::SourceRecordState;
 
 const PRIMARY_PROGRAM: &str =
     include_str!(concat!(env!("CUESTACEAN_BOOTSTRAP_JSON"), "/primary.json"));
+const RECORD_PROGRAM: &str = include_str!(concat!(
+    env!("CUESTACEAN_BOOTSTRAP_JSON"),
+    "/record-primary.json"
+));
 
 use serde::Deserialize;
 use serde_json::Value;
@@ -64,6 +72,8 @@ struct Grammar {
     #[serde(default)]
     list: Option<List>,
     #[serde(default)]
+    record: Option<Record>,
+    #[serde(default)]
     index: Option<Index>,
     #[serde(default)]
     atoms: Vec<Atom>,
@@ -91,6 +101,14 @@ struct Integer {
 struct List {
     kind: String,
     elements_field: String,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Record {
+    token: String,
+    kind: String,
+    fields_field: String,
 }
 
 #[derive(Clone, Deserialize)]
@@ -251,6 +269,18 @@ impl Grammar {
                 .fail();
             }
         }
+        if let Some(record) = &self.record
+            && (!identifier(&record.token)
+                || record.kind.is_empty()
+                || !field(&record.fields_field)
+                || atoms.contains(&record.token)
+                || self.calls.iter().any(|call| call.token == record.token))
+        {
+            return GrammarSnafu {
+                reason: "invalid or ambiguous record configuration",
+            }
+            .fail();
+        }
         let mut calls = BTreeSet::new();
         for call in &self.calls {
             if !identifier(&call.token)
@@ -349,11 +379,29 @@ pub fn parse_with_drivers(
     expression: Driver,
     primary: Driver,
 ) -> Result<Value, Error> {
+    parse_with_three_drivers(
+        source,
+        grammar,
+        expression,
+        primary,
+        generated_record::execute,
+    )
+}
+
+/// Trusted native hooks for all three parser control programs.
+pub fn parse_with_three_drivers(
+    source: &str,
+    grammar: &str,
+    expression: Driver,
+    primary: Driver,
+    record: Driver,
+) -> Result<Value, Error> {
     parse_engine(
         source,
         grammar,
         Engine::Compiled(expression),
         Engine::Compiled(primary),
+        Engine::Compiled(record),
     )
 }
 
@@ -367,13 +415,25 @@ pub fn parse_interpreted_with_primary(
     expression: &str,
     primary: &str,
 ) -> Result<Value, Error> {
+    parse_interpreted_with_three_drivers(source, grammar, expression, primary, RECORD_PROGRAM)
+}
+
+pub fn parse_interpreted_with_three_drivers(
+    source: &str,
+    grammar: &str,
+    expression: &str,
+    primary: &str,
+    record: &str,
+) -> Result<Value, Error> {
     let expression = crate::pratt::parse(expression).context(ControlSnafu)?;
     let primary = crate::pratt::parse(primary).context(ControlSnafu)?;
+    let record = crate::pratt::parse(record).context(ControlSnafu)?;
     parse_engine(
         source,
         grammar,
         Engine::Interpreted(Arc::new(expression)),
         Engine::Interpreted(Arc::new(primary)),
+        Engine::Interpreted(Arc::new(record)),
     )
 }
 
@@ -382,6 +442,7 @@ fn parse_engine(
     grammar: &str,
     engine: Engine,
     primary_engine: Engine,
+    record_engine: Engine,
 ) -> Result<Value, Error> {
     let grammar: Grammar = serde_json::from_str(grammar).context(JsonSnafu)?;
     grammar.validate()?;
@@ -392,6 +453,7 @@ fn parse_engine(
         nodes: 0,
         engine,
         primary_engine,
+        record_engine,
     };
     let entry = parser.expression(0, 0)?;
     parser.whitespace()?;
@@ -408,6 +470,7 @@ struct Parser<'a> {
     nodes: usize,
     engine: Engine,
     primary_engine: Engine,
+    record_engine: Engine,
 }
 
 impl Parser<'_> {
@@ -458,6 +521,7 @@ impl Parser<'_> {
             list_elements: Vec::new(),
             primary_state: None,
             in_primary: false,
+            record_state: None,
             index_state: None,
         };
         match engine {
@@ -593,6 +657,7 @@ pub struct Frame<'p, 's> {
     list_elements: Vec<Value>,
     primary_state: Option<PrimaryState>,
     in_primary: bool,
+    record_state: Option<SourceRecordState>,
     index_state: Option<IndexState>,
 }
 
@@ -663,6 +728,7 @@ impl Frame<'_, '_> {
         if !matches!(self.primary_state, Some(PrimaryState::Done))
             || self.left.is_none()
             || self.index_state.is_some()
+            || self.record_state.is_some()
         {
             return Err(Error::ControlState {
                 reason: "unfinished primary at return",
@@ -1423,8 +1489,10 @@ mod bound_group_state_tests {
             nodes: 0,
             engine: Engine::Compiled(generated::execute),
             primary_engine: Engine::Compiled(generated_primary::execute),
+            record_engine: Engine::Compiled(generated_record::execute),
         };
         let mut frame = Frame {
+            record_state: None,
             parser: &mut parser,
             minimum: 0,
             depth: 0,
@@ -1489,8 +1557,10 @@ mod bound_group_state_tests {
             nodes: 0,
             engine: Engine::Compiled(generated::execute),
             primary_engine: Engine::Compiled(generated_primary::execute),
+            record_engine: Engine::Compiled(generated_record::execute),
         };
         let mut frame = Frame {
+            record_state: None,
             parser: &mut parser,
             minimum: 0,
             depth: 0,
@@ -1626,8 +1696,10 @@ mod list_state_tests {
             nodes: 0,
             engine: Engine::Compiled(generated::execute),
             primary_engine: Engine::Compiled(generated_primary::execute),
+            record_engine: Engine::Compiled(generated_record::execute),
         };
         let mut frame = Frame {
+            record_state: None,
             parser: &mut parser,
             minimum: 0,
             depth: 0,
@@ -1956,8 +2028,10 @@ mod string_state_tests {
             nodes: 0,
             engine: Engine::Compiled(generated::execute),
             primary_engine: Engine::Compiled(generated_primary::execute),
+            record_engine: Engine::Compiled(generated_record::execute),
         };
         let mut frame = Frame {
+            record_state: None,
             parser: &mut parser,
             minimum: 0,
             depth: 0,
@@ -2026,8 +2100,10 @@ mod string_state_tests {
             nodes: 0,
             engine: Engine::Compiled(generated::execute),
             primary_engine: Engine::Compiled(generated_primary::execute),
+            record_engine: Engine::Compiled(generated_record::execute),
         };
         let mut frame = Frame {
+            record_state: None,
             parser: &mut parser,
             minimum: 0,
             depth: 0,

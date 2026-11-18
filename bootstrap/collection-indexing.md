@@ -24,9 +24,9 @@ Default optional grammar index metadata changes only its constructor kind from
 listIndex to index. Existing CUE postfix sequencing, checked parser stages, typed
 binary AST builder, selected-driver recursion/minimum and source precedence remain
 unchanged. Absent metadata still disables syntax; explicit legacy listIndex or
-custom constructors remain data-selected with no fallback. No source record syntax
-is added: source brackets currently reach source-constructible list values, while
-JSON index supports both domains. Former typed-list source domain diagnostics
+custom constructors remain data-selected with no fallback.
+[Closed-record source expressions](source-records.md) now make both domains
+source-constructible; brackets can chain through mixed list/record values. Former typed-list source domain diagnostics
 intentionally become generic; range and successful source values stay unchanged.
 
 Use the same finite binary control compiler and existing kernel/backends. New

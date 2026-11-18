@@ -13,6 +13,7 @@ fn postfix_state_cursor_ownership_and_shared_fuel() -> Result<(), Box<dyn std::e
         nodes: 0,
         engine: Engine::Compiled(generated::execute),
         primary_engine: Engine::Compiled(generated_primary::execute),
+        record_engine: Engine::Compiled(generated_record::execute),
     };
     let mut frame = Frame {
         parser: &mut parser,
@@ -27,6 +28,7 @@ fn postfix_state_cursor_ownership_and_shared_fuel() -> Result<(), Box<dyn std::e
         fuel: 4096,
         primary_state: Some(PrimaryState::Done),
         in_primary: false,
+        record_state: None,
         list_elements: Vec::new(),
         index_state: None,
     };

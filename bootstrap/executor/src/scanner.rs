@@ -57,6 +57,22 @@ mod generated_index_close;
 mod generated_list_tail;
 
 #[cfg(feature = "source")]
+#[path = "../../generated/record-close.rs"]
+mod generated_record_close;
+#[cfg(feature = "source")]
+#[path = "../../generated/record-colon.rs"]
+mod generated_record_colon;
+#[cfg(feature = "source")]
+#[path = "../../generated/record-label.rs"]
+mod generated_record_label;
+#[cfg(feature = "source")]
+#[path = "../../generated/record-open.rs"]
+mod generated_record_open;
+#[cfg(feature = "source")]
+#[path = "../../generated/record-tail.rs"]
+mod generated_record_tail;
+
+#[cfg(feature = "source")]
 #[path = "../../generated/bound-prefix.rs"]
 mod generated_bound_prefix;
 
@@ -635,6 +651,27 @@ pub fn index_close(source: &str, offset: usize) -> Result<Scan, Error> {
 #[cfg(feature = "source")]
 pub fn list_tail(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_list_tail::scan(source, offset)
+}
+
+#[cfg(feature = "source")]
+pub fn record_open(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_record_open::scan(source, offset)
+}
+#[cfg(feature = "source")]
+pub fn record_close(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_record_close::scan(source, offset)
+}
+#[cfg(feature = "source")]
+pub fn record_label(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_record_label::scan(source, offset)
+}
+#[cfg(feature = "source")]
+pub fn record_colon(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_record_colon::scan(source, offset)
+}
+#[cfg(feature = "source")]
+pub fn record_tail(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_record_tail::scan(source, offset)
 }
 
 /// Recognize a complete inclusive-bound prefix; no match leaves offset unchanged.

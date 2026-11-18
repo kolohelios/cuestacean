@@ -1,6 +1,6 @@
 # CUE-defined AST construction
 
-The parser's JSON-object assembly now comes from six CUE builder programs:
+The parser's JSON-object assembly now comes from seven CUE builder programs:
 
 - `ast-program.cue`: the versioned program wrapper.
 - `ast-atom.cue`: a payload-free node with a grammar-supplied kind.
@@ -8,6 +8,8 @@ The parser's JSON-object assembly now comes from six CUE builder programs:
 - `ast-text.cue`: owned string leaves with grammar-selected kind/payload names.
 - `ast-binary.cue`: nodes with grammar-supplied kind and child field names.
 - `ast-unary.cue`: unary nodes with a dynamic kind and operand field.
+- `ast-record-field.cue`: a decoded quoted name and expression child; the wrapper
+  is data, not an additional AST evaluation node.
 
 `bootstrap-ast-codegen <builder.json> [lowering.json]` compiles these pure
 construction expressions through the shared [CUE backend](ast-lowering.md) into
