@@ -21,6 +21,9 @@ Architecture checkpoint [#161](https://github.com/kolohelios/cuestacean/issues/1
 pauses routine feature expansion pending the solver spike, closure inventory,
 DSL/native audit and readable overview. The [#162 solver experiment](solver-spike.md)
 is test-only; its reference/default/cycle results are not production capabilities.
+The [#163 closure inventory](bootstrap-closure.md) isolates the AST atom builder's
+two-file schema/program closure as the first proposed native-export target; the
+exporter is not implemented, and existing seeds still depend on Go CUE exports.
 
 ### Executable CUE-owned machinery
 
