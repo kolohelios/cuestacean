@@ -55,13 +55,18 @@ container costs one node: 63 scalar leaves fit the unchanged 64-node source limi
 [Indexing](../collection-indexing.md) adds `operand[indexExpression]` with CUE
 list+i64/range or record+text/presence policy, and no negative/from-end list
 indices, string indexing or coercion. Postfixes chain left-associatively above unary/binary operators.
+[Record selectors](../source-selectors.md) `.name` / `."quoted label"` interleave
+with brackets. A selector adds one AST node, not a label child; regular ASCII
+identifiers exclude leading underscores/definitions, while quoted labels admit
+Unicode/punctuation and regular quoted underscore names. Hidden fields/references
+remain unsupported.
 Each adds one node; index expressions share selected drivers and recursion limits.
 [Unary calls](../unary-calls.md) now select `length` for text bytes, list elements or record fields;
 text length counts decoded bytes, not Unicode scalars/graphemes. Argument evaluation is
 eager and CUE selects minimum 0. Spaces before `(` are allowed; LF/CR after the
 name reject conservatively, including LF through comments. There must be exactly
 one parenthesized expression. Empty/multiple arguments, function values, other
-builtins (apart from the separate close syntax), selectors and bytes length
+builtins (apart from the separate close syntax) and bytes length
 remain outside the profile.
 Optional grammar `calls` metadata selects names/kinds/operand fields or disables
 registration, without native builtin fallback. Calls add one wrapper node and one

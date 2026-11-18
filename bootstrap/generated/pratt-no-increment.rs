@@ -7,20 +7,52 @@ pub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {
     _frame.after_operand()?;
     _frame.step()?;
     _frame.scan_index()?;
+    _frame.step()?;
+    if _frame.has_index()? {
+    } else {
+        _frame.step()?;
+        _frame.scan_selector()?;
+    }
     while {
         _frame.step()?;
-        _frame.has_index()?
+        _frame.has_postfix()?
     } {
         _frame.step()?;
-        _frame.advance_index()?;
-        _frame.step()?;
-        _frame.parse_index(0u8)?;
-        _frame.step()?;
-        _frame.close_index()?;
+        if _frame.has_index()? {
+            _frame.step()?;
+            _frame.advance_index()?;
+            _frame.step()?;
+            _frame.parse_index(0u8)?;
+            _frame.step()?;
+            _frame.close_index()?;
+        } else {
+            _frame.step()?;
+            _frame.advance_selector()?;
+            _frame.step()?;
+            _frame.selector_whitespace()?;
+            _frame.step()?;
+            _frame.scan_selector_string()?;
+            _frame.step()?;
+            if _frame.has_selector_string()? {
+                _frame.step()?;
+                _frame.parse_selector_string()?;
+            } else {
+                _frame.step()?;
+                _frame.parse_selector_identifier()?;
+            }
+            _frame.step()?;
+            _frame.build_selector()?;
+        }
         _frame.step()?;
         _frame.after_operand()?;
         _frame.step()?;
         _frame.scan_index()?;
+        _frame.step()?;
+        if _frame.has_index()? {
+        } else {
+            _frame.step()?;
+            _frame.scan_selector()?;
+        }
     }
     _frame.step()?;
     _frame.lookup_operator()?;

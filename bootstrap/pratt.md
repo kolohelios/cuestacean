@@ -36,6 +36,9 @@ There is deliberately no `parsePratt` instruction that hides the loop in Rust.
 The [primary contract](primary.md) documents its additional operations and
 conditions in this same version-1 DSL.
 
+[Record selectors](source-selectors.md) interleave with bracket indexing under
+CUE hasPostfix iteration; native candidate facts do not choose token or precedence
+policy. The actual former bracket-only driver remains pratt-no-selectors.
 Postfix scanIndex/hasIndex/advanceIndex/parseIndex/closeIndex run before binary
 lookup, with a CUE-selected index minimum 0. Native private stages prevent pending
 indices from escaping on return or colliding with primary/binary operations.

@@ -66,6 +66,13 @@ mod generated_record_colon;
 #[path = "../../generated/record-label.rs"]
 mod generated_record_label;
 #[cfg(feature = "source")]
+#[path = "../../generated/selector-identifier.rs"]
+mod generated_selector_identifier;
+#[cfg(feature = "source")]
+#[path = "../../generated/selector-open.rs"]
+mod generated_selector_open;
+
+#[cfg(feature = "source")]
 #[path = "../../generated/record-open.rs"]
 mod generated_record_open;
 #[cfg(feature = "source")]
@@ -651,6 +658,15 @@ pub fn index_close(source: &str, offset: usize) -> Result<Scan, Error> {
 #[cfg(feature = "source")]
 pub fn list_tail(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_list_tail::scan(source, offset)
+}
+
+#[cfg(feature = "source")]
+pub fn selector_open(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_selector_open::scan(source, offset)
+}
+#[cfg(feature = "source")]
+pub fn selector_identifier(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_selector_identifier::scan(source, offset)
 }
 
 #[cfg(feature = "source")]

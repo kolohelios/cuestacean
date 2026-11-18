@@ -35,6 +35,7 @@ advantages remain a hypothesis, not a measured result.
 | Closed-record source construction | `bootstrap/record-primary{,-fragments}.cue`, [contract](../bootstrap/source-records.md) | Same parser-target compiler; CUE field loop/scanners/builders, native checked stages and selected third driver |
 | Record field evaluation (JSON AST) | `bootstrap/record-control{,-fragments}.cue`, [contract](../bootstrap/record-expressions.md) | Existing control compiler record target; CUE traversal/concrete-child admission, native checked cursor/map/callback |
 | Closed records (JSON AST) | [Ownership/profile contract](closed-records.md), `bootstrap/record-{index,length}.cue` | Immutable certified bounded map/flat codec; CUE domain/closedness/lookup/count/equality/logical policy |
+| Record selectors | `bootstrap/pratt-fragments.cue`, [contract](../bootstrap/source-selectors.md) | CUE mixed postfix loop; checked stages; existing record lookup and binary AST builder |
 | Generic collection indexing | `bootstrap/index.cue`, [contract](../bootstrap/collection-indexing.md) | CUE list+i64/record+text dispatch; existing checked range/presence/getter kernels; source brackets select generic AST |
 | Closed-list indexing | `bootstrap/list-index.cue`, [contract](../bootstrap/list-indexing.md) | CUE domain/range and postfix loops; native checked extraction/frame operations |
 | List element evaluation | `bootstrap/list-control{,-fragments}.cue`, [contract](../bootstrap/list-expressions.md) | Typed list target of existing control compiler; native checked cursor/callback/buffer |
@@ -87,6 +88,8 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   [postfix indexing](../bootstrap/collection-indexing.md) with computed indices
   (list+i64 or record+text), plus [closed-record source expressions](../bootstrap/source-records.md)
   `close({"label": expression, ...})` with quoted labels and explicit commas;
+  [record selectors](../bootstrap/source-selectors.md) `.name` / `."quoted label"`
+  (regular ASCII identifiers only; no hidden/definition/Unicode identifiers);
   parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary `!` and expression negation;
   `div`, `mod`, `quo`, `rem`; concrete scalar `==` / `!=`; integer/text `<` / `<=` / `>` / `>=`; CUE-owned UTF-8 `//` comment trivia.
 - Binary operators are left-associative by default. `div/mod/quo/rem` share
@@ -256,6 +259,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#141](https://github.com/kolohelios/cuestacean/pull/141) | Bounded nested immutable closed-record values |
 | [#143](https://github.com/kolohelios/cuestacean/pull/143) | Shared certificates and bounded mixed closed collections |
 | [#145](https://github.com/kolohelios/cuestacean/pull/145) | Generic CUE collection indexing and source bracket metadata |
+| [#147](https://github.com/kolohelios/cuestacean/pull/147) | CUE closed-record source construction and third selected engine |
 
 ## Build and validation runbook
 

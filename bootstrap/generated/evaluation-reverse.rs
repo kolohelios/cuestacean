@@ -47,6 +47,10 @@ fn evaluate_node(
             runtime::string_length((evaluate(runtime::field(node, "operand")?, _context))?)
         }
         "string" => runtime::text(node, "value"),
+        "select" => runtime::record_index(
+            (evaluate(runtime::field(node, "operand")?, _context))?,
+            (runtime::text(node, "label"))?,
+        ),
         "remainder" => runtime::remainder(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,

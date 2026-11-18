@@ -24,6 +24,8 @@
   checked scalar/closed-collection admission with shared bounded cached shape;
   [contract](record-expressions.md). Raw `record` stays
   a scalar-data codec, not recursive AST traversal.
+- `select`: one-node selector `{operand,label}` with literal label data; source
+  `.name`/`."label"` uses existing strict record lookup. [Contract](source-selectors.md).
 - `index`: generic CUE list+i64 or record+text dispatch; [contract](collection-indexing.md).
   Source postfix brackets select this AST by default; typed index APIs stay strict.
 - `recordIndex`: eager record/key AST children, CUE domain/presence policy.

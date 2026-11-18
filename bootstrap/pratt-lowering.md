@@ -18,6 +18,13 @@ The source-list extension factors validated unit statements into canonical
 all method names, charging and layout; no native emitter/path is introduced.
 Wire `action` tags/fields reject. This keeps 31 top-level cases (rather than 70)
 under the unchanged 64-case limit; nested method selection is bounded too.
+Selectors would expand the unit-method map to 65, so validated selector statements
+now use separate `{op:"selectorAction",action:<wire-name>}` metadata. CUE keeps
+58 ordinary/7 selector method arms, never accepting that internal tag/field on
+wire. Six existing parse-with-minimum calls share one CUE template via existing
+one-hop aliases, retaining exact method/operand/charging/layout. Current backend
+has 497 original values, 34 cases+6 aliases, below unchanged 512/64 guards. No native
+source emitter or token/type-policy fallback is introduced.
 
 Both backends use the [same lowering compiler/kernel](lowering.md): evaluator
 instruction lowering and parser-control compilation are separate CUE policies,

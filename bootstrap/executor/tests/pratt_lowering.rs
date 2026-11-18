@@ -195,7 +195,19 @@ fn default_compiled_and_reference_backends_lower_programs_identically() {
                     let mut node = statement.clone();
                     if node.as_object().expect("statement").len() == 1 {
                         node["action"] = node["op"].clone();
-                        node["op"] = json!("action");
+                        let selector = matches!(
+                            node["action"].as_str(),
+                            Some(
+                                "scanSelector"
+                                    | "advanceSelector"
+                                    | "selectorWhitespace"
+                                    | "scanSelectorString"
+                                    | "parseSelectorString"
+                                    | "parseSelectorIdentifier"
+                                    | "buildSelector"
+                            )
+                        );
+                        node["op"] = json!(if selector { "selectorAction" } else { "action" });
                     }
                     for field in ["body", "then", "else"] {
                         if node[field].is_array() {

@@ -150,6 +150,11 @@ production now explicitly admits [nested closed values](../../docs/nested-list-v
 `list-control-homogeneous` retains that nested-list-only program byte-exact.
 Checked native append/final construction enforce cached 32-level/4096-node shape
 across alternating kinds, never resetting limits at a list/record boundary.
+Source [record selectors](../source-selectors.md) share the CUE postfix loop with
+indexing. `pratt-no-selectors` retains the actual bracket-only driver byte-exact;
+pre-index driver bytes also remain. Two CUE scanners accept dot and regular ASCII
+labels, while quoted labels reuse the existing string scanner. The select AST
+uses existing recordIndex/text instructions; label data adds no AST child visit.
 `index` adds [generic collection indexing](../collection-indexing.md): CUE chooses
 list+i64/range or record+text/presence over existing checked kernels. `index-zero`
 is a real same-name/arity compiled alternate; typed index APIs remain strict.
@@ -225,7 +230,7 @@ done
 bootstrap/executor/target/debug/bootstrap-codegen "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-reverse.json" \
   | rustfmt --edition 2024 > bootstrap/generated/evaluation-reverse.rs
-for machine in record-open record-close record-label record-colon record-tail tests/valid/bound-inclusive-only index-close list-open list-close list-tail call-open integer-literal tests/valid/string-no-wide tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
+for machine in selector-open selector-identifier record-open record-close record-label record-colon record-tail tests/valid/bound-inclusive-only index-close list-open list-close list-tail call-open integer-literal tests/valid/string-no-wide tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
   tests/valid/scanner-horizontal \
   tests/valid/scanner-stalled tests/valid/scanner-advance \
   tests/valid/scanner-decimal-permissive tests/valid/scanner-reject tests/valid/scanner-state \
@@ -246,7 +251,7 @@ done
 bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-literal.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-lowering-forced.json" \
   | rustfmt --edition 2024 > bootstrap/generated/ast-forced-integer.rs
-for control in record-primary tests/valid/record-primary-high-minimum tests/valid/primary-no-records tests/valid/list-control-homogeneous tests/valid/record-control-homogeneous record-control tests/valid/record-control-scalars tests/valid/record-control-reverse tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
+for control in tests/valid/pratt-no-selectors record-primary tests/valid/record-primary-high-minimum tests/valid/primary-no-records tests/valid/list-control-homogeneous tests/valid/record-control-homogeneous record-control tests/valid/record-control-scalars tests/valid/record-control-reverse tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
   primary tests/valid/primary-no-calls tests/valid/primary-call-high-minimum tests/valid/primary-nested tests/valid/primary-return tests/valid/primary-return-empty tests/valid/pratt-return-loop \
   tests/valid/primary-bound-high-minimum tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
   tests/valid/primary-cross-phase tests/valid/primary-low-negation \

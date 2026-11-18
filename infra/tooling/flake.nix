@@ -15,6 +15,8 @@
     }:
     let
       scannerFixtures = [
+        "selector-open"
+        "selector-identifier"
         "record-open"
         "record-close"
         "record-label"
@@ -100,6 +102,7 @@
         "tests/valid/primary-low-negation"
         "tests/valid/primary-cross-phase"
         "pratt"
+        "tests/valid/pratt-no-selectors"
         "tests/valid/pratt-no-index"
         "tests/valid/pratt-index-high-minimum"
         "tests/valid/pratt-right"
@@ -216,6 +219,7 @@
         "records-fields-conflict"
         "list-indexing"
         "collection-index"
+        "selectors"
         "collection-index-record"
         "tests/valid/lists-unify"
         "tests/valid/lists-capacity"
@@ -309,7 +313,7 @@
               # for a literal can exhaust the CI runner while checking unused CUE.
               fragments=()
               case "$fixture" in
-                pratt|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
+                pratt|tests/valid/pratt-no-selectors|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
                 list-control|tests/valid/list-control-reverse|tests/valid/list-control-scalars|tests/valid/list-control-homogeneous) fragments=(list-control-fragments) ;;
                 record-control|tests/valid/record-control-reverse|tests/valid/record-control-scalars|tests/valid/record-control-homogeneous) fragments=(record-control-fragments) ;;
                 record-primary|tests/valid/record-primary-high-minimum) fragments=(record-primary-fragments) ;;
@@ -732,7 +736,7 @@
                     grep -Fx 'conflicting closed record values' error
                   done
                 done
-                for fixture in list-length lists-equal list-indexing collection-index exclusive-bounds records-index records-length records-equal records-logical; do
+                for fixture in list-length lists-equal list-indexing collection-index selectors exclusive-bounds records-index records-length records-equal records-logical; do
                   cue export ${../../bootstrap/tests/upstream}/"$fixture.cue" --out json > expected
                   if [ "$fixture" = lists-equal ]; then input=tests/valid/$fixture; else input=$fixture; fi
                   bootstrap-executor ${jsonExports pkgs}/"$input.json" ${jsonExports pkgs}/evaluation.json > actual

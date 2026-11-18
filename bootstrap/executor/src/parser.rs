@@ -13,7 +13,11 @@ mod generated_primary;
 #[path = "../../generated/record-primary.rs"]
 mod generated_record;
 mod record;
+mod selector;
+#[cfg(test)]
+mod selector_tests;
 use record::SourceRecordState;
+use selector::SelectorState;
 
 const PRIMARY_PROGRAM: &str =
     include_str!(concat!(env!("CUESTACEAN_BOOTSTRAP_JSON"), "/primary.json"));
@@ -76,6 +80,8 @@ struct Grammar {
     #[serde(default)]
     index: Option<Index>,
     #[serde(default)]
+    selector: Option<Selector>,
+    #[serde(default)]
     atoms: Vec<Atom>,
     #[serde(default)]
     calls: Vec<UnaryCall>,
@@ -117,6 +123,14 @@ struct Index {
     kind: String,
     left_field: String,
     right_field: String,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Selector {
+    kind: String,
+    operand_field: String,
+    label_field: String,
 }
 
 #[derive(Deserialize)]
@@ -226,6 +240,17 @@ impl Grammar {
         {
             return GrammarSnafu {
                 reason: "invalid index constructor",
+            }
+            .fail();
+        }
+        if let Some(selector) = &self.selector
+            && (selector.kind.is_empty()
+                || !field(&selector.operand_field)
+                || !field(&selector.label_field)
+                || selector.operand_field == selector.label_field)
+        {
+            return GrammarSnafu {
+                reason: "invalid selector constructor",
             }
             .fail();
         }
@@ -523,6 +548,7 @@ impl Parser<'_> {
             in_primary: false,
             record_state: None,
             index_state: None,
+            selector_state: None,
         };
         match engine {
             Engine::Compiled(driver) => driver(&mut frame)?,
@@ -531,6 +557,11 @@ impl Parser<'_> {
         if !matches!(frame.index_state, None | Some(IndexState::Scanned(None))) {
             return Err(Error::ControlState {
                 reason: "unfinished index at frame return",
+            });
+        }
+        if frame.selector_pending() {
+            return Err(Error::ControlState {
+                reason: "unfinished selector at frame return",
             });
         }
         if frame.consumed || frame.right.is_some() {
@@ -659,6 +690,7 @@ pub struct Frame<'p, 's> {
     in_primary: bool,
     record_state: Option<SourceRecordState>,
     index_state: Option<IndexState>,
+    selector_state: Option<SelectorState>,
 }
 
 impl Frame<'_, '_> {
@@ -703,6 +735,9 @@ impl Frame<'_, '_> {
         if !matches!(self.index_state, None | Some(IndexState::Scanned(None))) {
             return self.index_state_error();
         }
+        if self.selector_pending() {
+            return Self::selector_error();
+        }
         Ok(())
     }
     pub fn set_binding_power(&mut self, value: u8) -> Result<(), Error> {
@@ -728,6 +763,7 @@ impl Frame<'_, '_> {
         if !matches!(self.primary_state, Some(PrimaryState::Done))
             || self.left.is_none()
             || self.index_state.is_some()
+            || self.selector_state.is_some()
             || self.record_state.is_some()
         {
             return Err(Error::ControlState {
@@ -747,6 +783,7 @@ impl Frame<'_, '_> {
             return self.index_state_error();
         }
         let scan = crate::scanner::list_open(self.parser.source, self.parser.offset)?;
+        self.selector_state = None;
         self.index_state = Some(IndexState::Scanned(
             (scan.flag && self.parser.grammar.index.is_some()).then_some(scan.offset),
         ));
@@ -762,7 +799,12 @@ impl Frame<'_, '_> {
         }
     }
     fn index_phase(&self) -> Result<(), Error> {
-        if self.in_primary || self.left.is_none() || self.consumed || self.operator.is_some() {
+        if self.in_primary
+            || self.left.is_none()
+            || self.consumed
+            || self.operator.is_some()
+            || self.selector_pending()
+        {
             return self.index_state_error();
         }
         Ok(())
@@ -828,6 +870,7 @@ impl Frame<'_, '_> {
             right,
         ));
         self.index_state = None;
+        self.selector_state = None;
         Ok(())
     }
     fn primary_state_error<T>(&self) -> Result<T, Error> {
@@ -1507,6 +1550,7 @@ mod bound_group_state_tests {
             primary_state: Some(PrimaryState::BoundAdvanced(0)),
             in_primary: true,
             index_state: None,
+            selector_state: None,
         };
         frame.scan_group()?;
         assert!(frame.group_open()?);
@@ -1575,6 +1619,7 @@ mod bound_group_state_tests {
             primary_state: Some(PrimaryState::Start),
             in_primary: true,
             index_state: None,
+            selector_state: None,
         };
         assert!(frame.has_call().is_err());
         assert!(frame.advance_call().is_err());
@@ -1714,6 +1759,7 @@ mod list_state_tests {
             primary_state: Some(PrimaryState::Start),
             in_primary: true,
             index_state: None,
+            selector_state: None,
         };
         assert!(frame.scan_list().is_err());
         assert!(frame.has_list().is_err());
@@ -2046,6 +2092,7 @@ mod string_state_tests {
             primary_state: Some(PrimaryState::Start),
             in_primary: true,
             index_state: None,
+            selector_state: None,
         };
         assert!(matches!(frame.has_not(), Err(Error::ControlState { .. })));
         assert!(matches!(frame.scan_not(), Err(Error::ControlState { .. })));
@@ -2118,6 +2165,7 @@ mod string_state_tests {
             primary_state: Some(PrimaryState::Start),
             in_primary: true,
             index_state: None,
+            selector_state: None,
         };
         assert!(matches!(
             frame.has_string(),

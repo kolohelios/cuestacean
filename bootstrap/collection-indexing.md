@@ -26,7 +26,9 @@ binary AST builder, selected-driver recursion/minimum and source precedence rema
 unchanged. Absent metadata still disables syntax; explicit legacy listIndex or
 custom constructors remain data-selected with no fallback.
 [Closed-record source expressions](source-records.md) now make both domains
-source-constructible; brackets can chain through mixed list/record values. Former typed-list source domain diagnostics
+source-constructible; brackets can chain through mixed list/record values.
+[Record selectors](source-selectors.md) now interleave in that same postfix loop,
+with a literal label instead of a recursively evaluated key. Former typed-list source domain diagnostics
 intentionally become generic; range and successful source values stay unchanged.
 
 Use the same finite binary control compiler and existing kernel/backends. New

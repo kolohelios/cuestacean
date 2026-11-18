@@ -120,6 +120,10 @@ fn evaluate_node(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,
         ),
+        "select" => runtime::record_index(
+            (evaluate(runtime::field(node, "operand")?, _context))?,
+            (runtime::text(node, "label"))?,
+        ),
         "string" => runtime::text(node, "value"),
         "stringLength" => {
             runtime::string_length((evaluate(runtime::field(node, "operand")?, _context))?)

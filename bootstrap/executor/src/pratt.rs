@@ -51,6 +51,8 @@ enum Condition {
     },
     HasOperator {},
     HasIndex {},
+    HasPostfix {},
+    HasSelectorString {},
     LeftAssociative {},
     GroupOpen {},
     HasBound {},
@@ -95,6 +97,13 @@ enum Statement {
     AdvanceOperator {},
     ParseRight {},
     BuildBinary {},
+    ScanSelector {},
+    AdvanceSelector {},
+    SelectorWhitespace {},
+    ScanSelectorString {},
+    ParseSelectorString {},
+    ParseSelectorIdentifier {},
+    BuildSelector {},
     ScanIndex {},
     AdvanceIndex {},
     ParseIndex {
@@ -304,6 +313,8 @@ impl Condition {
             Self::HasItem {} | Self::ItemKindIs { .. } => unreachable!("validated parser target"),
             Self::HasOperator {} => frame.has_operator(),
             Self::HasIndex {} => frame.has_index()?,
+            Self::HasPostfix {} => frame.has_postfix()?,
+            Self::HasSelectorString {} => frame.has_selector_string()?,
             Self::LeftAssociative {} => frame.left_associative()?,
             Self::GroupOpen {} => frame.group_open()?,
             Self::HasBound {} => frame.has_bound()?,
@@ -326,6 +337,25 @@ impl Condition {
 enum Flow {
     Continue,
     Return,
+}
+
+// Keep selector Result temporaries out of every recursive reference-VM frame.
+// Dispatches checked intrinsics only; traversal/selection policy remains CUE.
+#[cfg(feature = "source")]
+fn selector_action(
+    statement: &Statement,
+    frame: &mut crate::parser::Frame<'_, '_>,
+) -> Result<(), crate::parser::Error> {
+    match statement {
+        Statement::ScanSelector {} => frame.scan_selector(),
+        Statement::AdvanceSelector {} => frame.advance_selector(),
+        Statement::SelectorWhitespace {} => frame.selector_whitespace(),
+        Statement::ScanSelectorString {} => frame.scan_selector_string(),
+        Statement::ParseSelectorString {} => frame.parse_selector_string(),
+        Statement::ParseSelectorIdentifier {} => frame.parse_selector_identifier(),
+        Statement::BuildSelector {} => frame.build_selector(),
+        _ => unreachable!("checked selector action"),
+    }
 }
 
 #[cfg(feature = "source")]
@@ -356,6 +386,13 @@ fn execute(
                     Statement::AdvanceOperator {} => frame.advance_operator()?,
                     Statement::ParseRight {} => frame.parse_right()?,
                     Statement::BuildBinary {} => frame.build_binary()?,
+                    Statement::ScanSelector {}
+                    | Statement::AdvanceSelector {}
+                    | Statement::SelectorWhitespace {}
+                    | Statement::ScanSelectorString {}
+                    | Statement::ParseSelectorString {}
+                    | Statement::ParseSelectorIdentifier {}
+                    | Statement::BuildSelector {} => selector_action(statement, frame)?,
                     Statement::ScanIndex {} => frame.scan_index()?,
                     Statement::AdvanceIndex {} => frame.advance_index()?,
                     Statement::ParseIndex { minimum } => {
@@ -601,6 +638,16 @@ fn project_body(body: &[Statement], tail: bool) -> serde_json::Value {
                         node["else"] = project_body(otherwise, at_tail);
                     }
                     Statement::While { body, .. } => node["body"] = project_body(body, false),
+                    Statement::ScanSelector {}
+                    | Statement::AdvanceSelector {}
+                    | Statement::SelectorWhitespace {}
+                    | Statement::ScanSelectorString {}
+                    | Statement::ParseSelectorString {}
+                    | Statement::ParseSelectorIdentifier {}
+                    | Statement::BuildSelector {} => {
+                        node["action"] = node["op"].clone();
+                        node["op"] = serde_json::json!("selectorAction");
+                    }
                     // Validated unit statements share a canonical category;
                     // CUE alone maps their wire names to checked method names.
                     _ if node.as_object().is_some_and(|fields| fields.len() == 1) => {
@@ -729,22 +776,40 @@ mod target_tests {
 
     #[test]
     fn index_operations_are_parser_only_and_minimum_is_typed() {
-        for op in ["scanIndex", "advanceIndex", "parseIndex", "closeIndex"] {
+        for op in [
+            "scanIndex",
+            "advanceIndex",
+            "parseIndex",
+            "closeIndex",
+            "scanSelector",
+            "advanceSelector",
+            "selectorWhitespace",
+            "scanSelectorString",
+            "parseSelectorString",
+            "parseSelectorIdentifier",
+            "buildSelector",
+        ] {
             let mut action = serde_json::json!({"op":op});
             if op == "parseIndex" {
                 action["minimum"] = serde_json::json!({"op":"integer","value":0});
             }
             let mut input = serde_json::json!({"formatVersion":1,"body":[action]});
             assert!(parse(&input.to_string()).is_ok(), "{op}");
-            input["target"] = serde_json::json!("list");
-            assert!(parse(&input.to_string()).is_err(), "{op}");
+            for target in ["list", "record"] {
+                input["target"] = serde_json::json!(target);
+                assert!(parse(&input.to_string()).is_err(), "{target}: {op}");
+            }
         }
-        let mut input = serde_json::json!({"formatVersion":1,"body":[
-            {"op":"if","condition":{"op":"hasIndex"},"then":[]}
-        ]});
-        assert!(parse(&input.to_string()).is_ok());
-        input["target"] = serde_json::json!("list");
-        assert!(parse(&input.to_string()).is_err());
+        for condition in ["hasIndex", "hasPostfix", "hasSelectorString"] {
+            let mut input = serde_json::json!({"formatVersion":1,"body":[
+                {"op":"if","condition":{"op":condition},"then":[]}
+            ]});
+            assert!(parse(&input.to_string()).is_ok());
+            for target in ["list", "record"] {
+                input["target"] = serde_json::json!(target);
+                assert!(parse(&input.to_string()).is_err());
+            }
+        }
         for minimum in [serde_json::json!(256), serde_json::json!({"op":"hasIndex"})] {
             let input = serde_json::json!({"formatVersion":1,"body":[
                 {"op":"parseIndex","minimum":minimum}
@@ -755,6 +820,14 @@ mod target_tests {
 
     #[test]
     fn target_defaults_and_strict_wire_are_preserved() {
+        for action in [
+            serde_json::json!({"op":"selectorAction","action":"scanSelector"}),
+            serde_json::json!({"op":"scanSelector","action":"scanSelector"}),
+            serde_json::json!({"op":"parseMinimum","minimum":{"op":"integer","value":0}}),
+        ] {
+            let input = serde_json::json!({"formatVersion":1,"body":[{"op":"if","condition":{"op":"boolean","value":false},"then":[action]}]});
+            assert!(parse(&input.to_string()).is_err());
+        }
         assert!(parse(r#"{"formatVersion":1,"body":[{"op":"primary"}]}"#).is_ok());
         assert!(parse(r#"{"formatVersion":1,"target":"list","body":[{"op":"return"}]}"#).is_ok());
         assert!(parse(r#"{"formatVersion":1,"target":"List","body":[]}"#).is_err());
