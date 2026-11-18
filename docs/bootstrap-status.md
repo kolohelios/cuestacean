@@ -17,6 +17,11 @@ bootstrap compilers still require native decoders, kernels and policy-compilatio
 machinery; increasingly their executable lowering policies live in CUE. Performance
 advantages remain a hypothesis, not a measured result.
 
+Architecture checkpoint [#161](https://github.com/kolohelios/cuestacean/issues/161)
+pauses routine feature expansion pending the solver spike, closure inventory,
+DSL/native audit and readable overview. The [#162 solver experiment](solver-spike.md)
+is test-only; its reference/default/cycle results are not production capabilities.
+
 ### Executable CUE-owned machinery
 
 | Boundary | Specifications and contract | Rust implementation/verification |
