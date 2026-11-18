@@ -241,30 +241,29 @@ fn malformed_payloads_and_explicit_collection_profile_boundaries() {
         for result in both(literal(json!([{"name":"x","value":raw}]))) {
             fails(
                 result,
-                "closed record field \"x\" requires a concrete scalar or closed record",
+                "closed record field \"x\" requires a concrete scalar or closed collection",
             );
         }
     }
     for value in domains().into_iter().filter(|v| {
         !matches!(
             v,
-            V::Null | V::Integer(_) | V::Boolean(_) | V::Text(_) | V::Record(_)
+            V::Null | V::Integer(_) | V::Boolean(_) | V::Text(_) | V::Record(_) | V::List(_)
         )
     }) {
         fails(
             ClosedRecord::new(vec![("x".into(), value)]),
-            "closed record field \"x\" requires a concrete scalar or closed record",
+            "closed record field \"x\" requires a concrete scalar or closed collection",
         );
     }
-    fails(
-        ClosedList::new(vec![record(vec![])]),
-        "closed list element 0 requires a concrete scalar or closed list",
+    assert_eq!(
+        ClosedList::new(vec![record(vec![])])
+            .expect("mixed child")
+            .as_slice(),
+        &[record(vec![])]
     );
     for result in both(json!({"kind":"listExpression","elements":[literal(json!([]))]})) {
-        fails(
-            result,
-            "closed list element 0 requires a concrete scalar or closed list",
-        );
+        assert_eq!(result.expect("mixed expression child"), json!([{}]));
     }
 }
 

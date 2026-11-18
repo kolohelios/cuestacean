@@ -173,7 +173,7 @@ fn constructor_preserves_width_name_duplicate_type_and_shape_order() {
         .expect_err("type first");
         assert_eq!(
             error.to_string(),
-            "closed record field \"first\" requires a concrete scalar or closed record"
+            "closed record field \"first\" requires a concrete scalar or closed collection"
         );
         let error = ClosedRecord::new(vec![("first".into(), shape), (String::new(), V::Int)])
             .expect_err("shape first");
@@ -190,19 +190,18 @@ fn constructor_preserves_width_name_duplicate_type_and_shape_order() {
         ]),
         Err(Error::RecordDepth)
     ));
-    for value in [
-        V::Top,
-        V::List(runtime::ClosedList::new(vec![]).expect("list")),
-    ] {
+    for value in [V::Top, V::Bool] {
         assert!(matches!(
             ClosedRecord::new(vec![("x".into(), value)]),
             Err(Error::RecordElement { .. })
         ));
     }
-    assert!(matches!(
-        runtime::ClosedList::new(vec![record(vec![])]),
-        Err(Error::ListElement { index: 0 })
-    ));
+    assert_eq!(
+        runtime::ClosedList::new(vec![record(vec![])])
+            .expect("mixed child")
+            .as_slice(),
+        &[record(vec![])]
+    );
 }
 
 #[test]

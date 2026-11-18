@@ -20,10 +20,7 @@ fn constructor_and_codec_order() {
     );
     let duplicate = vec![entry("a", Value::Null), entry("a", Value::Top)];
     rejects!(ClosedRecord::new(duplicate), Error::RecordDuplicate { .. });
-    for value in [
-        Value::Top,
-        Value::List(ClosedList::new(vec![]).expect("empty list")),
-    ] {
+    for value in [Value::Top, Value::Int] {
         rejects!(
             ClosedRecord::new(vec![entry("a", value)]),
             Error::RecordElement { .. }
@@ -63,7 +60,7 @@ fn shared_ownership_and_defensive_domains() {
     rejects!(record_get(&value, &missing), Error::RecordMissing { .. });
     let selected = record_get(&value, &key).expect("lookup");
     rejects!(
-        ClosedList::new(vec![value.clone()]),
+        ClosedList::new(vec![Value::String]),
         Error::ListElement { index: 0 }
     );
     drop(value);

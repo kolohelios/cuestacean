@@ -148,7 +148,7 @@ fn constructor_width_and_element_order_remain_independent() {
         assert!(matches!(error, Error::ListElement { index: 0 }));
         assert_eq!(
             error.to_string(),
-            "closed list element 0 requires a concrete scalar or closed list"
+            "closed list element 0 requires a concrete scalar or closed collection"
         );
         let error = ClosedList::new(vec![shape, V::Int]).expect_err("shape first");
         assert_eq!(error.to_string(), message);

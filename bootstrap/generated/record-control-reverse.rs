@@ -35,7 +35,13 @@ pub fn execute(_frame: &mut RecordFrame<'_>) -> Result<(), Error> {
                             _frame.append_item()?;
                         } else {
                             _frame.step()?;
-                            _frame.reject_item()?;
+                            if _frame.item_kind_is(crate::unification::Kind::List)? {
+                                _frame.step()?;
+                                _frame.append_item()?;
+                            } else {
+                                _frame.step()?;
+                                _frame.reject_item()?;
+                            }
                         }
                     }
                 }

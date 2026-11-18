@@ -131,7 +131,10 @@ alternate demonstrates reordered callbacks/first errors; sorted successful maps
 are intentionally equal. `record-control-scalars` preserves the actual earlier
 scalar-only control byte-exact; production now admits [nested closed records](../../docs/nested-record-values.md)
 with native cached 32-level/4096-node append/final-construction guards.
-No parser/list driver changes or new seed.
+`record-control-homogeneous` retains that nested-record-only control byte-exact.
+Current record/list default and reverse controls admit both kinds under one
+[combined certificate](../../docs/mixed-collection-values.md); homogeneous/scalar
+alternates prove previous policy independently. No parser/compiler change or seed.
 `list-control` uses the same structured control compiler with the list target:
 CUE selects traversal, per-item scalar admission and construction order for
 [expression lists](../list-expressions.md). `list-control-reverse` observably
@@ -139,12 +142,14 @@ reverses output; stalled/unfinished variants pin fuel and completion guards.
 No native production element-evaluation loop or new seed is introduced.
 `list-control-scalars` preserves that actual earlier admission program byte-exact;
 production now explicitly admits [nested closed values](../../docs/nested-list-values.md).
-Checked native append/final construction enforce cached 32-level/4096-node shape.
+`list-control-homogeneous` retains that nested-list-only program byte-exact.
+Checked native append/final construction enforce cached 32-level/4096-node shape
+across alternating kinds, never resetting limits at a list/record boundary.
 `record-index` / `record-length` add [closed scalar record](../../docs/closed-records.md)
 lookup/count; `record-index-zero` is an actual same-name/arity compiled alternate.
 Record literal data uses a checked native codec; CUE owns domain/presence,
 closed-record unification and concrete equality/logical/length admission.
-No source struct syntax, open constraints or list admission; raw record literals
+No source struct syntax or open constraints; raw record literals
 remain flat scalar data.
 `list-length-control` adds [closed scalar list](../../docs/closed-lists.md) length;
 `list-length-zero` is an actual compiled alternate. Native bounded literal codecs
@@ -231,7 +236,7 @@ done
 bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-literal.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-lowering-forced.json" \
   | rustfmt --edition 2024 > bootstrap/generated/ast-forced-integer.rs
-for control in record-control tests/valid/record-control-scalars tests/valid/record-control-reverse tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
+for control in tests/valid/list-control-homogeneous tests/valid/record-control-homogeneous record-control tests/valid/record-control-scalars tests/valid/record-control-reverse tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
   primary tests/valid/primary-no-calls tests/valid/primary-call-high-minimum tests/valid/primary-nested tests/valid/primary-return tests/valid/primary-return-empty tests/valid/pratt-return-loop \
   tests/valid/primary-bound-high-minimum tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
   tests/valid/primary-cross-phase tests/valid/primary-low-negation \

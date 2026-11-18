@@ -4,14 +4,15 @@
 
 `Value::List(ClosedList)` owns opaque immutable `Arc<[Value]>` storage plus
 private certified shape metadata. The original flat scalar profile is extended
-by the reviewed [nested-value contract](nested-list-values.md): elements may be
-concrete null/boolean/i64/text or already-built validated closed lists. Width is
+by the reviewed [mixed-value contract](mixed-collection-values.md): elements may
+be concrete null/boolean/i64/text or already-built validated closed lists/records.
+Both containers use one private ValueShape certificate across alternating kinds. Width is
 at most 64, value depth 32 and logical nodes 4096, counting shared occurrences.
 No mutation, unchecked construction, Deserialize bypass, abstract elements,
-structs or references. Immutable construction forms an acyclic DAG; this does
+open structs or references. Immutable construction forms an acyclic DAG; this does
 not decide future reference/identity/cycle ownership.
 
-Container clones share storage; text/list selection retains its own immutable
+Container clones share storage; text/list/record selection retains its own immutable
 child after parent/input drop. Content equality applies to independently
 allocated equal values. Cached child shape prevents subtree traversal during
 parent construction; expanded equality/encoding/drop are structurally bounded,
@@ -35,7 +36,7 @@ Capacity checks before elements. Constructor checks concrete type, depth, then
 logical nodes per item; invalid/unfinished values never escape. Errors include:
 
 - `closed list exceeds 64 elements`;
-- `closed list element {index} requires a concrete scalar or closed list`;
+- `closed list element {index} requires a concrete scalar or closed collection`;
 - `closed list exceeds 32 value levels`;
 - `closed list exceeds 4096 logical value nodes`.
 
@@ -50,7 +51,7 @@ encoding operate only on certified values; integer-only output still rejects lis
 
 `listLength`/generic source `len` count direct elements. `stringLength` remains
 text-only. [Indexing](../bootstrap/list-indexing.md) clones a selected value,
-including a shared nested list, under CUE domain/range policy. Open/abstract list
+including a shared nested list or record, under CUE domain/range policy. Open/abstract list
 constraints, structs/field selectors, concatenation and general solving remain
 absent. All parser/evaluator/compiler/scanner limits remain separate and unchanged.
 

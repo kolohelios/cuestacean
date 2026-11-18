@@ -57,7 +57,7 @@ Open/abstract lists and general solving remain absent.
 [Closed records](docs/closed-records.md) now add bounded immutable JSON AST
 values, CUE closedness/field lookup/length policies and exact object output.
 [Computed JSON record fields](bootstrap/record-expressions.md) now use CUE-owned
-iteration with checked scalar/[nested record](docs/nested-record-values.md)
+iteration with checked scalar/[mixed collection](docs/mixed-collection-values.md)
 admission and the shared evaluation context;
 source structs and general open-record solving are not yet supported.
 [CUE-owned addition control](bootstrap/sum.md) selects checked integer addition

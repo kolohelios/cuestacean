@@ -1,5 +1,9 @@
 # Bounded nested closed-record values
 
+> This records the homogeneous-record introduction. The current
+> [mixed collection contract](mixed-collection-values.md) supersedes list exclusion
+> and separate certificates; the same numeric bounds apply across both kinds.
+
 ## Ownership decision (review before representation edits)
 
 Extend the opaque immutable ClosedRecord value to contain concrete null/bool/i64/
