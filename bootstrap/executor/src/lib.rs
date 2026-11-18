@@ -379,6 +379,22 @@ fn evaluate(
     })
 }
 
+// Keep operand temporaries in one shared reference-VM frame rather than one
+// debug-build stack slot per binary opcode in the recursive dispatch function.
+#[cfg(feature = "semantics")]
+fn binary_instruction(
+    left: &Instruction,
+    right: &Instruction,
+    node: &Value,
+    rules: &BTreeMap<String, Rule>,
+    context: &mut runtime::EvaluationContext,
+    apply: fn(runtime::Value, runtime::Value) -> Result<runtime::Value, Error>,
+) -> Result<runtime::Value, Error> {
+    let left = instruction(left, node, rules, context)?;
+    let right = instruction(right, node, rules, context)?;
+    apply(left, right)
+}
+
 #[cfg(feature = "semantics")]
 fn instruction(
     op: &Instruction,
@@ -418,45 +434,30 @@ fn instruction(
         }
         Instruction::Negate { value } => runtime::negate(instruction(value, node, rules, context)?),
         Instruction::Sum { left, right } => {
-            let left = instruction(left, node, rules, context)?;
-            let right = instruction(right, node, rules, context)?;
-            runtime::sum(left, right)
+            binary_instruction(left, right, node, rules, context, runtime::sum)
         }
         Instruction::Difference { left, right } => {
-            let left = instruction(left, node, rules, context)?;
-            let right = instruction(right, node, rules, context)?;
-            runtime::difference(left, right)
+            binary_instruction(left, right, node, rules, context, runtime::difference)
         }
         Instruction::Product { left, right } => {
-            let left = instruction(left, node, rules, context)?;
-            let right = instruction(right, node, rules, context)?;
-            runtime::product(left, right)
+            binary_instruction(left, right, node, rules, context, runtime::product)
         }
         Instruction::Divide { left, right } => {
-            let left = instruction(left, node, rules, context)?;
-            let right = instruction(right, node, rules, context)?;
-            runtime::divide(left, right)
+            binary_instruction(left, right, node, rules, context, runtime::divide)
         }
         Instruction::Modulo { left, right } => {
-            let left = instruction(left, node, rules, context)?;
-            let right = instruction(right, node, rules, context)?;
-            runtime::modulo(left, right)
+            binary_instruction(left, right, node, rules, context, runtime::modulo)
         }
         Instruction::Quotient { left, right } => {
-            let left = instruction(left, node, rules, context)?;
-            let right = instruction(right, node, rules, context)?;
-            runtime::quotient(left, right)
+            binary_instruction(left, right, node, rules, context, runtime::quotient)
         }
         Instruction::Remainder { left, right } => {
-            let left = instruction(left, node, rules, context)?;
-            let right = instruction(right, node, rules, context)?;
-            runtime::remainder(left, right)
+            binary_instruction(left, right, node, rules, context, runtime::remainder)
         }
         Instruction::Length { value } => runtime::length(instruction(value, node, rules, context)?),
-        Instruction::ListIndex { left, right } => runtime::list_index(
-            instruction(left, node, rules, context)?,
-            instruction(right, node, rules, context)?,
-        ),
+        Instruction::ListIndex { left, right } => {
+            binary_instruction(left, right, node, rules, context, runtime::list_index)
+        }
         Instruction::StringLength { value } => {
             runtime::string_length(instruction(value, node, rules, context)?)
         }

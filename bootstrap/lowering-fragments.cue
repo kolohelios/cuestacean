@@ -15,7 +15,11 @@ package bootstrap
 		lowerBound:          "lower_bound", upperBound:                    "upper_bound", negate:  "negate"
 		logicalNot:          "logical_not", length:                        "length", stringLength: "string_length", listLength: "list_length"
 	}
-	aliases: {for name, _ in Unary {"\(name)": "unaryRuntime"}}
+	let Binary = {difference: "difference", product: "product", divide: "divide", modulo: "modulo"}
+	aliases: {
+		for name, _ in Unary {"\(name)": "unaryRuntime"}
+		for name, _ in Binary {"\(name)": "binaryRuntime"}
+	}
 	module: [{
 		op: "text"
 		value: """
@@ -66,8 +70,12 @@ package bootstrap
 			{op: "select", field: "op", cases: {for name, method in Unary {"\(name)": {op: "text", value: "runtime::\(method)"}}}},
 			{op: "text", value: "("}, V, {op: "text", value: ")"},
 		]}
-		listIndex: {op: "call", path: "runtime::list_index", args: [L, R]}
+		binaryRuntime: {op: "concat", parts: [
+			{op: "select", field: "op", cases: {for name, method in Binary {"\(name)": {op: "text", value: "runtime::\(method)"}}}},
+			{op: "text", value: "("}, L, {op: "text", value: ", "}, R, {op: "text", value: ")"},
+		]}
 		sum: {op: "call", path: "runtime::sum", args: [L, R]}
+		listIndex: {op: "call", path: "runtime::list_index", args: [L, R]}
 		logicalAnd: {op: "call", path: "runtime::logical_and", args: [L, R]}
 		logicalOr: {op: "call", path: "runtime::logical_or", args: [L, R]}
 		less: {op: "call", path: "runtime::less", args: [L, R]}
@@ -76,10 +84,6 @@ package bootstrap
 		greaterEqual: {op: "call", path: "runtime::greater_equal", args: [L, R]}
 		equal: {op: "call", path: "runtime::equal", args: [L, R]}
 		notEqual: {op: "call", path: "runtime::not_equal", args: [L, R]}
-		difference: {op: "call", path: "runtime::difference", args: [L, R]}
-		product: {op: "call", path: "runtime::product", args: [L, R]}
-		divide: {op: "call", path: "runtime::divide", args: [L, R]}
-		modulo: {op: "call", path: "runtime::modulo", args: [L, R]}
 		quotient: {op: "call", path: "runtime::quotient", args: [L, R]}
 		remainder: {op: "call", path: "runtime::remainder", args: [L, R]}
 		unify: {op: "call", path: "runtime::unify", args: [L, R]}

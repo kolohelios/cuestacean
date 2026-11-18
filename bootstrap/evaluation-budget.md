@@ -30,6 +30,11 @@ different wiring and are not silently repaired by a native fallback.
 This counts AST visits, not instruction evaluations, byte/allocation work, JSON
 parsing or destruction, kernel cost, or every native stack frame. Finite rule
 instruction recursion retains its pre-existing decoding/compiler boundaries.
+The reference VM shares binary operand temporaries in a common dispatch helper
+for arithmetic/index instructions. This keeps debug-build stack-slot growth from
+duplicating full Result/value slots per opcode in the recursive dispatcher;
+left-first children and the same context are unchanged. It adds no stack setting,
+thread-size override, larger limit or comprehensive native-stack guarantee.
 The guard is not comprehensive hostile-input hardening, a new solver, reference
 ownership design, full CUE/compiler closure or a measured performance result.
 
