@@ -165,7 +165,7 @@ pub struct ListFrame<'a> {
     stage: ListStage,
     candidate: Option<Value>,
     buffer: Vec<Value>,
-    shape: ListShape,
+    shape: ValueShape,
     result: Option<Value>,
     fuel: usize,
 }
@@ -241,7 +241,7 @@ impl ListFrame<'_> {
         let value = self.candidate.as_ref().ok_or(Error::ListState {
             reason: "missing item candidate",
         })?;
-        let shape = self.shape.include(value, index)?;
+        let shape = self.shape.list_include(value, index)?;
         let value = self.candidate.take().ok_or(Error::ListState {
             reason: "missing item candidate",
         })?;
@@ -315,7 +315,7 @@ pub fn list_expression_with_driver(
         stage: ListStage::Start,
         candidate: None,
         buffer: Vec::new(),
-        shape: ListShape::EMPTY,
+        shape: ValueShape::EMPTY,
         result: None,
         fuel: 4096,
     };
@@ -387,7 +387,7 @@ pub struct RecordFrame<'a> {
     name: Option<String>,
     candidate: Option<Value>,
     values: BTreeMap<String, Value>,
-    shape: RecordShape,
+    shape: ValueShape,
     result: Option<Value>,
     fuel: usize,
 }
@@ -473,7 +473,7 @@ impl RecordFrame<'_> {
         let value = self.candidate.as_ref().ok_or(Error::RecordState {
             reason: "missing item candidate",
         })?;
-        let shape = self.shape.include(value, name)?;
+        let shape = self.shape.record_include(value, name)?;
         // All prospective checks precede taking either pending slot.
         let name = self.name.take().ok_or(Error::RecordState {
             reason: "missing item name",
@@ -555,7 +555,7 @@ pub fn record_expression_with_driver(
         name: None,
         candidate: None,
         values: BTreeMap::new(),
-        shape: RecordShape::EMPTY,
+        shape: ValueShape::EMPTY,
         result: None,
         fuel: 4096,
     };
@@ -610,40 +610,66 @@ pub fn record_expression_interpreted(
 
 /// Certified logical shape, counting shared children once per occurrence.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct ListShape {
+struct ValueShape {
     depth: usize,
     nodes: usize,
 }
 
-impl ListShape {
+#[derive(Debug, PartialEq, Eq)]
+enum ShapeError {
+    Element,
+    Depth,
+    Nodes,
+}
+
+impl ValueShape {
     const EMPTY: Self = Self { depth: 1, nodes: 1 };
 
-    /// Compute a prospective parent shape without traversing child storage.
-    fn include(self, value: &Value, index: usize) -> Result<Self, Error> {
+    /// Compute a prospective parent shape using only completed child certificates.
+    fn include(self, value: &Value) -> Result<Self, ShapeError> {
         let child = match value {
             Value::Null | Value::Integer(_) | Value::Boolean(_) | Value::Text(_) => Self::EMPTY,
             Value::List(list) => list.shape,
-            _ => return Err(Error::ListElement { index }),
+            Value::Record(record) => record.shape,
+            _ => return Err(ShapeError::Element),
         };
         // Both operands are certified bounded shapes, so these sums cannot overflow.
         let depth = self.depth.max(1 + child.depth);
         if depth > 32 {
-            return Err(Error::ListDepth);
+            return Err(ShapeError::Depth);
         }
         let nodes = self.nodes + child.nodes;
         if nodes > 4096 {
-            return Err(Error::ListNodes);
+            return Err(ShapeError::Nodes);
         }
         Ok(Self { depth, nodes })
+    }
+
+    fn list_include(self, value: &Value, index: usize) -> Result<Self, Error> {
+        self.include(value).map_err(|error| match error {
+            ShapeError::Element => Error::ListElement { index },
+            ShapeError::Depth => Error::ListDepth,
+            ShapeError::Nodes => Error::ListNodes,
+        })
+    }
+
+    fn record_include(self, value: &Value, name: &str) -> Result<Self, Error> {
+        self.include(value).map_err(|error| match error {
+            ShapeError::Element => Error::RecordElement {
+                field: name.to_owned(),
+            },
+            ShapeError::Depth => Error::RecordDepth,
+            ShapeError::Nodes => Error::RecordNodes,
+        })
     }
 }
 
 /// Immutable, shared closed list with bounded width and logical depth/node count.
-/// Children are already-built immutable lists, so shared ownership forms a DAG.
+/// Children are completed immutable collections, so shared ownership forms a DAG.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClosedList {
     values: Arc<[Value]>,
-    shape: ListShape,
+    shape: ValueShape,
 }
 
 impl ClosedList {
@@ -652,9 +678,9 @@ impl ClosedList {
         if values.len() > 64 {
             return Err(Error::ListCapacity);
         }
-        let mut shape = ListShape::EMPTY;
+        let mut shape = ValueShape::EMPTY;
         for (index, value) in values.iter().enumerate() {
-            shape = shape.include(value, index)?;
+            shape = shape.list_include(value, index)?;
         }
         Ok(Self {
             values: Arc::from(values),
@@ -675,45 +701,11 @@ impl ClosedList {
     }
 }
 
-/// Certified record shape; shared children count once per field occurrence.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct RecordShape {
-    depth: usize,
-    nodes: usize,
-}
-
-impl RecordShape {
-    const EMPTY: Self = Self { depth: 1, nodes: 1 };
-
-    /// Read only a completed child's certificate, never its descendants.
-    fn include(self, value: &Value, name: &str) -> Result<Self, Error> {
-        let child = match value {
-            Value::Null | Value::Boolean(_) | Value::Integer(_) | Value::Text(_) => Self::EMPTY,
-            Value::Record(record) => record.shape,
-            _ => {
-                return Err(Error::RecordElement {
-                    field: name.to_owned(),
-                });
-            }
-        };
-        // Both shapes are certified bounded, so addition cannot overflow.
-        let depth = self.depth.max(1 + child.depth);
-        if depth > 32 {
-            return Err(Error::RecordDepth);
-        }
-        let nodes = self.nodes + child.nodes;
-        if nodes > 4096 {
-            return Err(Error::RecordNodes);
-        }
-        Ok(Self { depth, nodes })
-    }
-}
-
 /// Immutable shared record; completed children form an acyclic value DAG.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClosedRecord {
     values: Arc<BTreeMap<String, Value>>,
-    shape: RecordShape,
+    shape: ValueShape,
 }
 
 impl ClosedRecord {
@@ -721,10 +713,10 @@ impl ClosedRecord {
     pub fn new(fields: Vec<(String, Value)>) -> Result<Self, Error> {
         record_capacity(fields.len())?;
         let mut values = BTreeMap::new();
-        let mut shape = RecordShape::EMPTY;
+        let mut shape = ValueShape::EMPTY;
         for (index, (name, value)) in fields.into_iter().enumerate() {
             record_name(&values, &name, index)?;
-            shape = shape.include(&value, &name)?;
+            shape = shape.record_include(&value, &name)?;
             values.insert(name, value);
         }
         Ok(Self {
@@ -765,6 +757,8 @@ fn record_name(values: &BTreeMap<String, Value>, name: &str, index: usize) -> Re
     Ok(())
 }
 
+#[cfg(test)]
+mod mixed_tests;
 #[cfg(test)]
 mod nested_record_tests;
 #[cfg(test)]

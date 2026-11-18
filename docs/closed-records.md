@@ -1,16 +1,17 @@
 # Bounded closed records
 
-## Decision and deliberately separate profile
+## Decision and bounded value profile
 
 Add opaque immutable `Value::Record(ClosedRecord)`, backed by shared
 `Arc<BTreeMap<String,Value>>` plus a private certified shape cache. Capacity counts input entries, including duplicates,
 before checking uniqueness. A record has at most 64 unique fields; names are
 nonempty UTF-8 strings of at most 64 bytes. Field values are concrete
-null/boolean/i64/text or [bounded closed records](nested-record-values.md).
-No list/abstract/reference children,
+null/boolean/i64/text or [bounded closed lists/records](mixed-collection-values.md).
+Both containers share one private ValueShape certificate across alternating kinds.
+No abstract/reference children,
 mutation, unchecked construction, Deserialize bypass or public storage.
-This immutable bounded DAG cannot form cycles; it does not extend nested-list
-admission/shape limits or decide general struct/reference graph ownership.
+This immutable bounded DAG cannot form cycles; mixed children do not reset the
+shared shape limits or decide general struct/reference graph ownership.
 
 `ClosedRecord::new(Vec<(String,Value)>)` checks capacity first, then for each
 entry in order: name bytes, duplicate name, concrete child type, prospective
@@ -43,7 +44,7 @@ name/arity alone do not provide behavior.
 Unary recordLength and generic length/len CUE control admit record_count;
 stringLength/listLength stay domain-specific. Generic LengthOperand display now
 requires a concrete string or closed collection. CUE top identity precedes
-null/list/record isolation before numeric identity. Two closed scalar records
+null/list/record isolation before numeric identity. Two closed records
 unify only when field names/content match, else RecordConflict: unequal field
 sets cannot merge because these are **closed** records, not ordinary open CUE
 source structs. Equality/logical/output concrete-domain policies include records.
@@ -54,7 +55,7 @@ Ordering/arithmetic remain unsupported. Pinned CUE close({...}) is the oracle.
 Errors: RecordCapacity (`closed record exceeds 64 fields`), RecordName {index}
 (`closed record field name at index {index} must contain 1..=64 UTF-8 bytes`),
 RecordDuplicate {field} (`duplicate closed record field {field:?}`),
-RecordElement {field} (`closed record field {field:?} requires a concrete scalar or closed record`),
+RecordElement {field} (`closed record field {field:?} requires a concrete scalar or closed collection`),
 RecordDepth (`closed record exceeds 32 value levels`), RecordNodes
 (`closed record exceeds 4096 logical value nodes`),
 RecordConflict (`conflicting closed record values`), RecordLength

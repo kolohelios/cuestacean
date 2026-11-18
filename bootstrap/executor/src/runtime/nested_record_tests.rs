@@ -18,9 +18,9 @@ fn chain(depth: usize) -> Result<Value, Error> {
 #[test]
 fn certified_depth_and_occurrence_weighted_nodes() -> Result<(), Error> {
     let empty = ClosedRecord::new(vec![])?;
-    assert_eq!(empty.shape, RecordShape { depth: 1, nodes: 1 });
+    assert_eq!(empty.shape, ValueShape { depth: 1, nodes: 1 });
     let scalar = ClosedRecord::new(fields(1, Value::Null))?;
-    assert_eq!(scalar.shape, RecordShape { depth: 2, nodes: 2 });
+    assert_eq!(scalar.shape, ValueShape { depth: 2, nodes: 2 });
     let deepest = chain(32)?;
     assert!(matches!(
         ClosedRecord::new(fields(1, deepest)),
@@ -29,7 +29,7 @@ fn certified_depth_and_occurrence_weighted_nodes() -> Result<(), Error> {
     let child = ClosedRecord::new(fields(64, Value::Null))?;
     assert_eq!(
         child.shape,
-        RecordShape {
+        ValueShape {
             depth: 2,
             nodes: 65
         }
@@ -37,7 +37,7 @@ fn certified_depth_and_occurrence_weighted_nodes() -> Result<(), Error> {
     let parent = ClosedRecord::new(fields(63, Value::Record(child.clone())))?;
     assert_eq!(
         parent.shape,
-        RecordShape {
+        ValueShape {
             depth: 3,
             nodes: 4096
         }
@@ -107,7 +107,7 @@ fn constructor_precedence_and_unchanged_flat_codec() -> Result<(), Error> {
     else {
         panic!("expected decoded record");
     };
-    assert_eq!(decoded.shape, RecordShape { depth: 2, nodes: 2 });
+    assert_eq!(decoded.shape, ValueShape { depth: 2, nodes: 2 });
     Ok(())
 }
 
@@ -156,7 +156,7 @@ fn node_failure_retains_map_and_pending_slots() -> Result<(), Error> {
             frame.evaluate_item()?;
             let child = Value::Record(ClosedRecord::new(fields(64, Value::Null))?);
             for (name, value) in fields(63, child) {
-                frame.shape = frame.shape.include(&value, &name)?;
+                frame.shape = frame.shape.record_include(&value, &name)?;
                 frame.values.insert(name, value);
             }
             let values = frame.values.clone();
@@ -195,7 +195,7 @@ fn finish_independently_revalidates_shape() -> Result<(), Error> {
                 };
                 frame.values = entries.into_iter().collect();
                 frame.stage = RecordStage::Exhausted;
-                assert_eq!(frame.shape, RecordShape::EMPTY);
+                assert_eq!(frame.shape, ValueShape::EMPTY);
                 let error = frame
                     .finish_record()
                     .expect_err("constructor must ignore frame certificate");

@@ -89,7 +89,9 @@ pub enum Error {
     Array { field: String },
     #[snafu(display("closed list exceeds 64 elements"))]
     ListCapacity,
-    #[snafu(display("closed list element {index} requires a concrete scalar or closed list"))]
+    #[snafu(display(
+        "closed list element {index} requires a concrete scalar or closed collection"
+    ))]
     ListElement { index: usize },
     #[snafu(display("closed list exceeds 32 value levels"))]
     ListDepth,
@@ -115,7 +117,9 @@ pub enum Error {
     RecordName { index: usize },
     #[snafu(display("duplicate closed record field {field:?}"))]
     RecordDuplicate { field: String },
-    #[snafu(display("closed record field {field:?} requires a concrete scalar or closed record"))]
+    #[snafu(display(
+        "closed record field {field:?} requires a concrete scalar or closed collection"
+    ))]
     RecordElement { field: String },
     #[snafu(display("closed record exceeds 32 value levels"))]
     RecordDepth,

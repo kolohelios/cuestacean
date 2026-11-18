@@ -68,7 +68,9 @@
       builderNames = builtins.concatStringsSep " " builderFixtures;
       prattFixtures = [
         "list-control"
+        "tests/valid/list-control-homogeneous"
         "record-control"
+        "tests/valid/record-control-homogeneous"
         "tests/valid/record-control-reverse"
         "tests/valid/record-control-scalars"
         "tests/valid/list-control-reverse"
@@ -185,6 +187,9 @@
         "list-length"
         "list-expressions"
         "record-expressions"
+        "mixed-collections"
+        "mixed-unify"
+        "mixed-conflict"
         "nested-records"
         "nested-records-unify"
         "nested-records-conflict"
@@ -291,8 +296,8 @@
               fragments=()
               case "$fixture" in
                 pratt|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
-                list-control|tests/valid/list-control-reverse|tests/valid/list-control-scalars) fragments=(list-control-fragments) ;;
-                record-control|tests/valid/record-control-reverse|tests/valid/record-control-scalars) fragments=(record-control-fragments) ;;
+                list-control|tests/valid/list-control-reverse|tests/valid/list-control-scalars|tests/valid/list-control-homogeneous) fragments=(list-control-fragments) ;;
+                record-control|tests/valid/record-control-reverse|tests/valid/record-control-scalars|tests/valid/record-control-homogeneous) fragments=(record-control-fragments) ;;
                 primary|tests/valid/primary-bound-high-minimum|tests/valid/primary-call-high-minimum|tests/valid/primary-no-lists) fragments=(primary-fragments) ;;
                 decimal|integer-literal) fragments=(decimal-fragments) ;;
                 string-literal|tests/valid/string-no-unicode|tests/valid/string-no-wide|tests/valid/string-nested|tests/valid/string-unrolled) fragments=(string-literal-fragments) ;;
@@ -682,7 +687,7 @@
               }
               ''
                 set -euo pipefail
-                for fixture in lists list-expressions nested-lists records records-unify record-expressions nested-records nested-records-unify tests/valid/lists-unify; do
+                for fixture in lists list-expressions nested-lists records records-unify record-expressions nested-records nested-records-unify mixed-collections mixed-unify tests/valid/lists-unify; do
                   probe="''${fixture##*/}"
                   # Marshal in pinned CUE, not jq: keep every i64 exact.
                   printf '%s\n' "$(cue export ${../../bootstrap/tests/upstream}/"$probe.cue" --out text)" > expected
@@ -695,7 +700,7 @@
                     diff -u expected actual
                   done
                 done
-                for fixture in records-conflict records-fields-conflict nested-records-conflict nested-records-scalar-conflict; do
+                for fixture in records-conflict records-fields-conflict nested-records-conflict nested-records-scalar-conflict mixed-conflict; do
                   if cue export ${../../bootstrap/tests/upstream}/"$fixture.cue" --out json > expected 2> cue-error; then exit 1; fi
                   test ! -s expected
                   test -s cue-error

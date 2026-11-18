@@ -39,10 +39,10 @@ fn logical_shape(value: &Value) -> (usize, usize) {
 fn cached_shapes_match_logical_occurrences_and_clone_shares_storage() {
     let child = closed(vec![Value::Null, Value::List(closed(vec![]))]);
     let parent = closed(vec![Value::List(child.clone()); 3]);
-    assert_eq!(child.shape, ListShape { depth: 2, nodes: 3 });
+    assert_eq!(child.shape, ValueShape { depth: 2, nodes: 3 });
     assert_eq!(
         parent.shape,
-        ListShape {
+        ValueShape {
             depth: 3,
             nodes: 10
         }
@@ -66,14 +66,14 @@ fn cached_shapes_match_logical_occurrences_and_clone_shares_storage() {
     }
     assert_eq!(
         depth_limit().shape,
-        ListShape {
+        ValueShape {
             depth: 32,
             nodes: 32
         }
     );
     assert_eq!(
         node_limit().shape,
-        ListShape {
+        ValueShape {
             depth: 3,
             nodes: 4096
         }
@@ -82,34 +82,36 @@ fn cached_shapes_match_logical_occurrences_and_clone_shares_storage() {
 
 #[test]
 fn prospective_include_is_pure_and_orders_type_depth_nodes() {
-    let shape = ListShape {
+    let shape = ValueShape {
         depth: 32,
         nodes: 4096,
     };
     assert!(matches!(
-        shape.include(&Value::Top, 7),
+        shape.list_include(&Value::Top, 7),
         Err(Error::ListElement { index: 7 })
     ));
     assert!(matches!(
-        shape.include(&Value::List(depth_limit()), 7),
+        shape.list_include(&Value::List(depth_limit()), 7),
         Err(Error::ListDepth)
     ));
     assert!(matches!(
-        shape.include(&Value::Null, 7),
+        shape.list_include(&Value::Null, 7),
         Err(Error::ListNodes)
     ));
     assert_eq!(
         shape,
-        ListShape {
+        ValueShape {
             depth: 32,
             nodes: 4096
         }
     );
     assert_eq!(
-        ListShape::EMPTY.include(&Value::Null, 0).expect("scalar"),
-        ListShape { depth: 2, nodes: 2 }
+        ValueShape::EMPTY
+            .list_include(&Value::Null, 0)
+            .expect("scalar"),
+        ValueShape { depth: 2, nodes: 2 }
     );
-    assert_eq!(ListShape::EMPTY, ListShape { depth: 1, nodes: 1 });
+    assert_eq!(ValueShape::EMPTY, ValueShape { depth: 1, nodes: 1 });
 }
 
 #[test]
@@ -121,7 +123,7 @@ fn successful_append_commits_cached_shape_and_consumes_candidate() {
             frame.append_item()?;
             assert_eq!(
                 frame.shape,
-                ListShape {
+                ValueShape {
                     depth: 3,
                     nodes: expected_nodes
                 }
@@ -167,12 +169,12 @@ fn failed_append_retains_candidate_buffer_shape_and_cursor() {
             vec![]
         };
         let shape = if width_full {
-            ListShape {
+            ValueShape {
                 depth: 2,
                 nodes: 65,
             }
         } else {
-            ListShape::EMPTY
+            ValueShape::EMPTY
         };
         let mut frame = ListFrame {
             items: &items,
@@ -316,7 +318,7 @@ fn finish_revalidates_buffer_instead_of_trusting_frame_cache() {
             stage: ListStage::Exhausted,
             candidate: None,
             buffer: vec![candidate.clone()],
-            shape: ListShape::EMPTY,
+            shape: ValueShape::EMPTY,
             result: None,
             fuel: 4096,
         };
@@ -327,7 +329,7 @@ fn finish_revalidates_buffer_instead_of_trusting_frame_cache() {
                 let Some(Value::List(result)) = frame.result else {
                     panic!("expected finished list");
                 };
-                assert_eq!(result.shape, ListShape { depth: 3, nodes: 3 });
+                assert_eq!(result.shape, ValueShape { depth: 3, nodes: 3 });
                 assert!(matches!(frame.stage, ListStage::Done));
             }
             candidate => {

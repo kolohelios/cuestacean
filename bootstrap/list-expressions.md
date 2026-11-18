@@ -4,10 +4,10 @@ JSON AST `listExpression {elements:[Expression...]}` extends the literal-only
 list boundary without changing `list {value:[raw scalars...]}`. Rule instruction
 `listExpression {field}` selects the expression array. Capacity (at most 64)
 checks before any element evaluation. Default CUE control evaluates elements in
-source order, admits each concrete scalar or validated closed-list result, appends it and
+source order, admits each concrete scalar or validated closed-list/record result, appends it and
 advances. The first child error or element-admission failure stops processing;
 admission of an earlier abstract value precedes errors in later children.
-[Nested-value shape guards](../docs/nested-list-values.md) run on append before
+[Mixed-value shape guards](../docs/mixed-collection-values.md) run on append before
 later children. This is strict concrete construction, not deferred list solving.
 
 `ClosedList` remains opaque and immutable. Nested expression lists now use

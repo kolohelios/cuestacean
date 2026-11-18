@@ -141,8 +141,9 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   `recordExpression` additionally evaluates field ASTs in order using CUE control;
   each name/duplicate checks before its own child and admission before later fields.
   [Bounded nested record children](nested-record-values.md) now use certified
-  32-level/4096-occurrence-node shape. Records remain excluded from lists and
-  record children cannot be lists; raw record/list literal codecs stay flat.
+  32-level/4096-occurrence-node shape. [Mixed closed collections](mixed-collection-values.md)
+  now share one private ValueShape across alternating list/record children;
+  raw record/list literal codecs stay flat.
   Source structs and general list/open-record solving remain absent.
   They preserve null,
   strings, bools and exact i64s. Top output is `non-concrete value`. Legacy `execute` rejects concrete strings/booleans.
@@ -177,13 +178,13 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   counted/once/zero forms ([contract](../bootstrap/scanner-repeat.md)).
 - Expression lists: CUE list control has 4096 steps per frame, separate from
   shared AST visits/depth. Capacity 64 checks before children; default CUE admits
-  each concrete scalar/list result before advancing. Native append enforces
+  each concrete scalar/list/record result before advancing. Native append enforces
   prospective parent value depth/logical nodes before later children. Width64,
   value depth32/logical nodes4096 are separate from AST/parse/control budgets.
   Result count/completion, cursor and final
   opaque-list invariants remain native safety checks, not traversal policy.
 - Expression records: same 4096 control steps/frame and shared AST context, but
-  distinct name/duplicate/map protocol. CUE admits concrete scalars/records;
+  distinct name/duplicate/map protocol. CUE admits concrete scalars/lists/records;
   native append/constructor enforce width 64, name bytes 1..64 and certified
   value depth 32/logical nodes 4096. Failed append does not consume pending state.
 - AST builders: typed/scoped parameters and bounded expressions; repeated owned
@@ -246,6 +247,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#136](https://github.com/kolohelios/cuestacean/pull/136) | Shared reference-VM operand slots and CUE arithmetic templates |
 | [#137](https://github.com/kolohelios/cuestacean/pull/137) | Bounded closed scalar records, CUE field lookup and count |
 | [#139](https://github.com/kolohelios/cuestacean/pull/139) | CUE traversal and checked JSON record-expression fields |
+| [#141](https://github.com/kolohelios/cuestacean/pull/141) | Bounded nested immutable closed-record values |
 
 ## Build and validation runbook
 

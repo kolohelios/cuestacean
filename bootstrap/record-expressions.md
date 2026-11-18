@@ -6,16 +6,16 @@ JSON AST `recordExpression {fields:[{name:string,value:Expression},...]}` and
 rule instruction `recordExpression {field}` extend closed scalar records without
 changing `record {fields:[{name,value:rawScalar},...]}`. The resulting value still
 obeys [closed-record ownership](../docs/closed-records.md): width64, unique
-1..64-byte UTF-8 names, null/bool/i64/text or validated closed-record children.
-[Nested value certificates](../docs/nested-record-values.md) enforce 32 root-inclusive
+1..64-byte UTF-8 names, null/bool/i64/text or validated closed-list/record children.
+[Shared mixed-value certificates](../docs/mixed-collection-values.md) enforce 32 root-inclusive
 levels/4096 logical nodes during append before later callbacks. No source syntax,
-references, open/abstract records or change to list admission/ownership.
+references or open/abstract records; raw literal codecs remain flat.
 
 Capacity counts input entries and rejects >64 before any field/name/child work.
 Default CUE control visits entries in input order. For each entry native checks
 name presence/type, byte length and duplication against already appended names
 before looking up `value` or invoking the selected child evaluator. A successful
-child is immediately admitted as a concrete scalar or closed record and appended before any later entry is
+child is immediately admitted as a concrete scalar or closed collection and appended before any later entry is
 inspected. Thus an earlier child/admission error wins over later malformed names;
 a duplicate name wins over its own missing/erroring child. This is eager concrete
 construction, not deferred field solving. The parent consumes one AST entry and
@@ -50,7 +50,7 @@ Keep existing parser/list generated drivers byte-identical. Compile a real rever
 record control; successful maps have equal sorted output regardless of traversal,
 so independent callback logs and different first errors (abstract first versus
 zero-divisor last) must demonstrate reverse execution. Test computed/extracted
-scalar/nested record values, empty/64/65 entries, names/duplicates/error order, list/abstract
+scalar/mixed collection values, empty/64/65 entries, names/duplicates/error order, abstract
 exclusion, selected callbacks, shared AST visit/depth limits, ownership, protocol,
 charged return/4096-step exhaustion and unused-arm/target/wire rejection. Pin exact
 i64-safe upstream closed-record output/lookup/length/equality. Run full Rust/strict

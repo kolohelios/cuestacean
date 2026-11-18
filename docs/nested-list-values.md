@@ -1,5 +1,10 @@
 # Bounded nested expression-list values
 
+> This records the homogeneous-list introduction. The current
+> [mixed collection contract](mixed-collection-values.md) supersedes cross-kind
+> exclusions and uses one shared certificate across lists and records; all
+> numeric bounds and immutable ownership guarantees below remain.
+
 ## Decision and ownership
 
 Extend ClosedList's immutable value representation to contain concrete

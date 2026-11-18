@@ -35,7 +35,7 @@ fn protocol_and_rejected_append_preserve_pending_state() -> Result<(), Error> {
         assert_eq!(frame.name.as_deref(), Some("x"));
         assert_eq!(frame.candidate, Some(Value::Int));
         assert!(frame.values.is_empty());
-        assert_eq!(frame.shape, RecordShape::EMPTY);
+        assert_eq!(frame.shape, ValueShape::EMPTY);
         frame.candidate = Some(Value::Integer(7));
         frame.values.insert("x".to_owned(), Value::Null);
         assert!(matches!(
@@ -60,7 +60,7 @@ fn protocol_and_rejected_append_preserve_pending_state() -> Result<(), Error> {
         assert_eq!(frame.candidate, Some(Value::Integer(7)));
         frame.values.clear();
         frame.append_item()?;
-        assert_eq!(frame.shape, RecordShape { depth: 2, nodes: 2 });
+        assert_eq!(frame.shape, ValueShape { depth: 2, nodes: 2 });
         assert!(frame.name.is_none());
         assert!(frame.candidate.is_none());
         frame.next_item()?;
