@@ -22,6 +22,7 @@ fn with_frame(source: &str, test: impl FnOnce(&mut Frame<'_, '_>) -> TestResult)
         engine: Engine::Compiled(generated::execute),
         primary_engine: Engine::Compiled(generated_primary::execute),
         record_engine: Engine::Compiled(generated_record::execute),
+        conjunction_engine: Engine::Compiled(generated_conjunction::execute),
     };
     test(&mut Frame {
         parser: &mut parser,

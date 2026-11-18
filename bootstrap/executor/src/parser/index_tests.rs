@@ -14,6 +14,7 @@ fn postfix_state_cursor_ownership_and_shared_fuel() -> Result<(), Box<dyn std::e
         engine: Engine::Compiled(generated::execute),
         primary_engine: Engine::Compiled(generated_primary::execute),
         record_engine: Engine::Compiled(generated_record::execute),
+        conjunction_engine: Engine::Compiled(generated_conjunction::execute),
     };
     let mut frame = Frame {
         parser: &mut parser,

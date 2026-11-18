@@ -5,6 +5,7 @@ package bootstrap
 	text: {kind: "string", valueField: "value"}
 	calls: [{token: "len", kind: "length", operandField: "operand"}]
 	list: {kind: "listExpression", elementsField: "elements"}
+	conjunction: {token: "and", kind: "conjunction", operandsField: "operands"}
 	record: {token: "close", kind: "recordExpression", fieldsField: "fields"}
 	selector: {kind: "select", operandField: "operand", labelField: "label"}
 	index: {kind: "index", leftField: "left", rightField: "right"}

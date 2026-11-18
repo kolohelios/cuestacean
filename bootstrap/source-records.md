@@ -48,7 +48,9 @@ Driver dispatch consumes the same frame fuel, not a new context or budget.
 Add a selected record engine alongside existing expression/primary engines;
 default APIs preserve signatures and choose production/interpreted record control.
 Explicit three-driver hooks allow alternate record control and propagate all
-engines through every nested field/group/list/RHS. A high-minimum record alternate
+engines through every nested field/group/list/RHS. [Source conjunction](source-conjunction.md)
+subsequently adds a fourth selected engine; these three-driver APIs keep their
+signatures and select mode-appropriate conjunction defaults. A high-minimum record alternate
 must change field parsing even through nested contexts; no silent default fallback.
 
 ## Limits and evidence

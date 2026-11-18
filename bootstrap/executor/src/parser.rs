@@ -6,8 +6,13 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
+mod conjunction;
+#[cfg(test)]
+mod conjunction_tests;
 #[path = "../../generated/pratt.rs"]
 mod generated;
+#[path = "../../generated/conjunction-primary.rs"]
+mod generated_conjunction;
 #[path = "../../generated/primary.rs"]
 mod generated_primary;
 #[path = "../../generated/record-primary.rs"]
@@ -27,6 +32,11 @@ const PRIMARY_PROGRAM: &str =
 const RECORD_PROGRAM: &str = include_str!(concat!(
     env!("CUESTACEAN_BOOTSTRAP_JSON"),
     "/record-primary.json"
+));
+
+const CONJUNCTION_PROGRAM: &str = include_str!(concat!(
+    env!("CUESTACEAN_BOOTSTRAP_JSON"),
+    "/conjunction-primary.json"
 ));
 
 use serde::Deserialize;
@@ -81,6 +91,8 @@ struct Grammar {
     #[serde(default)]
     record: Option<Record>,
     #[serde(default)]
+    conjunction: Option<Conjunction>,
+    #[serde(default)]
     index: Option<Index>,
     #[serde(default)]
     slice: Option<Slice>,
@@ -120,6 +132,14 @@ struct Record {
     token: String,
     kind: String,
     fields_field: String,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Conjunction {
+    token: String,
+    kind: String,
+    operands_field: String,
 }
 
 #[derive(Clone, Deserialize)]
@@ -335,6 +355,25 @@ impl Grammar {
             }
             .fail();
         }
+        if let Some(conjunction) = &self.conjunction
+            && (!identifier(&conjunction.token)
+                || conjunction.kind.is_empty()
+                || !field(&conjunction.operands_field)
+                || atoms.contains(&conjunction.token)
+                || self
+                    .calls
+                    .iter()
+                    .any(|call| call.token == conjunction.token)
+                || self
+                    .record
+                    .as_ref()
+                    .is_some_and(|record| record.token == conjunction.token))
+        {
+            return GrammarSnafu {
+                reason: "invalid or ambiguous conjunction configuration",
+            }
+            .fail();
+        }
         let mut calls = BTreeSet::new();
         for call in &self.calls {
             if !identifier(&call.token)
@@ -450,12 +489,32 @@ pub fn parse_with_three_drivers(
     primary: Driver,
     record: Driver,
 ) -> Result<Value, Error> {
+    parse_with_four_drivers(
+        source,
+        grammar,
+        expression,
+        primary,
+        record,
+        generated_conjunction::execute,
+    )
+}
+
+/// Trusted native hooks for all four parser control programs.
+pub fn parse_with_four_drivers(
+    source: &str,
+    grammar: &str,
+    expression: Driver,
+    primary: Driver,
+    record: Driver,
+    conjunction: Driver,
+) -> Result<Value, Error> {
     parse_engine(
         source,
         grammar,
         Engine::Compiled(expression),
         Engine::Compiled(primary),
         Engine::Compiled(record),
+        Engine::Compiled(conjunction),
     )
 }
 
@@ -479,6 +538,25 @@ pub fn parse_interpreted_with_three_drivers(
     primary: &str,
     record: &str,
 ) -> Result<Value, Error> {
+    parse_interpreted_with_four_drivers(
+        source,
+        grammar,
+        expression,
+        primary,
+        record,
+        CONJUNCTION_PROGRAM,
+    )
+}
+
+pub fn parse_interpreted_with_four_drivers(
+    source: &str,
+    grammar: &str,
+    expression: &str,
+    primary: &str,
+    record: &str,
+    conjunction: &str,
+) -> Result<Value, Error> {
+    let conjunction = crate::pratt::parse(conjunction).context(ControlSnafu)?;
     let expression = crate::pratt::parse(expression).context(ControlSnafu)?;
     let primary = crate::pratt::parse(primary).context(ControlSnafu)?;
     let record = crate::pratt::parse(record).context(ControlSnafu)?;
@@ -488,6 +566,7 @@ pub fn parse_interpreted_with_three_drivers(
         Engine::Interpreted(Arc::new(expression)),
         Engine::Interpreted(Arc::new(primary)),
         Engine::Interpreted(Arc::new(record)),
+        Engine::Interpreted(Arc::new(conjunction)),
     )
 }
 
@@ -497,6 +576,7 @@ fn parse_engine(
     engine: Engine,
     primary_engine: Engine,
     record_engine: Engine,
+    conjunction_engine: Engine,
 ) -> Result<Value, Error> {
     let grammar: Grammar = serde_json::from_str(grammar).context(JsonSnafu)?;
     grammar.validate()?;
@@ -508,6 +588,7 @@ fn parse_engine(
         engine,
         primary_engine,
         record_engine,
+        conjunction_engine,
     };
     let entry = parser.expression(0, 0)?;
     parser.whitespace()?;
@@ -525,6 +606,7 @@ struct Parser<'a> {
     engine: Engine,
     primary_engine: Engine,
     record_engine: Engine,
+    conjunction_engine: Engine,
 }
 
 impl Parser<'_> {
@@ -699,6 +781,14 @@ enum PrimaryState {
     ListParsed,
     ListAppended,
     ListClosed,
+    ConjunctionSelected(usize),
+    ConjunctionNamed,
+    ConjunctionCallOpened,
+    ConjunctionListReady,
+    ConjunctionListParsed,
+    ConjunctionListAppended,
+    ConjunctionListClosed,
+    ConjunctionCallClosed,
     IdentifierScanned(Option<usize>),
     CallAdvanced(usize),
     CallGroupScanned(usize, Option<usize>),
@@ -938,7 +1028,13 @@ impl Frame<'_, '_> {
     pub fn whitespace(&mut self) -> Result<(), Error> {
         if !matches!(
             self.primary_state,
-            Some(PrimaryState::Start | PrimaryState::BoundAdvanced(_) | PrimaryState::ListReady)
+            Some(
+                PrimaryState::Start
+                    | PrimaryState::BoundAdvanced(_)
+                    | PrimaryState::ListReady
+                    | PrimaryState::ConjunctionCallOpened
+                    | PrimaryState::ConjunctionListReady
+            )
         ) {
             return self.primary_state_error();
         }
@@ -1270,35 +1366,44 @@ impl Frame<'_, '_> {
         Ok(())
     }
     pub fn probe_list_end(&mut self) -> Result<(), Error> {
-        if !matches!(self.primary_state, Some(PrimaryState::ListReady)) {
-            return self.primary_state_error();
-        }
+        let closed = match self.primary_state {
+            Some(PrimaryState::ListReady) => PrimaryState::ListClosed,
+            Some(PrimaryState::ConjunctionListReady) => PrimaryState::ConjunctionListClosed,
+            _ => return self.primary_state_error(),
+        };
         let scan = crate::scanner::list_close(self.parser.source, self.parser.offset)?;
         if scan.flag {
             self.advance_primary(scan.offset)?;
-            self.primary_state = Some(PrimaryState::ListClosed);
+            self.primary_state = Some(closed);
         }
         Ok(())
     }
     pub fn has_list_element(&self) -> Result<bool, Error> {
         match self.primary_state {
-            Some(PrimaryState::ListReady) => Ok(true),
-            Some(PrimaryState::ListClosed) => Ok(false),
+            Some(PrimaryState::ListReady | PrimaryState::ConjunctionListReady) => Ok(true),
+            Some(PrimaryState::ListClosed | PrimaryState::ConjunctionListClosed) => Ok(false),
             _ => self.primary_state_error(),
         }
     }
     pub fn parse_list_element(&mut self, minimum: u8) -> Result<(), Error> {
-        if !matches!(self.primary_state, Some(PrimaryState::ListReady)) || self.left.is_some() {
+        let next = match self.primary_state {
+            Some(PrimaryState::ListReady) => PrimaryState::ListParsed,
+            Some(PrimaryState::ConjunctionListReady) => PrimaryState::ConjunctionListParsed,
+            _ => return self.primary_state_error(),
+        };
+        if self.left.is_some() {
             return self.primary_state_error();
         }
         self.left = Some(self.parser.expression(minimum, self.depth + 1)?);
-        self.primary_state = Some(PrimaryState::ListParsed);
+        self.primary_state = Some(next);
         Ok(())
     }
     pub fn append_list_element(&mut self) -> Result<(), Error> {
-        if !matches!(self.primary_state, Some(PrimaryState::ListParsed)) {
-            return self.primary_state_error();
-        }
+        let next = match self.primary_state {
+            Some(PrimaryState::ListParsed) => PrimaryState::ListAppended,
+            Some(PrimaryState::ConjunctionListParsed) => PrimaryState::ConjunctionListAppended,
+            _ => return self.primary_state_error(),
+        };
         if self.list_elements.len() >= 64 {
             return self.parser.error("list exceeds 64 elements");
         }
@@ -1306,20 +1411,21 @@ impl Frame<'_, '_> {
             reason: "missing list element",
         })?;
         self.list_elements.push(element);
-        self.primary_state = Some(PrimaryState::ListAppended);
+        self.primary_state = Some(next);
         Ok(())
     }
     pub fn advance_list_tail(&mut self) -> Result<(), Error> {
-        if !matches!(self.primary_state, Some(PrimaryState::ListAppended)) {
-            return self.primary_state_error();
-        }
+        let (closed, ready) = match self.primary_state {
+            Some(PrimaryState::ListAppended) => (PrimaryState::ListClosed, PrimaryState::ListReady),
+            Some(PrimaryState::ConjunctionListAppended) => (
+                PrimaryState::ConjunctionListClosed,
+                PrimaryState::ConjunctionListReady,
+            ),
+            _ => return self.primary_state_error(),
+        };
         let scan = crate::scanner::list_tail(self.parser.source, self.parser.offset)?;
         self.advance_primary(scan.offset)?;
-        self.primary_state = Some(if scan.flag {
-            PrimaryState::ListClosed
-        } else {
-            PrimaryState::ListReady
-        });
+        self.primary_state = Some(if scan.flag { closed } else { ready });
         Ok(())
     }
     pub fn build_list(&mut self) -> Result<(), Error> {
@@ -1367,6 +1473,9 @@ impl Frame<'_, '_> {
         }
     }
     fn call_candidate(&self) -> Result<Option<(usize, usize)>, Error> {
+        if self.record_state.is_some() {
+            return self.primary_state_error();
+        }
         let Some(PrimaryState::IdentifierScanned(end)) = self.primary_state else {
             return self.primary_state_error();
         };
@@ -1397,6 +1506,9 @@ impl Frame<'_, '_> {
         Ok(())
     }
     pub fn parse_atom(&mut self) -> Result<(), Error> {
+        if self.record_state.is_some() {
+            return self.primary_state_error();
+        }
         let Some(PrimaryState::IdentifierScanned(Some(end))) = self.primary_state else {
             return self.primary_state_error();
         };
@@ -1405,7 +1517,9 @@ impl Frame<'_, '_> {
         Ok(())
     }
     pub fn parse_integer(&mut self) -> Result<(), Error> {
-        if !matches!(self.primary_state, Some(PrimaryState::IdentifierScanned(_))) {
+        if self.record_state.is_some()
+            || !matches!(self.primary_state, Some(PrimaryState::IdentifierScanned(_)))
+        {
             return self.primary_state_error();
         }
         self.left = Some(self.parser.integer()?);
@@ -1574,6 +1688,7 @@ mod bound_group_state_tests {
         grammar.validate()?;
         let mut parser = Parser {
             source: "(λ)",
+            conjunction_engine: Engine::Compiled(generated_conjunction::execute),
             grammar: &grammar,
             offset: 0,
             nodes: 0,
@@ -1644,6 +1759,7 @@ mod bound_group_state_tests {
         let grammar: Grammar = serde_json::from_str(GRAMMAR)?;
         let mut parser = Parser {
             source: "len(λ)",
+            conjunction_engine: Engine::Compiled(generated_conjunction::execute),
             grammar: &grammar,
             offset: 0,
             nodes: 0,
@@ -1785,6 +1901,7 @@ mod list_state_tests {
         grammar.validate()?;
         let mut parser = Parser {
             source: "[λ]",
+            conjunction_engine: Engine::Compiled(generated_conjunction::execute),
             grammar: &grammar,
             offset: 0,
             nodes: 0,
@@ -2119,6 +2236,7 @@ mod string_state_tests {
         grammar.validate()?;
         let mut parser = Parser {
             source: "!λ",
+            conjunction_engine: Engine::Compiled(generated_conjunction::execute),
             grammar: &grammar,
             offset: 0,
             nodes: 0,
@@ -2193,6 +2311,7 @@ mod string_state_tests {
         )?;
         let mut parser = Parser {
             source: "\"λ\"",
+            conjunction_engine: Engine::Compiled(generated_conjunction::execute),
             grammar: &grammar,
             offset: 0,
             nodes: 0,

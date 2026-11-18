@@ -46,6 +46,7 @@ package bootstrap
 		hasIdentifier: {op: "text", value: "_frame.has_identifier()?"}
 		hasCall: {op: "text", value: "_frame.has_call()?"}
 		hasRecord: {op: "text", value: "_frame.has_record()?"}
+		hasConjunction: {op: "text", value: "_frame.has_conjunction()?"}
 		hasRecordField: {op: "text", value: "_frame.has_record_field()?"}
 		hasList: {op: "text", value: "_frame.has_list()?"}
 		hasSlice: {op: "text", value: "_frame.has_slice()?"}

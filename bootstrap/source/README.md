@@ -41,11 +41,19 @@ These do not introduce bottom values, references, structs or general solving.
 `close({"name": expression, ...})` with quoted UTF-8/escaped labels, explicit or
 trailing commas, and empty/nested/mixed values. A separate CUE record-primary
 program owns the field loop and binding minimum; scanners/builders own tokens
-and AST fields. All three selected parser engines propagate through recursion.
+and AST fields. All four selected parser engines propagate through recursion.
 One record costs one AST node; labels/field wrappers are data, so 63 scalar fields
 fit the unchanged 64-node budget. Runtime uniqueness/name/shape/admission checks
 still apply after parsing; bare/open structs, unquoted/computed labels, references
 and general field solving remain absent.
+
+[Source conjunction](../source-conjunction.md) `and([expression,...])` constructs
+one conjunction node directly, not a list or general function application. Abstract
+scalar operands refine incrementally through existing CUE control; empty is top.
+A selected fourth CUE primary driver owns required brackets, loop and minimum;
+all existing hooks stay compatible. Explicit/trailing commas are supported; no
+computed list argument, implicit commas or abstract-container widening. See the
+contract's pinned upstream composition boundary, not a full equivalence claim.
 
 [Source lists](../source-lists.md) add `[]` and `[expression,...]` with explicit
 commas (trailing comma allowed), leading/after-comma trivia, and concrete results.
@@ -72,7 +80,7 @@ text length counts decoded bytes, not Unicode scalars/graphemes. Argument evalua
 eager and CUE selects minimum 0. Spaces before `(` are allowed; LF/CR after the
 name reject conservatively, including LF through comments. There must be exactly
 one parenthesized expression. Empty/multiple arguments, function values, other
-builtins (apart from the separate close syntax) and bytes length
+builtins (apart from separate close/and syntax) and bytes length
 remain outside the profile.
 Optional grammar `calls` metadata selects names/kinds/operand fields or disables
 registration, without native builtin fallback. Calls add one wrapper node and one

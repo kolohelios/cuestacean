@@ -160,7 +160,7 @@ import "list"
 	left:  #PrattNumber
 	right: #PrattNumber
 }
-#PrattCondition: {op: "hasSlice" | "hasPostfix" | "hasSelectorString" | "hasRecord" | "hasRecordField" | "hasIndex" | "hasList" | "hasListElement" | "hasCall" | "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier" | "hasNegation" | "hasNot" | "hasString"} | {op: "boolean", value: bool} | {
+#PrattCondition: {op: "hasConjunction" | "hasSlice" | "hasPostfix" | "hasSelectorString" | "hasRecord" | "hasRecordField" | "hasIndex" | "hasList" | "hasListElement" | "hasCall" | "hasOperator" | "leftAssociative" | "groupOpen" | "hasBound" | "hasIdentifier" | "hasNegation" | "hasNot" | "hasString"} | {op: "boolean", value: bool} | {
 	op:    "atLeast"
 	left:  #PrattNumber
 	right: #PrattNumber
@@ -169,7 +169,7 @@ import "list"
 	left:  #PrattCondition
 	right: #PrattCondition
 }
-#PrattStatement: {op: "scanSlice" | "advanceSlice" | "closeSlice" | "scanSelector" | "advanceSelector" | "selectorWhitespace" | "scanSelectorString" | "parseSelectorString" | "parseSelectorIdentifier" | "buildSelector" | "record" | "advanceRecord" | "openRecordCall" | "recordWhitespace" | "openRecordBody" | "probeRecordEnd" | "requireRecordLabel" | "parseRecordLabel" | "recordLabelTrivia" | "recordColon" | "appendRecordField" | "advanceRecordTail" | "closeRecordCall" | "buildRecord" | "scanIndex" | "advanceIndex" | "closeIndex" | "scanList" | "advanceList" | "probeListEnd" | "appendListElement" | "advanceListTail" | "buildList" | "advanceCall" | "return" | "primary" | "afterOperand" | "afterWordOperator" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanString" | "parseString" | "scanNegation" | "advanceNegation" | "buildNegation" | "scanNot" | "advanceNot" | "buildNot"} | {
+#PrattStatement: {op: "conjunction" | "advanceConjunction" | "openConjunctionCall" | "openConjunctionList" | "closeConjunctionCall" | "buildConjunction" | "scanSlice" | "advanceSlice" | "closeSlice" | "scanSelector" | "advanceSelector" | "selectorWhitespace" | "scanSelectorString" | "parseSelectorString" | "parseSelectorIdentifier" | "buildSelector" | "record" | "advanceRecord" | "openRecordCall" | "recordWhitespace" | "openRecordBody" | "probeRecordEnd" | "requireRecordLabel" | "parseRecordLabel" | "recordLabelTrivia" | "recordColon" | "appendRecordField" | "advanceRecordTail" | "closeRecordCall" | "buildRecord" | "scanIndex" | "advanceIndex" | "closeIndex" | "scanList" | "advanceList" | "probeListEnd" | "appendListElement" | "advanceListTail" | "buildList" | "advanceCall" | "return" | "primary" | "afterOperand" | "afterWordOperator" | "lookupOperator" | "advanceOperator" | "parseRight" | "buildBinary" | "whitespace" | "scanGroup" | "advanceGroup" | "closeGroup" | "scanBound" | "advanceBound" | "parseBound" | "scanIdentifier" | "parseAtom" | "parseInteger" | "scanString" | "parseString" | "scanNegation" | "advanceNegation" | "buildNegation" | "scanNot" | "advanceNot" | "buildNot"} | {
 	op:      "parseSliceUpper" | "parseRecordValue" | "parseIndex" | "parseListElement" | "parseGroup" | "parseNegation" | "parseNot"
 	minimum: #PrattNumber
 } | {
@@ -318,6 +318,7 @@ import "list"
 	logicalNot?: {token: "!", kind: string & !="", operandField: string & !="" & !="kind"}
 	text?: {kind: string & !="", valueField: string & !="" & !="kind"}
 	list?: {kind: string & !="", elementsField: string & !="" & !="kind"}
+	conjunction?: {token: string & =~"^[a-zA-Z_][a-zA-Z0-9_]*$", kind: string & !="", operandsField: string & !="" & !="kind"}
 	record?: {token: string & =~"^[a-zA-Z_][a-zA-Z0-9_]*$", kind: string & !="", fieldsField: string & !="" & !="kind"}
 	slice?: {kind: string & !="", operandField: string & !="" & !="kind", lowerField: string & !="" & !="kind" & !=operandField, upperField: string & !="" & !="kind" & !=operandField & !=lowerField}
 	if slice != _|_ {index: {}}

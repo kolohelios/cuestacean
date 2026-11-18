@@ -19,6 +19,7 @@
         "slice-separator"
         "selector-identifier"
         "record-open"
+        "conjunction-open"
         "record-close"
         "record-label"
         "record-colon"
@@ -92,6 +93,9 @@
         "tests/valid/list-control-unfinished"
         "primary"
         "record-primary"
+        "conjunction-primary"
+        "tests/valid/conjunction-primary-high-minimum"
+        "tests/valid/primary-no-conjunction"
         "tests/valid/record-primary-high-minimum"
         "tests/valid/primary-no-records"
         "tests/valid/primary-nested"
@@ -292,6 +296,7 @@
                 ../../bootstrap/record-control-fragments.cue
                 ../../bootstrap/conjunction-control-fragments.cue
                 ../../bootstrap/record-primary-fragments.cue
+                ../../bootstrap/conjunction-primary-fragments.cue
                 ../../bootstrap/string-literal-fragments.cue
                 ../../bootstrap/equality-fragments.cue
                 ../../bootstrap/ordering-fragments.cue
@@ -333,8 +338,9 @@
                 list-control|tests/valid/list-control-reverse|tests/valid/list-control-scalars|tests/valid/list-control-homogeneous) fragments=(list-control-fragments) ;;
                 conjunction-control|tests/valid/conjunction-control-reverse|tests/valid/conjunction-control-tail) fragments=(conjunction-control-fragments) ;;
                 record-control|tests/valid/record-control-reverse|tests/valid/record-control-scalars|tests/valid/record-control-homogeneous) fragments=(record-control-fragments) ;;
+                conjunction-primary|tests/valid/conjunction-primary-high-minimum) fragments=(conjunction-primary-fragments) ;;
                 record-primary|tests/valid/record-primary-high-minimum) fragments=(record-primary-fragments) ;;
-                primary|tests/valid/primary-bound-high-minimum|tests/valid/primary-call-high-minimum|tests/valid/primary-no-lists|tests/valid/primary-no-records) fragments=(primary-fragments) ;;
+                primary|tests/valid/primary-no-conjunction|tests/valid/primary-bound-high-minimum|tests/valid/primary-call-high-minimum|tests/valid/primary-no-lists|tests/valid/primary-no-records) fragments=(primary-fragments) ;;
                 decimal|integer-literal) fragments=(decimal-fragments) ;;
                 string-literal|tests/valid/string-no-unicode|tests/valid/string-no-wide|tests/valid/string-nested|tests/valid/string-unrolled) fragments=(string-literal-fragments) ;;
                 whitespace|after-operand|after-word-operator|group-close|call-open|index-close)
@@ -699,7 +705,7 @@
                   test -s error
                 done
                 # These selected domain/syntax rejections must also fail upstream.
-                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/call-{domain,arity,empty,name-newline}.cue ${../../bootstrap/source}/rejected/list-index-{range,negative,type,close}.cue ${../../bootstrap/source}/rejected/slice-{range,domain,stride}.cue ${../../bootstrap/source}/rejected/bounds-exclusive-domain.cue ${../../bootstrap/source}/rejected/not-integer.cue ${../../bootstrap/source}/rejected/null-conflict.cue ${../../bootstrap/source}/rejected/radix-uppercase-{binary,octal}.cue; do
+                for source in ${../../bootstrap/source}/rejected/ordering-{boolean,mixed}.cue ${../../bootstrap/source}/rejected/logic-{left,selected,eager,or-eager}.cue ${../../bootstrap/source}/rejected/call-{domain,arity,empty,name-newline}.cue ${../../bootstrap/source}/rejected/list-index-{range,negative,type,close}.cue ${../../bootstrap/source}/rejected/slice-{range,domain,stride}.cue ${../../bootstrap/source}/rejected/conjunction-{domain,close}.cue ${../../bootstrap/source}/rejected/bounds-exclusive-domain.cue ${../../bootstrap/source}/rejected/not-integer.cue ${../../bootstrap/source}/rejected/null-conflict.cue ${../../bootstrap/source}/rejected/radix-uppercase-{binary,octal}.cue; do
                   if cue export "$source" --out json > expected 2> cue-error; then exit 1; fi
                   test ! -s expected
                   test -s cue-error

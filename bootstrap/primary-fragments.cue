@@ -7,6 +7,7 @@ package bootstrap
 	_listMinimum:  *0 | 100
 	_lists:        *true | false
 	_records:      *true | false
+	_conjunctions: *true | false
 	body: [{op: "whitespace"}, {op: "scanGroup"}, {
 		op: "if", condition: {op: "groupOpen"}
 		then: [{op: "advanceGroup"}, {op: "parseGroup", minimum: {op: "integer", value: 0}}, {op: "closeGroup"}, {op: "return"}]
@@ -36,7 +37,10 @@ package bootstrap
 					then: [{op: "whitespace"}, {op: "probeListEnd"}]
 				}]
 		}, {op: "buildList"}, {op: "return"}]
-	}, {op: "scanIdentifier"}, if _records {
+	}, {op: "scanIdentifier"}, if _conjunctions {
+		op: "if", condition: {op: "hasConjunction"}
+		then: [{op: "conjunction"}, {op: "return"}]
+	}, if _records {
 		op: "if", condition: {op: "hasRecord"}
 		then: [{op: "record"}, {op: "return"}]
 	}, {

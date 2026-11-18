@@ -37,6 +37,7 @@ Ok(())
             "groupOpen" => ctx.text("_frame.group_open()?"),
             "hasBound" => ctx.text("_frame.has_bound()?"),
             "hasCall" => ctx.text("_frame.has_call()?"),
+            "hasConjunction" => ctx.text("_frame.has_conjunction()?"),
             "hasIdentifier" => ctx.text("_frame.has_identifier()?"),
             "hasIndex" => ctx.text("_frame.has_index()?"),
             "hasItem" => ctx.text("_frame.has_item()?"),

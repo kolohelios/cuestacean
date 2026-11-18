@@ -33,6 +33,7 @@ advantages remain a hypothesis, not a measured result.
 | Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
 | Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` compiler/reference engine/shared kernel; generated Rust driver; native checked primitives |
 | Closed-record source construction | `bootstrap/record-primary{,-fragments}.cue`, [contract](../bootstrap/source-records.md) | Same parser-target compiler; CUE field loop/scanners/builders, native checked stages and selected third driver |
+| Source conjunction | `bootstrap/conjunction-primary{,-fragments}.cue`, [source contract](../bootstrap/source-conjunction.md) | Existing parser target; CUE bracketed-operand loop/build, selected fourth engine and paired checked list-stage families |
 | Expression conjunction (JSON AST) | `bootstrap/conjunction-control{,-fragments}.cue`, [contract](../bootstrap/conjunction.md) | Existing compiler conjunction target; CUE identity/traversal/merge/finish, checked transactional accumulator and selected evaluator/unifier callbacks |
 | Record field evaluation (JSON AST) | `bootstrap/record-control{,-fragments}.cue`, [contract](../bootstrap/record-expressions.md) | Existing control compiler record target; CUE traversal/concrete-child admission, native checked cursor/map/callback |
 | Closed records (JSON AST) | [Ownership/profile contract](closed-records.md), `bootstrap/record-{index,length}.cue` | Immutable certified bounded map/flat codec; CUE domain/closedness/lookup/count/equality/logical policy |
@@ -94,6 +95,8 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   (regular ASCII identifiers only; no hidden/definition/Unicode identifiers);
   [explicit source slices](../bootstrap/source-slices.md) `operand[lower:upper]`
   with two required endpoint expressions, chaining with indexing/selectors;
+  [source conjunction](../bootstrap/source-conjunction.md) `and([expression,...])`
+  directly lowers operands (including abstract scalar constraints) without a list wrapper;
   parentheses; `+`, `-`, `*`, `&`, `&&`, `||`; unary `!` and expression negation;
   `div`, `mod`, `quo`, `rem`; concrete scalar `==` / `!=`; integer/text `<` / `<=` / `>` / `>=`; CUE-owned UTF-8 `//` comment trivia.
 - Binary operators are left-associative by default. `div/mod/quo/rem` share
@@ -160,11 +163,13 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   list ranges, returning independently certified immutable shared-child storage.
   Source `operand[lower:upper]` now lowers directly to the same AST through CUE
   separator/branch/minimum control. Omitted endpoints, stride and text slices
-  remain excluded; source budgets and all three selected engines are unchanged.
+  remain excluded; source budgets are unchanged and all four selected engines propagate.
   JSON `conjunction {operands:[AST...]}` folds up to 64 expressions incrementally
   through CUE control and existing unification. It accepts abstract scalar operands
   without constructing/widening closed lists; empty is top. Shared AST budgets
-  and separate 4096-step control bounds apply; no source `and(...)` syntax yet.
+  and separate 4096-step control bounds apply. Source `and([...])` uses a separate
+  selected fourth primary driver, preserving existing APIs and explicit source limits;
+  computed list arguments/general functions remain outside the profile.
   Source close expressions now use a separate CUE record-primary driver with the
   same source/AST budgets. Bare/open structs and general list/open-record solving
   remain absent.
@@ -187,7 +192,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 
 - Source parser: 64 AST nodes, 32 recursive expression levels, 4096 steps per
   expression frame shared with primary dispatch. Grouping adds depth but no AST
-  node; unary construction adds one node. All three selected drivers propagate
+  node; unary construction adds one node. All four selected drivers propagate
   into groups, record fields, lists, RHS expressions and unary recursion.
 - Primary state is private. Reject reentry, unfinished results, out-of-order
   stages and expression mutation while primary dispatch is active.
