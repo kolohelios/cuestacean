@@ -31,10 +31,17 @@ original two-file atom proof or changing exporter language/resource limits.
 The [DSL/native audit](dsl-boundaries.md) traces actual ownership and guard pressure;
 the [architecture walkthrough](architecture.md) is the reader-facing entry point.
 
-**Completed #169/#171; next prerequisite #173:** native AST atom/family exports
-now feed the production bundle. [Scoped `let` bindings](native-let-bindings.md)
-are the next bounded requirement from the real AST-lowering and identifier
-specifications. This does not complete their default/pattern/import closures.
+**Completed #169/#171/#173:** native AST atom/family exports feed the production
+bundle; [scoped `let` bindings](native-let-bindings.md) resolve captured templates.
+The #175 default-export prototype remains held, not production support: eager
+value/default pairs lose preference-support provenance under contextual refinement.
+The [#176 test-only provenance spike](default-provenance-spike.md) distinguishes
+support elimination from conflicting preferences, but an independent both-order
+counterexample shows this static recipe is insufficient. Production defaults
+remain held; contextual preference lifetime/readiness needs a further design.
+Pinned CUE order discrepancies are separate evidence, not an excuse for that gap.
+Production parsing/evaluation stays unchanged. Neither experiment completes the real policies'
+default/pattern/optional-field/import closures.
 Compiler-policy closure and semantic-policy migration remain later bounded
 selections, not authorization for routine source expansion, raised guards,
 general solving or six-seed closure.

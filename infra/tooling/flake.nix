@@ -431,6 +431,7 @@
             cargo check --offline --no-default-features --features compiled-lowering --bins
             cargo test --offline --no-default-features --lib
             cargo test --offline --no-default-features --test solver_spike
+            cargo test --offline --no-default-features --test default_provenance
           '';
         };
 
