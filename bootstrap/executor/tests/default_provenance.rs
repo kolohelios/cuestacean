@@ -134,6 +134,24 @@ fn both_orders(left: &str, right: &str, forward: Oracle, reverse: Oracle) {
 }
 
 #[test]
+fn conservative_demand_is_additive_to_the_old_hypothesis() {
+    let graph = Graph::new(value(1)).expect("ready scalar IR");
+    let report = graph.demand(Domain::Top, 4096).expect("bounded demand");
+    assert_eq!(report.constraints, domains(&[1]));
+    assert_eq!(
+        report.readiness,
+        default_provenance::Readiness::ConstraintOnly
+    );
+    assert_eq!(report.demand, default_provenance::Demand::Concrete(1));
+    assert_eq!(report.preferred, None);
+    assert!(report.groups.is_empty());
+    assert_eq!(
+        graph.solve(4096).expect("old API unchanged").outcome,
+        Outcome::Concrete(1)
+    );
+}
+
+#[test]
 fn pinned_cue_is_required_not_optional() {
     let output = Command::new("cue")
         .arg("version")

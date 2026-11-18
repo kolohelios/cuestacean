@@ -187,7 +187,9 @@ constraint/preference separation and independent counterexamples as evidence,
 not the experiment as a fallback. Collections, lexical references, schema
 closedness, recursive instantiation and CUE-hosted policy interfaces remain
 unestablished by this scalar experiment. No production integration is authorized
-by this result.
+by this result. The [#178 demand-boundary follow-up](default-readiness.md) keeps
+this hypothesis intact while making unresolved nested recipe lifetime explicit;
+its conservative suspension is not a corrected default-selection algorithm.
 
 ## Validation and production independence
 
