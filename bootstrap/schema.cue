@@ -3,7 +3,7 @@ package bootstrap
 import "list"
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #SelectorExpression | #RecordExpression | #RecordLiteral | #ListExpression | #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
+#Expression: #ListSliceExpression | #SelectorExpression | #RecordExpression | #RecordLiteral | #ListExpression | #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
 
 // Factor the identical recursive shape; separate recursive disjuncts expand
 // combinatorially in the upstream exporter as binary node kinds accumulate.
@@ -13,6 +13,7 @@ import "list"
 	right: #Expression
 }
 
+#ListSliceExpression: {kind: "listSlice", operand: #Expression, lower: #Expression, upper: #Expression}
 #SelectorExpression: {kind: "select", operand: #Expression, label: string}
 
 #RecordEntry: {name: string & !="", value: null | bool | int | string, _bytes: len(name) & <=64}
@@ -135,7 +136,22 @@ import "list"
 }
 #UnaryControlExpr: {op: "textLength" | "listCount" | "recordCount"} | {op: "bounds", lower: #UnaryControlEndpoint, upper: #UnaryControlEndpoint} | #ControlInteger | {op: "integerPrimitive", operation: "negate"} | {op: "boolean", value: bool} | {op: "input", input: "left"} | {op: "fail", reason: #OutputFailure | "logical" | "arithmetic" | "boundThreshold" | "length" | "listLength" | "lengthOperand" | "emptyBound" | "recordLength"} | {op: "if", condition: #UnaryControlCondition, then: #UnaryControlExpr, else: #UnaryControlExpr}
 #UnaryControlProgram: {formatVersion: 1, function: "recordLength" | "length" | "listLength" | "stringLength" | "logicalNot" | "negate" | "jsonOutput" | "integerOutput" | "lowerBound" | "upperBound" | "lowerExclusiveBound" | "upperExclusiveBound", result: #UnaryControlExpr}
-#UnifyProgram: *#BinaryControlProgram | #UnaryControlProgram
+
+// Keep binary/unary wire sides closed; only the ternary grammar admits third.
+#TernarySide: "left" | "right" | "third"
+#TernaryEndpoint: #ControlInteger | {op: "listCount"} | {op: "input", input: #TernarySide, endpoint: #UnifyEndpointName} | {op: "local", endpoint: #UnifyEndpointName} | {op: "empty"} | {
+	op: "offset", value: #TernaryEndpoint, delta: -1 | 1
+} | {op: "choose", condition: #TernaryCondition, then: #TernaryEndpoint, else: #TernaryEndpoint}
+#TernaryCondition: {op: "same" | "recordHas"} | {op: "textCompare", relation: #UnifyRelation} | {op: "kindIs", input: #TernarySide, kind: #UnifyKind} | {op: "booleanIs", input: #TernarySide, value: bool} | {
+	op: "compare", left: #TernaryEndpoint, right: #TernaryEndpoint, relation: #UnifyRelation
+} | {op: "hasEndpoint", value: #TernaryEndpoint} | {op: "and" | "or", left: #TernaryCondition, right: #TernaryCondition}
+#TernaryControlExpr: #ControlInteger | {op: "boolean", value: bool} | {op: "integerPrimitive", operation: #IntegerOperation} | {op: "listSlice" | "integerSum" | "textConcat" | "textLength" | "listCount" | "listElement" | "recordGet" | "recordCount"} | {op: "input", input: #TernarySide} | {
+	op: "fail", reason: "listSliceOperands" | "listSliceRange"
+} | {op: "if", condition: #TernaryCondition, then: #TernaryControlExpr, else: #TernaryControlExpr} | {
+	op: "letBounds", lower: #TernaryEndpoint, upper: #TernaryEndpoint, result: #TernaryControlExpr
+} | {op: "bounds", lower: #TernaryEndpoint, upper: #TernaryEndpoint}
+#TernaryControlProgram: {formatVersion: 1, function: "listSlice", result: #TernaryControlExpr}
+#UnifyProgram: *#BinaryControlProgram | #UnaryControlProgram | #TernaryControlProgram
 
 // Expression-parser control flow; native frame operations are explicit intrinsics.
 #PrattNumber: {op: "minimum"} | {op: "precedence"} | {op: "tokenLength"} | {op: "integer", value: uint & <=255} | {
@@ -338,6 +354,7 @@ import "list"
 		list: result: {op: "list", field: "value"}
 		listExpression: result: {op: "listExpression", field: "elements"}
 		listLength: result: {op: "listLength", value: {op: "evaluate", field: "operand"}}
+		listSlice: result: {op: "listSlice", value: {op: "evaluate", field: "operand"}, lower: {op: "evaluate", field: "lower"}, upper: {op: "evaluate", field: "upper"}}
 		listIndex: result: {op: "listIndex", left: #EvaluateChild, right: #EvaluateChild}
 		record: result: {op: "record", field: "fields"}
 		recordExpression: result: {op: "recordExpression", field: "fields"}

@@ -36,6 +36,7 @@ advantages remain a hypothesis, not a measured result.
 | Record field evaluation (JSON AST) | `bootstrap/record-control{,-fragments}.cue`, [contract](../bootstrap/record-expressions.md) | Existing control compiler record target; CUE traversal/concrete-child admission, native checked cursor/map/callback |
 | Closed records (JSON AST) | [Ownership/profile contract](closed-records.md), `bootstrap/record-{index,length}.cue` | Immutable certified bounded map/flat codec; CUE domain/closedness/lookup/count/equality/logical policy |
 | Record selectors | `bootstrap/pratt-fragments.cue`, [contract](../bootstrap/source-selectors.md) | CUE mixed postfix loop; checked stages; existing record lookup and binary AST builder |
+| Explicit list slicing (JSON AST) | `bootstrap/list-slice.cue`, [contract](../bootstrap/list-slicing.md) | Three-input CUE domain/range policy; checked immutable slice/constructor, ordered selected AST children; no source slicing yet |
 | Generic collection indexing | `bootstrap/index.cue`, [contract](../bootstrap/collection-indexing.md) | CUE list+i64/record+text dispatch; existing checked range/presence/getter kernels; source brackets select generic AST |
 | Closed-list indexing | `bootstrap/list-index.cue`, [contract](../bootstrap/list-indexing.md) | CUE domain/range and postfix loops; native checked extraction/frame operations |
 | List element evaluation | `bootstrap/list-control{,-fragments}.cue`, [contract](../bootstrap/list-expressions.md) | Typed list target of existing control compiler; native checked cursor/callback/buffer |
@@ -151,6 +152,10 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   32-level/4096-occurrence-node shape. [Mixed closed collections](mixed-collection-values.md)
   now share one private ValueShape across alternating list/record children;
   raw record/list literal codecs stay flat.
+  JSON `listSlice {operand,lower,upper}` evaluates three required AST children in
+  order and uses [ternary CUE policy](../bootstrap/list-slicing.md) for half-open
+  list ranges, returning independently certified immutable shared-child storage.
+  Source slicing, omitted endpoints and text slices remain excluded.
   Source close expressions now use a separate CUE record-primary driver with the
   same source/AST budgets. Bare/open structs and general list/open-record solving
   remain absent.

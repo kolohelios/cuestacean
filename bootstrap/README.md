@@ -1,6 +1,6 @@
 # Bootstrap expression fixtures
 
-`schema.cue` defines a recursive expression tree with twenty-nine node kinds:
+`schema.cue` defines a bounded recursive expression tree:
 
 - `null` / `top`: payload-free [concrete null and abstract top](lattice-values.md).
 - `integer`: an integer `value`.
@@ -30,6 +30,9 @@
   Source postfix brackets select this AST by default; typed index APIs stay strict.
 - `recordIndex`: eager record/key AST children, CUE domain/presence policy.
 - `recordLength`: record-only count; generic `length` also admits records.
+- `listSlice`: required `operand`/`lower`/`upper` ASTs, evaluated in order before
+  CUE half-open range checks and immutable certified slicing; [contract](list-slicing.md).
+  JSON-only for now: source `a[low:high]` and omitted endpoints remain excluded.
 - `listIndex`: binary `left`/`right`, CUE closed-list/integer domain and range
   policy, checked scalar extraction; [source postfix control](list-indexing.md).
 - `length`: CUE selects text-byte/list-element counting of one `operand`;

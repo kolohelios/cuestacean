@@ -23,6 +23,7 @@ package bootstrap
 		list: result: {op: "list", field: "value"}
 		listExpression: result: {op: "listExpression", field: "elements"}
 		listLength: result: {op: "listLength", value: {op: "evaluate", field: "operand"}}
+		listSlice: result: {op: "listSlice", value: {op: "evaluate", field: "operand"}, lower: {op: "evaluate", field: "lower"}, upper: {op: "evaluate", field: "upper"}}
 		listIndex: result: {op: "listIndex", left: {op: "evaluate", field: "left"}, right: {op: "evaluate", field: "right"}}
 		record: result: {op: "record", field: "fields"}
 		recordExpression: result: {op: "recordExpression", field: "fields"}

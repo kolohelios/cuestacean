@@ -7,16 +7,18 @@ pub struct Compiled;
 impl Driver for Compiled {
     fn render(&self, ctx: &mut Context, _node: &Value, _depth: usize) -> Result<String, Error> {
         match lowering::instruction_op(_node)? {
-            "binaryRuntime" | "difference" | "divide" | "index" | "modulo" | "product"
-            | "quotient" => ctx.concat(|parts| {
+            "binaryRuntime" | "difference" | "divide" | "index" | "listIndex" | "modulo"
+            | "product" | "quotient" | "recordIndex" => ctx.concat(|parts| {
                 parts.arg(|ctx| {
                     ctx.select(_node, "op", |ctx, tag| match tag {
                         "difference" => ctx.text("runtime::difference"),
                         "divide" => ctx.text("runtime::divide"),
                         "index" => ctx.text("runtime::index"),
+                        "listIndex" => ctx.text("runtime::list_index"),
                         "modulo" => ctx.text("runtime::modulo"),
                         "product" => ctx.text("runtime::product"),
                         "quotient" => ctx.text("runtime::quotient"),
+                        "recordIndex" => ctx.text("runtime::record_index"),
                         tag => Err(lowering::missing_selection(tag)),
                     })
                 })?;
@@ -114,12 +116,15 @@ impl Driver for Compiled {
                 call.arg(|ctx| ctx.path("evaluate"))?;
                 Ok(())
             }),
-            "listIndex" => ctx.call("runtime::list_index", |call| {
+            "listSlice" => ctx.call("runtime::list_slice", |call| {
                 call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "value", _depth, self)))
                 })?;
                 call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "lower", _depth, self)))
+                })?;
+                call.arg(|ctx| {
+                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "upper", _depth, self)))
                 })?;
                 Ok(())
             }),
@@ -161,15 +166,6 @@ impl Driver for Compiled {
                 call.arg(|ctx| ctx.string(_node, "field"))?;
                 call.arg(|ctx| ctx.path("_context"))?;
                 call.arg(|ctx| ctx.path("evaluate"))?;
-                Ok(())
-            }),
-            "recordIndex" => ctx.call("runtime::record_index", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
-                })?;
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
-                })?;
                 Ok(())
             }),
             "remainder" => ctx.call("runtime::remainder", |call| {

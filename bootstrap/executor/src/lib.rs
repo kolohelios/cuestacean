@@ -131,6 +131,10 @@ pub enum Error {
     RecordLength,
     #[snafu(display("field lookup requires a concrete closed record and string"))]
     RecordIndexOperands,
+    #[snafu(display("list slicing requires a concrete closed list and integer endpoints"))]
+    ListSliceOperands,
+    #[snafu(display("list slice out of range"))]
+    ListSliceRange,
     #[snafu(display("missing closed record field {field:?}"))]
     RecordMissing { field: String },
     #[snafu(display("signed 64-bit integer addition overflow"))]
@@ -294,6 +298,12 @@ enum Instruction {
         left: Box<Instruction>,
         right: Box<Instruction>,
     },
+    #[serde(rename = "listSlice")]
+    ListSlice {
+        value: Box<Instruction>,
+        lower: Box<Instruction>,
+        upper: Box<Instruction>,
+    },
     #[serde(rename = "listIndex")]
     ListIndex {
         left: Box<Instruction>,
@@ -447,6 +457,20 @@ fn binary_instruction(
     apply(left, right)
 }
 
+// Keep three owned operand temporaries out of unrelated recursive VM arms.
+#[cfg(feature = "semantics")]
+fn slice_instruction(
+    operands: [&Instruction; 3],
+    node: &Value,
+    rules: &BTreeMap<String, Rule>,
+    context: &mut runtime::EvaluationContext,
+) -> Result<runtime::Value, Error> {
+    let value = instruction(operands[0], node, rules, context)?;
+    let lower = instruction(operands[1], node, rules, context)?;
+    let upper = instruction(operands[2], node, rules, context)?;
+    runtime::list_slice(value, lower, upper)
+}
+
 #[cfg(feature = "semantics")]
 fn instruction(
     op: &Instruction,
@@ -522,6 +546,11 @@ fn instruction(
         Instruction::Index { left, right } => {
             binary_instruction(left, right, node, rules, context, runtime::index)
         }
+        Instruction::ListSlice {
+            value,
+            lower,
+            upper,
+        } => slice_instruction([value, lower, upper], node, rules, context),
         Instruction::ListIndex { left, right } => {
             binary_instruction(left, right, node, rules, context, runtime::list_index)
         }
