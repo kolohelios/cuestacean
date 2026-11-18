@@ -112,6 +112,13 @@ pub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {
     _frame.step()?;
     _frame.scan_identifier()?;
     _frame.step()?;
+    if _frame.has_record()? {
+        _frame.step()?;
+        _frame.record()?;
+        _frame.step()?;
+        return Ok(());
+    }
+    _frame.step()?;
     if _frame.has_call()? {
         _frame.step()?;
         _frame.advance_call()?;

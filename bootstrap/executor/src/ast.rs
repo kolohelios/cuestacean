@@ -20,6 +20,9 @@ mod integer_builder;
 #[path = "../../generated/ast-program.rs"]
 mod program_builder;
 #[cfg(feature = "source")]
+#[path = "../../generated/ast-record-field.rs"]
+mod record_field_builder;
+#[cfg(feature = "source")]
 #[path = "../../generated/ast-text.rs"]
 mod text_builder;
 #[cfg(feature = "source")]
@@ -302,6 +305,10 @@ pub fn integer(kind: String, value_field: String, value: i64) -> Value {
 #[cfg(feature = "source")]
 pub fn unary(kind: String, operand_field: String, operand: Value) -> Value {
     unary_builder::build(kind, operand_field, operand)
+}
+#[cfg(feature = "source")]
+pub fn record_field(name: String, value: Value) -> Value {
+    record_field_builder::build(name, value)
 }
 #[cfg(feature = "source")]
 pub fn binary(

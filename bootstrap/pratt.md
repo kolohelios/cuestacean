@@ -42,7 +42,8 @@ indices from escaping on return or colliding with primary/binary operations.
 Optional grammar constructor metadata can disable indexing. An actual pre-index
 Pratt baseline remains byte-exact, and a compiled minimum100 alternate changes
 index parsing without a native fallback. The right-associative alternate also
-includes postfix control, propagating both selected drivers into indices.
+includes postfix control, propagating all three selected expression/primary/
+record-primary engines into indices.
 
 Conditions read `hasOperator`, `leftAssociative`, literal booleans, numeric
 `atLeast`, or short-circuit `and`. Numbers read the frame `minimum`, current

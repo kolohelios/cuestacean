@@ -54,6 +54,7 @@ fn flat_and_historical_nested_primary_agree_over_corpus_with_calls_and_lists_dis
     let object = grammar.as_object_mut().expect("grammar object");
     object.remove("calls");
     object.remove("list");
+    object.remove("record");
     let grammar = grammar.to_string();
     let expression_json = export("pratt");
     let flat_json = export("primary");

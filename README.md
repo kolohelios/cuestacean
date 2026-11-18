@@ -59,7 +59,8 @@ values, CUE closedness/field lookup/length policies and exact object output.
 [Computed JSON record fields](bootstrap/record-expressions.md) now use CUE-owned
 iteration with checked scalar/[mixed collection](docs/mixed-collection-values.md)
 admission and the shared evaluation context;
-source structs and general open-record solving are not yet supported.
+[Source close expressions](bootstrap/source-records.md) add quoted labels and
+explicit commas. Bare/open structs and general open-record solving remain absent.
 [CUE-owned addition control](bootstrap/sum.md) selects checked integer addition
 or concrete string concatenation. [Scalar equality](bootstrap/equality.md)
 adds `==` and `!=` with CUE-owned concreteness guards and boolean result selection.

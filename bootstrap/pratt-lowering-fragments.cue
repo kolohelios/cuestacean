@@ -5,12 +5,15 @@ package bootstrap
 	let L = {op: "lower", field: "left"}
 	let R = {op: "lower", field: "right"}
 	let Calls = {
-		scanIndex:         "scan_index", advanceIndex:             "advance_index", closeIndex:    "close_index"
-		scanList:          "scan_list", advanceList:               "advance_list", probeListEnd:   "probe_list_end"
-		appendListElement: "append_list_element", advanceListTail: "advance_list_tail", buildList: "build_list"
-		firstItem:         "first_item", lastItem:                 "last_item", evaluateItem:      "evaluate_item"
-		appendItem:        "append_item", nextItem:                "next_item", previousItem:      "previous_item"
-		rejectItem:        "reject_item", finishList:              "finish_list", finishRecord:    "finish_record"
+		scanIndex:         "scan_index", advanceIndex:               "advance_index", closeIndex:              "close_index"
+		scanList:          "scan_list", advanceList:                 "advance_list", probeListEnd:             "probe_list_end"
+		appendListElement: "append_list_element", advanceListTail:   "advance_list_tail", buildList:           "build_list"
+		firstItem:         "first_item", lastItem:                   "last_item", evaluateItem:                "evaluate_item"
+		appendItem:        "append_item", nextItem:                  "next_item", previousItem:                "previous_item"
+		rejectItem:        "reject_item", finishList:                "finish_list", finishRecord:              "finish_record"
+		record:            "record", advanceRecord:                  "advance_record", openRecordCall:         "open_record_call", recordWhitespace:    "record_whitespace", openRecordBody: "open_record_body"
+		probeRecordEnd:    "probe_record_end", requireRecordLabel:   "require_record_label", parseRecordLabel: "parse_record_label", recordLabelTrivia: "record_label_trivia", recordColon:  "record_colon"
+		appendRecordField: "append_record_field", advanceRecordTail: "advance_record_tail", closeRecordCall:   "close_record_call", buildRecord:        "build_record"
 		advanceCall:       "advance_call"
 		primary:           "primary", afterOperand:            "after_operand", afterWordOperator: "after_word_operator"
 		lookupOperator:    "lookup_operator", advanceOperator: "advance_operator"
@@ -56,6 +59,8 @@ package bootstrap
 		hasBound: {op: "text", value: "_frame.has_bound()?"}
 		hasIdentifier: {op: "text", value: "_frame.has_identifier()?"}
 		hasCall: {op: "text", value: "_frame.has_call()?"}
+		hasRecord: {op: "text", value: "_frame.has_record()?"}
+		hasRecordField: {op: "text", value: "_frame.has_record_field()?"}
 		hasList: {op: "text", value: "_frame.has_list()?"}
 		hasIndex: {op: "text", value: "_frame.has_index()?"}
 		hasListElement: {op: "text", value: "_frame.has_list_element()?"}
@@ -70,6 +75,8 @@ package bootstrap
 		and: {op: "concat", parts: [L, {op: "text", value: " && "}, R]}
 		setBindingPower: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.set_binding_power("},
 			{op: "lower", field: "value"}, {op: "text", value: ")?;\n"}]}
+		parseRecordValue: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_record_value("},
+			{op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"}]}
 		parseIndex: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_index("},
 			{op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"}]}
 		parseListElement: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.parse_list_element("},

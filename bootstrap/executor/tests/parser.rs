@@ -148,6 +148,9 @@ fn rejected_sources_and_cli_errors_fail_without_results() {
                 Some("booleans-type" | "booleans-bounds" | "string-mixed") => {
                     assert_eq!(stderr, "conflicting value types\n")
                 }
+                Some("record-fields") => {
+                    assert_eq!(stderr, "conflicting closed record values\n", "{path:?}");
+                }
                 Some("list-nested-unequal") => {
                     assert_eq!(stderr, "conflicting closed list values\n", "{path:?}");
                 }

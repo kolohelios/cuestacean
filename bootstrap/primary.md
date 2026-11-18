@@ -27,7 +27,9 @@ The primary program explicitly sequences:
   `hasListElement` loop parses one selected-driver expression at minimum 0,
   appends, scans/commits the tail and probes for a trailing-comma close;
   `buildList` uses the unary builder with a buffered JSON array, then return;
-- `scanIdentifier` and `hasCall`, then `advanceCall` and the existing group
+- `scanIdentifier`, then optional `hasRecord`/`record` dispatches the separate
+  [closed-record source controller](source-records.md) on the same frame/fuel;
+- otherwise `hasCall`, then `advanceCall` and the existing group
   scan/advance/parse/close sequence at CUE argument minimum 0, followed by return;
 - otherwise `hasIdentifier`, then `parseAtom` or `parseInteger`.
 
@@ -53,10 +55,11 @@ requires forward progress and a valid in-bounds UTF-8 boundary.
 
 Primary actions use the expression frame's existing 4096-step budget, not a
 fresh budget. Recursive expressions still have the existing 32-level and
-64-node limits. Every group and RHS call propagates **both** selected control
-programs, including unary recursion. `parse_interpreted` interprets both production programs; the trusted
-`parse_with_drivers` and `parse_interpreted_with_primary` hooks allow independent
-expression/primary selection. Arbitrary Rust drivers are not sandboxed.
+64-node limits. Every nested expression propagates the selected expression,
+primary and record-primary engines, including unary recursion. `parse_interpreted`
+interprets all three production programs; explicit three-driver hooks expose each.
+The legacy `parse_with_drivers`/`parse_interpreted_with_primary` signatures remain
+compatible and select the default record-primary engine. Arbitrary Rust drivers are not sandboxed.
 
 Unary expression negation expands the subset, but does **not** close the Go
 bootstrap or make the parser/compiler fully self-hosted. Grammar validation, lookup,
@@ -72,7 +75,8 @@ while fixed return fixtures test loop/if unwinding, invocation scope, fuel and
 unfinished-primary rejection. The return refactor added no source syntax.
 Historical whole-corpus comparisons disable subsequent call/list registration to test
 the old language; [unary calls](unary-calls.md) add source `len(...)` separately.
-`primary-no-lists` preserves the pre-list primary byte-exact; a compiled
+`primary-no-records` preserves the actual pre-record primary byte-exact;
+`primary-no-lists` explicitly disables records too and preserves the pre-list primary byte-exact; a compiled
 `primary-call-high-minimum` now also changes element binding to 100, with fixed errors
 inside nested groups/RHS/lists proving both driver propagation and no fallback.
 `primary-no-calls` preserves the later flat pre-call algorithm byte-exact, and

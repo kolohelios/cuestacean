@@ -59,6 +59,8 @@ enum Condition {
     HasListElement {},
     HasIdentifier {},
     HasCall {},
+    HasRecord {},
+    HasRecordField {},
     HasNegation {},
     HasNot {},
     Boolean {
@@ -119,6 +121,23 @@ enum Statement {
     BuildList {},
     ScanIdentifier {},
     AdvanceCall {},
+    Record {},
+    AdvanceRecord {},
+    OpenRecordCall {},
+    RecordWhitespace {},
+    OpenRecordBody {},
+    ProbeRecordEnd {},
+    RequireRecordLabel {},
+    ParseRecordLabel {},
+    RecordLabelTrivia {},
+    RecordColon {},
+    ParseRecordValue {
+        minimum: Number,
+    },
+    AppendRecordField {},
+    AdvanceRecordTail {},
+    CloseRecordCall {},
+    BuildRecord {},
     ParseAtom {},
     ParseInteger {},
     ParseGroup {
@@ -293,6 +312,8 @@ impl Condition {
             Self::HasListElement {} => frame.has_list_element()?,
             Self::HasIdentifier {} => frame.has_identifier()?,
             Self::HasCall {} => frame.has_call()?,
+            Self::HasRecord {} => frame.has_record()?,
+            Self::HasRecordField {} => frame.has_record_field()?,
             Self::HasNegation {} => frame.has_negation()?,
             Self::HasNot {} => frame.has_not()?,
             Self::Boolean { value } => *value,
@@ -371,6 +392,23 @@ fn execute(
                     Statement::BuildList {} => frame.build_list()?,
                     Statement::ScanIdentifier {} => frame.scan_identifier()?,
                     Statement::AdvanceCall {} => frame.advance_call()?,
+                    Statement::Record {} => frame.record()?,
+                    Statement::AdvanceRecord {} => frame.advance_record()?,
+                    Statement::OpenRecordCall {} => frame.open_record_call()?,
+                    Statement::RecordWhitespace {} => frame.record_whitespace()?,
+                    Statement::OpenRecordBody {} => frame.open_record_body()?,
+                    Statement::ProbeRecordEnd {} => frame.probe_record_end()?,
+                    Statement::RequireRecordLabel {} => frame.require_record_label()?,
+                    Statement::ParseRecordLabel {} => frame.parse_record_label()?,
+                    Statement::RecordLabelTrivia {} => frame.record_label_trivia()?,
+                    Statement::RecordColon {} => frame.record_colon()?,
+                    Statement::ParseRecordValue { minimum } => {
+                        frame.parse_record_value(minimum.value(frame)?)?
+                    }
+                    Statement::AppendRecordField {} => frame.append_record_field()?,
+                    Statement::AdvanceRecordTail {} => frame.advance_record_tail()?,
+                    Statement::CloseRecordCall {} => frame.close_record_call()?,
+                    Statement::BuildRecord {} => frame.build_record()?,
                     Statement::ParseAtom {} => frame.parse_atom()?,
                     Statement::ParseInteger {} => frame.parse_integer()?,
                     Statement::ParseGroup { minimum } => {
@@ -648,6 +686,44 @@ mod target_tests {
                 {"op":"parseListElement","minimum":minimum}
             ]});
             assert!(parse(&input.to_string()).is_err());
+        }
+    }
+
+    #[test]
+    fn source_record_operations_are_parser_only_even_in_dead_arms() {
+        for op in [
+            "record",
+            "advanceRecord",
+            "openRecordCall",
+            "recordWhitespace",
+            "openRecordBody",
+            "probeRecordEnd",
+            "requireRecordLabel",
+            "parseRecordLabel",
+            "recordLabelTrivia",
+            "recordColon",
+            "parseRecordValue",
+            "appendRecordField",
+            "advanceRecordTail",
+            "closeRecordCall",
+            "buildRecord",
+            "hasRecord",
+            "hasRecordField",
+        ] {
+            let mut action = serde_json::json!({"op":op});
+            if op == "parseRecordValue" {
+                action["minimum"] = serde_json::json!({"op":"integer","value":0});
+            }
+            if op.starts_with("has") {
+                action = serde_json::json!({"op":"if","condition":action,"then":[]});
+            }
+            let body = serde_json::json!([{"op":"if","condition":{"op":"boolean","value":false},"then":[action]}]);
+            let mut input = serde_json::json!({"formatVersion":1,"body":body});
+            assert!(parse(&input.to_string()).is_ok(), "{op}");
+            for target in ["list", "record"] {
+                input["target"] = serde_json::json!(target);
+                assert!(parse(&input.to_string()).is_err(), "{target}: {op}");
+            }
         }
     }
 
