@@ -53,7 +53,10 @@ associative alternates must propagate selectors without fallback. Preserve all
 needed, never raise bounds or add a compiler/seed/native emitter. The expanded
 unit-method map would exceed 64; validated selectorAction metadata splits it into
 58/7 arms. Existing parse-minimum aliases retain byte-identical source and keep
-the backend at 497 original values under 512. Internal tags/fields reject on wire.
+that revision at 497 original values under 512. [Source slices](source-slices.md)
+subsequently replace ordinary method selection with checked CUE snake rendering,
+reaching 330 values while keeping actual prior driver sources byte-identical.
+Internal tags/fields still reject on wire.
 
 ## Independent evidence
 

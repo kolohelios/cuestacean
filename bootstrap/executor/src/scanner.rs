@@ -71,6 +71,9 @@ mod generated_selector_identifier;
 #[cfg(feature = "source")]
 #[path = "../../generated/selector-open.rs"]
 mod generated_selector_open;
+#[cfg(feature = "source")]
+#[path = "../../generated/slice-separator.rs"]
+mod generated_slice_separator;
 
 #[cfg(feature = "source")]
 #[path = "../../generated/record-open.rs"]
@@ -663,6 +666,11 @@ pub fn list_tail(source: &str, offset: usize) -> Result<Scan, Error> {
 #[cfg(feature = "source")]
 pub fn selector_open(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_selector_open::scan(source, offset)
+}
+
+#[cfg(feature = "source")]
+pub fn slice_separator(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_slice_separator::scan(source, offset)
 }
 #[cfg(feature = "source")]
 pub fn selector_identifier(source: &str, offset: usize) -> Result<Scan, Error> {

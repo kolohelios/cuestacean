@@ -230,7 +230,7 @@ done
 bootstrap/executor/target/debug/bootstrap-codegen "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-reverse.json" \
   | rustfmt --edition 2024 > bootstrap/generated/evaluation-reverse.rs
-for machine in selector-open selector-identifier record-open record-close record-label record-colon record-tail tests/valid/bound-inclusive-only index-close list-open list-close list-tail call-open integer-literal tests/valid/string-no-wide tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
+for machine in slice-separator selector-open selector-identifier record-open record-close record-label record-colon record-tail tests/valid/bound-inclusive-only index-close list-open list-close list-tail call-open integer-literal tests/valid/string-no-wide tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
   tests/valid/scanner-horizontal \
   tests/valid/scanner-stalled tests/valid/scanner-advance \
   tests/valid/scanner-decimal-permissive tests/valid/scanner-reject tests/valid/scanner-state \
@@ -242,7 +242,7 @@ done
 bootstrap/executor/target/debug/bootstrap-scan-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/scanner-advance.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/scan-lowering-unicode.json" \
   | rustfmt --edition 2024 > bootstrap/generated/scan-unicode-advance.rs
-for builder in ast-record-field ast-program ast-atom ast-integer ast-text ast-binary ast-unary tests/valid/ast-program-v2 \
+for builder in ast-ternary ast-record-field ast-program ast-atom ast-integer ast-text ast-binary ast-unary tests/valid/ast-program-v2 \
   tests/valid/ast-escaped tests/valid/ast-duplicate; do
   name=$(basename "$builder")
   bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$builder.json" \
@@ -251,7 +251,7 @@ done
 bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-literal.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-lowering-forced.json" \
   | rustfmt --edition 2024 > bootstrap/generated/ast-forced-integer.rs
-for control in tests/valid/pratt-no-selectors record-primary tests/valid/record-primary-high-minimum tests/valid/primary-no-records tests/valid/list-control-homogeneous tests/valid/record-control-homogeneous record-control tests/valid/record-control-scalars tests/valid/record-control-reverse tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
+for control in tests/valid/pratt-no-slices tests/valid/pratt-slice-high-minimum tests/valid/pratt-no-selectors record-primary tests/valid/record-primary-high-minimum tests/valid/primary-no-records tests/valid/list-control-homogeneous tests/valid/record-control-homogeneous record-control tests/valid/record-control-scalars tests/valid/record-control-reverse tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
   primary tests/valid/primary-no-calls tests/valid/primary-call-high-minimum tests/valid/primary-nested tests/valid/primary-return tests/valid/primary-return-empty tests/valid/pratt-return-loop \
   tests/valid/primary-bound-high-minimum tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
   tests/valid/primary-cross-phase tests/valid/primary-low-negation \
@@ -287,8 +287,11 @@ or AST/rule wire is introduced.
 
 `list-slice.rs` adds a three-input CUE range/domain policy; the actual compiled
 `list-slice-identity.rs` returns already-certified input storage instead. JSON AST
-slice children share the selected evaluator and existing budgets; source slicing
-remains excluded. See the [contract](../list-slicing.md).
+slice children share the selected evaluator and existing budgets. Explicit
+[source slices](../source-slices.md) add slice-separator, ast-ternary and CUE
+Pratt branching; pratt-no-slices preserves the actual prior full driver and
+pratt-slice-high-minimum changes upper endpoint parsing. Omitted endpoints,
+stride and text slicing remain excluded. See the [JSON contract](../list-slicing.md).
 
 ## Fresh Nix builds
 

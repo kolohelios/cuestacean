@@ -23,6 +23,9 @@ mod program_builder;
 #[path = "../../generated/ast-record-field.rs"]
 mod record_field_builder;
 #[cfg(feature = "source")]
+#[path = "../../generated/ast-ternary.rs"]
+mod ternary_builder;
+#[cfg(feature = "source")]
 #[path = "../../generated/ast-text.rs"]
 mod text_builder;
 #[cfg(feature = "source")]
@@ -319,6 +322,27 @@ pub fn binary(
     right: Value,
 ) -> Value {
     binary_builder::build(kind, left_field, right_field, left, right)
+}
+
+#[cfg(feature = "source")]
+pub fn ternary(
+    kind: String,
+    operand_field: String,
+    lower_field: String,
+    upper_field: String,
+    operand: Value,
+    lower: Value,
+    upper: Value,
+) -> Value {
+    ternary_builder::build(
+        kind,
+        operand_field,
+        lower_field,
+        upper_field,
+        operand,
+        lower,
+        upper,
+    )
 }
 
 #[cfg(test)]

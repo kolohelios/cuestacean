@@ -295,6 +295,7 @@ fn optional_index_metadata_disables_syntax_and_validates_even_when_unused() {
             json!({"formatVersion":1,"entry":{"kind":"customIndex","base":array(json!([integer(1)])),"offset":integer(0)}})
         );
     }
+    grammar.as_object_mut().expect("object").remove("slice");
     grammar.as_object_mut().expect("object").remove("index");
     for parsed in parses("[1][0]", &grammar.to_string()) {
         assert!(parsed.is_err());

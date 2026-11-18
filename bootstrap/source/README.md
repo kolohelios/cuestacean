@@ -61,6 +61,12 @@ identifiers exclude leading underscores/definitions, while quoted labels admit
 Unicode/punctuation and regular quoted underscore names. Hidden fields/references
 remain unsupported.
 Each adds one node; index expressions share selected drivers and recursion limits.
+[Explicit slices](../source-slices.md) `operand[lower:upper]` interleave with these
+postfixes and lower directly to listSlice with two ordinary endpoint AST children.
+Both endpoints are required and parse at CUE minimum0 through all selected engines;
+CUE selects half-open list ranges after ordered three-child evaluation. Optional
+slice constructor metadata requires index syntax; removing slice alone leaves
+indexing intact. Text slices, omitted endpoints, stride and coercion are excluded.
 [Unary calls](../unary-calls.md) now select `length` for text bytes, list elements or record fields;
 text length counts decoded bytes, not Unicode scalars/graphemes. Argument evaluation is
 eager and CUE selects minimum 0. Spaces before `(` are allowed; LF/CR after the

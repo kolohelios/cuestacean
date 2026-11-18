@@ -29,6 +29,7 @@ impl Frame<'_, '_> {
             || self.right.is_some()
             || self.consumed
             || self.operator.is_some()
+            || self.slice_upper.is_some()
             || !matches!(self.index_state, Some(IndexState::Scanned(None)))
         {
             return Self::selector_error();
@@ -53,6 +54,7 @@ impl Frame<'_, '_> {
             || self.right.is_some()
             || self.consumed
             || self.operator.is_some()
+            || self.slice_upper.is_some()
         {
             return Self::selector_error();
         }

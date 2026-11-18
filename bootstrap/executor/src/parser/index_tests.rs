@@ -32,6 +32,7 @@ fn postfix_state_cursor_ownership_and_shared_fuel() -> Result<(), Box<dyn std::e
         list_elements: Vec::new(),
         index_state: None,
         selector_state: None,
+        slice_upper: None,
     };
     assert!(frame.has_index().is_err());
     assert!(frame.parse_index(0).is_err());

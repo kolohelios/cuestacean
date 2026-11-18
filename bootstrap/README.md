@@ -32,7 +32,8 @@
 - `recordLength`: record-only count; generic `length` also admits records.
 - `listSlice`: required `operand`/`lower`/`upper` ASTs, evaluated in order before
   CUE half-open range checks and immutable certified slicing; [contract](list-slicing.md).
-  JSON-only for now: source `a[low:high]` and omitted endpoints remain excluded.
+  [Source `a[low:high]`](source-slices.md) requires both endpoints; omitted
+  endpoints, stride and text slices remain excluded.
 - `listIndex`: binary `left`/`right`, CUE closed-list/integer domain and range
   policy, checked scalar extraction; [source postfix control](list-indexing.md).
 - `length`: CUE selects text-byte/list-element counting of one `operand`;

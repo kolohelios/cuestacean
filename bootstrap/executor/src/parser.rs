@@ -16,6 +16,9 @@ mod record;
 mod selector;
 #[cfg(test)]
 mod selector_tests;
+mod slice;
+#[cfg(test)]
+mod slice_tests;
 use record::SourceRecordState;
 use selector::SelectorState;
 
@@ -80,6 +83,8 @@ struct Grammar {
     #[serde(default)]
     index: Option<Index>,
     #[serde(default)]
+    slice: Option<Slice>,
+    #[serde(default)]
     selector: Option<Selector>,
     #[serde(default)]
     atoms: Vec<Atom>,
@@ -123,6 +128,15 @@ struct Index {
     kind: String,
     left_field: String,
     right_field: String,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Slice {
+    kind: String,
+    operand_field: String,
+    lower_field: String,
+    upper_field: String,
 }
 
 #[derive(Clone, Deserialize)]
@@ -240,6 +254,21 @@ impl Grammar {
         {
             return GrammarSnafu {
                 reason: "invalid index constructor",
+            }
+            .fail();
+        }
+        if let Some(slice) = &self.slice
+            && (self.index.is_none()
+                || slice.kind.is_empty()
+                || !field(&slice.operand_field)
+                || !field(&slice.lower_field)
+                || !field(&slice.upper_field)
+                || slice.operand_field == slice.lower_field
+                || slice.operand_field == slice.upper_field
+                || slice.lower_field == slice.upper_field)
+        {
+            return GrammarSnafu {
+                reason: "invalid slice constructor or missing index constructor",
             }
             .fail();
         }
@@ -549,12 +578,15 @@ impl Parser<'_> {
             record_state: None,
             index_state: None,
             selector_state: None,
+            slice_upper: None,
         };
         match engine {
             Engine::Compiled(driver) => driver(&mut frame)?,
             Engine::Interpreted(program) => crate::pratt::interpret(&program, &mut frame)?,
         }
-        if !matches!(frame.index_state, None | Some(IndexState::Scanned(None))) {
+        if frame.slice_upper.is_some()
+            || !matches!(frame.index_state, None | Some(IndexState::Scanned(None)))
+        {
             return Err(Error::ControlState {
                 reason: "unfinished index at frame return",
             });
@@ -639,6 +671,9 @@ enum IndexState {
     Scanned(Option<usize>),
     Advanced,
     Parsed,
+    SliceScanned(Option<usize>),
+    SliceAdvanced,
+    SliceParsed,
 }
 
 #[derive(Clone, Copy)]
@@ -691,6 +726,7 @@ pub struct Frame<'p, 's> {
     record_state: Option<SourceRecordState>,
     index_state: Option<IndexState>,
     selector_state: Option<SelectorState>,
+    slice_upper: Option<Box<Value>>,
 }
 
 impl Frame<'_, '_> {
@@ -732,7 +768,9 @@ impl Frame<'_, '_> {
                 reason: "expression operation during primary dispatch",
             });
         }
-        if !matches!(self.index_state, None | Some(IndexState::Scanned(None))) {
+        if self.slice_upper.is_some()
+            || !matches!(self.index_state, None | Some(IndexState::Scanned(None)))
+        {
             return self.index_state_error();
         }
         if self.selector_pending() {
@@ -765,6 +803,7 @@ impl Frame<'_, '_> {
             || self.index_state.is_some()
             || self.selector_state.is_some()
             || self.record_state.is_some()
+            || self.slice_upper.is_some()
         {
             return Err(Error::ControlState {
                 reason: "unfinished primary at return",
@@ -824,7 +863,7 @@ impl Frame<'_, '_> {
         let Some(IndexState::Scanned(Some(end))) = self.index_state else {
             return self.index_state_error();
         };
-        if self.right.is_some() {
+        if self.right.is_some() || self.slice_upper.is_some() {
             return self.index_state_error();
         }
         self.advance_index_cursor(end)?;
@@ -833,7 +872,10 @@ impl Frame<'_, '_> {
     }
     pub fn parse_index(&mut self, minimum: u8) -> Result<(), Error> {
         self.index_phase()?;
-        if !matches!(self.index_state, Some(IndexState::Advanced)) || self.right.is_some() {
+        if !matches!(self.index_state, Some(IndexState::Advanced))
+            || self.right.is_some()
+            || self.slice_upper.is_some()
+        {
             return self.index_state_error();
         }
         self.right = Some(self.parser.expression(minimum, self.depth + 1)?);
@@ -842,7 +884,12 @@ impl Frame<'_, '_> {
     }
     pub fn close_index(&mut self) -> Result<(), Error> {
         self.index_phase()?;
-        if !matches!(self.index_state, Some(IndexState::Parsed)) || self.right.is_none() {
+        if !matches!(
+            self.index_state,
+            Some(IndexState::Parsed | IndexState::SliceScanned(None))
+        ) || self.right.is_none()
+            || self.slice_upper.is_some()
+        {
             return self.index_state_error();
         }
         let constructor = self
@@ -1551,6 +1598,7 @@ mod bound_group_state_tests {
             in_primary: true,
             index_state: None,
             selector_state: None,
+            slice_upper: None,
         };
         frame.scan_group()?;
         assert!(frame.group_open()?);
@@ -1620,6 +1668,7 @@ mod bound_group_state_tests {
             in_primary: true,
             index_state: None,
             selector_state: None,
+            slice_upper: None,
         };
         assert!(frame.has_call().is_err());
         assert!(frame.advance_call().is_err());
@@ -1760,6 +1809,7 @@ mod list_state_tests {
             in_primary: true,
             index_state: None,
             selector_state: None,
+            slice_upper: None,
         };
         assert!(frame.scan_list().is_err());
         assert!(frame.has_list().is_err());
@@ -2093,6 +2143,7 @@ mod string_state_tests {
             in_primary: true,
             index_state: None,
             selector_state: None,
+            slice_upper: None,
         };
         assert!(matches!(frame.has_not(), Err(Error::ControlState { .. })));
         assert!(matches!(frame.scan_not(), Err(Error::ControlState { .. })));
@@ -2166,6 +2217,7 @@ mod string_state_tests {
             in_primary: true,
             index_state: None,
             selector_state: None,
+            slice_upper: None,
         };
         assert!(matches!(
             frame.has_string(),
