@@ -80,6 +80,15 @@ children before CUE binary policy runs. The
 existing compiled scoped fixture and meet-law/error tests remain independent
 checks, not merely two engines agreeing on source text.
 
+[Explicit list slicing](list-slicing.md) adds validated ternary `listSlice` control
+and a `third` input side. Root `ternary` metadata selects a three-input header;
+unary/binary signatures stay byte-identical. All value/condition/endpoint third
+references reject eagerly outside ternary programs, including dead arms; unary
+binary-operation restrictions remain. `listSlice` is ternary-only and lowers to
+the checked borrowed slice/constructor kernel. Existing choose/if source layout
+shares a one-hop alias, keeping the backend at 484 values under the unchanged 512
+guard. All six seed and feature boundaries remain unchanged.
+
 ## Bootstrap and evidence
 
 `unification::generate` uses `compiled_unify_lowering` by default. No-default

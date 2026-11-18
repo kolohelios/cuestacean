@@ -59,6 +59,10 @@ mod generated_index;
 mod generated_list_index;
 
 #[cfg(feature = "semantics")]
+#[path = "../../generated/list-slice.rs"]
+mod generated_list_slice;
+
+#[cfg(feature = "semantics")]
 #[path = "../../generated/record-index.rs"]
 mod generated_record_index;
 #[cfg(feature = "semantics")]
@@ -1013,6 +1017,28 @@ pub fn list_at(left: &Value, right: &Value) -> Result<Value, Error> {
     };
     let index = usize::try_from(*index).map_err(|_| Error::IndexRange)?;
     list.as_slice().get(index).cloned().ok_or(Error::IndexRange)
+}
+
+/// Defensively copy a bounded slice of immutable child handles and recertify.
+/// CUE owns default domain/range selection; this kernel also rejects misuse.
+pub fn list_slice_elements(left: &Value, lower: &Value, upper: &Value) -> Result<Value, Error> {
+    let (Value::List(list), Value::Integer(lower), Value::Integer(upper)) = (left, lower, upper)
+    else {
+        return Err(Error::ListSliceOperands);
+    };
+    let lower = usize::try_from(*lower).map_err(|_| Error::ListSliceRange)?;
+    let upper = usize::try_from(*upper).map_err(|_| Error::ListSliceRange)?;
+    let elements = list
+        .as_slice()
+        .get(lower..upper)
+        .ok_or(Error::ListSliceRange)?;
+    ClosedList::new(elements.to_vec()).map(Value::List)
+}
+
+/// Slice using generated CUE three-input domain/range policy.
+#[cfg(feature = "semantics")]
+pub fn list_slice(left: Value, lower: Value, upper: Value) -> Result<Value, Error> {
+    generated_list_slice::list_slice(left, lower, upper)
 }
 
 /// Checked field presence; domain admission remains CUE-owned.

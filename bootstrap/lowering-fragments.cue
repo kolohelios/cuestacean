@@ -15,7 +15,10 @@ package bootstrap
 		lowerBound:          "lower_bound", upperBound:                    "upper_bound", negate:  "negate"
 		logicalNot:          "logical_not", length:                        "length", stringLength: "string_length", listLength: "list_length", recordLength: "record_length"
 	}
-	let Binary = {index: "index", difference: "difference", product: "product", divide: "divide", modulo: "modulo", quotient: "quotient"}
+	let Binary = {
+		index:       "index", difference:       "difference", product: "product", divide: "divide", modulo: "modulo", quotient: "quotient"
+		recordIndex: "record_index", listIndex: "list_index"
+	}
 	aliases: {
 		for name, _ in Unary {"\(name)": "unaryRuntime"}
 		for name, _ in Binary {"\(name)": "binaryRuntime"}
@@ -77,8 +80,6 @@ package bootstrap
 			{op: "text", value: "("}, L, {op: "text", value: ", "}, R, {op: "text", value: ")"},
 		]}
 		sum: {op: "call", path: "runtime::sum", args: [L, R]}
-		recordIndex: {op: "call", path: "runtime::record_index", args: [L, R]}
-		listIndex: {op: "call", path: "runtime::list_index", args: [L, R]}
 		logicalAnd: {op: "call", path: "runtime::logical_and", args: [L, R]}
 		logicalOr: {op: "call", path: "runtime::logical_or", args: [L, R]}
 		less: {op: "call", path: "runtime::less", args: [L, R]}
@@ -89,5 +90,9 @@ package bootstrap
 		notEqual: {op: "call", path: "runtime::not_equal", args: [L, R]}
 		remainder: {op: "call", path: "runtime::remainder", args: [L, R]}
 		unify: {op: "call", path: "runtime::unify", args: [L, R]}
+		listSlice: {op: "call", path: "runtime::list_slice", args: [V,
+			{op: "try", value: {op: "group", value: {op: "lower", field: "lower"}}},
+			{op: "try", value: {op: "group", value: {op: "lower", field: "upper"}}},
+		]}
 	}
 }

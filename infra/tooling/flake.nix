@@ -112,6 +112,8 @@
       ];
       prattNames = builtins.concatStringsSep " " prattFixtures;
       unifyFixtures = [
+        "list-slice"
+        "tests/valid/list-slice-identity"
         "index"
         "tests/valid/index-zero"
         "record-index"
@@ -218,6 +220,9 @@
         "records-conflict"
         "records-fields-conflict"
         "list-indexing"
+        "list-slicing"
+        "list-slicing-range"
+        "list-slicing-domain"
         "collection-index"
         "selectors"
         "collection-index-record"
@@ -708,7 +713,7 @@
               }
               ''
                 set -euo pipefail
-                for fixture in lists list-expressions nested-lists records records-unify record-expressions nested-records nested-records-unify mixed-collections mixed-unify collection-index-record tests/valid/lists-unify; do
+                for fixture in lists list-expressions list-slicing nested-lists records records-unify record-expressions nested-records nested-records-unify mixed-collections mixed-unify collection-index-record tests/valid/lists-unify; do
                   probe="''${fixture##*/}"
                   # Marshal in pinned CUE, not jq: keep every i64 exact.
                   printf '%s\n' "$(cue export ${../../bootstrap/tests/upstream}/"$probe.cue" --out text)" > expected
@@ -719,6 +724,22 @@
                       "$binary" ${jsonExports pkgs}/"$fixture.json" > actual
                     fi
                     diff -u expected actual
+                  done
+                done
+                for mode in range domain; do
+                  fixture="list-slicing-$mode"
+                  if cue export ${../../bootstrap/tests/upstream}/"$fixture.cue" --out json > expected 2> cue-error; then exit 1; fi
+                  test ! -s expected
+                  test -s cue-error
+                  if [ "$mode" = range ]; then message='list slice out of range'; else message='list slicing requires a concrete closed list and integer endpoints'; fi
+                  for binary in bootstrap-executor bootstrap-generated; do
+                    if [ "$binary" = bootstrap-executor ]; then
+                      if "$binary" ${jsonExports pkgs}/"$fixture.json" ${jsonExports pkgs}/evaluation.json > actual 2> error; then exit 1; fi
+                    else
+                      if "$binary" ${jsonExports pkgs}/"$fixture.json" > actual 2> error; then exit 1; fi
+                    fi
+                    test ! -s actual
+                    grep -Fx "$message" error
                   done
                 done
                 for fixture in records-conflict records-fields-conflict nested-records-conflict nested-records-scalar-conflict mixed-conflict; do

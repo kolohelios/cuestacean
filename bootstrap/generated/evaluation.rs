@@ -70,6 +70,11 @@ fn evaluate_node(
         "listLength" => {
             runtime::list_length((evaluate(runtime::field(node, "operand")?, _context))?)
         }
+        "listSlice" => runtime::list_slice(
+            (evaluate(runtime::field(node, "operand")?, _context))?,
+            (evaluate(runtime::field(node, "lower")?, _context))?,
+            (evaluate(runtime::field(node, "upper")?, _context))?,
+        ),
         "logicalAnd" => runtime::logical_and(
             (evaluate(runtime::field(node, "left")?, _context))?,
             (evaluate(runtime::field(node, "right")?, _context))?,

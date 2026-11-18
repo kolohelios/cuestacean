@@ -264,7 +264,7 @@ done
 bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/pratt.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/pratt-lowering-no-increment.json" \
   | rustfmt --edition 2024 > bootstrap/generated/pratt-no-increment.rs
-for control in index tests/valid/index-zero record-index record-length tests/valid/record-index-zero lower-exclusive-bound upper-exclusive-bound tests/valid/exclusive-reversed list-index tests/valid/list-index-zero length-control list-length-control tests/valid/list-length-zero string-length-control tests/valid/length-zero lower-bound upper-bound tests/valid/bound-reversed tests/valid/unary-bound-endpoints json-output integer-output tests/valid/output-zero divide-control modulo-control quotient-control remainder-control tests/valid/integer-literals negate-control difference-control product-control unify sum equal not-equal less less-equal greater greater-equal logical-and logical-or logical-not tests/valid/not-true tests/valid/control-default tests/valid/unary-conditions tests/valid/logic-false tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
+for control in list-slice tests/valid/list-slice-identity index tests/valid/index-zero record-index record-length tests/valid/record-index-zero lower-exclusive-bound upper-exclusive-bound tests/valid/exclusive-reversed list-index tests/valid/list-index-zero length-control list-length-control tests/valid/list-length-zero string-length-control tests/valid/length-zero lower-bound upper-bound tests/valid/bound-reversed tests/valid/unary-bound-endpoints json-output integer-output tests/valid/output-zero divide-control modulo-control quotient-control remainder-control tests/valid/integer-literals negate-control difference-control product-control unify sum equal not-equal less less-equal greater greater-equal logical-and logical-or logical-not tests/valid/not-true tests/valid/control-default tests/valid/unary-conditions tests/valid/logic-false tests/valid/less-false tests/valid/equal-false tests/valid/sum-right tests/valid/unify-right tests/valid/unify-scoped; do
   name=$(basename "$control")
   bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
@@ -284,6 +284,11 @@ bootstrap/executor/target/debug/bootstrap-unify-codegen "$CUESTACEAN_BOOTSTRAP_J
 source primaries and bounds; `decimal.rs` remains byte-identical after shared
 fragment factoring. Checked signed i64 conversion stays native; no new compiler
 or AST/rule wire is introduced.
+
+`list-slice.rs` adds a three-input CUE range/domain policy; the actual compiled
+`list-slice-identity.rs` returns already-certified input storage instead. JSON AST
+slice children share the selected evaluator and existing budgets; source slicing
+remains excluded. See the [contract](../list-slicing.md).
 
 ## Fresh Nix builds
 

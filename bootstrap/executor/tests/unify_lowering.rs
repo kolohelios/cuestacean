@@ -32,6 +32,8 @@ fn unified_backend_matches_reference_and_preserves_wire_inputs() {
         "unify",
         "tests/valid/unify-right",
         "tests/valid/unify-scoped",
+        "list-slice",
+        "tests/valid/list-slice-identity",
     ] {
         let input = export(name);
         assert_eq!(
@@ -48,6 +50,14 @@ fn unified_backend_matches_reference_and_preserves_wire_inputs() {
         (
             json!({"op":"inputValue","input":"right"}),
             "Ok::<_, Error>(_right.clone())",
+        ),
+        (
+            json!({"op":"inputValue","input":"third"}),
+            "Ok::<_, Error>(_third.clone())",
+        ),
+        (
+            json!({"op":"inputEndpoint","input":"third","endpoint":"upper"}),
+            "Ok::<_, Error>(crate::unification::endpoint(&_third, crate::unification::Endpoint::Upper))",
         ),
         (
             json!({"op":"inputEndpoint","input":"right","endpoint":"lower"}),
@@ -67,7 +77,7 @@ fn unified_backend_matches_reference_and_preserves_wire_inputs() {
         source,
         unification::generate_with_policy(&input, &backend).expect("reference")
     );
-    let tagged = json!({"op":"program", "function":"unify", "unary":false, "result":{"op":"inputValue", "input":"left"}});
+    let tagged = json!({"op":"program", "function":"unify", "unary":false, "ternary":false, "result":{"op":"inputValue", "input":"left"}});
     assert_eq!(
         policy.lower(&tagged).expect("reference program"),
         compiled_unify_lowering::lower(&tagged).expect("compiled program")
