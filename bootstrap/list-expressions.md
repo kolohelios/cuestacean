@@ -20,9 +20,9 @@ ownership remain separate designs/work.
 
 ## Reuse the structured control compiler
 
-The existing Pratt compiler accepts `target` (`parser` by default, or `list`).
+The existing Pratt compiler accepts `target` (`parser` by default, `list`, or [record](record-expressions.md)).
 Omitted target preserves old parser wire; CUE and native decoding validate whole
-family-specific bodies eagerly, including unused branches. Both families share
+family-specific bodies eagerly, including unused branches. All families share
 if/while/return and boolean/and conditions. List conditions add `hasItem` and
 `itemKindIs {kind}`; list actions are firstItem/lastItem, evaluateItem, appendItem,
 nextItem/previousItem, rejectItem and finishList. Parser-only actions/conditions

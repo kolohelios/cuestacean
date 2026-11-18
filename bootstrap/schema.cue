@@ -3,7 +3,7 @@ package bootstrap
 import "list"
 
 // Experimental syntax and rule data; these definitions do not evaluate trees.
-#Expression: #RecordLiteral | #ListExpression | #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
+#Expression: #RecordExpression | #RecordLiteral | #ListExpression | #ListLiteral | #NullLiteral | #TopType | #BinaryExpression | #IntegerLiteral | #IntegerType | #BooleanAtom | #StringLiteral | #StringType | #LowerBound | #UpperBound | #UnaryExpression
 
 // Factor the identical recursive shape; separate recursive disjuncts expand
 // combinatorially in the upstream exporter as binary node kinds accumulate.
@@ -17,6 +17,12 @@ import "list"
 #RecordLiteral: {
 	kind: "record"
 	fields: [...#RecordEntry] & list.MaxItems(64)
+	_unique: true & list.UniqueItems([for f in fields {f.name}])
+}
+
+#RecordExpression: {
+	kind: "recordExpression"
+	fields: [...{name: string & !="", value: #Expression, _bytes: len(name) & <=64}] & list.MaxItems(64)
 	_unique: true & list.UniqueItems([for f in fields {f.name}])
 }
 
@@ -166,11 +172,17 @@ import "list"
 } | {
 	op: "if", condition: #ListControlCondition, then: [...#ListControlStatement], else: *[] | [...#ListControlStatement]
 }
+#RecordControlStatement: {op: "firstItem" | "lastItem" | "evaluateItem" | "appendItem" | "nextItem" | "previousItem" | "rejectItem" | "finishRecord" | "return"} | {
+	op: "while", condition: #ListControlCondition, body: [...#RecordControlStatement]
+} | {
+	op: "if", condition: #ListControlCondition, then: [...#RecordControlStatement], else: *[] | [...#RecordControlStatement]
+}
 #PrattProgram: {
 	formatVersion: 1
-	target:        *"parser" | "list"
+	target:        *"parser" | "list" | "record"
 	if target == "parser" {body: [...#PrattStatement]}
 	if target == "list" {body: [...#ListControlStatement]}
+	if target == "record" {body: [...#RecordControlStatement]}
 }
 
 // Typed JSON construction expressions used by the parser's AST builders.
@@ -324,6 +336,7 @@ import "list"
 		listLength: result: {op: "listLength", value: {op: "evaluate", field: "operand"}}
 		listIndex: result: {op: "listIndex", left: #EvaluateChild, right: #EvaluateChild}
 		record: result: {op: "record", field: "fields"}
+		recordExpression: result: {op: "recordExpression", field: "fields"}
 		recordIndex: result: {op: "recordIndex", left: #EvaluateChild, right: #EvaluateChild}
 		recordLength: result: {op: "recordLength", value: {op: "evaluate", field: "operand"}}
 		integer: result: {

@@ -32,6 +32,7 @@ advantages remain a hypothesis, not a measured result.
 | Pratt/primary compiler lowering | `bootstrap/pratt-lowering{,-fragments}.cue`, [backend contract](../bootstrap/pratt-lowering.md) | Shared lowering compiler/kernel; compiled driver; native typed bridge |
 | Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
 | Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` compiler/reference engine/shared kernel; generated Rust driver; native checked primitives |
+| Record field evaluation (JSON AST) | `bootstrap/record-control{,-fragments}.cue`, [contract](../bootstrap/record-expressions.md) | Existing control compiler record target; CUE traversal/scalar admission, native checked cursor/map/callback |
 | Closed scalar records (JSON AST) | [Ownership/profile contract](closed-records.md), `bootstrap/record-{index,length}.cue` | Immutable checked flat map/codec; CUE domain/closedness/lookup/count/equality/logical policy |
 | Closed-list indexing | `bootstrap/list-index.cue`, [contract](../bootstrap/list-indexing.md) | CUE domain/range and postfix loops; native checked extraction/frame operations |
 | List element evaluation | `bootstrap/list-control{,-fragments}.cue`, [contract](../bootstrap/list-expressions.md) | Typed list target of existing control compiler; native checked cursor/callback/buffer |
@@ -137,6 +138,8 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
   concrete expression-list values; raw scalar-list literal payloads remain flat.
   [Closed scalar records](closed-records.md) additionally support JSON AST entry
   arrays, field lookup and length, with 64 fields and 1..64-byte UTF-8 names.
+  `recordExpression` additionally evaluates field ASTs in order using CUE control;
+  each name/duplicate checks before its own child and admission before later fields.
   Records remain excluded from lists and record children must be scalar.
   Source structs and general list/open-record solving remain absent.
   They preserve null,
@@ -235,6 +238,7 @@ See the [source profile](../bootstrap/source/README.md) for exact limits.
 | [#132](https://github.com/kolohelios/cuestacean/pull/132) | CUE exclusive i64 bounds and unary endpoint comparisons/offsets |
 | [#134](https://github.com/kolohelios/cuestacean/pull/134) | Bounded nested immutable expression-list values |
 | [#136](https://github.com/kolohelios/cuestacean/pull/136) | Shared reference-VM operand slots and CUE arithmetic templates |
+| [#137](https://github.com/kolohelios/cuestacean/pull/137) | Bounded closed scalar records, CUE field lookup and count |
 
 ## Build and validation runbook
 

@@ -26,7 +26,9 @@ JSON AST `record {fields:[{name:string,value:rawScalar},...]}` / instruction
 preserves duplicate names until checked. It consumes one AST visit; native
 bounded field validation/decoding is a representation codec, not hidden child
 AST traversal. Source braces/field declarations/selector syntax and expression
-fields are not added in this slice.
+fields were not added by the literal slice. [Record expression control](../bootstrap/record-expressions.md)
+now additionally evaluates `{name,value:AST}` entries through the same immutable
+scalar-only constructor, shared AST context and checked per-field admission.
 
 Binary AST/rule `recordIndex {left,right}` eagerly evaluates record/key in that
 order with the shared context. CUE requires Record/Text, tests field presence,

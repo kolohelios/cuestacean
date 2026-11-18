@@ -20,6 +20,9 @@
   [CUE i64 extrema/offset policy](exclusive-bounds.md) over existing bound values.
 - `record`: up to 64 ordered `{name,value}` raw-scalar entries; duplicate names
   are checked, not silently overwritten. [Closed-record contract](../docs/closed-records.md).
+- `recordExpression`: `{name,value:AST}` fields evaluated through CUE control and
+  checked scalar admission; [contract](record-expressions.md). Raw `record` stays
+  a scalar-data codec, not recursive AST traversal.
 - `recordIndex`: eager record/key AST children, CUE domain/presence policy.
 - `recordLength`: record-only count; generic `length` also admits records.
 - `listIndex`: binary `left`/`right`, CUE closed-list/integer domain and range

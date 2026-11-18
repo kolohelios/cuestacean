@@ -124,6 +124,11 @@ that same compiler; `equal-false` is test-only. Four [ordering policies](../orde
 use it too, with `less-false` as a compiled test-only alternate.
 `logical-and.rs` / `logical-or.rs` use [CUE logical selection](../logic.md);
 `logic-false` is test-only. Both child instructions still evaluate eagerly.
+`record-control` uses the same structured compiler with the eagerly validated
+record target: [computed scalar fields](../record-expressions.md), native checked
+RecordFrame and shared evaluation context. The actual `record-control-reverse`
+alternate demonstrates reordered callbacks/first errors; sorted successful maps
+are intentionally equal. No parser/list driver changes or new seed.
 `list-control` uses the same structured control compiler with the list target:
 CUE selects traversal, per-item scalar admission and construction order for
 [expression lists](../list-expressions.md). `list-control-reverse` observably
@@ -222,7 +227,7 @@ done
 bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-literal.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-lowering-forced.json" \
   | rustfmt --edition 2024 > bootstrap/generated/ast-forced-integer.rs
-for control in tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
+for control in record-control tests/valid/record-control-reverse tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
   primary tests/valid/primary-no-calls tests/valid/primary-call-high-minimum tests/valid/primary-nested tests/valid/primary-return tests/valid/primary-return-empty tests/valid/pratt-return-loop \
   tests/valid/primary-bound-high-minimum tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
   tests/valid/primary-cross-phase tests/valid/primary-low-negation \

@@ -68,6 +68,8 @@
       builderNames = builtins.concatStringsSep " " builderFixtures;
       prattFixtures = [
         "list-control"
+        "record-control"
+        "tests/valid/record-control-reverse"
         "tests/valid/list-control-reverse"
         "tests/valid/list-control-scalars"
         "tests/valid/list-control-stalled"
@@ -181,6 +183,7 @@
         "lists"
         "list-length"
         "list-expressions"
+        "record-expressions"
         "nested-lists"
         "records"
         "records-unify"
@@ -244,6 +247,7 @@
                 ../../bootstrap/primary-fragments.cue
                 ../../bootstrap/pratt-fragments.cue
                 ../../bootstrap/list-control-fragments.cue
+                ../../bootstrap/record-control-fragments.cue
                 ../../bootstrap/string-literal-fragments.cue
                 ../../bootstrap/equality-fragments.cue
                 ../../bootstrap/ordering-fragments.cue
@@ -283,6 +287,7 @@
               case "$fixture" in
                 pratt|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
                 list-control|tests/valid/list-control-reverse|tests/valid/list-control-scalars) fragments=(list-control-fragments) ;;
+                record-control|tests/valid/record-control-reverse) fragments=(record-control-fragments) ;;
                 primary|tests/valid/primary-bound-high-minimum|tests/valid/primary-call-high-minimum|tests/valid/primary-no-lists) fragments=(primary-fragments) ;;
                 decimal|integer-literal) fragments=(decimal-fragments) ;;
                 string-literal|tests/valid/string-no-unicode|tests/valid/string-no-wide|tests/valid/string-nested|tests/valid/string-unrolled) fragments=(string-literal-fragments) ;;
@@ -672,7 +677,7 @@
               }
               ''
                 set -euo pipefail
-                for fixture in lists list-expressions nested-lists records records-unify tests/valid/lists-unify; do
+                for fixture in lists list-expressions nested-lists records records-unify record-expressions tests/valid/lists-unify; do
                   probe="''${fixture##*/}"
                   # Marshal in pinned CUE, not jq: keep every i64 exact.
                   printf '%s\n' "$(cue export ${../../bootstrap/tests/upstream}/"$probe.cue" --out text)" > expected

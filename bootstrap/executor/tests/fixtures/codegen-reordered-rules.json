@@ -6,6 +6,7 @@
     "lowerExclusiveBoundExpression": {"result": {"op": "lowerExclusiveBound", "value": {"op": "evaluate", "field": "operand"}}},
     "upperExclusiveBoundExpression": {"result": {"op": "upperExclusiveBound", "value": {"op": "evaluate", "field": "operand"}}},
     "record": {"result": {"op": "record", "field": "fields"}},
+    "recordExpression": {"result": {"op": "recordExpression", "field": "fields"}},
     "recordIndex": {"result": {"op": "recordIndex", "left": {"op": "evaluate", "field": "left"}, "right": {"op": "evaluate", "field": "right"}}},
     "recordLength": {"result": {"op": "recordLength", "value": {"op": "evaluate", "field": "operand"}}},
     "listIndex": {"result": {"op": "listIndex", "left": {"op": "evaluate", "field": "left"}, "right": {"op": "evaluate", "field": "right"}}},

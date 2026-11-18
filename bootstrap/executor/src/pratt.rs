@@ -26,6 +26,7 @@ enum Target {
     #[default]
     Parser,
     List,
+    Record,
 }
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
@@ -83,6 +84,7 @@ enum Statement {
     PreviousItem {},
     RejectItem {},
     FinishList {},
+    FinishRecord {},
     Return {},
     Primary {},
     AfterOperand {},
@@ -193,7 +195,7 @@ fn validate_family(body: &[Statement], target: Target) -> Result<(), Error> {
             Condition::And { left, right } => {
                 condition_valid(left, target) && condition_valid(right, target)
             }
-            Condition::HasItem {} | Condition::ItemKindIs { .. } => target == Target::List,
+            Condition::HasItem {} | Condition::ItemKindIs { .. } => target != Target::Parser,
             _ => target == Target::Parser,
         }
     }
@@ -219,8 +221,9 @@ fn validate_family(body: &[Statement], target: Target) -> Result<(), Error> {
             | Statement::AppendItem {}
             | Statement::NextItem {}
             | Statement::PreviousItem {}
-            | Statement::RejectItem {}
-            | Statement::FinishList {} => target == Target::List,
+            | Statement::RejectItem {} => target != Target::Parser,
+            Statement::FinishList {} => target == Target::List,
+            Statement::FinishRecord {} => target == Target::Record,
             _ => target == Target::Parser,
         };
         if !valid {
@@ -421,64 +424,93 @@ pub fn interpret_list(
             reason: "list control target required",
         });
     }
-    execute_list(&program.body, frame).map(|_| ())
+    execute_items(&program.body, &mut ItemFrame::List(frame)).map(|_| ())
 }
 
-fn list_test(
-    condition: &Condition,
-    frame: &crate::runtime::ListFrame<'_>,
-) -> Result<bool, crate::Error> {
+/// Execute validated record control using the same structured reference VM.
+pub fn interpret_record(
+    input: &str,
+    frame: &mut crate::runtime::RecordFrame<'_>,
+) -> Result<(), crate::Error> {
+    let program = parse(input).map_err(|source| crate::Error::ControlProgram { source })?;
+    if program.target != Target::Record {
+        return Err(crate::Error::RecordState {
+            reason: "record control target required",
+        });
+    }
+    execute_items(&program.body, &mut ItemFrame::Record(frame)).map(|_| ())
+}
+
+// Dispatch only checked frame primitives, never collection traversal policy.
+enum ItemFrame<'a, 'b> {
+    List(&'a mut crate::runtime::ListFrame<'b>),
+    Record(&'a mut crate::runtime::RecordFrame<'b>),
+}
+macro_rules! item_call {
+    ($frame:expr, $method:ident($($arg:expr),*)) => {
+        match $frame {
+            ItemFrame::List(frame) => frame.$method($($arg),*),
+            ItemFrame::Record(frame) => frame.$method($($arg),*),
+        }
+    };
+}
+
+fn item_test(condition: &Condition, frame: &ItemFrame<'_, '_>) -> Result<bool, crate::Error> {
     Ok(match condition {
         Condition::Boolean { value } => *value,
-        Condition::And { left, right } => list_test(left, frame)? && list_test(right, frame)?,
-        Condition::HasItem {} => frame.has_item()?,
-        Condition::ItemKindIs { kind } => frame.item_kind_is(*kind)?,
-        _ => unreachable!("validated list target"),
+        Condition::And { left, right } => item_test(left, frame)? && item_test(right, frame)?,
+        Condition::HasItem {} => item_call!(frame, has_item())?,
+        Condition::ItemKindIs { kind } => item_call!(frame, item_kind_is(*kind))?,
+        _ => unreachable!("validated collection target"),
     })
 }
 
-fn execute_list(
-    body: &[Statement],
-    frame: &mut crate::runtime::ListFrame<'_>,
-) -> Result<Flow, crate::Error> {
+fn execute_items(body: &[Statement], frame: &mut ItemFrame<'_, '_>) -> Result<Flow, crate::Error> {
     for statement in body {
         if let Statement::While { condition, body } = statement {
             while {
-                frame.step()?;
-                list_test(condition, frame)?
+                item_call!(&mut *frame, step())?;
+                item_test(condition, frame)?
             } {
-                if execute_list(body, frame)? == Flow::Return {
+                if execute_items(body, frame)? == Flow::Return {
                     return Ok(Flow::Return);
                 }
             }
             continue;
         }
-        frame.step()?;
+        item_call!(&mut *frame, step())?;
         match statement {
             Statement::Return {} => return Ok(Flow::Return),
-            Statement::FirstItem {} => frame.first_item()?,
-            Statement::LastItem {} => frame.last_item()?,
-            Statement::EvaluateItem {} => frame.evaluate_item()?,
-            Statement::AppendItem {} => frame.append_item()?,
-            Statement::NextItem {} => frame.next_item()?,
-            Statement::PreviousItem {} => frame.previous_item()?,
-            Statement::RejectItem {} => frame.reject_item()?,
-            Statement::FinishList {} => frame.finish_list()?,
+            Statement::FirstItem {} => item_call!(&mut *frame, first_item())?,
+            Statement::LastItem {} => item_call!(&mut *frame, last_item())?,
+            Statement::EvaluateItem {} => item_call!(&mut *frame, evaluate_item())?,
+            Statement::AppendItem {} => item_call!(&mut *frame, append_item())?,
+            Statement::NextItem {} => item_call!(&mut *frame, next_item())?,
+            Statement::PreviousItem {} => item_call!(&mut *frame, previous_item())?,
+            Statement::RejectItem {} => item_call!(&mut *frame, reject_item())?,
+            Statement::FinishList {} => match frame {
+                ItemFrame::List(frame) => frame.finish_list()?,
+                _ => unreachable!("validated list target"),
+            },
+            Statement::FinishRecord {} => match frame {
+                ItemFrame::Record(frame) => frame.finish_record()?,
+                _ => unreachable!("validated record target"),
+            },
             Statement::If {
                 condition,
                 then,
                 otherwise,
             } => {
-                let branch = if list_test(condition, frame)? {
+                let branch = if item_test(condition, frame)? {
                     then
                 } else {
                     otherwise
                 };
-                if execute_list(branch, frame)? == Flow::Return {
+                if execute_items(branch, frame)? == Flow::Return {
                     return Ok(Flow::Return);
                 }
             }
-            _ => unreachable!("validated list target"),
+            _ => unreachable!("validated collection target"),
         }
     }
     Ok(Flow::Continue)

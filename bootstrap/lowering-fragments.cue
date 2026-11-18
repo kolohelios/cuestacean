@@ -15,7 +15,7 @@ package bootstrap
 		lowerBound:          "lower_bound", upperBound:                    "upper_bound", negate:  "negate"
 		logicalNot:          "logical_not", length:                        "length", stringLength: "string_length", listLength: "list_length", recordLength: "record_length"
 	}
-	let Binary = {difference: "difference", product: "product", divide: "divide", modulo: "modulo"}
+	let Binary = {difference: "difference", product: "product", divide: "divide", modulo: "modulo", quotient: "quotient"}
 	aliases: {
 		for name, _ in Unary {"\(name)": "unaryRuntime"}
 		for name, _ in Binary {"\(name)": "binaryRuntime"}
@@ -63,6 +63,7 @@ package bootstrap
 		text: {op: "call", path: "runtime::text", args: [Node, Field]}
 		list: {op: "call", path: "runtime::list", args: [Node, Field]}
 		record: {op: "call", path: "runtime::record", args: [Node, Field]}
+		recordExpression: {op: "call", path: "runtime::record_expression", args: [Node, Field, Context, {op: "path", value: "evaluate"}]}
 		listExpression: {op: "call", path: "runtime::list_expression", args: [Node, Field, Context, {op: "path", value: "evaluate"}]}
 		boolean: {op: "ok", value: {op: "call", path: "runtime::Value::Boolean", args: [{op: "boolean", field: "value"}]}}
 		field: {op: "call", path: "runtime::integer", args: [Node, Field]}
@@ -86,7 +87,6 @@ package bootstrap
 		greaterEqual: {op: "call", path: "runtime::greater_equal", args: [L, R]}
 		equal: {op: "call", path: "runtime::equal", args: [L, R]}
 		notEqual: {op: "call", path: "runtime::not_equal", args: [L, R]}
-		quotient: {op: "call", path: "runtime::quotient", args: [L, R]}
 		remainder: {op: "call", path: "runtime::remainder", args: [L, R]}
 		unify: {op: "call", path: "runtime::unify", args: [L, R]}
 	}

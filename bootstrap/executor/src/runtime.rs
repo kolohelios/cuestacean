@@ -368,6 +368,250 @@ pub fn list_expression_interpreted(
     })
 }
 
+#[derive(Clone, Copy)]
+enum RecordStage {
+    Start,
+    Ready(usize),
+    Evaluated(usize),
+    Appended(usize),
+    Exhausted,
+    Done,
+}
+
+/// Checked record protocol kernel; CUE controls traversal and scalar admission.
+pub struct RecordFrame<'a> {
+    items: &'a [JsonValue],
+    context: &'a mut EvaluationContext,
+    evaluate: &'a mut dyn FnMut(&JsonValue, &mut EvaluationContext) -> Result<Value, Error>,
+    stage: RecordStage,
+    name: Option<String>,
+    candidate: Option<Value>,
+    values: BTreeMap<String, Value>,
+    result: Option<Value>,
+    fuel: usize,
+}
+
+impl RecordFrame<'_> {
+    pub fn step(&mut self) -> Result<(), Error> {
+        if self.fuel == 0 {
+            return Err(Error::RecordControlBudget);
+        }
+        self.fuel -= 1;
+        Ok(())
+    }
+
+    fn invalid<T>(reason: &'static str) -> Result<T, Error> {
+        Err(Error::RecordState { reason })
+    }
+
+    fn select(&mut self, index: Option<usize>) -> Result<(), Error> {
+        if !matches!(self.stage, RecordStage::Start) {
+            return Self::invalid("record cursor already initialized");
+        }
+        self.stage = index.map_or(RecordStage::Exhausted, RecordStage::Ready);
+        Ok(())
+    }
+
+    pub fn first_item(&mut self) -> Result<(), Error> {
+        self.select(if self.items.is_empty() { None } else { Some(0) })
+    }
+
+    pub fn last_item(&mut self) -> Result<(), Error> {
+        self.select(self.items.len().checked_sub(1))
+    }
+
+    pub fn has_item(&self) -> Result<bool, Error> {
+        match self.stage {
+            RecordStage::Ready(_) | RecordStage::Evaluated(_) | RecordStage::Appended(_) => {
+                Ok(true)
+            }
+            RecordStage::Exhausted => Ok(false),
+            _ => Self::invalid("record cursor is not active"),
+        }
+    }
+
+    pub fn evaluate_item(&mut self) -> Result<(), Error> {
+        let RecordStage::Ready(index) = self.stage else {
+            return Self::invalid("item evaluation requires ready cursor");
+        };
+        let item = self.items.get(index).ok_or(Error::RecordState {
+            reason: "item index out of bounds",
+        })?;
+        let name = field(item, "name")?.as_str().ok_or_else(|| Error::Text {
+            field: "name".to_owned(),
+        })?;
+        record_name(&self.values, name, index)?;
+        let value = (self.evaluate)(field(item, "value")?, self.context)?;
+        self.name = Some(name.to_owned());
+        self.candidate = Some(value);
+        self.stage = RecordStage::Evaluated(index);
+        Ok(())
+    }
+
+    pub fn item_kind_is(&self, kind: crate::unification::Kind) -> Result<bool, Error> {
+        if !matches!(self.stage, RecordStage::Evaluated(_)) {
+            return Self::invalid("item kind requires evaluated candidate");
+        }
+        self.candidate
+            .as_ref()
+            .map(|value| crate::unification::kind_is(value, kind))
+            .ok_or(Error::RecordState {
+                reason: "missing item candidate",
+            })
+    }
+
+    pub fn append_item(&mut self) -> Result<(), Error> {
+        let RecordStage::Evaluated(index) = self.stage else {
+            return Self::invalid("append requires evaluated candidate");
+        };
+        record_capacity(self.values.len().saturating_add(1))?;
+        let name = self.name.as_ref().ok_or(Error::RecordState {
+            reason: "missing item name",
+        })?;
+        record_name(&self.values, name, index)?;
+        let value = self.candidate.as_ref().ok_or(Error::RecordState {
+            reason: "missing item candidate",
+        })?;
+        if !matches!(
+            value,
+            Value::Null | Value::Boolean(_) | Value::Integer(_) | Value::Text(_)
+        ) {
+            return Err(Error::RecordElement {
+                field: name.clone(),
+            });
+        }
+        // All prospective checks precede taking either pending slot.
+        let name = self.name.take().ok_or(Error::RecordState {
+            reason: "missing item name",
+        })?;
+        let value = self.candidate.take().ok_or(Error::RecordState {
+            reason: "missing item candidate",
+        })?;
+        self.values.insert(name, value);
+        self.stage = RecordStage::Appended(index);
+        Ok(())
+    }
+
+    fn advance(&mut self, forward: bool) -> Result<(), Error> {
+        let RecordStage::Appended(index) = self.stage else {
+            return Self::invalid("movement requires appended item");
+        };
+        let next = if forward {
+            index
+                .checked_add(1)
+                .filter(|index| *index < self.items.len())
+        } else {
+            index.checked_sub(1)
+        };
+        self.stage = next.map_or(RecordStage::Exhausted, RecordStage::Ready);
+        Ok(())
+    }
+
+    pub fn next_item(&mut self) -> Result<(), Error> {
+        self.advance(true)
+    }
+
+    pub fn previous_item(&mut self) -> Result<(), Error> {
+        self.advance(false)
+    }
+
+    pub fn reject_item(&mut self) -> Result<(), Error> {
+        if !matches!(self.stage, RecordStage::Evaluated(_)) {
+            return Self::invalid("rejection requires evaluated candidate");
+        }
+        let name = self.name.as_ref().ok_or(Error::RecordState {
+            reason: "missing item name",
+        })?;
+        Err(Error::RecordElement {
+            field: name.clone(),
+        })
+    }
+
+    pub fn finish_record(&mut self) -> Result<(), Error> {
+        if !matches!(self.stage, RecordStage::Exhausted) || self.values.len() != self.items.len() {
+            return Self::invalid("finish requires exhausted cursor and complete map");
+        }
+        let fields = std::mem::take(&mut self.values).into_iter().collect();
+        self.result = Some(Value::Record(ClosedRecord::new(fields)?));
+        self.stage = RecordStage::Done;
+        Ok(())
+    }
+}
+
+pub type RecordDriver = fn(&mut RecordFrame<'_>) -> Result<(), Error>;
+
+/// Run trusted control without charging a parent AST visit; callbacks own child entry.
+pub fn record_expression_with_driver(
+    node: &JsonValue,
+    name: &str,
+    context: &mut EvaluationContext,
+    evaluate: &mut dyn FnMut(&JsonValue, &mut EvaluationContext) -> Result<Value, Error>,
+    driver: RecordDriver,
+) -> Result<Value, Error> {
+    let items = field(node, name)?.as_array().ok_or_else(|| Error::Array {
+        field: name.to_owned(),
+    })?;
+    record_capacity(items.len())?;
+    let mut frame = RecordFrame {
+        items,
+        context,
+        evaluate,
+        stage: RecordStage::Start,
+        name: None,
+        candidate: None,
+        values: BTreeMap::new(),
+        result: None,
+        fuel: 4096,
+    };
+    driver(&mut frame)?;
+    if !matches!(frame.stage, RecordStage::Done) {
+        return Err(Error::RecordState {
+            reason: "unfinished record result",
+        });
+    }
+    frame.result.ok_or(Error::RecordState {
+        reason: "unfinished record result",
+    })
+}
+
+#[cfg(feature = "semantics")]
+#[path = "../../generated/record-control.rs"]
+mod generated_record_control;
+
+#[cfg(feature = "semantics")]
+pub fn record_expression(
+    node: &JsonValue,
+    name: &str,
+    context: &mut EvaluationContext,
+    mut evaluate: impl FnMut(&JsonValue, &mut EvaluationContext) -> Result<Value, Error>,
+) -> Result<Value, Error> {
+    record_expression_with_driver(
+        node,
+        name,
+        context,
+        &mut evaluate,
+        generated_record_control::execute,
+    )
+}
+
+#[cfg(feature = "semantics")]
+pub fn record_expression_interpreted(
+    node: &JsonValue,
+    name: &str,
+    context: &mut EvaluationContext,
+    mut evaluate: impl FnMut(&JsonValue, &mut EvaluationContext) -> Result<Value, Error>,
+) -> Result<Value, Error> {
+    record_expression_with_driver(node, name, context, &mut evaluate, |frame| {
+        crate::pratt::interpret_record(
+            include_str!(concat!(
+                env!("CUESTACEAN_BOOTSTRAP_JSON"),
+                "/record-control.json"
+            )),
+            frame,
+        )
+    })
+}
+
 /// Certified logical shape, counting shared children once per occurrence.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct ListShape {
@@ -500,6 +744,8 @@ fn record_insert(
 
 #[cfg(test)]
 mod nested_tests;
+#[cfg(test)]
+mod record_expression_tests;
 #[cfg(test)]
 mod record_tests;
 
