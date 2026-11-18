@@ -77,6 +77,8 @@
         "tests/valid/ast-duplicate"
       ];
       builderNames = builtins.concatStringsSep " " builderFixtures;
+      builderExportFixtures = builderFixtures ++ [ "tests/valid/ast-literal" ];
+      builderExportNames = builtins.concatStringsSep " " builderExportFixtures;
       prattFixtures = [
         "slice-control"
         "tests/valid/slice-control-lower-one"
@@ -338,12 +340,16 @@
             export LC_ALL=C TZ=UTC
             for fixture in ${fixtureNames}; do
               echo "exporting $fixture"
+              case "$fixture" in
+                ${builtins.concatStringsSep "|" builderExportFixtures})
+                  mkdir -p "$(dirname "$out/$fixture.json")"
+                  cp ${nativeBuilders pkgs}/"$fixture.json" "$out/$fixture.json"
+                  continue
+                  ;;
+              esac
               # Load only the fixture's definition closure. Loading every compiler
               # for a literal can exhaust the CI runner while checking unused CUE.
               schema=schema
-              case "$fixture" in
-                ${builtins.concatStringsSep "|" builderFixtures}|tests/valid/ast-literal) schema=ast-schema ;;
-              esac
               fragments=()
               case "$fixture" in
                 pratt|tests/valid/pratt-no-slices|tests/valid/pratt-slice-high-minimum|tests/valid/pratt-no-selectors|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
@@ -532,12 +538,14 @@
               ../../bootstrap/spec-export/Cargo.toml
               ../../bootstrap/spec-export/Cargo.lock
             ]
-            ++ pkgs.lib.optionals tests [
-              ../../bootstrap/spec-export/tests
-              ../../bootstrap/ast-schema.cue
-              ../../bootstrap/ast-atom.cue
-              ../../bootstrap/tests/invalid/ast-operation.cue
-            ]
+            ++ pkgs.lib.optionals tests (
+              [
+                ../../bootstrap/spec-export/tests
+                ../../bootstrap/ast-schema.cue
+                ../../bootstrap/tests/invalid/ast-operation.cue
+              ]
+              ++ map (fixture: ../../bootstrap + "/${fixture}.cue") builderExportFixtures
+            )
           );
         };
       specExporter =
@@ -573,6 +581,80 @@
             cargo test --offline --all-targets --release
           '';
         });
+      builderSources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions (
+            [ ../../bootstrap/ast-schema.cue ]
+            ++ map (fixture: ../../bootstrap + "/${fixture}.cue") builderExportFixtures
+          );
+        };
+      nativeBuilders =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-ast-builders" { } ''
+          set -euo pipefail
+          for fixture in ${builderExportNames}; do
+            env -i PATH=/nonexistent ${specExporter pkgs}/bin/cuestacean-spec-export \
+              ${builderSources pkgs}/ast-schema.cue ${builderSources pkgs}/"$fixture.cue" > first.json
+            env -i PATH=/nonexistent ${specExporter pkgs}/bin/cuestacean-spec-export \
+              ${builderSources pkgs}/ast-schema.cue ${builderSources pkgs}/"$fixture.cue" > second.json
+            cmp first.json second.json
+            mkdir -p "$(dirname "$out/$fixture.json")"
+            cp first.json "$out/$fixture.json"
+          done
+        '';
+      nativeBuilderBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          # Attest the entire build graph, not only runtime output references.
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativeBuilders pkgs).drvPath
+          ];
+        };
+      nativeBuilderVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-builder-family-verification"
+          {
+            nativeBuildInputs = [
+              pkgs.cue
+              pkgs.jq
+              pkgs.rustfmt
+            ];
+          }
+          ''
+            set -euo pipefail
+            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath}; do
+              if grep -Fx "$forbidden" ${nativeBuilderBuildClosure pkgs}/store-paths; then
+                echo "forbidden bootstrap dependency: $forbidden" >&2; exit 1
+              fi
+            done
+            mkdir -p "$out"
+            for fixture in ${builderExportNames}; do
+              cue export ${builderSources pkgs}/ast-schema.cue ${builderSources pkgs}/"$fixture.cue" --out json | jq -S . > expected.json
+              cmp expected.json ${nativeBuilders pkgs}/"$fixture.json"
+              name=$(basename "$fixture")
+              case "$fixture" in
+                tests/valid/ast-literal)
+                  # The specification contains 7; this alternate compiler policy emits 99.
+                  name=ast-forced-integer
+                  ${executor pkgs}/bin/bootstrap-ast-codegen ${nativeBuilders pkgs}/"$fixture.json" \
+                    ${jsonExports pkgs}/tests/valid/ast-lowering-forced.json \
+                    | rustfmt --edition 2024 > actual.rs
+                  ;;
+                *)
+                  ${executor pkgs}/bin/bootstrap-ast-codegen ${nativeBuilders pkgs}/"$fixture.json" \
+                    | rustfmt --edition 2024 > actual.rs
+                  ;;
+              esac
+              cmp actual.rs ${../../bootstrap/generated}/"$name.rs"
+              cp actual.rs "$out/$name.rs"
+            done
+            cp ${nativeBuilderBuildClosure pkgs}/store-paths "$out/native-build-paths"
+            cp ${nativeBuilderBuildClosure pkgs}/registration "$out/native-build-registration"
+            printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeBuilders pkgs).drvPath} > "$out/native-build-roots"
+          '';
       atomSources =
         pkgs:
         pkgs.lib.fileset.toSource {
@@ -637,6 +719,7 @@
           exports = jsonExports pkgs;
           spec-export = specExporter pkgs;
           native-ast-atom = nativeAtom pkgs;
+          native-ast-builders = nativeBuilders pkgs;
         }
       );
 
@@ -687,6 +770,7 @@
           bootstrap-executor = executor pkgs;
           native-spec-tests = specTests pkgs;
           native-spec-closure = nativeVerification pkgs;
+          native-builder-family = nativeBuilderVerification pkgs;
           bootstrap-codegen =
             pkgs.runCommand "cuestacean-bootstrap-codegen"
               {

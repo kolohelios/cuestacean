@@ -29,7 +29,8 @@ now uses another policy through that same engine. [AST-builder compilation](boot
 now uses CUE layout/clone/move policy with native checked binding/use-count facts.
 [Scanner compilation](bootstrap/scan-lowering.md) also uses shared CUE source/branch
 layout, with explicit native flow facts and bounded pattern rendering.
-Nix exports specification JSON, builds artifact-free native generator/VM seeds
+Nix exports specification JSON—[natively for the AST builder family](docs/native-builder-family.md),
+using Go CUE for other closures—builds artifact-free native generator/VM seeds
 using those policies, regenerates Rust, then compiles and tests the final executables. A [source frontend](bootstrap/source/README.md)
 now handles a tiny checked-integer subset (decimal and 0b/0o/0x/0X literals) with addition, subtraction,
 multiplication, integer division/remainder, unary negation, `true`/`false`, `bool`/`int` constraints,
