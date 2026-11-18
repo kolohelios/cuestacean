@@ -7,30 +7,37 @@ pub struct Compiled;
 impl Driver for Compiled {
     fn render(&self, ctx: &mut Context, _node: &Value, _depth: usize) -> Result<String, Error> {
         match lowering::instruction_op(_node)? {
+            "binaryRuntime" | "difference" | "divide" | "modulo" | "product" => {
+                ctx.concat(|parts| {
+                    parts.arg(|ctx| {
+                        ctx.select(_node, "op", |ctx, tag| match tag {
+                            "difference" => ctx.text("runtime::difference"),
+                            "divide" => ctx.text("runtime::divide"),
+                            "modulo" => ctx.text("runtime::modulo"),
+                            "product" => ctx.text("runtime::product"),
+                            tag => Err(lowering::missing_selection(tag)),
+                        })
+                    })?;
+                    parts.arg(|ctx| ctx.text("("))?;
+                    parts.arg(|ctx| {
+                        ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
+                    })?;
+                    parts.arg(|ctx| ctx.text(", "))?;
+                    parts.arg(|ctx| {
+                        ctx.try_value(|ctx| {
+                            ctx.group(|ctx| ctx.child(_node, "right", _depth, self))
+                        })
+                    })?;
+                    parts.arg(|ctx| ctx.text(")"))?;
+                    Ok(())
+                })
+            }
             "bool" => ctx.ok(|ctx| ctx.path("runtime::Value::Bool")),
             "boolean" => ctx.ok(|ctx| {
                 ctx.call("runtime::Value::Boolean", |call| {
                     call.arg(|ctx| ctx.boolean(_node, "value"))?;
                     Ok(())
                 })
-            }),
-            "difference" => ctx.call("runtime::difference", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
-                })?;
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
-                })?;
-                Ok(())
-            }),
-            "divide" => ctx.call("runtime::divide", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
-                })?;
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
-                })?;
-                Ok(())
             }),
             "equal" => ctx.call("runtime::equal", |call| {
                 call.arg(|ctx| {
@@ -135,15 +142,6 @@ impl Driver for Compiled {
                 })?;
                 Ok(())
             }),
-            "modulo" => ctx.call("runtime::modulo", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
-                })?;
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
-                })?;
-                Ok(())
-            }),
             "notEqual" => ctx.call("runtime::not_equal", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
@@ -154,15 +152,6 @@ impl Driver for Compiled {
                 Ok(())
             }),
             "null" => ctx.ok(|ctx| ctx.path("runtime::Value::Null")),
-            "product" => ctx.call("runtime::product", |call| {
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
-                })?;
-                call.arg(|ctx| {
-                    ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "right", _depth, self)))
-                })?;
-                Ok(())
-            }),
             "quotient" => ctx.call("runtime::quotient", |call| {
                 call.arg(|ctx| {
                     ctx.try_value(|ctx| ctx.group(|ctx| ctx.child(_node, "left", _depth, self)))
