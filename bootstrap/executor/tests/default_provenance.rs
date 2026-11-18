@@ -152,6 +152,31 @@ fn conservative_demand_is_additive_to_the_old_hypothesis() {
 }
 
 #[test]
+fn policy_entry_point_is_additive_to_native_reference() {
+    let policy = default_provenance::policy::Policy::from_json(
+        r#"{"formatVersion":1,"body":{"op":"return","action":"defer"}}"#,
+    )
+    .expect("bounded policy API fixture");
+    let graph = Graph::new(value(1)).expect("ready scalar IR");
+    let report = graph
+        .demand_with_policy(Domain::Top, 4096, &policy)
+        .expect("policy demand");
+    assert_eq!(
+        report.readiness,
+        default_provenance::Readiness::PolicyDeferred
+    );
+    assert_eq!(report.demand, default_provenance::Demand::Suspended);
+    assert_eq!(report.preferred, None);
+    assert_eq!(
+        graph
+            .demand(Domain::Top, 4096)
+            .expect("native reference")
+            .demand,
+        default_provenance::Demand::Concrete(1)
+    );
+}
+
+#[test]
 fn pinned_cue_is_required_not_optional() {
     let output = Command::new("cue")
         .arg("version")

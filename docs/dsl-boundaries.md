@@ -193,6 +193,18 @@ primitives, or claims that a bounded VM is an untrusted-code sandbox.
    run without production semantics/source artifacts; retain separate upstream
    oracles. Do not turn the test-only native spike into a production fallback.
 
+## Subsequent graph-policy experiment
+
+The [#180 test-only demand policy](demand-policy.md) takes the #178 audited scalar
+facts and executes a CUE-authored if/return dispatch tree. Empty/forced/no-recipe
+completion, flat projection and deferral order are executable policy decisions;
+a separate conservative alternate changes behavior without recompiling Rust.
+Native meet/world enumeration, fact extraction, auditing, generic VM/accounting,
+response certificates and action primitives remain native algorithms. The native
+reference dispatcher is retained for independent evidence, not used as a fallback.
+This is one checked experimental policy boundary, not a production graph/default
+solver or a claim that the graph's semantics are now entirely CUE-hosted.
+
 ## Closure and decision gate
 
 The #163 first target remains the **seven-definition, two-raw-file AST atom export**

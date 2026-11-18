@@ -41,8 +41,10 @@ counterexample shows this static recipe is insufficient. Production defaults
 remain held. The [#178 test-only demand boundary](default-readiness.md) audits
 retained/suppressed recipes and defers unresolved nested preference policy rather
 than guessing a value. It is a conservative experimental classification, not a
-completed contextual default calculus. Pinned CUE order discrepancies are separate
-evidence, not an excuse for the compatibility gap.
+completed contextual default calculus. The [#180 dispatch-policy experiment](demand-policy.md)
+puts that conservative action choice in a CUE-authored instruction tree over
+checked native facts; it does not solve nested default lifetime or unhold #175.
+Pinned CUE order discrepancies are separate evidence, not an excuse for the gap.
 Production parsing/evaluation stays unchanged. These experiments do not complete
 the real policies' default/pattern/optional-field/import closures.
 Compiler-policy closure and semantic-policy migration remain later bounded

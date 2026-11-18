@@ -1,6 +1,9 @@
 // Test-only residual preference hypothesis, not a production CUE evaluator.
 // Keep ordinary occurrence worlds intact until the final report projection.
 
+#[path = "demand_policy.rs"]
+pub mod policy;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expr {
     Top,
@@ -66,6 +69,7 @@ pub enum Readiness {
     ConstraintOnly,
     FlatPreference,
     DeferredNested,
+    PolicyDeferred,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -136,6 +140,13 @@ struct World {
 enum Association {
     Absent,
     Present(u64),
+}
+
+struct Observation {
+    worlds: Vec<World>,
+    constraints: Vec<Domain>,
+    groups: Vec<GroupFact>,
+    nested: bool,
 }
 
 struct Work {
@@ -296,7 +307,98 @@ impl Graph {
             used: 0,
             limit: work_limit,
         };
-        let ordinary = self.ordinary(self.root, &mut work)?;
+        let Observation {
+            worlds,
+            constraints,
+            groups,
+            nested,
+        } = self.observe(refinement, &mut work)?;
+        let (readiness, demand, preferred) = if worlds.is_empty() {
+            (Readiness::ConstraintOnly, Demand::Conflict, None)
+        } else if let [Domain::Value(value)] = constraints.as_slice() {
+            (Readiness::ConstraintOnly, Demand::Concrete(*value), None)
+        } else if !self.nodes[self.root].recipe {
+            (Readiness::ConstraintOnly, Demand::Incomplete, None)
+        } else if nested {
+            (Readiness::DeferredNested, Demand::Suspended, None)
+        } else {
+            let (demand, preferred) = self.flat(&worlds, &constraints, &mut work)?;
+            (Readiness::FlatPreference, demand, Some(preferred))
+        };
+        work.charge(1)?;
+        Ok(DemandReport {
+            constraints,
+            groups,
+            preferred,
+            readiness,
+            demand,
+            work: work.used,
+        })
+    }
+
+    pub fn demand_with_policy(
+        &self,
+        refinement: Domain,
+        work_limit: usize,
+        policy: &policy::Policy,
+    ) -> Result<DemandReport, Error> {
+        if work_limit > MAX_WORK {
+            return Err(Error::Limit("work allowance exceeds hard cap"));
+        }
+        let mut work = Work {
+            used: 0,
+            limit: work_limit,
+        };
+        let Observation {
+            worlds,
+            constraints,
+            groups,
+            nested,
+        } = self.observe(refinement, &mut work)?;
+        let facts = policy::Facts {
+            empty: worlds.is_empty(),
+            forced: matches!(constraints.as_slice(), [Domain::Value(_)]),
+            recipe: self.nodes[self.root].recipe,
+            nested,
+        };
+        let action = policy.execute(&facts, &mut work)?;
+        work.charge(1)?; // Response certificate, before any action execution.
+        let (readiness, demand, preferred) = match action {
+            policy::Action::Constraints => {
+                if !(facts.empty || facts.forced || !facts.recipe) {
+                    return Err(Error::Unsupported("uncertified constraint action"));
+                }
+                let demand = if facts.empty {
+                    Demand::Conflict
+                } else if let [Domain::Value(value)] = constraints.as_slice() {
+                    Demand::Concrete(*value)
+                } else {
+                    Demand::Incomplete
+                };
+                (Readiness::ConstraintOnly, demand, None)
+            }
+            policy::Action::Flat => {
+                if facts.nested {
+                    return Err(Error::Unsupported("uncertified flat action"));
+                }
+                let (demand, preferred) = self.flat(&worlds, &constraints, &mut work)?;
+                (Readiness::FlatPreference, demand, Some(preferred))
+            }
+            policy::Action::Defer => (Readiness::PolicyDeferred, Demand::Suspended, None),
+        };
+        work.charge(1)?;
+        Ok(DemandReport {
+            constraints,
+            groups,
+            preferred,
+            readiness,
+            demand,
+            work: work.used,
+        })
+    }
+
+    fn observe(&self, refinement: Domain, work: &mut Work) -> Result<Observation, Error> {
+        let ordinary = self.ordinary(self.root, work)?;
         // Inspect, meet and copy each world before allocating its refined table.
         // Do not merge equal domains: their occurrence lineages remain distinct.
         work.charge(ordinary.len() * 3)?;
@@ -311,44 +413,42 @@ impl Graph {
         }
         let mut groups = Vec::new();
         let mut nested = false;
-        self.audit(self.root, 0, &worlds, &mut groups, &mut nested, &mut work)?;
-        let constraints = project(&worlds, None, &mut work)?;
-        let (readiness, demand, preferred) = if worlds.is_empty() {
-            (Readiness::ConstraintOnly, Demand::Conflict, None)
-        } else if let [Domain::Value(value)] = constraints.as_slice() {
-            (Readiness::ConstraintOnly, Demand::Concrete(*value), None)
-        } else if !self.nodes[self.root].recipe {
-            (Readiness::ConstraintOnly, Demand::Incomplete, None)
-        } else if nested {
-            (Readiness::DeferredNested, Demand::Suspended, None)
-        } else {
-            let association = self.preference(self.root, 0, &worlds, &mut work)?;
-            let preferred = match association {
-                Association::Absent => Preference::Absent,
-                Association::Present(0) => Preference::Bottom,
-                Association::Present(selected) => {
-                    Preference::Values(project(&worlds, Some(selected), &mut work)?)
-                }
-            };
-            let selected = match &preferred {
-                Preference::Values(values) => values,
-                Preference::Absent | Preference::Bottom => &constraints,
-            };
-            let demand = match selected.as_slice() {
-                [Domain::Value(value)] => Demand::Concrete(*value),
-                _ => Demand::Incomplete,
-            };
-            (Readiness::FlatPreference, demand, Some(preferred))
-        };
-        work.charge(1)?;
-        Ok(DemandReport {
+        self.audit(self.root, 0, &worlds, &mut groups, &mut nested, work)?;
+        let constraints = project(&worlds, None, work)?;
+        Ok(Observation {
+            worlds,
             constraints,
             groups,
-            preferred,
-            readiness,
-            demand,
-            work: work.used,
+            nested,
         })
+    }
+
+    fn flat(
+        &self,
+        worlds: &[World],
+        constraints: &[Domain],
+        work: &mut Work,
+    ) -> Result<(Demand, Preference), Error> {
+        let association = self.preference(self.root, 0, worlds, work)?;
+        let preferred = match association {
+            Association::Absent => Preference::Absent,
+            Association::Present(0) => Preference::Bottom,
+            Association::Present(selected) => {
+                Preference::Values(project(worlds, Some(selected), work)?)
+            }
+        };
+        let selected = match &preferred {
+            Preference::Values(values) => values,
+            Preference::Absent | Preference::Bottom => constraints,
+        };
+        let demand = if worlds.is_empty() {
+            Demand::Conflict
+        } else if let [Domain::Value(value)] = selected {
+            Demand::Concrete(*value)
+        } else {
+            Demand::Incomplete
+        };
+        Ok((demand, preferred))
     }
 
     // Traverse every source occurrence, including impossible and M3-suppressed

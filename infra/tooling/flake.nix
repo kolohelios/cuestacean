@@ -433,6 +433,7 @@
             cargo test --offline --no-default-features --test solver_spike
             cargo test --offline --no-default-features --test default_provenance
             cargo test --offline --no-default-features --test default_readiness
+            cargo test --offline --no-default-features --test demand_policy
           '';
         };
 
