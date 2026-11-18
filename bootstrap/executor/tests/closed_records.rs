@@ -209,7 +209,7 @@ fn names_use_utf8_bytes_and_duplicate_checks_precede_scalar_decoding() {
 }
 
 #[test]
-fn malformed_payloads_and_explicit_flat_profile_boundaries() {
+fn malformed_payloads_and_explicit_collection_profile_boundaries() {
     assert!(
         matches!(runtime::record(&json!({}), "fields"), Err(Error::MissingField { field }) if field == "fields")
     );
@@ -241,17 +241,19 @@ fn malformed_payloads_and_explicit_flat_profile_boundaries() {
         for result in both(literal(json!([{"name":"x","value":raw}]))) {
             fails(
                 result,
-                "closed record field \"x\" requires a concrete scalar",
+                "closed record field \"x\" requires a concrete scalar or closed record",
             );
         }
     }
-    for value in domains()
-        .into_iter()
-        .filter(|v| !matches!(v, V::Null | V::Integer(_) | V::Boolean(_) | V::Text(_)))
-    {
+    for value in domains().into_iter().filter(|v| {
+        !matches!(
+            v,
+            V::Null | V::Integer(_) | V::Boolean(_) | V::Text(_) | V::Record(_)
+        )
+    }) {
         fails(
             ClosedRecord::new(vec![("x".into(), value)]),
-            "closed record field \"x\" requires a concrete scalar",
+            "closed record field \"x\" requires a concrete scalar or closed record",
         );
     }
     fails(
