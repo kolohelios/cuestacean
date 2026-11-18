@@ -18,21 +18,24 @@ machinery; increasingly their executable lowering policies live in CUE. Performa
 advantages remain a hypothesis, not a measured result.
 
 Architecture checkpoint [#161](https://github.com/kolohelios/cuestacean/issues/161)
-pauses routine feature expansion pending the solver spike, closure inventory,
-DSL/native audit and readable overview. The [#162 solver experiment](solver-spike.md)
+completed the solver spike, closure inventory, DSL/native audit and readable
+overview; routine feature expansion remains restricted to the agreed milestone. The [#162 solver experiment](solver-spike.md)
 is test-only; its reference/default/cycle results are not production capabilities.
 The [#163 closure inventory](bootstrap-closure.md) isolates the AST atom builder's
-two-file schema/program closure as the first proposed native-export target; the
-exporter is not implemented, and existing seeds still depend on Go CUE exports.
+two-file schema/program closure as the first native-export target. The isolated
+[#169 exporter](native-spec-export.md) implements that path; existing six compiler
+seeds and the default export pipeline still depend on Go CUE.
 The [DSL/native audit](dsl-boundaries.md) traces actual ownership and guard pressure;
 the [architecture walkthrough](architecture.md) is the reader-facing entry point.
 
-**Proposed next milestone, not yet agreed:** review a scoped recursive-schema and
-demanded-completeness contract, then implement the isolated artifact-free AST atom
+**Agreed milestone ([#169](https://github.com/kolohelios/cuestacean/issues/169)):**
+review the [scoped recursive-schema and
+demanded-completeness contract](native-spec-export.md), then implement the isolated artifact-free AST atom
 specification export defined in #163, with an explicit CUE/native policy boundary
 and separate upstream oracle. This is neither full solving nor six-seed closure.
 The audit's factoring/measurement recommendations are not selected feature work.
-Review the combined findings and obtain user agreement under #161 before coding.
+The user approved this direction after the #161 review. Review the new contract
+before implementation; unrelated feature expansion remains deferred.
 
 Retain the eager evaluator for ready computations in its current subset. A future
 graph can track/refine dependencies and suspended constraints; their production

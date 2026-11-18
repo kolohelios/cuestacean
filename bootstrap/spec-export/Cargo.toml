@@ -1,0 +1,13 @@
+[package]
+name = "cuestacean-spec-export"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+serde_json = "1"
+
+[lints.clippy]
+unwrap_used = "deny"
