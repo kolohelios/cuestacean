@@ -115,8 +115,12 @@ pub enum Error {
     RecordName { index: usize },
     #[snafu(display("duplicate closed record field {field:?}"))]
     RecordDuplicate { field: String },
-    #[snafu(display("closed record field {field:?} requires a concrete scalar"))]
+    #[snafu(display("closed record field {field:?} requires a concrete scalar or closed record"))]
     RecordElement { field: String },
+    #[snafu(display("closed record exceeds 32 value levels"))]
+    RecordDepth,
+    #[snafu(display("closed record exceeds 4096 logical value nodes"))]
+    RecordNodes,
     #[snafu(display("conflicting closed record values"))]
     RecordConflict,
     #[snafu(display("length requires a concrete closed record"))]

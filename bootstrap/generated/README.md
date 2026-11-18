@@ -125,10 +125,13 @@ use it too, with `less-false` as a compiled test-only alternate.
 `logical-and.rs` / `logical-or.rs` use [CUE logical selection](../logic.md);
 `logic-false` is test-only. Both child instructions still evaluate eagerly.
 `record-control` uses the same structured compiler with the eagerly validated
-record target: [computed scalar fields](../record-expressions.md), native checked
+record target: [computed fields](../record-expressions.md), native checked
 RecordFrame and shared evaluation context. The actual `record-control-reverse`
 alternate demonstrates reordered callbacks/first errors; sorted successful maps
-are intentionally equal. No parser/list driver changes or new seed.
+are intentionally equal. `record-control-scalars` preserves the actual earlier
+scalar-only control byte-exact; production now admits [nested closed records](../../docs/nested-record-values.md)
+with native cached 32-level/4096-node append/final-construction guards.
+No parser/list driver changes or new seed.
 `list-control` uses the same structured control compiler with the list target:
 CUE selects traversal, per-item scalar admission and construction order for
 [expression lists](../list-expressions.md). `list-control-reverse` observably
@@ -141,7 +144,8 @@ Checked native append/final construction enforce cached 32-level/4096-node shape
 lookup/count; `record-index-zero` is an actual same-name/arity compiled alternate.
 Record literal data uses a checked native codec; CUE owns domain/presence,
 closed-record unification and concrete equality/logical/length admission.
-No source struct syntax, open constraints, nested records or list admission.
+No source struct syntax, open constraints or list admission; raw record literals
+remain flat scalar data.
 `list-length-control` adds [closed scalar list](../../docs/closed-lists.md) length;
 `list-length-zero` is an actual compiled alternate. Native bounded literal codecs
 supply owned arrays; CUE owns list isolation/equality/logical/output admission.
@@ -227,7 +231,7 @@ done
 bootstrap/executor/target/debug/bootstrap-ast-codegen "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-literal.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/ast-lowering-forced.json" \
   | rustfmt --edition 2024 > bootstrap/generated/ast-forced-integer.rs
-for control in record-control tests/valid/record-control-reverse tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
+for control in record-control tests/valid/record-control-scalars tests/valid/record-control-reverse tests/valid/list-control-scalars tests/valid/pratt-no-index tests/valid/pratt-index-high-minimum tests/valid/primary-no-lists list-control tests/valid/list-control-reverse tests/valid/list-control-stalled tests/valid/list-control-unfinished \
   primary tests/valid/primary-no-calls tests/valid/primary-call-high-minimum tests/valid/primary-nested tests/valid/primary-return tests/valid/primary-return-empty tests/valid/pratt-return-loop \
   tests/valid/primary-bound-high-minimum tests/valid/primary-no-atoms tests/valid/primary-high-minimum \
   tests/valid/primary-cross-phase tests/valid/primary-low-negation \

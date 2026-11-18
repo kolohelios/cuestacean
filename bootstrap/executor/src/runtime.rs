@@ -378,7 +378,7 @@ enum RecordStage {
     Done,
 }
 
-/// Checked record protocol kernel; CUE controls traversal and scalar admission.
+/// Checked record protocol kernel; CUE controls traversal and child admission.
 pub struct RecordFrame<'a> {
     items: &'a [JsonValue],
     context: &'a mut EvaluationContext,
@@ -387,6 +387,7 @@ pub struct RecordFrame<'a> {
     name: Option<String>,
     candidate: Option<Value>,
     values: BTreeMap<String, Value>,
+    shape: RecordShape,
     result: Option<Value>,
     fuel: usize,
 }
@@ -472,14 +473,7 @@ impl RecordFrame<'_> {
         let value = self.candidate.as_ref().ok_or(Error::RecordState {
             reason: "missing item candidate",
         })?;
-        if !matches!(
-            value,
-            Value::Null | Value::Boolean(_) | Value::Integer(_) | Value::Text(_)
-        ) {
-            return Err(Error::RecordElement {
-                field: name.clone(),
-            });
-        }
+        let shape = self.shape.include(value, name)?;
         // All prospective checks precede taking either pending slot.
         let name = self.name.take().ok_or(Error::RecordState {
             reason: "missing item name",
@@ -488,6 +482,7 @@ impl RecordFrame<'_> {
             reason: "missing item candidate",
         })?;
         self.values.insert(name, value);
+        self.shape = shape;
         self.stage = RecordStage::Appended(index);
         Ok(())
     }
@@ -560,6 +555,7 @@ pub fn record_expression_with_driver(
         name: None,
         candidate: None,
         values: BTreeMap::new(),
+        shape: RecordShape::EMPTY,
         result: None,
         fuel: 4096,
     };
@@ -679,32 +675,74 @@ impl ClosedList {
     }
 }
 
-/// Immutable flat scalar record; private storage admits no mutation or cycles.
+/// Certified record shape; shared children count once per field occurrence.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct RecordShape {
+    depth: usize,
+    nodes: usize,
+}
+
+impl RecordShape {
+    const EMPTY: Self = Self { depth: 1, nodes: 1 };
+
+    /// Read only a completed child's certificate, never its descendants.
+    fn include(self, value: &Value, name: &str) -> Result<Self, Error> {
+        let child = match value {
+            Value::Null | Value::Boolean(_) | Value::Integer(_) | Value::Text(_) => Self::EMPTY,
+            Value::Record(record) => record.shape,
+            _ => {
+                return Err(Error::RecordElement {
+                    field: name.to_owned(),
+                });
+            }
+        };
+        // Both shapes are certified bounded, so addition cannot overflow.
+        let depth = self.depth.max(1 + child.depth);
+        if depth > 32 {
+            return Err(Error::RecordDepth);
+        }
+        let nodes = self.nodes + child.nodes;
+        if nodes > 4096 {
+            return Err(Error::RecordNodes);
+        }
+        Ok(Self { depth, nodes })
+    }
+}
+
+/// Immutable shared record; completed children form an acyclic value DAG.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ClosedRecord(Arc<BTreeMap<String, Value>>);
+pub struct ClosedRecord {
+    values: Arc<BTreeMap<String, Value>>,
+    shape: RecordShape,
+}
 
 impl ClosedRecord {
-    /// Check input capacity, then name, duplication and scalar type in entry order.
+    /// Check capacity, then each name, duplication, child type, depth and nodes.
     pub fn new(fields: Vec<(String, Value)>) -> Result<Self, Error> {
         record_capacity(fields.len())?;
         let mut values = BTreeMap::new();
+        let mut shape = RecordShape::EMPTY;
         for (index, (name, value)) in fields.into_iter().enumerate() {
             record_name(&values, &name, index)?;
-            record_insert(&mut values, name, value)?;
+            shape = shape.include(&value, &name)?;
+            values.insert(name, value);
         }
-        Ok(Self(Arc::new(values)))
+        Ok(Self {
+            values: Arc::new(values),
+            shape,
+        })
     }
 
     pub fn as_map(&self) -> &BTreeMap<String, Value> {
-        &self.0
+        &self.values
     }
 
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.values.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.values.is_empty()
     }
 }
 
@@ -727,21 +765,8 @@ fn record_name(values: &BTreeMap<String, Value>, name: &str, index: usize) -> Re
     Ok(())
 }
 
-fn record_insert(
-    values: &mut BTreeMap<String, Value>,
-    name: String,
-    value: Value,
-) -> Result<(), Error> {
-    if !matches!(
-        value,
-        Value::Null | Value::Boolean(_) | Value::Integer(_) | Value::Text(_)
-    ) {
-        return Err(Error::RecordElement { field: name });
-    }
-    values.insert(name, value);
-    Ok(())
-}
-
+#[cfg(test)]
+mod nested_record_tests;
 #[cfg(test)]
 mod nested_tests;
 #[cfg(test)]
@@ -863,9 +888,9 @@ pub fn record(node: &JsonValue, name: &str) -> Result<Value, Error> {
             JsonValue::String(value) => Value::Text(Arc::from(value.as_str())),
             _ => return Err(invalid()),
         };
-        record_insert(&mut values, name.to_owned(), value)?;
+        values.insert(name.to_owned(), value);
     }
-    Ok(Value::Record(ClosedRecord(Arc::new(values))))
+    ClosedRecord::new(values.into_iter().collect()).map(Value::Record)
 }
 
 /// Legacy integer output admitted by generated CUE policy.

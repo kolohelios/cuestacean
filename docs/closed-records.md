@@ -1,18 +1,20 @@
-# Bounded closed scalar records
+# Bounded closed records
 
 ## Decision and deliberately separate profile
 
 Add opaque immutable `Value::Record(ClosedRecord)`, backed by shared
-`Arc<BTreeMap<String,Value>>`. Capacity counts input entries, including duplicates,
+`Arc<BTreeMap<String,Value>>` plus a private certified shape cache. Capacity counts input entries, including duplicates,
 before checking uniqueness. A record has at most 64 unique fields; names are
 nonempty UTF-8 strings of at most 64 bytes. Field values are concrete
-null/boolean/i64/text **only**. No list/record/abstract/reference children,
+null/boolean/i64/text or [bounded closed records](nested-record-values.md).
+No list/abstract/reference children,
 mutation, unchecked construction, Deserialize bypass or public storage.
-This finite flat profile cannot form cycles; it does not extend nested-list
+This immutable bounded DAG cannot form cycles; it does not extend nested-list
 admission/shape limits or decide general struct/reference graph ownership.
 
 `ClosedRecord::new(Vec<(String,Value)>)` checks capacity first, then for each
-entry in order: name bytes, duplicate name, scalar value. Duplicate names must
+entry in order: name bytes, duplicate name, concrete child type, prospective
+32-level/4096-node shape (weighted by occurrences, not unique allocations). Duplicate names must
 not be silently overwritten. Immutable inspection/len is safe; clones share the
 map. Selected text shares its Arc and survives record/input drop. JSON output
 uses deterministic byte-ordered field names without rounding integers. Text
@@ -28,7 +30,7 @@ bounded field validation/decoding is a representation codec, not hidden child
 AST traversal. Source braces/field declarations/selector syntax and expression
 fields were not added by the literal slice. [Record expression control](../bootstrap/record-expressions.md)
 now additionally evaluates `{name,value:AST}` entries through the same immutable
-scalar-only constructor, shared AST context and checked per-field admission.
+bounded constructor, shared AST context and checked per-field admission.
 
 Binary AST/rule `recordIndex {left,right}` eagerly evaluates record/key in that
 order with the shared context. CUE requires Record/Text, tests field presence,
@@ -52,7 +54,9 @@ Ordering/arithmetic remain unsupported. Pinned CUE close({...}) is the oracle.
 Errors: RecordCapacity (`closed record exceeds 64 fields`), RecordName {index}
 (`closed record field name at index {index} must contain 1..=64 UTF-8 bytes`),
 RecordDuplicate {field} (`duplicate closed record field {field:?}`),
-RecordElement {field} (`closed record field {field:?} requires a concrete scalar`),
+RecordElement {field} (`closed record field {field:?} requires a concrete scalar or closed record`),
+RecordDepth (`closed record exceeds 32 value levels`), RecordNodes
+(`closed record exceeds 4096 logical value nodes`),
 RecordConflict (`conflicting closed record values`), RecordLength
 (`length requires a concrete closed record`), RecordIndexOperands
 (`field lookup requires a concrete closed record and string`), RecordMissing

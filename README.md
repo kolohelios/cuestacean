@@ -54,10 +54,11 @@ now accept computed scalar elements and `len([1,2])`; [indexing](bootstrap/list-
 adds `[10,20][1]` through CUE postfix/range control. [Nested expression values](docs/nested-list-values.md)
 now support `[[10,20],[30]][0][1]` with immutable sharing and bounded shape.
 Open/abstract lists and general solving remain absent.
-[Closed scalar records](docs/closed-records.md) now add bounded immutable JSON AST
+[Closed records](docs/closed-records.md) now add bounded immutable JSON AST
 values, CUE closedness/field lookup/length policies and exact object output.
 [Computed JSON record fields](bootstrap/record-expressions.md) now use CUE-owned
-iteration with checked scalar admission and the shared evaluation context;
+iteration with checked scalar/[nested record](docs/nested-record-values.md)
+admission and the shared evaluation context;
 source structs and general open-record solving are not yet supported.
 [CUE-owned addition control](bootstrap/sum.md) selects checked integer addition
 or concrete string concatenation. [Scalar equality](bootstrap/equality.md)

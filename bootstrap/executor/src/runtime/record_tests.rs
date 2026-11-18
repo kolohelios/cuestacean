@@ -23,7 +23,6 @@ fn constructor_and_codec_order() {
     for value in [
         Value::Top,
         Value::List(ClosedList::new(vec![]).expect("empty list")),
-        Value::Record(ClosedRecord::new(vec![]).expect("empty record")),
     ] {
         rejects!(
             ClosedRecord::new(vec![entry("a", value)]),
@@ -54,7 +53,7 @@ fn shared_ownership_and_defensive_domains() {
     let record =
         ClosedRecord::new(vec![("a".into(), Value::Text(Arc::clone(&text)))]).expect("record");
     let shared = record.clone();
-    assert!(Arc::ptr_eq(&record.0, &shared.0));
+    assert!(Arc::ptr_eq(&record.values, &shared.values));
     let value = Value::Record(record);
     let key = Value::Text(Arc::from("a"));
     assert_eq!(record_count(&value).expect("count"), Value::Integer(1));

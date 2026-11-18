@@ -160,13 +160,11 @@ fn capacity_and_name_checks_precede_callbacks_but_not_earlier_admission() {
 }
 
 #[test]
-fn flat_admission_and_real_reverse_control_have_independent_error_and_trace_evidence() {
+fn concrete_admission_and_real_reverse_control_have_independent_error_and_trace_evidence() {
     for child in [
         json!({"kind":"intType"}),
         json!({"kind":"list","value":[]}),
         json!({"kind":"listExpression","elements":[]}),
-        json!({"kind":"record","fields":[]}),
-        record(json!([])),
     ] {
         for result in both(record(json!([field("x", child)]))) {
             assert!(matches!(result, Err(Error::RecordElement { field }) if field == "x"));
