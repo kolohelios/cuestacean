@@ -51,7 +51,10 @@ association/set algorithms and certificate guards remain. The [#186 transparent
 wrapper study](transparent-preference-fragment.md) finds a further genuine
 both-order falsification even with concrete-only leaves, all marks live and no
 suppressed nested recipes. Removing marked ancestors is not a safe admission
-rule. These steps do not solve nested default lifetime or unhold #175.
+rule. The [#188 contextual hypothesis](contextual-preference-spike.md) separately
+investigates partitioned wrapper contexts and conditional recipe inheritance;
+new both-order falsifications keep it research-only. These steps do not solve
+nested default lifetime or unhold #175.
 Pinned CUE order discrepancies are separate evidence, not an excuse for the gap.
 Production parsing/evaluation stays unchanged. These experiments do not complete
 the real policies' default/pattern/optional-field/import closures.

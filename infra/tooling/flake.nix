@@ -439,6 +439,7 @@
             cargo test --offline --no-default-features --test demand_policy
             cargo test --offline --no-default-features --test preference_projection
             cargo test --offline --no-default-features --test transparent_preferences
+            cargo test --offline --no-default-features --test context_preferences
           '';
         };
 
