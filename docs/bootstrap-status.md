@@ -84,7 +84,7 @@ opt-in evidence costs share the unchanged work guard; the old API costs remain
 unchanged. Production demand/default admission stays held; these steps do not
 unhold #175.
 
-**Next default milestone:** follow the [#212 admission checkpoint](default-export-admission.md),
+**Original #175:** follow the [#212 admission checkpoint](default-export-admission.md),
 not another trace/audit endpoint by default. #175 is blocked at semantic admission
 before exporter implementation and production attestation. Draft/review the
 parser-to-residual-to-demand contract against non-scalar contexts and the original
@@ -95,6 +95,13 @@ now proposes concrete retained representations and non-scalar witnesses, but its
 focused reviews return NO-GO: contextual selection, stable use/closure identity,
 feasibility/public unresolved disposition and ledger fit are not established.
 No production implementation is authorized by that design document.
+
+**Separately approved next slice:** [#216 tagged-struct admission](tagged-default-admission.md)
+is explicitly NOT a narrowed definition of #175. Two focused reviews approve its
+finite one-group selection/feasibility contract, with whole-document exclusions
+and no general nested/closure/alias support. It is not implemented yet. Next agree
+the parser/evaluator interface and ownership, then explicitly authorize and validate
+that bounded implementation; original #175 remains open/held.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
