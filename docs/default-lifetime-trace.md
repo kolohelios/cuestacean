@@ -27,6 +27,9 @@ v2-only capture hook and `trace-origins` observations, preserving all v1 wire by
 and limits. The three-hook construction/results below describe the original #200
 milestone, not the later producer identity. The subsequent [#204 history mode](flat-default-sources.md)
 adds v3 nested/final result origins without extra hooks, preserving both old modes.
+The [#208 equality trace](default-equality-trace.md) subsequently adds v4 run-mode/
+coalescing observations through six additional diagnostic lines; v1–v3 remain
+byte-stable. Four-hook identities below describe their original milestones.
 
 ## Instrumented oracle, not changed semantics
 

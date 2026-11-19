@@ -20,6 +20,25 @@ type CuestaceanTraceTrial struct {
 	Nested           []CuestaceanTraceResult `json:"nested"`
 }
 
+type CuestaceanTraceComparison struct {
+	Index    uint32                `json:"index"`
+	Kind     string                `json:"kind"`
+	Existing CuestaceanTraceResult `json:"existing"`
+	Accepted bool                  `json:"accepted"`
+}
+
+type CuestaceanTraceAppend struct {
+	Candidate   CuestaceanTraceResult       `json:"candidate"`
+	Index       uint32                      `json:"index"`
+	Kind        string                      `json:"kind"`
+	Comparisons []CuestaceanTraceComparison `json:"comparisons"`
+}
+
+type CuestaceanTracePhase struct {
+	RunMode string                  `json:"runMode"`
+	Appends []CuestaceanTraceAppend `json:"appends"`
+}
+
 type CuestaceanTraceBatch struct {
 	ID                uint32                  `json:"id"`
 	Depth             uint32                  `json:"depth"`
@@ -27,20 +46,23 @@ type CuestaceanTraceBatch struct {
 	RightDropsDefault bool                    `json:"rightDropsDefault"`
 	Trials            []CuestaceanTraceTrial  `json:"trials"`
 	Results           []CuestaceanTraceResult `json:"results"`
+	Phase             *CuestaceanTracePhase   `json:"phase,omitempty"`
 }
 
 // One fresh, single-command process owns this capture. No concurrent callers.
 var cuestaceanCapture *cuestaceanTraceCapture
 
 type cuestaceanTraceCapture struct {
-	batches        []CuestaceanTraceBatch
-	depth, records int
-	stack          [128]int
-	stages         [128]uint8
-	err            error
-	originsEnabled bool
-	historyEnabled bool
-	origins        [128][][2]CuestaceanTraceMode
+	batches         []CuestaceanTraceBatch
+	depth, records  int
+	stack           [128]int
+	stages          [128]uint8
+	err             error
+	originsEnabled  bool
+	historyEnabled  bool
+	equalityEnabled bool
+	pending         [128][]int
+	origins         [128][][2]CuestaceanTraceMode
 }
 
 func CuestaceanTraceStart() error {
@@ -65,6 +87,167 @@ func CuestaceanTraceHistoryStart() error {
 	}
 	cuestaceanCapture.historyEnabled = true
 	return nil
+}
+
+// Tokens retain diagnostic capture identity, never evaluator vertices.
+type cuestaceanTraceAppendToken struct {
+	capture      *cuestaceanTraceCapture
+	batch, event int
+}
+
+func CuestaceanTraceEqualityStart() error {
+	if err := CuestaceanTraceHistoryStart(); err != nil {
+		return err
+	}
+	cuestaceanCapture.equalityEnabled = true
+	return nil
+}
+
+func cuestaceanTraceEqualityEnabled() bool {
+	c := cuestaceanCapture
+	return c != nil && c.equalityEnabled && c.err == nil
+}
+
+func cuestaceanTraceRunMode(id, mode int) {
+	if !cuestaceanTraceEqualityEnabled() {
+		return
+	}
+	c := cuestaceanCapture
+	if !c.current(id, 0) {
+		return
+	}
+	if c.batches[id].Phase != nil || mode < int(ignore) || mode > int(finalize) {
+		c.fail("invalid or duplicate trace run mode")
+		return
+	}
+	c.batches[id].Phase = &CuestaceanTracePhase{
+		RunMode: [...]string{"ignore", "attempt-only", "yield", "finalize"}[mode-int(ignore)],
+		Appends: []CuestaceanTraceAppend{},
+	}
+}
+
+func cuestaceanTraceAppend(x *nodeContext) cuestaceanTraceAppendToken {
+	if !cuestaceanTraceEqualityEnabled() {
+		return cuestaceanTraceAppendToken{}
+	}
+	c := cuestaceanCapture
+	// Only the top batch owns this call; never search ancestors for stage1.
+	if c.depth < 1 || c.depth > 128 {
+		return cuestaceanTraceAppendToken{}
+	}
+	id := c.stack[c.depth-1]
+	if c.stages[id] != 1 {
+		return cuestaceanTraceAppendToken{}
+	}
+	p := c.batches[id].Phase
+	if p == nil || x == nil {
+		c.fail("missing trace equality phase/candidate")
+		return cuestaceanTraceAppendToken{}
+	}
+	if !c.reserve(len(p.Appends)+1, 3) {
+		return cuestaceanTraceAppendToken{}
+	}
+	r := c.result(x)
+	if c.err != nil {
+		return cuestaceanTraceAppendToken{}
+	}
+	i := len(p.Appends)
+	p.Appends = append(p.Appends, CuestaceanTraceAppend{Candidate: r, Comparisons: []CuestaceanTraceComparison{}})
+	c.pending[id] = append(c.pending[id], i)
+	return cuestaceanTraceAppendToken{c, id, i}
+}
+
+func (t cuestaceanTraceAppendToken) current() (*cuestaceanTraceCapture, *CuestaceanTraceAppend) {
+	if t == (cuestaceanTraceAppendToken{}) || !cuestaceanTraceEqualityEnabled() {
+		return nil, nil
+	}
+	c := cuestaceanCapture
+	if t.capture != c {
+		c.fail("stale trace append capture")
+		return nil, nil
+	}
+	if !c.current(t.batch, 1) {
+		return nil, nil
+	}
+	p := c.batches[t.batch].Phase
+	pending := c.pending[t.batch]
+	if p == nil || t.event < 0 || t.event >= len(p.Appends) || len(pending) == 0 || pending[len(pending)-1] != t.event || p.Appends[t.event].Kind != "" {
+		c.fail("invalid trace append token/order")
+		return nil, nil
+	}
+	return c, &p.Appends[t.event]
+}
+
+func cuestaceanTraceCompare(t cuestaceanTraceAppendToken, existing *nodeContext, partial bool) {
+	c, a := t.current()
+	if c == nil {
+		return
+	}
+	kind := "final"
+	if partial {
+		kind = "partial"
+	}
+	c.comparison(a, existing, kind)
+}
+
+func (c *cuestaceanTraceCapture) comparison(a *CuestaceanTraceAppend, existing *nodeContext, kind string) {
+	if !c.reserve(len(a.Comparisons)+1, 3) {
+		return
+	}
+	if existing == nil {
+		c.fail("missing trace comparison vertex")
+		return
+	}
+	r := c.result(existing)
+	if c.err == nil {
+		a.Comparisons = append(a.Comparisons, CuestaceanTraceComparison{
+			Index: uint32(len(a.Comparisons)), Kind: kind, Existing: r,
+		})
+	}
+}
+
+func (c *cuestaceanTraceCapture) finish(t cuestaceanTraceAppendToken, a *CuestaceanTraceAppend, index int, kind string) {
+	a.Index, a.Kind = uint32(index), kind
+	c.pending[t.batch] = c.pending[t.batch][:len(c.pending[t.batch])-1]
+}
+
+func cuestaceanTraceIdentity(t cuestaceanTraceAppendToken, existing *nodeContext) {
+	c, a := t.current()
+	if c == nil {
+		return
+	}
+	c.comparison(a, existing, "identity")
+	if c.err == nil {
+		i := len(a.Comparisons) - 1
+		a.Comparisons[i].Accepted = true
+		c.finish(t, a, i, "identity")
+	}
+}
+
+func cuestaceanTraceAccept(t cuestaceanTraceAppendToken) {
+	c, a := t.current()
+	if c == nil {
+		return
+	}
+	if len(a.Comparisons) == 0 {
+		c.fail("trace acceptance without comparison")
+		return
+	}
+	i := len(a.Comparisons) - 1
+	a.Comparisons[i].Accepted = true
+	c.finish(t, a, i, a.Comparisons[i].Kind)
+}
+
+func cuestaceanTraceInsert(t cuestaceanTraceAppendToken, index int) {
+	c, a := t.current()
+	if c == nil {
+		return
+	}
+	if index != len(a.Comparisons) {
+		c.fail("trace insertion/comparison count mismatch")
+		return
+	}
+	c.finish(t, a, index, "insert")
 }
 
 // Copy predecessor facts at the successful append, after recursive evaluation.
@@ -247,7 +430,14 @@ func cuestaceanTraceResults(id int, dst []*nodeContext) {
 		return
 	}
 	defer func() { c.depth-- }()
-	if !c.current(id, 1) || !c.reserve(len(dst), c.resultRecords(len(dst))) {
+	if !c.current(id, 1) {
+		return
+	}
+	if c.equalityEnabled && (c.batches[id].Phase == nil || c.batches[id].Phase.RunMode == "" || len(c.pending[id]) != 0) {
+		c.fail("incomplete trace equality phase")
+		return
+	}
+	if !c.reserve(len(dst), c.resultRecords(len(dst))) {
 		return
 	}
 	b := &c.batches[id]

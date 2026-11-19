@@ -471,7 +471,7 @@
             go build -mod=vendor -trimpath -o "$out/bin/cuestacean-default-observer" ./cmd/cuestacean-default-observer
           '';
       # Separate instrumented oracle: the pinned evaluator is changed only by
-      # four bounded diagnostic hooks (origin capture is v2-only). No seed wiring.
+      # ten diagnostic-only hook lines; old modes stay byte-stable. No seed wiring.
       defaultTrace =
         pkgs:
         pkgs.runCommand "cuestacean-default-trace"
@@ -495,15 +495,28 @@
             perl -0pi -e '
               my $n = s~(\Qfunc (n *nodeContext) crossProduct(dst, cross []*nodeContext, dn *envDisjunct, mode runMode) []*nodeContext {\E\n)~$1\ttraceID := cuestaceanTraceEnter()\n~g;
               die "trace entry hook drift" unless $n == 1;
+              $n = s~(\ttraceID := cuestaceanTraceEnter\(\)\n)~$1\tif cuestaceanTraceEqualityEnabled() { cuestaceanTraceRunMode(traceID, int(mode)) }\n~g;
+              die "trace run mode hook drift" unless $n == 1;
               $n = s~(\t\t\ttmp = append\(tmp, r\)\n)~\t\t\tcuestaceanTraceOrigin(traceID, p, int(priority))\n$1~g;
               die "trace origin hook drift" unless $n == 1;
               $n = s~(\thasNonMaybe := false\n)~\tcuestaceanTraceTrials(traceID, tmp, leftDropsDefault, rightDropsDefault)\n$1~g;
               die "trace trials hook drift" unless $n == 1;
               $n = s~(\treturn dst\n\}\n\nfunc combineDefault2)~\tcuestaceanTraceResults(traceID, dst)\n$1~g;
               die "trace results hook drift" unless $n == 1;
+              $n = s~(\tnv := x.node.DerefValue\(\)\n)~\ttraceAppend := cuestaceanTraceAppend(x)\n$1~g;
+              die "trace append entry hook drift" unless $n == 1;
+              $n = s~(\t\tif xn == x \{\n)~$1\t\t\tcuestaceanTraceIdentity(traceAppend, xn)\n~g;
+              die "trace identity hook drift" unless $n == 1;
+              $n = s~(\t\txv := xn.node.DerefValue\(\)\n)~$1\t\tif cuestaceanTraceEqualityEnabled() { cuestaceanTraceCompare(traceAppend, xn, xv.status != finalized || nv.status != finalized) }\n~g;
+              die "trace comparison hook drift" unless $n == 1;
+              $n = s~(\t\t// free vertex\n)~\t\tcuestaceanTraceAccept(traceAppend)\n$1~g;
+              die "trace accept hook drift" unless $n == 1;
+              $n = s~(\treturn append\(a, x\)\n)~\tcuestaceanTraceInsert(traceAppend, len(a))\n$1~g;
+              die "trace insert hook drift" unless $n == 1;
             ' internal/core/adt/disjunct2.go
-            # Removing exactly four hook lines must restore the pinned source.
-            perl -ne 'print unless /^\t(?:traceID := cuestaceanTraceEnter\(\)|cuestaceanTraceTrials\(traceID, tmp, leftDropsDefault, rightDropsDefault\)|cuestaceanTraceResults\(traceID, dst\))\n$/ || /^\t\t\tcuestaceanTraceOrigin\(traceID, p, int\(priority\)\)\n$/' \
+            # Do not gofmt the injected upstream file: guards are single lines.
+            # Removing exactly ten diagnostic lines must restore pinned bytes.
+            perl -ne 'if (/^\s*(?:traceID := cuestaceanTraceEnter\(\)|traceAppend := cuestaceanTraceAppend\(x\)|cuestaceanTrace(?:Origin|Trials|Results|Identity|Accept|Insert)\(.*\)|if cuestaceanTraceEqualityEnabled\(\) \{ cuestaceanTrace(?:RunMode|Compare)\(.*\) \})\n$/) { $n++ } else { print } END { die "trace restoration hook count" unless $n == 10 }' \
               internal/core/adt/disjunct2.go > restored.go
             cmp restored.go ${pkgs.cue.src}/internal/core/adt/disjunct2.go
             diff -u --label pinned/disjunct2.go --label instrumented/disjunct2.go ${pkgs.cue.src}/internal/core/adt/disjunct2.go internal/core/adt/disjunct2.go > "$out/instrumentation.diff" || test "$?" = 1
@@ -546,6 +559,9 @@
           jq -e '.formatVersion == 2 and .mode == "trace-origins" and .value == 1 and all(.batches[].trials[]; .leftMode == "maybe" and .leftOriginalMode == "maybe")' "$out/trace-origins.json" > /dev/null
           env -i PATH=/nonexistent ${defaultTrace pkgs}/bin/cuestacean-default-trace trace-history probe.cue a > "$out/trace-history.json"
           jq -e '.formatVersion == 3 and .mode == "trace-history" and .value == 1 and .batches[0].results == [{mode:"default",originalMode:"default",value:1},{mode:"not",originalMode:"not",value:2}]' "$out/trace-history.json" > /dev/null
+          mkdir -p "$TMPDIR/equality-home"
+          env -i PATH=/nonexistent HOME="$TMPDIR/equality-home" ${defaultTrace pkgs}/bin/cuestacean-default-trace trace-equality probe.cue a > "$out/trace-equality.json"
+          jq -e '.formatVersion == 4 and .mode == "trace-equality" and .value == 1 and .batches[0].phase == {runMode:"finalize",appends:[{candidate:{mode:"default",originalMode:"default",value:1},index:0,kind:"insert",comparisons:[]},{candidate:{mode:"not",originalMode:"not",value:2},index:1,kind:"insert",comparisons:[{index:0,kind:"final",existing:{mode:"default",originalMode:"default",value:1},accepted:false}]}]}' "$out/trace-equality.json" > /dev/null
         '';
 
       # Delete only staged build copies, never the working tree. Neither stage
@@ -603,6 +619,7 @@
             cargo test --offline --no-default-features --test batch_defaults
             cargo test --offline --no-default-features --test flat_default_sources
             cargo test --offline --no-default-features --test recursive_default_scheduling
+            cargo test --offline --no-default-features --test default_equality_trace
           '';
           postPatch = clearArtifacts + ''
             # Do not leak strict shell options into later stdenv hooks.

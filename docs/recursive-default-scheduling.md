@@ -188,3 +188,6 @@ interface. Raw source parsing, abstract domains, references/layers/collections a
 general CUE compatibility are not supplied. Old falsified models and preserved
 asymmetries remain untouched. Do not connect this hypothesis to a production
 preferred-value/readiness path; #175 and its saved prototype stay held.
+The [#208 equality-path observation](default-equality-trace.md) separately captures
+actual run modes and partial/final coalescing decisions; it does not change or
+certify this frozen native hypothesis.

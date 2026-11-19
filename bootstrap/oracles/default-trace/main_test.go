@@ -11,6 +11,64 @@ import (
 	"cuelang.org/go/cue/token"
 )
 
+func TestCuestaceanEqualityWire(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "input.cue")
+	if err := os.WriteFile(path, []byte("a: *1|2"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	b, err := observe([]string{"trace-equality", path, "a"})
+	want := `{"formatVersion":4,"mode":"trace-equality","defaultSelected":true,"status":"concrete","value":1,"batches":[{"id":0,"depth":0,"leftDropsDefault":true,"rightDropsDefault":false,"trials":[{"mode":"maybe","originalMode":"default","leftMode":"maybe","leftOriginalMode":"maybe","value":1,"nested":[]},{"mode":"maybe","originalMode":"not","leftMode":"maybe","leftOriginalMode":"maybe","value":2,"nested":[]}],"results":[{"mode":"default","originalMode":"default","value":1},{"mode":"not","originalMode":"not","value":2}],"phase":{"runMode":"finalize","appends":[{"candidate":{"mode":"default","originalMode":"default","value":1},"index":0,"kind":"insert","comparisons":[]},{"candidate":{"mode":"not","originalMode":"not","value":2},"index":1,"kind":"insert","comparisons":[{"index":0,"kind":"final","existing":{"mode":"default","originalMode":"default","value":1},"accepted":false}]}]}}]}` + "\n"
+	if err != nil || string(b) != want {
+		t.Fatalf("equality wire: %s %v", b, err)
+	}
+	var out observation
+	if err := json.Unmarshal(b, &out); err != nil {
+		t.Fatal(err)
+	}
+	for i := range out.Batches {
+		out.Batches[i].Phase = nil
+	}
+	out.FormatVersion, out.Mode = 3, "trace-history"
+	restored, err := encode(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old, err := observe([]string{"trace-history", path, "a"})
+	if err != nil || string(old) != string(restored) {
+		t.Fatal("v3 subset changed", string(old), err)
+	}
+	again, err := observe([]string{"trace-equality", path, "a"})
+	if err != nil || string(again) != want {
+		t.Fatal("equality determinism", err)
+	}
+	if err := os.WriteFile(path, []byte("a: 1"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	b, err = observe([]string{"trace-equality", path, "a"})
+	if err != nil || string(b) != `{"formatVersion":4,"mode":"trace-equality","defaultSelected":false,"status":"concrete","value":1,"batches":[]}`+"\n" {
+		t.Fatal("empty batches", string(b), err)
+	}
+}
+
+func TestCuestaceanEqualityEncodedBoundary(t *testing.T) {
+	out := observation{FormatVersion: 4, Mode: "trace-equality", Status: "concrete", Value: json.RawMessage(`""`)}
+	base, err := encode(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, size := range []int{byteLimit, byteLimit + 1} {
+		out.Value = json.RawMessage(`"` + strings.Repeat("x", size-len(base)) + `"`)
+		b, err := encode(out)
+		if size == byteLimit {
+			if err != nil || len(b) != size || b[size-1] != '\n' {
+				t.Fatal("v4 exact byte cap", err)
+			}
+		} else if err == nil || b != nil {
+			t.Fatal("v4 one-over byte cap")
+		}
+	}
+}
+
 func TestCuestaceanHistoryWire(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "input.cue")
 	if err := os.WriteFile(path, []byte("a: *1|2"), 0600); err != nil {
