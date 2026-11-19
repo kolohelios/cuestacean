@@ -113,8 +113,14 @@ disjoint materialized modules. Canonical `ast-lowering.json` is copied from that
 native artifact, skipping Go construction for this first complete compiler-policy
 input. This is not mixed marked/let admission or native #LoweringPolicy schema
 evaluation: Go remains an independent schema oracle/raw override provider, and
-the five other policy constructors still use it. Shared six-compiler seeds remain
+the other policy constructors still use it. Shared six-compiler seeds remain
 Go-dependent. Progress follows this concrete input frontier, not solving #175 first.
+The [#224 meta-policy input](native-meta-lowering-policy.md) adds a separately
+reviewed flat scalar literal-preference class, with the same single-group/global
+exclusions and unchanged contextual feasibility/selection. It constructs the
+ordinary meta body and two isolated alias defaults, then assembles disjoint DATA.
+Canonical AST and meta policy inputs are now native; four others remain Go-built.
+The existing tagged-struct witness, all bounds and broader #175 exclusions remain.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

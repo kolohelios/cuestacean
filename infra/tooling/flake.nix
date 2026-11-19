@@ -325,6 +325,9 @@
                 ../../bootstrap/ast-integer-policy.cue
                 ../../bootstrap/scan-lowering-fragments.cue
                 ../../bootstrap/meta-lowering-fragments.cue
+                ../../bootstrap/meta-lowering-body.cue
+                ../../bootstrap/meta-text-alias.cue
+                ../../bootstrap/meta-next-rule-alias.cue
                 ../../bootstrap/tests/invalid
               ]
               ++ map (fixture: ../../bootstrap + "/${fixture}.cue") exportFixtures
@@ -344,6 +347,11 @@
             for fixture in ${fixtureNames}; do
               echo "exporting $fixture"
               case "$fixture" in
+                meta-lowering)
+                  mkdir -p "$out"
+                  cp ${nativeMetaLoweringPolicy pkgs}/meta-lowering.json "$out/meta-lowering.json"
+                  continue
+                  ;;
                 ast-lowering)
                   mkdir -p "$out"
                   cp ${nativeAstLoweringPolicy pkgs}/ast-lowering.json "$out/ast-lowering.json"
@@ -400,7 +408,8 @@
               case "$fixture" in
                 tests/valid/ast-lowering-*)
                   inputs+=("${cueSources}/ast-lowering-body.cue" "${cueSources}/ast-integer-policy.cue") ;;
-
+                tests/valid/meta-lowering-*|tests/valid/meta-driver-previous)
+                  inputs+=("${cueSources}/meta-lowering-body.cue" "${cueSources}/meta-text-alias.cue" "${cueSources}/meta-next-rule-alias.cue") ;;
               esac
               cue export "''${inputs[@]}" --out json | jq -S . > first.json
               cue export "''${inputs[@]}" --out json | jq -S . > second.json
@@ -705,6 +714,13 @@
                 ../../bootstrap/ast-lowering-fragments.cue
                 ../../bootstrap/ast-lowering-body.cue
                 ../../bootstrap/compose-policy.jq
+                ../../bootstrap/meta-lowering-body.cue
+                ../../bootstrap/meta-text-alias.cue
+                ../../bootstrap/meta-next-rule-alias.cue
+                ../../bootstrap/meta-lowering-fragments.cue
+                ../../bootstrap/meta-lowering.cue
+                ../../bootstrap/tests/valid/meta-lowering-forced.cue
+                ../../bootstrap/tests/valid/meta-driver-previous.cue
                 ../../bootstrap/scanner-schema.cue
                 ../../bootstrap/group-open.cue
                 ../../bootstrap/ast-schema.cue
@@ -987,6 +1003,234 @@
             cp ${nativeAstIntegerPolicyBuildClosure pkgs}/registration "$out/native-build-registration"
             printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeAstIntegerPolicy pkgs).drvPath} > "$out/native-build-roots"
           '';
+      metaLoweringPolicySources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/native-policy-package.cue
+            ../../bootstrap/meta-lowering-body.cue
+            ../../bootstrap/meta-text-alias.cue
+            ../../bootstrap/meta-next-rule-alias.cue
+          ];
+        };
+      nativeMetaLoweringPolicy =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-meta-lowering-policy" { } ''
+          set -euo pipefail
+          mkdir -p "$PWD/home"
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          jq=${pkgs.jq}/bin/jq
+          for binary in "$exporter" "$jq"; do
+            test -r "$binary" && test -x "$binary"
+            case "$binary" in /*) ;; *) exit 1 ;; esac
+          done
+          compose() {
+            test "$(wc -c < "$1")" -le 65536
+            test "$(wc -c < "$2")" -le 65536
+            env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -s -S \
+              -f ${../../bootstrap/compose-policy.jq} "$1" "$2" > "$3"
+            test "$(wc -c < "$3")" -le 65536
+          }
+          for run in first second; do
+            for module in meta-lowering-body meta-text-alias meta-next-rule-alias; do
+              # Each complete two-file invocation retains its unchanged ledger.
+              env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" \
+                ${metaLoweringPolicySources pkgs}/native-policy-package.cue \
+                ${metaLoweringPolicySources pkgs}/"$module.cue" > "$run-$module.json"
+              test "$(wc -c < "$run-$module.json")" -le 65536
+            done
+            compose "$run-meta-lowering-body.json" "$run-meta-text-alias.json" "$run-part.json"
+            compose "$run-part.json" "$run-meta-next-rule-alias.json" "$run.json"
+            compose "$run-meta-next-rule-alias.json" "$run-meta-text-alias.json" "$run-aliases.json"
+            compose "$run-aliases.json" "$run-meta-lowering-body.json" "$run-reversed.json"
+            cmp "$run.json" "$run-reversed.json"
+          done
+          for module in meta-lowering-body meta-text-alias meta-next-rule-alias; do
+            cmp "first-$module.json" "second-$module.json"
+          done
+          cmp first.json second.json
+          mkdir -p "$out"
+          cp first.json "$out/meta-lowering.json"
+        '';
+      nativeMetaLoweringPolicyBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativeMetaLoweringPolicy pkgs).drvPath
+          ];
+        };
+      nativeMetaLoweringPolicyVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-meta-lowering-policy-verification" { } ''
+          set -euo pipefail
+          # Schema/oracle/compiler are verifiers, never constructor inputs.
+          for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} \
+            ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+            ${executor pkgs} ${(executor pkgs).drvPath} \
+            ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+            if grep -Fx "$forbidden" ${nativeMetaLoweringPolicyBuildClosure pkgs}/store-paths; then
+              echo "forbidden meta construction dependency: $forbidden" >&2
+              exit 1
+            fi
+          done
+          mkdir -p "$out" "$PWD/probe/home"
+          cd probe
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          oracle=${pkgs.cue}/bin/cue
+          codegen=${executor pkgs}/bin/bootstrap-lower-codegen
+          jq=${pkgs.jq}/bin/jq
+          rustfmt=${pkgs.rustfmt}/bin/rustfmt
+          for binary in "$exporter" "$oracle" "$codegen" "$jq" "$rustfmt"; do
+            test -r "$binary" && test -x "$binary"
+            case "$binary" in /*) ;; *) exit 1 ;; esac
+          done
+          native() { env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$@"; }
+          cue() { env -i HOME="$PWD/home" PATH=/nonexistent "$oracle" "$@"; }
+          json() { env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -S .; }
+          format() { env -i HOME="$PWD/home" PATH=/nonexistent "$rustfmt" --edition 2024; }
+          generate() { env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" "$@" | format; }
+          compose() {
+            test "$(wc -c < "$1")" -le 65536
+            test "$(wc -c < "$2")" -le 65536
+            env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -s -S \
+              -f ${../../bootstrap/compose-policy.jq} "$1" "$2" > "$3"
+            test "$(wc -c < "$3")" -le 65536
+          }
+          assemble() {
+            compose "$1" "$2" part.json
+            compose part.json "$3" "$4"
+          }
+          no_export() {
+            if cue export "$@" > failed.json 2> failed.err; then exit 1; fi
+            test ! -s failed.json && test -s failed.err
+          }
+          schema=${../../bootstrap/schema.cue}
+          bridge=${../../bootstrap/meta-lowering-fragments.cue}
+          selector=${../../bootstrap/meta-lowering.cue}
+          cp ${metaLoweringPolicySources pkgs}/native-policy-package.cue package.cue
+          cp ${metaLoweringPolicySources pkgs}/meta-lowering-body.cue body.cue
+          cp ${metaLoweringPolicySources pkgs}/meta-text-alias.cue text.cue
+          cp ${metaLoweringPolicySources pkgs}/meta-next-rule-alias.cue next.cue
+          for module in body text next; do
+            native package.cue "$module.cue" > "$module.json"
+            native "$module.cue" package.cue > "$module-reversed.json"
+            cmp "$module.json" "$module-reversed.json"
+          done
+          printf '%s\n' '{"aliases":{"text":"emitValue"}}' | json > expected-text.json
+          printf '%s\n' '{"aliases":{"nextRule":"emitModuleAction"}}' | json > expected-next.json
+          cmp text.json expected-text.json
+          cmp next.json expected-next.json
+          assemble body.json text.json next.json policy.json
+          compose next.json text.json aliases.json
+          compose aliases.json body.json reversed.json
+          cmp policy.json reversed.json
+          cmp policy.json ${nativeMetaLoweringPolicy pkgs}/meta-lowering.json
+          cmp policy.json ${jsonExports pkgs}/meta-lowering.json
+          cue export "$schema" "$bridge" body.cue text.cue next.cue "$selector" | json > raw.json
+          cmp policy.json raw.json
+          cue export "$selector" next.cue text.cue body.cue "$bridge" "$schema" | json > reversed-raw.json
+          cmp policy.json reversed-raw.json
+          cue export "$schema" "$bridge" "$selector" policy.json | json > validated.json
+          cmp policy.json validated.json
+          for missing in body text next; do
+            providers=()
+            for module in body text next; do
+              if test "$module" != "$missing"; then providers+=("$module.cue"); fi
+            done
+            no_export "$schema" "$bridge" "$selector" "''${providers[@]}"
+            grep -F 'incomplete value' failed.err
+            cue eval "$schema" "$bridge" "$selector" "''${providers[@]}" > /dev/null
+            cp failed.err "$missing-missing.err"
+          done
+          for policy in lowering pratt-lowering unify-lowering ast-lowering scan-lowering meta-lowering; do
+            generate ${jsonExports pkgs}/"$policy.json" policy.json > "$policy.rs"
+            cmp "$policy.rs" ${../../bootstrap/generated}/"$policy.rs"
+          done
+
+          # Source-to-emitted-source control, with a wholly hand-authored driver.
+          substitute body.cue variant-body.cue --replace-fail \
+            '// Generated lowering driver.' '// Native body control.\n// Generated lowering driver.'
+          native package.cue variant-body.cue > variant-body.json
+          assemble variant-body.json text.json next.json variant.json
+          cue export "$schema" "$bridge" "$selector" variant-body.cue text.cue next.cue | json > raw-variant.json
+          cmp variant.json raw-variant.json
+          printf '%s\n' '{"formatVersion":1,"cases":{"tiny":{"op":"text","value":"tiny"}}}' > tiny.json
+          generate tiny.json variant.json > tiny.rs
+          format > expected-tiny.rs <<'RUST'
+          // Native body control.
+          // Generated lowering driver. Do not edit.
+          use bootstrap_executor::lowering::{self, Context, Driver, Error};
+          use serde_json::Value;
+
+          pub struct Compiled;
+
+          impl Driver for Compiled {
+              fn render(&self, ctx: &mut Context, _node: &Value, _depth: usize) -> Result<String, Error> {
+                  match lowering::instruction_op(_node)? {
+                      "tiny" => ctx.text("tiny"),
+                      op => Err(lowering::missing_case(op)),
+                  }
+              }
+          }
+
+          pub fn lower(node: &Value) -> Result<String, Error> {
+              Context::run(node, &Compiled)
+          }
+          RUST
+          cmp tiny.rs expected-tiny.rs
+
+          # Ordinary root context supplies the new typed target BEFORE decoding.
+          # Native inputs contain no #MetaLowering reference and retain both arms.
+          printf '%s\n' 'package bootstrap' \
+            '{aliases:{text:"emitForced"},cases:{emitForced:{op:"text",value:"ctx.text(\"forced\")"}}}' > text-context.cue
+          printf '%s\n' 'package bootstrap' \
+            '{aliases:{nextRule:"emitStepBack"},cases:{emitStepBack:{op:"text",value:"frame.step()?; frame.previous_rule()?;\n"}}}' > next-context.cue
+          for which in text next; do
+            native "$which.cue" "$which-context.cue" > forced-alias.json
+            if test "$which" = text; then
+              assemble body.json forced-alias.json next.json forced.json
+              fixture=meta-lowering-forced
+              input=lowering-numbers
+              golden=lowering-meta-forced
+            else
+              assemble body.json text.json forced-alias.json forced.json
+              fixture=meta-driver-previous
+              input=meta-driver-keys
+              golden=meta-driver-previous
+            fi
+            cmp forced.json ${jsonExports pkgs}/tests/valid/"$fixture.json"
+            cue export "$schema" "$bridge" "$selector" body.cue text.cue next.cue \
+              "$which-context.cue" | json > raw-forced.json
+            cmp forced.json raw-forced.json
+            generate ${jsonExports pkgs}/tests/valid/"$input.json" forced.json > forced.rs
+            cmp forced.rs ${../../bootstrap/generated}/"$golden.rs"
+            no_export "$schema" "$bridge" "$selector" policy.json "$which-context.cue"
+            cp failed.err "$which-late-override.err"
+          done
+
+          for invalid in opcode shape; do
+            if test "$invalid" = opcode; then
+              substitute body.cue invalid.cue --replace-fail 'op: "concat"' 'op: "unknownNativeControl"'
+            else
+              substitute body.cue invalid.cue --replace-fail 'formatVersion: 1' 'formatVersion: "wrong"'
+            fi
+            native package.cue invalid.cue > invalid-body.json
+            assemble invalid-body.json text.json next.json invalid.json
+            no_export "$schema" "$bridge" "$selector" invalid.cue text.cue next.cue
+            if env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" \
+              tiny.json invalid.json > invalid.rs 2> invalid.err; then exit 1; fi
+            test ! -s invalid.rs && test -s invalid.err
+            cp failed.err "$invalid-schema.err"
+            cp invalid.err "$invalid-typed.err"
+          done
+          cp policy.json tiny.rs expected-tiny.rs *-missing.err *-late-override.err *-schema.err *-typed.err "$out/"
+          cp ${nativeMetaLoweringPolicyBuildClosure pkgs}/store-paths "$out/native-build-paths"
+          cp ${nativeMetaLoweringPolicyBuildClosure pkgs}/registration "$out/native-build-registration"
+          printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeMetaLoweringPolicy pkgs).drvPath} > "$out/native-build-roots"
+        '';
       astLoweringPolicySources =
         pkgs:
         pkgs.lib.fileset.toSource {
@@ -1375,6 +1619,7 @@
           native-demand-policies = nativeDemandPolicies pkgs;
           native-ast-integer-policy = nativeAstIntegerPolicy pkgs;
           native-ast-lowering-policy = nativeAstLoweringPolicy pkgs;
+          native-meta-lowering-policy = nativeMetaLoweringPolicy pkgs;
           default-observer = defaultObserver pkgs;
           default-trace = defaultTrace pkgs;
         }
@@ -1436,6 +1681,7 @@
           native-demand-policies = nativeDemandPolicyVerification pkgs;
           native-ast-integer-policy = nativeAstIntegerPolicyVerification pkgs;
           native-ast-lowering-policy = nativeAstLoweringPolicyVerification pkgs;
+          native-meta-lowering-policy = nativeMetaLoweringPolicyVerification pkgs;
           bootstrap-codegen =
             pkgs.runCommand "cuestacean-bootstrap-codegen"
               {
