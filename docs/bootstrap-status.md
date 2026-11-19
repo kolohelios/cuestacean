@@ -96,12 +96,14 @@ focused reviews return NO-GO: contextual selection, stable use/closure identity,
 feasibility/public unresolved disposition and ledger fit are not established.
 No production implementation is authorized by that design document.
 
-**Separately approved next slice:** [#216 tagged-struct admission](tagged-default-admission.md)
-is explicitly NOT a narrowed definition of #175. Two focused reviews approve its
-finite one-group selection/feasibility contract, with whole-document exclusions
-and no general nested/closure/alias support. It is not implemented yet. Next agree
-the parser/evaluator interface and ownership, then explicitly authorize and validate
-that bounded implementation; original #175 remains open/held.
+**Separately approved #216/#218:** [tagged-struct admission](tagged-default-admission.md)
+is explicitly NOT a narrowed definition of #175. The native exporter now implements
+its reviewed finite one-group selection/feasibility contract, after two concrete
+interface reviews and explicit implementation GO. The actual integer instruction
+fragment exports concat/default, text/x refinement, and text-only Incomplete;
+whole-document exclusions forbid general nested/closure/alias interactions.
+No full AST policy/schema or general-default admission follows. Original #175
+remains open/held; further default scope requires its own reviewed authority.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

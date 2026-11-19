@@ -44,6 +44,7 @@ struct Evaluator<'a> {
     values: usize,
     strings: usize,
     next_group: usize,
+    admitted: bool,
 }
 
 pub(crate) fn evaluate(doc: &Document, work_limit: usize) -> Result<Value, Error> {
@@ -56,7 +57,13 @@ pub(crate) fn evaluate(doc: &Document, work_limit: usize) -> Result<Value, Error
         values: 0,
         strings: 0,
         next_group: 0,
+        admitted: false,
     };
+    if doc.marked {
+        evaluator.admit()?;
+        evaluator.admitted = true;
+        evaluator.step(doc.roots.len())?;
+    }
     let terms = doc
         .roots
         .iter()
@@ -66,6 +73,290 @@ pub(crate) fn evaluate(doc: &Document, work_limit: usize) -> Result<Value, Error
 }
 
 impl Evaluator<'_> {
+    // This certificate is invocation-local and is set only after the entire
+    // syntax arena and every root occurrence have passed admission.
+    fn admit(&mut self) -> Result<(), Error> {
+        self.step(1)?;
+        self.step(self.doc.definitions.len() + self.doc.lets)?;
+        if !self.doc.definitions.is_empty() || self.doc.lets != 0 {
+            return Err(Error::Unsupported("tagged declarations"));
+        }
+        let mut ors = 0;
+        let mut marks = 0;
+        for node in &self.doc.nodes {
+            self.step(1)?;
+            match node {
+                Expr::Literal(value) => {
+                    Self::literal_type(value)?;
+                }
+                Expr::Type(_) | Expr::Top | Expr::And(_, _) => {}
+                Expr::Or(_, _) => ors += 1,
+                Expr::Marked(_) => marks += 1,
+                Expr::Struct(fields) if fields.len() <= 64 => {}
+                Expr::List(items, None) if items.len() <= 64 => {}
+                _ => return Err(Error::Unsupported("tagged document profile")),
+            }
+        }
+        if ors != 1 || marks != 1 {
+            return Err(Error::Unsupported("one tagged choice required"));
+        }
+        let mut choices = 0;
+        for &root in &self.doc.roots {
+            self.step(1)?;
+            self.context(root, 1, true, true, &mut choices)?;
+        }
+        if choices != 1 {
+            return Err(Error::Unsupported("one tagged occurrence required"));
+        }
+        Ok(())
+    }
+
+    fn context(
+        &mut self,
+        id: Id,
+        depth: usize,
+        root: bool,
+        field_path: bool,
+        choices: &mut usize,
+    ) -> Result<(), Error> {
+        self.step(1)?;
+        if depth > 32 {
+            return Err(Error::Limit("syntax depth"));
+        }
+        match &self.doc.nodes[id] {
+            Expr::And(a, b) => {
+                self.context(*a, depth + 1, root, field_path, choices)?;
+                self.context(*b, depth + 1, root, field_path, choices)
+            }
+            Expr::Struct(fields) => {
+                for (_, child) in fields {
+                    self.step(1)?;
+                    self.context(*child, depth + 1, false, field_path, choices)?;
+                }
+                Ok(())
+            }
+            Expr::Or(a, b) if !root && field_path => {
+                *choices += 1;
+                if *choices != 1 {
+                    return Err(Error::Unsupported("multiple tagged occurrences"));
+                }
+                self.step(2)?;
+                let (p, q) = match (&self.doc.nodes[*a], &self.doc.nodes[*b]) {
+                    (Expr::Marked(_), Expr::Marked(_)) => {
+                        return Err(Error::Unsupported("two marked alternatives"));
+                    }
+                    (Expr::Marked(p), _) => (*p, *b),
+                    (_, Expr::Marked(p)) => (*p, *a),
+                    _ => return Err(Error::Unsupported("missing immediate mark")),
+                };
+                self.step(2)?;
+                let (Expr::Struct(p_fields), Expr::Struct(q_fields)) =
+                    (&self.doc.nodes[p], &self.doc.nodes[q])
+                else {
+                    return Err(Error::Unsupported("tagged struct alternatives"));
+                };
+                // Include the mark wrapper in syntax depth, on its own side.
+                self.constructor(p, depth + 2, true)?;
+                self.constructor(q, depth + 1, false)?;
+                let mut disjoint = false;
+                for (p_name, p_id) in p_fields {
+                    self.step(1)?;
+                    for (q_name, q_id) in q_fields {
+                        self.step(1)?;
+                        if p_name == q_name {
+                            self.step(2)?;
+                            if let (Expr::Literal(p), Expr::Literal(q)) =
+                                (&self.doc.nodes[*p_id], &self.doc.nodes[*q_id])
+                            {
+                                disjoint |= p != q;
+                            }
+                        }
+                    }
+                }
+                if !disjoint {
+                    return Err(Error::Unsupported("disjoint literal witness required"));
+                }
+                Ok(())
+            }
+            Expr::List(items, None) if !root => {
+                for child in items {
+                    self.step(1)?;
+                    self.context(*child, depth + 1, false, false, choices)?;
+                }
+                Ok(())
+            }
+            Expr::Literal(_) | Expr::Type(_) | Expr::Top if !root => Ok(()),
+            _ => Err(Error::Unsupported("tagged context profile")),
+        }
+    }
+
+    fn constructor(&mut self, id: Id, depth: usize, concrete: bool) -> Result<(), Error> {
+        self.step(1)?;
+        if depth > 32 {
+            return Err(Error::Limit("syntax depth"));
+        }
+        match &self.doc.nodes[id] {
+            Expr::Literal(_) => Ok(()),
+            Expr::Type(_) | Expr::Top if !concrete => Ok(()),
+            Expr::Struct(fields) => {
+                let mut names = BTreeSet::new();
+                for (name, child) in fields {
+                    self.step(1)?;
+                    if !names.insert(name.as_str()) {
+                        return Err(Error::Unsupported("duplicate alternative field"));
+                    }
+                    self.constructor(*child, depth + 1, concrete)?;
+                }
+                Ok(())
+            }
+            Expr::List(items, None) => {
+                for child in items {
+                    self.step(1)?;
+                    self.constructor(*child, depth + 1, concrete)?;
+                }
+                Ok(())
+            }
+            _ => Err(Error::Unsupported("tagged constructor profile")),
+        }
+    }
+
+    fn copy_terms(&mut self, terms: &[Term]) -> Result<Vec<Term>, Error> {
+        self.step(terms.len())?;
+        for term in terms {
+            self.step(term.groups.len())?;
+        }
+        Ok(terms.to_vec())
+    }
+
+    fn flatten(&mut self, terms: &[Term]) -> Result<Vec<Term>, Error> {
+        let mut pending = self.copy_terms(terms)?;
+        let mut flat = Vec::new();
+        while let Some(term) = pending.pop() {
+            self.step(1)?;
+            match self.doc.nodes[term.id] {
+                Expr::And(a, b) => {
+                    self.step(2)?;
+                    pending.push(Term {
+                        id: b,
+                        groups: vec![],
+                    });
+                    pending.push(Term {
+                        id: a,
+                        groups: vec![],
+                    });
+                }
+                Expr::Top => {}
+                _ => flat.push(term),
+            }
+        }
+        Ok(flat)
+    }
+
+    fn choice(&mut self, terms: &[Term]) -> Result<Option<(usize, Id, Id)>, Error> {
+        for (index, term) in terms.iter().enumerate() {
+            self.step(1)?;
+            if let Expr::Or(a, b) = self.doc.nodes[term.id] {
+                self.step(2)?;
+                let pair = match self.doc.nodes[a] {
+                    Expr::Marked(p) => Some((index, p, b)),
+                    _ => match self.doc.nodes[b] {
+                        Expr::Marked(p) => Some((index, p, a)),
+                        _ => None,
+                    },
+                };
+                return Ok(pair);
+            }
+        }
+        Ok(None)
+    }
+
+    fn substitute(&mut self, terms: &[Term], index: usize, id: Id) -> Result<Vec<Term>, Error> {
+        let mut trial = self.copy_terms(terms)?;
+        trial[index].id = id;
+        Ok(trial)
+    }
+
+    // Existence, not export readiness: abstract leaves have completions but do
+    // not supply concrete values. Every required child participates in the meet.
+    fn possible(&mut self, terms: &[Term], depth: usize) -> Result<bool, Error> {
+        self.step(1)?;
+        if depth > 32 {
+            return Err(Error::Limit("output depth"));
+        }
+        let terms = self.flatten(terms)?;
+        self.step(terms.len())?;
+        if let Some((index, p, q)) = self.choice(&terms)? {
+            let p = self.substitute(&terms, index, p)?;
+            let q = self.substitute(&terms, index, q)?;
+            let p_ok = self.possible(&p, depth)?;
+            let q_ok = self.possible(&q, depth)?;
+            return Ok(p_ok || q_ok);
+        }
+        let mut shape = None;
+        let mut literal = None;
+        let mut fields: BTreeMap<&str, Vec<Term>> = BTreeMap::new();
+        let mut lists = Vec::new();
+        let mut length = None;
+        for term in &terms {
+            self.step(1)?;
+            let kind = match &self.doc.nodes[term.id] {
+                Expr::Literal(value) => {
+                    if literal.is_some_and(|old| old != value) {
+                        return Ok(false);
+                    }
+                    literal = Some(value);
+                    Shape::Scalar(Self::literal_type(value)?)
+                }
+                Expr::Type(ty) => Shape::Scalar(*ty),
+                Expr::Struct(entries) => {
+                    for (name, id) in entries {
+                        self.step(1)?;
+                        fields.entry(name).or_default().push(Term {
+                            id: *id,
+                            groups: vec![],
+                        });
+                    }
+                    Shape::Struct
+                }
+                Expr::List(items, None) => {
+                    if length.is_some_and(|old| old != items.len()) {
+                        return Ok(false);
+                    }
+                    length = Some(items.len());
+                    self.step(1)?;
+                    lists.push(items);
+                    Shape::List
+                }
+                _ => return Err(Error::Unsupported("unadmitted feasibility term")),
+            };
+            if shape.is_some_and(|old| old != kind) {
+                return Ok(false);
+            }
+            shape = Some(kind);
+        }
+        for children in fields.values() {
+            self.step(1)?;
+            if !self.possible(children, depth + 1)? {
+                return Ok(false);
+            }
+        }
+        for index in 0..length.unwrap_or(0) {
+            self.step(1)?;
+            let mut children = Vec::new();
+            for items in &lists {
+                self.step(1)?;
+                children.push(Term {
+                    id: items[index],
+                    groups: vec![],
+                });
+            }
+            if !self.possible(&children, depth + 1)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
     fn step(&mut self, count: usize) -> Result<(), Error> {
         self.remaining = self
             .remaining
@@ -111,6 +402,35 @@ impl Evaluator<'_> {
         self.step(1)?;
         if depth > 32 {
             return Err(Error::Limit("output depth"));
+        }
+        let terms = if self.admitted {
+            let terms = self.flatten(&terms)?;
+            if shallow {
+                return if self.possible(&terms, depth)? {
+                    Err(Error::Incomplete)
+                } else {
+                    Err(Error::Conflict)
+                };
+            }
+            if let Some((index, p, q)) = self.choice(&terms)? {
+                let preferred = self.substitute(&terms, index, p)?;
+                let ordinary = self.substitute(&terms, index, q)?;
+                let p_ok = self.possible(&preferred, depth)?;
+                let q_ok = self.possible(&ordinary, depth)?;
+                return if p_ok {
+                    self.demand(preferred, depth, false)
+                } else if q_ok {
+                    self.demand(ordinary, depth, false)
+                } else {
+                    Err(Error::Conflict)
+                };
+            }
+            terms
+        } else {
+            terms
+        };
+        if self.admitted {
+            self.step(terms.len())?;
         }
         let mut pending = vec![State {
             tasks: terms.into_iter().rev().map(Task::Visit).collect(),
@@ -158,6 +478,9 @@ impl Evaluator<'_> {
                         pending.push(std::mem::take(&mut state));
                         split = true;
                         break;
+                    }
+                    Expr::Top | Expr::Marked(_) => {
+                        return Err(Error::Unsupported("unadmitted preference syntax"));
                     }
                     Expr::Name { .. } => {
                         return Err(Error::Unsupported("unresolved binding name"));
@@ -350,7 +673,12 @@ impl Evaluator<'_> {
                 // No field label receives privileged treatment.
                 let mut deferred = None;
                 for terms in fields.values() {
-                    match self.demand(terms.clone(), depth + 1, true) {
+                    let trial = if self.admitted {
+                        self.copy_terms(terms)?
+                    } else {
+                        terms.clone()
+                    };
+                    match self.demand(trial, depth + 1, true) {
                         Err(Error::Incomplete) | Ok(_) => {}
                         Err(Error::Conflict) => return Err(Error::Conflict),
                         Err(error @ Error::Limit(_)) => return Err(error),
@@ -451,6 +779,8 @@ mod tests {
             nodes,
             definitions: BTreeMap::new(),
             roots: vec![0],
+            marked: false,
+            lets: 0,
         };
         let unresolved = document(vec![Expr::Name {
             scope: 0,
@@ -461,6 +791,12 @@ mod tests {
             evaluate(&unresolved, 4096),
             Err(Error::Unsupported("unresolved binding name"))
         );
+        for node in [Expr::Top, Expr::Marked(0)] {
+            assert_eq!(
+                evaluate(&document(vec![node]), 4096),
+                Err(Error::Unsupported("unadmitted preference syntax"))
+            );
+        }
         let cyclic = document(vec![Expr::Binding(0)]);
         assert_eq!(
             evaluate(&cyclic, 4096),

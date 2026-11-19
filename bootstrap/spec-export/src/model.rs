@@ -9,6 +9,9 @@ pub(crate) enum Type {
 }
 #[derive(Clone, Debug)]
 pub(crate) enum Expr {
+    Top,
+    // Syntax wrapper; only whole-document admission may authorize selection.
+    Marked(Id),
     Literal(serde_json::Value),
     Type(Type),
     NotEqual(serde_json::Value),
@@ -31,6 +34,10 @@ pub(crate) struct Document {
     pub nodes: Vec<Expr>,
     pub definitions: BTreeMap<String, Id>,
     pub roots: Vec<Id>,
+    // Token-derived dispatch signal, not an admission certificate.
+    pub marked: bool,
+    // Preserve declarations even when resolution removes their names.
+    pub lets: usize,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {

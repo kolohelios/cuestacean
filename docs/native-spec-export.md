@@ -47,7 +47,12 @@ finite syntax trees/arenas, not infinitely expanded recursive schemas. Each
 instantiation has its own constraint collection and data path; specializing one
 use must not mutate a shared template or another list item.
 
-Explicitly reject unsupported syntax: imports, defaults, optional/required field
+The separately reviewed [#218 tagged-default profile](tagged-default-admission.md)
+admits exactly one marked tagged-struct choice with Top under its whole-document
+guard. It is not a general expansion of the language below; preference-free
+behavior stays unchanged. Full default/closure/reuse admission #175 remains held.
+
+Explicitly reject unsupported syntax: imports, general defaults, optional/required field
 markers, hidden fields, field-value references, comprehensions/patterns/interpolation,
 null literals, boolean inequality, other numeric forms, computed operations and open struct ellipses. Duplicate
 named definition declarations are initially Unsupported (their closedness/merge
@@ -116,12 +121,12 @@ pub enum Type { String, Int, Bool }
 pub enum Expr {
     Literal(serde_json::Value), Type(Type), NotEqual(serde_json::Value),
     Struct(Vec<(String, Id)>), List(Vec<Id>, Option<Id>), Ref(String),
-    And(Id, Id), Or(Id, Id), Binding(Id),
+    And(Id, Id), Or(Id, Id), Binding(Id), Top, Marked(Id),
     Name { scope: usize, excluded: Vec<usize>, name: String },
 }
 pub struct Document {
     pub nodes: Vec<Expr>, pub definitions: std::collections::BTreeMap<String, Id>,
-    pub roots: Vec<Id>,
+    pub roots: Vec<Id>, pub marked: bool, pub lets: usize,
 }
 pub enum Error {
     Syntax(&'static str), Unsupported(&'static str), Range, Unknown(String),
@@ -210,6 +215,7 @@ rebuilds of the independent path and JSON export. The inspected native graph has
 These repository checks are distinct from scratch/read-only reviews;
 other architectures were omitted, not validated.
 
-This achieves one useful native specification export only. General references,
+This original milestone achieved one useful native specification export only.
+Subsequent scoped capabilities are linked above. General references,
 open structs/defaults, wider builtins, full self-hosting and performance remain
 deferred; subsequent changes require a new bounded contract and evidence.

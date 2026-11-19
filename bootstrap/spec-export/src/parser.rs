@@ -135,11 +135,11 @@ fn lex(source: &str, count: &mut usize) -> Result<Vec<Token>, Error> {
             b'&' | b'|' if bytes.get(pos + 1) == Some(&bytes[pos]) => {
                 return Err(Error::Unsupported("logical operation"));
             }
-            b'{' | b'}' | b'[' | b']' | b'(' | b')' | b':' | b',' | b'&' | b'|' | b'=' => {
+            b'{' | b'}' | b'[' | b']' | b'(' | b')' | b':' | b',' | b'&' | b'|' | b'=' | b'*' => {
                 pos += 1;
                 Token::Symbol(bytes[start])
             }
-            b'*' | b'?' | b'!' | b'+' | b'/' | b'<' | b'>' | b'.' | b'\'' => {
+            b'?' | b'!' | b'+' | b'/' | b'<' | b'>' | b'.' | b'\'' => {
                 return Err(Error::Unsupported("syntax outside export profile"));
             }
             _ => return Err(Error::Unsupported("source character")),
@@ -209,6 +209,7 @@ impl Parser {
         }
         let height = 1 + match &expr {
             Expr::And(a, b) | Expr::Or(a, b) => self.heights[*a].max(self.heights[*b]),
+            Expr::Marked(id) => self.heights[*id],
             Expr::Struct(fields) => fields
                 .iter()
                 .map(|(_, id)| self.heights[*id])
@@ -244,6 +245,7 @@ impl Parser {
                 }
                 "true" => self.node(Expr::Literal(true.into()))?,
                 "false" => self.node(Expr::Literal(false.into()))?,
+                "_" if self.document.marked => self.node(Expr::Top)?,
                 "let" | "for" | "if" | "in" | "import" | "package" | "null" | "_" => {
                     return Err(Error::Unsupported("value reference or type"));
                 }
@@ -265,6 +267,11 @@ impl Parser {
                     _ => return Err(Error::Syntax("literal inequality operand")),
                 };
                 self.node(Expr::NotEqual(value))?
+            }
+            Token::Symbol(b'*') => {
+                self.newlines();
+                let operand = self.expression(depth + 1, 3)?;
+                self.node(Expr::Marked(operand))?
             }
             Token::Symbol(b'(') => {
                 self.newlines();
@@ -490,6 +497,10 @@ pub(crate) fn parse(schema: &str, program: &str) -> Result<Document, Error> {
     let mut count = 0;
     let first = lex(schema, &mut count)?;
     let second = lex(program, &mut count)?;
+    let marked = first
+        .iter()
+        .chain(&second)
+        .any(|token| token == &Token::Symbol(b'*'));
     let mut parser = Parser {
         tokens: first,
         pos: 0,
@@ -502,6 +513,8 @@ pub(crate) fn parse(schema: &str, program: &str) -> Result<Document, Error> {
             nodes: Vec::new(),
             definitions: BTreeMap::new(),
             roots: Vec::new(),
+            marked,
+            lets: 0,
         },
     };
     let package = parser.file()?;
@@ -513,6 +526,7 @@ pub(crate) fn parse(schema: &str, program: &str) -> Result<Document, Error> {
     if parser.document.roots.is_empty() {
         return Err(Error::Syntax("missing root embedding"));
     }
+    parser.document.lets = parser.bindings.len();
     bindings::resolve(&mut parser.document, &parser.scopes, &parser.bindings)?;
     Ok(parser.document)
 }

@@ -107,7 +107,7 @@ fn reject_cycles(doc: &Document) -> Result<(), Error> {
     let mut reverse = vec![Vec::new(); doc.nodes.len()];
     for (id, node) in doc.nodes.iter().enumerate() {
         match node {
-            Expr::Binding(body) => edges[id].push(*body),
+            Expr::Binding(body) | Expr::Marked(body) => edges[id].push(*body),
             Expr::Ref(name) => edges[id].push(doc.definitions[name]),
             Expr::And(a, b) | Expr::Or(a, b) => edges[id].extend([*a, *b]),
             Expr::Struct(fields) => edges[id].extend(fields.iter().map(|(_, id)| *id)),
