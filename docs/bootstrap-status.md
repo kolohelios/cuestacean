@@ -53,8 +53,12 @@ both-order falsification even with concrete-only leaves, all marks live and no
 suppressed nested recipes. Removing marked ancestors is not a safe admission
 rule. The [#188 contextual hypothesis](contextual-preference-spike.md) separately
 investigates partitioned wrapper contexts and conditional recipe inheritance;
-new both-order falsifications keep it research-only. These steps do not solve
-nested default lifetime or unhold #175.
+new both-order falsifications keep it research-only. The [#190 public CUE
+observer](default-observer.md) adds explicit default-selection/unification evidence
+in a separate Go-dependent oracle whose executable is excluded from native and
+compiler construction.
+Its API flags are not native preference-state certificates. These steps do not
+solve nested default lifetime or unhold #175.
 Pinned CUE order discrepancies are separate evidence, not an excuse for the gap.
 Production parsing/evaluation stays unchanged. These experiments do not complete
 the real policies' default/pattern/optional-field/import closures.

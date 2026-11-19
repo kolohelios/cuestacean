@@ -443,6 +443,52 @@
           '';
         };
 
+      # Test-only command built inside the exact pinned CUE module/vendor tree.
+      # Do not put this provider in rustPackage: codegenSeed inherits that base.
+      defaultObserver =
+        pkgs:
+        pkgs.runCommand "cuestacean-default-observer"
+          {
+            nativeBuildInputs = [ pkgs.go ];
+            meta.mainProgram = "cuestacean-default-observer";
+          }
+          ''
+            cp -R ${pkgs.cue.src} source
+            chmod -R u+w source
+            cd source
+            ln -s ${pkgs.cue.goModules} vendor
+            mkdir -p cmd/cuestacean-default-observer
+            cp ${../../bootstrap/oracles/default-observer/main.go} cmd/cuestacean-default-observer/main.go
+            cp ${../../bootstrap/oracles/default-observer/main_test.go} cmd/cuestacean-default-observer/main_test.go
+            export CGO_ENABLED=0 GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+            export HOME=$TMPDIR GOCACHE=$TMPDIR/go-cache
+            go test -mod=vendor ./cmd/cuestacean-default-observer
+            mkdir -p "$out/bin"
+            go build -mod=vendor -trimpath -o "$out/bin/cuestacean-default-observer" ./cmd/cuestacean-default-observer
+          '';
+      defaultObserverVerification =
+        pkgs:
+        let
+          # This one seed builds all six fresh compilers. .drv roots include
+          # recursive build-time dependencies, unlike runtime output references.
+          seedClosure = pkgs.closureInfo { rootPaths = [ (codegenSeed pkgs).drvPath ]; };
+        in
+        pkgs.runCommand "cuestacean-default-observer-verification" { } ''
+          if grep -Fx ${(defaultObserver pkgs).drvPath} ${seedClosure}/store-paths; then
+            echo "observer leaked into compiler construction graph" >&2
+            exit 1
+          fi
+          mkdir -p "$out"
+          cp ${seedClosure}/store-paths "$out/seed-build-paths"
+          cp ${seedClosure}/registration "$out/seed-build-registration"
+          printf '%s\n' ${(codegenSeed pkgs).drvPath} > "$out/seed-build-roots"
+          printf '%s\n' ${(defaultObserver pkgs).drvPath} > "$out/forbidden-observer-drv"
+          printf 'a: *1|2\n' > probe.cue
+          env -i PATH=/nonexistent ${defaultObserver pkgs}/bin/cuestacean-default-observer inspect probe.cue a > "$out/observation.json"
+          printf '%s\n' '{"formatVersion":1,"mode":"inspect","leftDefault":null,"rightDefault":null,"defaultSelected":true,"status":"concrete","value":1}' > expected.json
+          cmp expected.json "$out/observation.json"
+        '';
+
       # Delete only staged build copies, never the working tree. Neither stage
       # may consume leftover working-tree JSON or committed Rust intermediates.
       clearArtifacts = ''
@@ -490,6 +536,10 @@
             (codegenSeed pkgs)
           ];
           CUESTACEAN_BOOTSTRAP_JSON = jsonExports pkgs;
+          CUESTACEAN_DEFAULT_OBSERVER = "${defaultObserver pkgs}/bin/cuestacean-default-observer";
+          preCheck = old.preCheck + ''
+            cargo test --offline --no-default-features --test default_observer
+          '';
           postPatch = clearArtifacts + ''
             # Do not leak strict shell options into later stdenv hooks.
             (
@@ -656,7 +706,7 @@
             set -euo pipefail
             # These identities are forbidden only in the native construction
             # graph. This separate oracle/check package is not Go-CUE-free.
-            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath} ${(executor pkgs).drvPath}; do
+            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath} ${(executor pkgs).drvPath} ${(defaultObserver pkgs).drvPath}; do
               if grep -Fx "$forbidden" ${nativeDemandPolicyBuildClosure pkgs}/store-paths; then
                 echo "forbidden bootstrap dependency: $forbidden" >&2; exit 1
               fi
@@ -717,7 +767,7 @@
           }
           ''
             set -euo pipefail
-            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath}; do
+            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath} ${(executor pkgs).drvPath} ${(defaultObserver pkgs).drvPath}; do
               if grep -Fx "$forbidden" ${nativeBuilderBuildClosure pkgs}/store-paths; then
                 echo "forbidden bootstrap dependency: $forbidden" >&2; exit 1
               fi
@@ -784,7 +834,7 @@
           }
           ''
             set -euo pipefail
-            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath}; do
+            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath} ${(executor pkgs).drvPath} ${(defaultObserver pkgs).drvPath}; do
               if grep -Fx "$forbidden" ${nativeBuildClosure pkgs}/store-paths; then
                 echo "forbidden bootstrap dependency: $forbidden" >&2; exit 1
               fi
@@ -813,6 +863,7 @@
           native-ast-atom = nativeAtom pkgs;
           native-ast-builders = nativeBuilders pkgs;
           native-demand-policies = nativeDemandPolicies pkgs;
+          default-observer = defaultObserver pkgs;
         }
       );
 
@@ -838,6 +889,7 @@
           default = pkgs.mkShell {
             CUESTACEAN_BOOTSTRAP_JSON = jsonExports pkgs;
             CUESTACEAN_DEMAND_POLICIES = nativeDemandPolicies pkgs;
+            CUESTACEAN_DEFAULT_OBSERVER = "${defaultObserver pkgs}/bin/cuestacean-default-observer";
             packages = [
               pkgs.cue
               pkgs.rustc
@@ -863,6 +915,7 @@
         {
           bootstrap-executor = executor pkgs;
           native-spec-tests = specTests pkgs;
+          default-observer = defaultObserverVerification pkgs;
           native-spec-closure = nativeVerification pkgs;
           native-builder-family = nativeBuilderVerification pkgs;
           native-demand-policies = nativeDemandPolicyVerification pkgs;
