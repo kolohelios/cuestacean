@@ -1,13 +1,17 @@
 # CUE-owned AST-builder compiler backend
 
-[`ast-lowering-fragments.cue`](ast-lowering-fragments.cue) owns typed builder
-signatures, expression/key layout, JSON constructors and clone-versus-move
-selection. The unchanged integer-literal choice has its canonical raw owner in
-[`ast-integer-policy.cue`](ast-integer-policy.cue), with a required provider slot
-in the remaining policy. Its [native artifact](../docs/native-ast-integer-policy.md)
-feeds the canonical default policy; Go CUE still assembles/validates that complete
-policy. Override fixtures load the raw choice before refinement, not the concrete
-default artifact. No default semantics or compiler wire format is widened. It uses the same [lowering compiler/kernel](lowering.md) as evaluator,
+[`ast-lowering-body.cue`](ast-lowering-body.cue) owns typed builder signatures,
+expression/key layout, JSON constructors and clone-versus-move selection. The
+unchanged integer-literal choice lives in
+[`ast-integer-policy.cue`](ast-integer-policy.cue). The
+[complete native policy DATA artifact](../docs/native-ast-lowering-policy.md)
+assembles their independently materialized, disjoint outputs without Go CUE.
+[`ast-lowering-fragments.cue`](ast-lowering-fragments.cue) retains the Go-only schema
+bridge and seven required slots for independent validation and raw override
+fixtures. They load both raw owners before refinement, not concrete default JSON.
+This is not native schema evaluation or mixed marked/let admission; no default
+semantics or compiler wire format is widened. It uses the same
+[lowering compiler/kernel](lowering.md) as evaluator,
 Pratt and unification generation. Six native compiler seeds remain; no new
 compiler binary is introduced.
 

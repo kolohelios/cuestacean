@@ -194,3 +194,11 @@ pinned Go CUE/source and current full JSON. The complete default AST policy and
 seed construction STILL depend on Go CUE; only this integer input is independently
 native. Final immutable cross-review and exact-head protected CI/confirmed merge
 remain required. #175 remains open/held with its original obligations.
+
+Subsequently the user approved #175 as a compatibility umbrella, not the critical
+input-delivery gate. [#222 complete AST-policy DATA](native-ast-lowering-policy.md)
+keeps this integer artifact/cut unchanged and adds an independently native ordinary
+body plus disjoint materialized-module assembly. Canonical complete policy DATA
+construction then no longer needs Go CUE; schema validation/raw overrides remain
+separate Go paths. This does not admit mixed marked/let native documents or settle
+#175's retained broader semantic obligations.

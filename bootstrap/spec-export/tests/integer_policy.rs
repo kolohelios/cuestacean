@@ -13,6 +13,7 @@ const OWNER: &str = include_str!("../../ast-integer-policy.cue");
 const PACKAGE: &str = include_str!("../../native-policy-package.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const FRAGMENTS: &str = include_str!("../../ast-lowering-fragments.cue");
+const BODY: &str = include_str!("../../ast-lowering-body.cue");
 const SELECTOR: &str = include_str!("../../ast-lowering.cue");
 const FORCED: &str = include_str!("../../tests/valid/ast-lowering-forced.cue");
 const TEXT: &str = "package bootstrap\n{cases: integer: {op: \"text\", value: \"x\"}}\n";
@@ -117,6 +118,7 @@ impl Probe {
         let mut inputs = vec![
             ("schema-renamed.cue", SCHEMA),
             ("remaining-renamed.cue", FRAGMENTS),
+            ("body-renamed.cue", BODY),
             ("selector-renamed.cue", SELECTOR),
         ];
         if let Some(provider) = provider {
@@ -140,6 +142,7 @@ impl Probe {
         let mut inputs = vec![
             ("schema-renamed.cue", SCHEMA),
             ("remaining-renamed.cue", FRAGMENTS),
+            ("body-renamed.cue", BODY),
             ("selector-renamed.cue", SELECTOR),
         ];
         if let Some(provider) = provider {
@@ -262,6 +265,7 @@ fn materialized_default_has_no_late_text_override_or_raw_fallback() {
             let inputs = [
                 ("schema.cue", SCHEMA),
                 ("remaining.cue", FRAGMENTS),
+                ("body.cue", BODY),
                 ("selector.cue", SELECTOR),
                 ("default.json", provider.as_str()),
                 ("override.cue", context),
