@@ -192,6 +192,14 @@ predecision observation and checked primitives. Its CUE-authored branches select
 action requests; native certificates constrain execution. The native demand path
 remains reference evidence, not a fallback, and nested semantics remain held.
 
+The [#186 transparent-wrapper study](transparent-preference-fragment.md) tests
+whether concrete-only sources with no marked recipe ancestor could safely relax
+this gate. It finds a genuine both-order falsification with all marks live and
+no suppressed recipes: `((*3|1)|3)&((*1|2)|(*3|2))`. Thus empty suppressed lists
+or the absence of nested M3 stripping are not a sufficient readiness certificate.
+This study adds evidence only; the conservative gate and all prior results stay
+unchanged, including deliberately suspended compatible controls.
+
 ## Validation and unchanged production cut
 
 On x86_64-linux, all 14 new test groups and 13 old groups pass debug/release under

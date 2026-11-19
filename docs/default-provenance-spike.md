@@ -191,6 +191,14 @@ by this result. The [#178 demand-boundary follow-up](default-readiness.md) keeps
 this hypothesis intact while making unresolved nested recipe lifetime explicit;
 its conservative suspension is not a corrected default-selection algorithm.
 
+The [#186 transparent-wrapper study](transparent-preference-fragment.md) finds a
+further genuine both-order counterexample without abstract atoms or marked
+ancestors of recipes: `((*3|1)|3)&((*1|2)|(*3|2))`. The unchanged hypothesis selects
+3 in both orders; pinned CUE is Incomplete in both. Every mark remains live and
+all suppressed recipe lists are empty. The missing contextual semantics cannot
+therefore be reduced to explicit nested M3 stripping. No native recipe, previous
+assertion or conservative certificate is changed to fit this new observation.
+
 ## Validation and production independence
 
 On x86_64-linux, twelve test groups pass in debug/release under default and
