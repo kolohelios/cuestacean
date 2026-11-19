@@ -90,7 +90,11 @@ before exporter implementation and production attestation. Draft/review the
 parser-to-residual-to-demand contract against non-scalar contexts and the original
 functional matrix; a smaller tagged-struct capability requires explicit separate
 scope approval and cannot silently close #175. These are three acceptance gates,
-not a percentage/ETA or a promise of three PRs.
+not a percentage/ETA or a promise of three PRs. The [#214 residual/demand design](native-default-admission-design.md)
+now proposes concrete retained representations and non-scalar witnesses, but its
+focused reviews return NO-GO: contextual selection, stable use/closure identity,
+feasibility/public unresolved disposition and ledger fit are not established.
+No production implementation is authorized by that design document.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

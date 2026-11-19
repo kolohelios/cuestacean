@@ -175,3 +175,7 @@ cumulative ledgers, original-versus-smaller scope disposition, and the third
 fragment path (text tag without a supplied value remains Incomplete).
 Approval finalizes the distance-to-completion assessment and next design artifact;
 it is explicitly NO semantic/producer implementation GO. Gate A and #175 stay open.
+The subsequent [#214 concrete design](native-default-admission-design.md) records
+proposed identities/residuals/feasibility and complete non-scalar witnesses; its
+reviews explicitly return NO-GO with named missing selection and identity laws,
+not an implementation approval.
