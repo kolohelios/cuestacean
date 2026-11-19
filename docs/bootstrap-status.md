@@ -83,6 +83,15 @@ first encounter positions without classifying upstream partial vertices. Its
 opt-in evidence costs share the unchanged work guard; the old API costs remain
 unchanged. Production demand/default admission stays held; these steps do not
 unhold #175.
+
+**Next default milestone:** follow the [#212 admission checkpoint](default-export-admission.md),
+not another trace/audit endpoint by default. #175 is blocked at semantic admission
+before exporter implementation and production attestation. Draft/review the
+parser-to-residual-to-demand contract against non-scalar contexts and the original
+functional matrix; a smaller tagged-struct capability requires explicit separate
+scope approval and cannot silently close #175. These are three acceptance gates,
+not a percentage/ETA or a promise of three PRs.
+
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
 bytes remain stable. The [#196 typed prefix-list extension](native-prefix-lists.md)
