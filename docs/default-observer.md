@@ -19,6 +19,10 @@ our probe is independently written against public APIs, not copied evaluator cod
 Use the pinned package's source/vendor closure, not a floating module download,
 installed host Go/CUE or network resolution during builds.
 
+The [#192 subsumption follow-up](default-subsumption-observer.md) adds separate
+v2 relation modes. The three v1 observation modes and wire bytes below remain
+unchanged; new oracle constructor identities are recorded in that follow-up.
+
 ## Trusted test protocol under review
 
 New Go oracle sources under `bootstrap/oracles/default-observer/`. Build as an

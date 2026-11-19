@@ -96,6 +96,14 @@ type observation struct {
 	Value           json.RawMessage `json:"value"`
 }
 
+// This records public API acceptance, not a semantic non-subsumption proof.
+// In particular, a nonnil Subsume result can be an inexact comparison.
+type relationObservation struct {
+	FormatVersion int    `json:"formatVersion"`
+	Mode          string `json:"mode"`
+	Accepted      bool   `json:"accepted"`
+}
+
 func observe(args []string) ([]byte, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("expected inspect, unify or default-unify")
@@ -103,7 +111,7 @@ func observe(args []string) ([]byte, error) {
 	mode, count := args[0], 4
 	if mode == "inspect" {
 		count = 3
-	} else if mode != "unify" && mode != "default-unify" {
+	} else if mode != "unify" && mode != "default-unify" && mode != "subsume" && mode != "raw-subsume" {
 		return nil, fmt.Errorf("unknown mode")
 	}
 	if len(args) != count {
@@ -158,6 +166,21 @@ func observe(args []string) ([]byte, error) {
 		if values[i].IncompleteKind() == cue.StructKind {
 			return nil, fmt.Errorf("selector must name a scalar, not a container")
 		}
+	}
+	if mode == "subsume" || mode == "raw-subsume" {
+		// Both values come from this build. Do not project either operand with
+		// Default or MarshalJSON, or classify its Err, before comparison.
+		var err error
+		if mode == "raw-subsume" {
+			err = values[0].Subsume(values[1], cue.Raw())
+		} else {
+			err = values[0].Subsume(values[1])
+		}
+		encoded, encodeErr := json.Marshal(relationObservation{2, mode, err == nil})
+		if encodeErr != nil {
+			return nil, encodeErr
+		}
+		return append(encoded, '\n'), nil
 	}
 	out := observation{FormatVersion: 1, Mode: mode}
 	if mode == "default-unify" {

@@ -57,8 +57,10 @@ new both-order falsifications keep it research-only. The [#190 public CUE
 observer](default-observer.md) adds explicit default-selection/unification evidence
 in a separate Go-dependent oracle whose executable is excluded from native and
 compiler construction.
-Its API flags are not native preference-state certificates. These steps do not
-solve nested default lifetime or unhold #175.
+Its API flags are not native preference-state certificates. The [#192 subsumption
+observations](default-subsumption-observer.md) separately compare ordinary and
+Raw API acceptance, without treating rejection as a proof of negative ordering.
+These steps do not solve nested default lifetime or unhold #175.
 Pinned CUE order discrepancies are separate evidence, not an excuse for the gap.
 Production parsing/evaluation stays unchanged. These experiments do not complete
 the real policies' default/pattern/optional-field/import closures.
