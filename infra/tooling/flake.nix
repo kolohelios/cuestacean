@@ -596,10 +596,94 @@
         rm -f ../generated/*.rs
       '';
 
-      codegenSeed =
+      # Exact production cut: no executor library, parser, generated answers or tests.
+      nativeCoreSources =
+        pkgs: includeTests:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions (
+            [
+              ../../bootstrap/native-codegen-core/Cargo.toml
+              ../../bootstrap/native-codegen-core/Cargo.lock
+              ../../bootstrap/native-codegen-core/src/lib.rs
+              ../../bootstrap/executor/src/ast.rs
+              ../../bootstrap/executor/src/lowering.rs
+              ../../bootstrap/executor/src/module.rs
+              ../../bootstrap/executor/src/bin/bootstrap-ast-codegen.rs
+              ../../bootstrap/executor/src/bin/bootstrap-lower-codegen.rs
+            ]
+            ++ pkgs.lib.optionals includeTests [ ../../bootstrap/native-codegen-core/tests/compiler.rs ]
+          );
+        };
+      nativeCorePolicies =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-core-policies" { } ''
+          mkdir -p "$out"
+          cp ${nativeAstLoweringPolicy pkgs}/ast-lowering.json "$out/ast-lowering.json"
+          cp ${nativeMetaLoweringPolicy pkgs}/meta-lowering.json "$out/meta-lowering.json"
+        '';
+      nativeCodegenCore =
+        pkgs:
+        pkgs.rustPlatform.buildRustPackage {
+          pname = "cuestacean-native-codegen-core";
+          version = "0.1.0";
+          src = nativeCoreSources pkgs false;
+          postUnpack = ''
+            sourceRoot="$sourceRoot/native-codegen-core"
+          '';
+          cargoLock.lockFile = ../../bootstrap/native-codegen-core/Cargo.lock;
+          CUESTACEAN_BOOTSTRAP_JSON = nativeCorePolicies pkgs;
+          cargoBuildFlags = [ "--no-default-features" ];
+          # Construction never executes the shared defensive tests or expected code.
+          doCheck = false;
+          meta.license = pkgs.lib.licenses.asl20;
+        };
+      nativeCoreTests =
+        pkgs:
+        (nativeCodegenCore pkgs).overrideAttrs (_: {
+          pname = "cuestacean-native-codegen-core-tests";
+          src = nativeCoreSources pkgs true;
+          nativeCheckInputs = [ pkgs.clippy ];
+          doCheck = true;
+          postPatch = ''
+            (
+              set -euo pipefail
+              mkdir -p ../generated "$TMPDIR/core-home"
+              for tool in ${nativeCodegenCore pkgs}/bin/bootstrap-ast-codegen ${nativeCodegenCore pkgs}/bin/bootstrap-lower-codegen; do
+                case "$tool" in /*) ;; *) echo "nonabsolute compiler provider: $tool" >&2; exit 1 ;; esac
+                test -r "$tool" && test -x "$tool"
+              done
+              for name in ast-program ast-atom ast-integer ast-text ast-unary ast-record-field ast-binary ast-ternary; do
+                env -i PATH=/nonexistent HOME="$TMPDIR/core-home" \
+                  ${nativeCodegenCore pkgs}/bin/bootstrap-ast-codegen \
+                  ${nativeBuilders pkgs}/"$name.json" > "../generated/$name.rs"
+              done
+              for name in ast-lowering meta-lowering; do
+                env -i PATH=/nonexistent HOME="$TMPDIR/core-home" \
+                  ${nativeCodegenCore pkgs}/bin/bootstrap-lower-codegen \
+                  ${nativeCorePolicies pkgs}/"$name.json" > "../generated/$name.rs"
+              done
+            )
+          '';
+          checkPhase = ''
+            runHook preCheck
+            for profile in debug release; do
+              releaseFlag=
+              if [ "$profile" = release ]; then releaseFlag=--release; fi
+              for features in "" source compiled-lowering source,compiled-lowering; do
+                cargo test --offline --locked --all-targets --no-default-features \
+                  $releaseFlag --features "$features"
+                cargo clippy --offline --locked --all-targets --no-default-features \
+                  $releaseFlag --features "$features" -- -D warnings
+              done
+            done
+            runHook postCheck
+          '';
+        });
+      legacyCodegenSeed =
         pkgs:
         (rustPackage pkgs).overrideAttrs (old: {
-          pname = "bootstrap-codegen-seed";
+          pname = "bootstrap-legacy-codegen-seed";
           # Policy is fresh upstream CUE data, not a generated Rust seed dependency.
           CUESTACEAN_BOOTSTRAP_JSON = jsonExports pkgs;
           meta = old.meta // {
@@ -612,13 +696,9 @@
             "--bin"
             "bootstrap-scan-codegen"
             "--bin"
-            "bootstrap-ast-codegen"
-            "--bin"
             "bootstrap-pratt-codegen"
             "--bin"
             "bootstrap-unify-codegen"
-            "--bin"
-            "bootstrap-lower-codegen"
           ];
           postPatch = clearArtifacts;
           # The tests require generated modules. Break that bootstrap cycle here;
@@ -626,6 +706,108 @@
           doCheck = false;
         });
 
+      codegenSeed =
+        pkgs:
+        pkgs.symlinkJoin {
+          name = "bootstrap-codegen-seed";
+          paths = [
+            (nativeCodegenCore pkgs)
+            (legacyCodegenSeed pkgs)
+          ];
+          postBuild = ''
+            # Assert both membership and actual compiler provenance, not PATH order.
+            printf '%s\n' bootstrap-ast-codegen bootstrap-codegen bootstrap-lower-codegen \
+              bootstrap-pratt-codegen bootstrap-scan-codegen bootstrap-unify-codegen > expected
+            find "$out/bin" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort > actual
+            cmp expected actual
+            for name in bootstrap-ast-codegen bootstrap-lower-codegen; do
+              test "$(readlink -f "$out/bin/$name")" = "$(readlink -f ${nativeCodegenCore pkgs}/bin/"$name")"
+            done
+            for name in bootstrap-codegen bootstrap-pratt-codegen bootstrap-scan-codegen bootstrap-unify-codegen; do
+              test "$(readlink -f "$out/bin/$name")" = "$(readlink -f ${legacyCodegenSeed pkgs}/bin/"$name")"
+            done
+          '';
+        };
+      nativeCoreVerification =
+        pkgs:
+        let
+          core = nativeCodegenCore pkgs;
+          closure = pkgs.closureInfo { rootPaths = [ core.drvPath ]; };
+        in
+        pkgs.runCommand "cuestacean-native-codegen-core-verification"
+          {
+            nativeBuildInputs = [ pkgs.rustfmt ];
+            # Force real feature execution; never feed this back into construction.
+            featureTests = nativeCoreTests pkgs;
+          }
+          ''
+            set -euo pipefail
+            mkdir -p "$out" "$TMPDIR/core-home"
+            for tool in ${core}/bin/bootstrap-ast-codegen ${core}/bin/bootstrap-lower-codegen; do
+              case "$tool" in /*) ;; *) echo "nonabsolute compiler provider: $tool" >&2; exit 1 ;; esac
+              test -r "$tool" && test -x "$tool"
+            done
+            test -d "$featureTests"
+            test "$(find ${nativeCoreSources pkgs false} -type f | wc -l)" -eq 8
+            test "$(find ${nativeCoreSources pkgs true} -type f | wc -l)" -eq 9
+            printf '%s\n' ast-lowering.json meta-lowering.json > expected-policies
+            find ${nativeCorePolicies pkgs} -type f -printf '%f\n' | sort > policies
+            cmp expected-policies policies
+            for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} \
+              ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+              ${executor pkgs} ${(executor pkgs).drvPath} \
+              ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+              ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+              ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+              ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+              if grep -Fx "$forbidden" ${closure}/store-paths; then
+                echo "forbidden native compiler dependency: $forbidden" >&2; exit 1
+              fi
+            done
+            # The joined constructor performs its own exact-six/provenance assertions.
+            test -x ${codegenSeed pkgs}/bin/bootstrap-ast-codegen
+            for fixture in ${builderExportNames}; do
+              name=$(basename "$fixture")
+              for repeat in 1 2; do
+                env -i PATH=/nonexistent HOME="$TMPDIR/core-home" \
+                  ${core}/bin/bootstrap-ast-codegen ${nativeBuilders pkgs}/"$fixture.json" > "$repeat.rs"
+              done
+              cmp 1.rs 2.rs
+              rustfmt --edition 2024 < 1.rs > actual.rs
+              if [ "$fixture" = tests/valid/ast-literal ]; then
+                printf '%s\n' '// Generated by bootstrap-ast-codegen. Do not edit by hand.' \
+                  'use serde_json::Value;' 'pub fn build() -> Value {' '    Value::from(7i64)' '}' > expected.rs
+                cmp expected.rs actual.rs
+              else
+                cmp actual.rs ${../../bootstrap/generated}/"$name.rs"
+              fi
+              cp actual.rs "$out/$name.rs"
+            done
+            for name in lowering pratt-lowering unify-lowering ast-lowering scan-lowering meta-lowering; do
+              for repeat in 1 2; do
+                env -i PATH=/nonexistent HOME="$TMPDIR/core-home" \
+                  ${core}/bin/bootstrap-lower-codegen ${jsonExports pkgs}/"$name.json" > "$repeat.rs"
+              done
+              cmp 1.rs 2.rs
+              rustfmt --edition 2024 < 1.rs > "$out/$name.rs"
+              cmp "$out/$name.rs" ${../../bootstrap/generated}/"$name.rs"
+            done
+            env -i PATH=/nonexistent HOME="$TMPDIR/core-home" \
+              ${core}/bin/bootstrap-ast-codegen ${nativeBuilders pkgs}/tests/valid/ast-literal.json \
+              ${jsonExports pkgs}/tests/valid/ast-lowering-forced.json | rustfmt --edition 2024 > forced.rs
+            cmp forced.rs ${../../bootstrap/generated/ast-forced-integer.rs}
+            for pair in 'lowering-numbers meta-lowering-forced lowering-meta-forced' \
+              'meta-driver-keys meta-driver-previous meta-driver-previous'; do
+              read -r input policy golden <<< "$pair"
+              env -i PATH=/nonexistent HOME="$TMPDIR/core-home" \
+                ${core}/bin/bootstrap-lower-codegen ${jsonExports pkgs}/tests/valid/"$input.json" \
+                ${jsonExports pkgs}/tests/valid/"$policy.json" | rustfmt --edition 2024 > actual.rs
+              cmp actual.rs ${../../bootstrap/generated}/"$golden.rs"
+            done
+            cp ${closure}/store-paths "$out/native-build-paths"
+            cp ${closure}/registration "$out/native-build-registration"
+            printf '%s\n' ${core.drvPath} > "$out/native-build-roots"
+          '';
       executor =
         pkgs:
         (rustPackage pkgs).overrideAttrs (old: {
@@ -1620,6 +1802,7 @@
           native-ast-integer-policy = nativeAstIntegerPolicy pkgs;
           native-ast-lowering-policy = nativeAstLoweringPolicy pkgs;
           native-meta-lowering-policy = nativeMetaLoweringPolicy pkgs;
+          native-codegen-core = nativeCodegenCore pkgs;
           default-observer = defaultObserver pkgs;
           default-trace = defaultTrace pkgs;
         }
@@ -1682,6 +1865,7 @@
           native-ast-integer-policy = nativeAstIntegerPolicyVerification pkgs;
           native-ast-lowering-policy = nativeAstLoweringPolicyVerification pkgs;
           native-meta-lowering-policy = nativeMetaLoweringPolicyVerification pkgs;
+          native-codegen-core = nativeCoreVerification pkgs;
           bootstrap-codegen =
             pkgs.runCommand "cuestacean-bootstrap-codegen"
               {

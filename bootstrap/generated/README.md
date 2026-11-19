@@ -318,11 +318,15 @@ stages, clearing leftover JSON and generated Rust from each staged source copy
 first. This never deletes files in the working tree. CUE JSON exports are an
 independent Nix output built only from CUE sources, not committed artifacts.
 
-1. Export fresh CUE JSON, including evaluator and Pratt compiler policies. Compile the
-   native evaluator-generator VM, lowering-policy, scanner, AST, Pratt and unification compiler
-   seeds with `--no-default-features` and that JSON export directory. This excludes generated frontend and
-   semantic dependencies; `source` normally enables `semantics`. Seed tests need generated modules,
-   so they run in the final stage rather than creating a bootstrap cycle.
+1. Construct fresh JSON: native builders/AST/meta policies plus the other
+   Go-CUE-exported closures. The [native core](../../docs/native-codegen-core.md)
+   builds existing AST/lowering-policy compiler binaries from eight selected files
+   and ONLY the two native policy inputs. The legacy no-default-feature constructor
+   builds evaluator/scanner/Pratt/unification compilers with the full bundle. Join
+   exactly six fresh binaries; no generated Rust is a construction input. The joined
+   seed still needs Go CUE. Real façade builder/compiled features are checked using
+   freshly native-generated modules, not committed goldens. The full executor's
+   `source` still enables `semantics`; the narrow façade does not expose an evaluator.
 2. Use the fresh JSON output and the seeds to regenerate lowering drivers,
    evaluator, scanner, AST-builder, Pratt-control and unification Rust. Compile
    all binaries with default `source` and `compiled-lowering` features enabled and
@@ -354,5 +358,6 @@ Committed Rust modules remain reviewable golden files: the Rust generation
 check still rejects drift. JSON has repeatability and schema checks, not a
 committed byte baseline. CLI tests compare results, errors, and
 exit statuses with the interpreter. Neither the generator nor the shared
-runtime is fully self-hosted yet; generic seeds remain Rust and CUE exports still
-require the upstream Go implementation.
+runtime is fully self-hosted yet. Seeds remain Rust; two compiler construction
+paths are now independently native, while the other four and remaining exports
+still require the upstream Go implementation.

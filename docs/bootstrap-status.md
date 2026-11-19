@@ -121,6 +121,12 @@ exclusions and unchanged contextual feasibility/selection. It constructs the
 ordinary meta body and two isolated alias defaults, then assembles disjoint DATA.
 Canonical AST and meta policy inputs are now native; four others remain Go-built.
 The existing tagged-struct witness, all bounds and broader #175 exclusions remain.
+The [#226 native compiler core](native-codegen-core.md) isolates the two existing
+AST/lowering-driver compiler binaries behind a façade over unchanged shared Rust
+modules/CLI files and only these two native policies. Their eight-source constructor
+is separate from legacy four-compiler construction; production joins all six.
+Four policy constructors/the joined six-seed graph remain Go-dependent. This does
+not change Rust kernel ownership, schema semantics or #175 admission.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
@@ -453,8 +459,9 @@ workspace's stale exports for changed specifications.
   development. It is a review/drift baseline, not a required seed input.
 - Nix deletes staged JSON/Rust, builds six native compiler/VM seeds without
   default features, regenerates everything, then compiles/tests the final package.
-  Seeds now embed fresh upstream-exported lowering-policy JSON; exports must not
-  depend on seeds or committed artifacts. No native opcode-emission fallback.
+  Two compiler binaries now embed only native AST/meta policy JSON through the
+  eight-source façade; the other four embed the full Go-dependent bundle. Exports
+  must not depend on seeds or committed artifacts. No opcode-emission fallback.
   Seeds interpret the policy; default `compiled-lowering` uses generated Rust.
   The reference interpreter remains for explicit custom policies, sharing exact
   rendering/quoting/resource primitives. `compiled-lowering` is independent of

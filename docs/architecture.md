@@ -24,8 +24,8 @@ not invoke Go CUE at runtime.
 ```text
 BUILD THE IMPLEMENTATION
 CUE specifications: schemas + grammar + executable DSL programs/policies
-    | native exporter evaluates AST-builder specification closures
-    | pinned Go CUE evaluates the other closures (including defaults/comprehensions)
+    | native exporter evaluates builder and bounded AST/meta policy closures
+    | pinned Go CUE evaluates other closures (including defaults/comprehensions)
     v
 build-only JSON: validated grammar data and represented DSL programs/policies
     | six artifact-free native Rust compiler seeds interpret lowering policies
@@ -95,10 +95,12 @@ and [addition](../bootstrap/sum.md) contracts for the exact interfaces.
   sequencing; native glue is substantial, not an OS shim or full self-hosting.
 - **Generated artifacts** are rebuilt by the graph in
   [`infra/tooling/flake.nix`](../infra/tooling/flake.nix). `clearArtifacts` removes
-  staged JSON/Rust; `codegenSeed` builds six `--no-default-features` compilers
-  using fresh Go-CUE-exported policy JSON; `executor` regenerates Rust before
-  compiling/testing the final package. JSON stays build-only. Committed Rust is a
-  drift/review baseline, not a seed input. Artifact-free is not Go-CUE-independent.
+  staged JSON/Rust; `codegenSeed` joins six artifact-free compilers. The
+  [native core](native-codegen-core.md) builds AST/meta compiler binaries from eight
+  selected source files and two native policies; the legacy constructor builds the
+  other four with the full Go-dependent bundle. `executor` regenerates Rust before
+  compiling/testing the final package. JSON stays build-only; committed Rust is a
+  drift/review baseline, not a seed input. The joined six-seed path still needs Go CUE.
 
 ## Current boundary and where to read next
 
