@@ -22,6 +22,11 @@ before explicit implementation GO. Read-only implementation cross-reviews and
 full validation precede PR/merge.
 Keep approximately <=1500 changed lines. Preserve Apache-2.0/upstream notices.
 
+The additive [#202 origin-aware extension](native-batch-defaults.md) adds a fourth
+v2-only capture hook and `trace-origins` observations, preserving all v1 wire bytes
+and limits. The three-hook construction/results below describe the original #200
+milestone, not the later producer identity.
+
 ## Instrumented oracle, not changed semantics
 
 Add an independent `default-trace` package. Build in a writable COPY of the exact

@@ -11,6 +11,47 @@ import (
 	"cuelang.org/go/cue/token"
 )
 
+func TestCuestaceanOriginsWire(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "input.cue")
+	if err := os.WriteFile(path, []byte("a: *1|2"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	v1, err := observe([]string{"trace", path, "a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v2, err := observe([]string{"trace-origins", path, "a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantTrial := `{"mode":"maybe","originalMode":"default","leftMode":"maybe","leftOriginalMode":"maybe","value":1,"nested":[]}`
+	if !strings.HasPrefix(string(v2), `{"formatVersion":2,"mode":"trace-origins",`) || !strings.Contains(string(v2), wantTrial) || strings.Contains(string(v1), "leftMode") || strings.Contains(string(v1), "leftOriginalMode") {
+		t.Fatalf("wire: %s / %s", v1, v2)
+	}
+	var out observation
+	if err := json.Unmarshal(v2, &out); err != nil {
+		t.Fatal(err)
+	}
+	for i := range out.Batches {
+		for j := range out.Batches[i].Trials {
+			trial := &out.Batches[i].Trials[j]
+			if trial.LeftMode == nil || trial.LeftOriginalMode == nil {
+				t.Fatal("missing v2 fields")
+			}
+			trial.LeftMode, trial.LeftOriginalMode = nil, nil
+		}
+	}
+	out.FormatVersion, out.Mode = 1, "trace"
+	restored, err := encode(out)
+	if err != nil || string(restored) != string(v1) {
+		t.Fatalf("v1 changed: %s %v", restored, err)
+	}
+	again, err := observe([]string{"trace-origins", path, "a"})
+	if err != nil || string(again) != string(v2) {
+		t.Fatal("v2 determinism", err)
+	}
+}
+
 func TestCuestaceanAdmission(t *testing.T) {
 	for _, source := range []string{"a: 0", "package p\na: *-9223372036854775808|+9223372036854775807", "a: (*1|2)&(1|2)"} {
 		if _, err := admit([]byte(source), "a"); err != nil {
