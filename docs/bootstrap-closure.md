@@ -9,7 +9,11 @@ isolated the closure and characterized upstream behavior. Following the reviewed
 adds an isolated native exporter/artifact path. The [#171 family step](native-builder-family.md)
 now makes independently native artifacts the production provider for all 12 AST
 builder specifications. Other exports and the six compiler policies still depend
-on Go CUE; wider feature expansion stays deferred.
+on Go CUE; wider feature expansion stays deferred. The later
+[#182 demand-policy cut](native-demand-policies.md) natively constructs the two
+experimental dispatch policies from their unchanged three-file raw closure. They
+are test-only graph policies, not any of the six lowering-policy exports; their
+native artifact proof and separate Go CUE comparison are kept distinct.
 
 The [solver spike](solver-spike.md) demonstrated bounded dependencies and separate
 default projection, not general schema evaluation. The chosen target avoids

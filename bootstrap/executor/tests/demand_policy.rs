@@ -21,7 +21,16 @@ fn wire(body: Value) -> String {
 fn decode(body: Value) -> Policy {
     Policy::from_json(&wire(body)).expect("valid handwritten test policy")
 }
-fn export(program: &str) -> Policy {
+fn native_policy(artifact: &str) -> Policy {
+    let directory = std::env::var_os("CUESTACEAN_DEMAND_POLICIES")
+        .expect("mandatory CUESTACEAN_DEMAND_POLICIES native artifact directory");
+    let text = fs::read_to_string(PathBuf::from(directory).join(artifact))
+        .expect("mandatory native demand policy artifact");
+    Policy::from_json(&text).expect("strict native policy admission")
+}
+
+// A separate raw-source oracle, never a provider or recovery path.
+fn raw_cue(program: &str) -> Vec<u8> {
     let spikes = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../spikes");
     let output = Command::new("cue")
         .arg("export")
@@ -35,9 +44,71 @@ fn export(program: &str) -> Policy {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    Policy::from_json(std::str::from_utf8(&output.stdout).expect("UTF-8 policy"))
-        .expect("fresh raw CUE policy admission")
+    output.stdout
 }
+
+#[test]
+fn native_artifacts_match_separate_fresh_raw_cue_exports() {
+    let directory = PathBuf::from(
+        std::env::var_os("CUESTACEAN_DEMAND_POLICIES").expect("mandatory native policy directory"),
+    );
+    for name in ["demand-policy", "demand-policy-defer"] {
+        let native =
+            fs::read(directory.join(format!("{name}.json"))).expect("mandatory native artifact");
+        let upstream = raw_cue(&format!("{name}.cue"));
+        assert_eq!(
+            serde_json::from_slice::<Value>(&native).expect("native JSON"),
+            serde_json::from_slice::<Value>(&upstream).expect("raw CUE JSON"),
+            "{name}: separate provider/oracle comparison"
+        );
+    }
+}
+#[test]
+fn missing_native_provider_fails_setup_without_cue_or_fallback() {
+    let empty =
+        std::env::temp_dir().join(format!("cuestacean-missing-policy-{}", std::process::id()));
+    fs::create_dir(&empty).expect("exclusive empty artifact directory");
+    for (directory, message) in [
+        (
+            None,
+            "mandatory CUESTACEAN_DEMAND_POLICIES native artifact directory",
+        ),
+        (Some(&empty), "mandatory native demand policy artifact"),
+    ] {
+        // Select only the consumer, never this parent test; do not mutate the
+        // process environment shared with parallel tests.
+        let mut child = Command::new(std::env::current_exe().expect("current test executable"));
+        child
+            .args([
+                "--exact",
+                "canonical_native_dispatch_has_independent_results_and_full_native_parity",
+                "--nocapture",
+            ])
+            .env("PATH", "/nonexistent")
+            .env_remove("CUESTACEAN_DEMAND_POLICIES");
+        if let Some(directory) = directory {
+            child.env("CUESTACEAN_DEMAND_POLICIES", directory);
+        }
+        let output = child.output().expect("isolated consumer setup probe");
+        assert!(
+            !output.status.success(),
+            "missing native provider must fail"
+        );
+        let diagnostics = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(diagnostics.contains("running 1 test"), "{diagnostics}");
+        assert!(diagnostics.contains(message), "{diagnostics}");
+        assert!(
+            !diagnostics.contains("mandatory pinned CUE"),
+            "{diagnostics}"
+        );
+    }
+    fs::remove_dir(empty).expect("remove owned empty artifact directory");
+}
+
 fn value(n: i64) -> Expr {
     Expr::Value(n)
 }
@@ -121,8 +192,8 @@ fn parity(graph: &Graph, refinement: Domain, report: &DemandReport) {
 }
 
 #[test]
-fn canonical_raw_cue_dispatch_has_independent_results_and_full_native_parity() {
-    let policy = export("demand-policy.cue");
+fn canonical_native_dispatch_has_independent_results_and_full_native_parity() {
+    let policy = native_policy("demand-policy.json");
     for (expr, expected, readiness, demand, preferred) in [
         (
             Expr::Top,
@@ -229,9 +300,9 @@ fn canonical_raw_cue_dispatch_has_independent_results_and_full_native_parity() {
 }
 
 #[test]
-fn raw_alternate_changes_forced_and_flat_execution_without_erasing_facts() {
-    let canonical = export("demand-policy.cue");
-    let alternate = export("demand-policy-defer.cue");
+fn native_alternate_changes_forced_and_flat_execution_without_erasing_facts() {
+    let canonical = native_policy("demand-policy.json");
+    let alternate = native_policy("demand-policy-defer.json");
     let graph = graph(or(vec![
         (false, choice(1, 2)),
         (true, choice(3, 4)),
@@ -400,7 +471,7 @@ fn certificates_reject_unsafe_actions_without_fallback_but_allow_safe_flat_edges
 
 #[test]
 fn counterexample_and_coverage_cost_remain_evidence_in_both_operand_orders() {
-    let policy = export("demand-policy.cue");
+    let policy = native_policy("demand-policy.json");
     for (a, b, ordinary, old_value) in [
         (
             or(vec![(false, choice(1, 2)), (true, value(3))]),
@@ -454,7 +525,7 @@ fn counterexample_and_coverage_cost_remain_evidence_in_both_operand_orders() {
 
 #[test]
 fn bounded_permutations_keep_flat_nested_and_forced_gates_in_both_orders() {
-    let policy = export("demand-policy.cue");
+    let policy = native_policy("demand-policy.json");
     let terms = [(true, value(1)), (false, value(2)), (false, value(3))];
     for p in [
         [0, 1, 2],
