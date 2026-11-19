@@ -28,7 +28,7 @@ package bootstrap
 			key: {op: "concat", parts: [{op: "text", value: "String::from("}, {op: "string", field: "value"}, {op: "text", value: ")"}]}
 			value: {op: "concat", parts: [{op: "text", value: "Value::String(String::from("}, {op: "string", field: "value"}, {op: "text", value: "))"}]}
 		}}
-		integer: *{op: "concat", parts: [{op: "text", value: "Value::from("}, {op: "signed", field: "value"}, {op: "text", value: "i64)"}]} | {op: "text", value: _}
+		integer: _
 		object: {op: "ifEmpty", field: "fields", then: {op: "text", value: "Value::Object(serde_json::Map::new())"}, else: {
 			op: "concat", parts: [{op: "text", value: "Value::Object(serde_json::Map::from_iter(["},
 				{op: "join", field: "fields", separator: ",\n"}, {op: "text", value: "]))"}]

@@ -8,8 +8,11 @@ isolated the closure and characterized upstream behavior. Following the reviewed
 #162–#165 findings and user agreement under #161, [#169](native-spec-export.md)
 adds an isolated native exporter/artifact path. The [#171 family step](native-builder-family.md)
 now makes independently native artifacts the production provider for all 12 AST
-builder specifications. Other exports and the six compiler policies still depend
-on Go CUE; wider feature expansion stays deferred. The later
+builder specifications. Other exports and the six complete compiler policies still
+depend on Go CUE; the later [#220 integer-policy input](native-ast-integer-policy.md)
+independently constructs ONE integer-literal case for the AST default policy.
+That partial input does not close a complete compiler policy. Wider feature
+expansion stays deferred. The later
 [#182 demand-policy cut](native-demand-policies.md) natively constructs the two
 experimental dispatch policies from their unchanged three-file raw closure. They
 are test-only graph policies, not any of the six lowering-policy exports; their
@@ -28,7 +31,9 @@ JSON parsing or calling the eager expression VM.
 
 The authoritative export manifest is `infra/tooling/flake.nix`: `exportFixtures`,
 `builderFixtures`/`builderExportFixtures`, `cueSources`, and `jsonExports`' exact
-native-provider membership and per-CUE-fixture fragment selection. AST positive
+native-provider membership and per-CUE-fixture fragment selection. Canonical
+`ast-lowering` additionally receives the native integer-case JSON root; its
+explicit override fixtures instead receive the canonical raw two-alternative owner. AST positive
 exports come from `nativeBuilders`; the production bundle copies them and does
 not run Go CUE for those fixtures. Distinguish three closures:
 

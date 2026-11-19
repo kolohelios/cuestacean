@@ -321,6 +321,7 @@
                 ../../bootstrap/pratt-lowering-fragments.cue
                 ../../bootstrap/unify-lowering-fragments.cue
                 ../../bootstrap/ast-lowering-fragments.cue
+                ../../bootstrap/ast-integer-policy.cue
                 ../../bootstrap/scan-lowering-fragments.cue
                 ../../bootstrap/meta-lowering-fragments.cue
                 ../../bootstrap/tests/invalid
@@ -388,6 +389,12 @@
               inputs=("${cueSources}/$schema.cue")
               for fragment in "''${fragments[@]}"; do inputs+=("${cueSources}/$fragment.cue"); done
               inputs+=("${cueSources}/$fixture.cue")
+              # Choose the provider before execution: overrides need the raw
+              # preference, never the already materialized default artifact.
+              case "$fixture" in
+                ast-lowering) inputs+=("${nativeAstIntegerPolicy pkgs}/ast-integer-policy.json") ;;
+                tests/valid/ast-lowering-*) inputs+=("${cueSources}/ast-integer-policy.cue") ;;
+              esac
               cue export "''${inputs[@]}" --out json | jq -S . > first.json
               cue export "''${inputs[@]}" --out json | jq -S . > second.json
               cmp first.json second.json
@@ -683,6 +690,11 @@
             ++ pkgs.lib.optionals tests (
               [
                 ../../bootstrap/spec-export/tests
+                ../../bootstrap/ast-integer-policy.cue
+                ../../bootstrap/native-policy-package.cue
+                ../../bootstrap/schema.cue
+                ../../bootstrap/ast-lowering.cue
+                ../../bootstrap/tests/valid/ast-lowering-forced.cue
                 ../../bootstrap/ast-lowering-fragments.cue
                 ../../bootstrap/scanner-schema.cue
                 ../../bootstrap/group-open.cue
@@ -807,6 +819,162 @@
             cp ${nativeDemandPolicyBuildClosure pkgs}/store-paths "$out/native-build-paths"
             cp ${nativeDemandPolicyBuildClosure pkgs}/registration "$out/native-build-registration"
             printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeDemandPolicies pkgs).drvPath} > "$out/native-build-roots"
+          '';
+      astIntegerPolicySources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/ast-integer-policy.cue
+            ../../bootstrap/native-policy-package.cue
+          ];
+        };
+      nativeAstIntegerPolicy =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-ast-integer-policy" { } ''
+          set -euo pipefail
+          mkdir -p "$out" "$PWD/home"
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          test -r "$exporter" && test -x "$exporter"
+          for run in first second; do
+            env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" \
+              ${astIntegerPolicySources pkgs}/native-policy-package.cue \
+              ${astIntegerPolicySources pkgs}/ast-integer-policy.cue > "$run.json"
+          done
+          cmp first.json second.json
+          cp first.json "$out/ast-integer-policy.json"
+        '';
+      nativeAstIntegerPolicyBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativeAstIntegerPolicy pkgs).drvPath
+          ];
+        };
+      nativeAstIntegerPolicyVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-ast-integer-policy-verification"
+          {
+            nativeBuildInputs = [
+              pkgs.jq
+              pkgs.rustfmt
+            ];
+          }
+          ''
+            set -euo pipefail
+            # This check may use Go CUE and the executor; construction may not.
+            for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} \
+              ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+              ${executor pkgs} ${(executor pkgs).drvPath} \
+              ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+              ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+              if grep -Fx "$forbidden" ${nativeAstIntegerPolicyBuildClosure pkgs}/store-paths; then
+                echo "forbidden integer-policy construction dependency: $forbidden" >&2
+                exit 1
+              fi
+            done
+            mkdir -p "$out" "$PWD/probe/home"
+            cd probe
+            exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+            oracle=${pkgs.cue}/bin/cue
+            codegen=${executor pkgs}/bin/bootstrap-ast-codegen
+            for binary in "$exporter" "$oracle" "$codegen"; do
+              test -r "$binary" && test -x "$binary"
+              case "$binary" in /*) ;; *) exit 1 ;; esac
+            done
+            native() { env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$@"; }
+            cue() { env -i HOME="$PWD/home" PATH=/nonexistent "$oracle" "$@"; }
+            generate() {
+              env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" "$@" | rustfmt --edition 2024
+            }
+            no_export() {
+              if cue export "$@" > failed.json 2> failed.err; then
+                echo "unexpected concrete policy" >&2; exit 1
+              fi
+              test ! -s failed.json && test -s failed.err
+            }
+            cp ${astIntegerPolicySources pkgs}/native-policy-package.cue renamed-package.cue
+            cp ${astIntegerPolicySources pkgs}/ast-integer-policy.cue renamed-owner.cue
+            # Complete independent answers; neither is a construction input.
+            answer='{"cases":{"integer":{"op":"concat","parts":[{"op":"text","value":"Value::from("},{"op":"signed","field":"value"},{"op":"text","value":"i64)"}]}}}'
+            printf '%s\n' "$answer" | jq -S . > expected.json
+            native renamed-package.cue renamed-owner.cue > default.json
+            native renamed-owner.cue renamed-package.cue > reversed.json
+            cmp default.json reversed.json
+            cmp default.json expected.json
+            cmp default.json ${nativeAstIntegerPolicy pkgs}/ast-integer-policy.json
+            cue export renamed-package.cue renamed-owner.cue | jq -S . > oracle.json
+            cmp default.json oracle.json
+
+            # Both forced paths still observe the RAW preference, in two files.
+            printf 'package bootstrap\n{cases:{integer:{op:"text",value:"Value::from(99i64)"}}}\n' > forced.cue
+            native renamed-owner.cue forced.cue > forced.json
+            printf '%s\n' '{"cases":{"integer":{"op":"text","value":"Value::from(99i64)"}}}' | jq -S . > expected-forced.json
+            cmp forced.json expected-forced.json
+            cue export renamed-owner.cue forced.cue | jq -S . > oracle-forced.json
+            cmp forced.json oracle-forced.json
+            printf 'package bootstrap\n{cases:{integer:{op:"text"}}}\n' > incomplete.cue
+            if native renamed-owner.cue incomplete.cue > incomplete.json 2> incomplete.err; then exit 1; fi
+            test ! -s incomplete.json
+            grep -F 'incomplete export demand' incomplete.err
+            no_export renamed-owner.cue incomplete.cue
+            cue eval renamed-owner.cue incomplete.cue > /dev/null
+
+            schema=${../../bootstrap/schema.cue}
+            fragments=${../../bootstrap/ast-lowering-fragments.cue}
+            selector=${../../bootstrap/ast-lowering.cue}
+            # Whole policies, under the existing canonicalization, not subtrees.
+            cue export "$schema" "$fragments" "$selector" renamed-owner.cue | jq -S . > raw-policy.json
+            cue export "$schema" "$fragments" "$selector" \
+              ${nativeAstIntegerPolicy pkgs}/ast-integer-policy.json | jq -S . > assembled-policy.json
+            cmp raw-policy.json assembled-policy.json
+            cmp assembled-policy.json ${jsonExports pkgs}/ast-lowering.json
+            no_export "$schema" "$fragments" "$selector"
+            cp failed.err missing-provider.err
+            grep -F 'incomplete value' missing-provider.err
+            no_export "$schema" "$fragments" "$selector" renamed-owner.cue incomplete.cue
+            cue eval "$schema" "$fragments" "$selector" renamed-owner.cue incomplete.cue > /dev/null
+            no_export "$schema" "$fragments" "$selector" \
+              ${nativeAstIntegerPolicy pkgs}/ast-integer-policy.json forced.cue
+            cue export "$schema" "$fragments" renamed-owner.cue \
+              ${../../bootstrap/tests/valid/ast-lowering-forced.cue} | jq -S . > forced-policy.json
+            cmp forced-policy.json ${jsonExports pkgs}/tests/valid/ast-lowering-forced.json
+            generate ${jsonExports pkgs}/tests/valid/ast-literal.json forced-policy.json > forced.rs
+            cmp forced.rs ${../../bootstrap/generated/ast-forced-integer.rs}
+            for builder in ${builderNames}; do
+              name=$(basename "$builder")
+              generate ${jsonExports pkgs}/"$builder.json" assembled-policy.json > "$name.rs"
+              cmp "$name.rs" ${../../bootstrap/generated}/"$name.rs"
+            done
+
+            # Verifier-only source mutation. BOTH alternatives remain in place;
+            # preferred source data must affect native JSON, full policy and Rust.
+            substitute renamed-owner.cue variant.cue \
+              --replace-fail 'Value::from(' 'Value::from(1 + '
+            native renamed-package.cue variant.cue > variant.json
+            printf '%s\n' '{"cases":{"integer":{"op":"concat","parts":[{"op":"text","value":"Value::from(1 + "},{"op":"signed","field":"value"},{"op":"text","value":"i64)"}]}}}' | jq -S . > expected-variant.json
+            cmp variant.json expected-variant.json
+            if cmp -s default.json variant.json; then exit 1; fi
+            cue export renamed-package.cue variant.cue | jq -S . > oracle-variant.json
+            cmp variant.json oracle-variant.json
+            cue export "$schema" "$fragments" "$selector" variant.json | jq -S . > variant-policy.json
+            cue export "$schema" "$fragments" "$selector" variant.cue | jq -S . > raw-variant-policy.json
+            cmp variant-policy.json raw-variant-policy.json
+            if cmp -s assembled-policy.json variant-policy.json; then exit 1; fi
+            generate ${jsonExports pkgs}/tests/valid/ast-literal.json variant-policy.json > variant.rs
+            printf '%s\n' \
+              '// Generated by bootstrap-ast-codegen. Do not edit by hand.' \
+              'use serde_json::Value;' \
+              'pub fn build() -> Value {' \
+              '    Value::from(1 + 7i64)' \
+              '}' > expected-variant.rs
+            cmp variant.rs expected-variant.rs
+            cp default.json forced.json incomplete.err missing-provider.err \
+              raw-policy.json assembled-policy.json variant.json variant-policy.json variant.rs "$out/"
+            cp ${nativeAstIntegerPolicyBuildClosure pkgs}/store-paths "$out/native-build-paths"
+            cp ${nativeAstIntegerPolicyBuildClosure pkgs}/registration "$out/native-build-registration"
+            printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeAstIntegerPolicy pkgs).drvPath} > "$out/native-build-roots"
           '';
       builderSources =
         pkgs:
@@ -936,19 +1104,16 @@
             # Produce with the minimal production binary BEFORE oracle comparison.
             tagged="$PWD/tagged"
             mkdir -p "$tagged/home"
-            printf 'package fragment\n' > "$tagged/schema.cue"
-            pattern='^[[:space:]]*integer: \*'
-            test "$(grep -c "$pattern" ${../../bootstrap/ast-lowering-fragments.cue})" -eq 1
-            choice=$(grep "$pattern" ${../../bootstrap/ast-lowering-fragments.cue} | cut -d: -f2-)
+            cp ${astIntegerPolicySources pkgs}/ast-integer-policy.cue "$tagged/program.cue"
             test -r ${specExporter pkgs}/bin/cuestacean-spec-export
             test -x ${specExporter pkgs}/bin/cuestacean-spec-export
             for name in default text incomplete; do
               case "$name" in
                 default) context='{}' ;;
-                text) context='{integer:{op:"text",value:"x"}}' ;;
-                incomplete) context='{integer:{op:"text"}}' ;;
+                text) context='{cases:{integer:{op:"text",value:"x"}}}' ;;
+                incomplete) context='{cases:{integer:{op:"text"}}}' ;;
               esac
-              printf 'package fragment\n{integer:(%s)} & %s\n' "$choice" "$context" > "$tagged/program.cue"
+              printf 'package bootstrap\n%s\n' "$context" > "$tagged/schema.cue"
               if [ "$name" = incomplete ]; then
                 if env -i HOME="$tagged/home" PATH=/nonexistent ${specExporter pkgs}/bin/cuestacean-spec-export \
                   "$tagged/schema.cue" "$tagged/program.cue" > "$tagged/$name.json" 2> "$tagged/$name.err"; then
@@ -970,8 +1135,8 @@
                   "$tagged/program.cue" "$tagged/schema.cue" > "$tagged/repeated.json"
                 cmp "$tagged/repeated.json" "$tagged/$name.json"
                 case "$name" in
-                  default) answer='{"integer":{"op":"concat","parts":[{"op":"text","value":"Value::from("},{"op":"signed","field":"value"},{"op":"text","value":"i64)"}]}}' ;;
-                  text) answer='{"integer":{"op":"text","value":"x"}}' ;;
+                  default) answer='{"cases":{"integer":{"op":"concat","parts":[{"op":"text","value":"Value::from("},{"op":"signed","field":"value"},{"op":"text","value":"i64)"}]}}}' ;;
+                  text) answer='{"cases":{"integer":{"op":"text","value":"x"}}}' ;;
                 esac
                 printf '%s\n' "$answer" | jq -S . > "$tagged/expected.json"
                 cmp "$tagged/expected.json" "$tagged/$name.json"
@@ -997,6 +1162,7 @@
           native-ast-atom = nativeAtom pkgs;
           native-ast-builders = nativeBuilders pkgs;
           native-demand-policies = nativeDemandPolicies pkgs;
+          native-ast-integer-policy = nativeAstIntegerPolicy pkgs;
           default-observer = defaultObserver pkgs;
           default-trace = defaultTrace pkgs;
         }
@@ -1055,6 +1221,7 @@
           native-spec-closure = nativeVerification pkgs;
           native-builder-family = nativeBuilderVerification pkgs;
           native-demand-policies = nativeDemandPolicyVerification pkgs;
+          native-ast-integer-policy = nativeAstIntegerPolicyVerification pkgs;
           bootstrap-codegen =
             pkgs.runCommand "cuestacean-bootstrap-codegen"
               {
