@@ -597,3 +597,337 @@ fn missing_or_broken_provider_is_fatal_without_fallback() {
         );
     }
 }
+
+// Public nil/non-nil observations only: false can include inexact comparisons,
+// and mutual acceptance is not a mathematical equivalence certificate.
+fn relation_wire(mode: &str, accepted: bool) -> &'static str {
+    match (mode, accepted) {
+        ("subsume", true) => "{\"formatVersion\":2,\"mode\":\"subsume\",\"accepted\":true}\n",
+        ("subsume", false) => "{\"formatVersion\":2,\"mode\":\"subsume\",\"accepted\":false}\n",
+        ("raw-subsume", true) => {
+            "{\"formatVersion\":2,\"mode\":\"raw-subsume\",\"accepted\":true}\n"
+        }
+        ("raw-subsume", false) => {
+            "{\"formatVersion\":2,\"mode\":\"raw-subsume\",\"accepted\":false}\n"
+        }
+        _ => panic!("unknown relation mode"),
+    }
+}
+
+fn expect_relations(files: &Files, selectors: [&str; 2], expected: [bool; 4]) {
+    // Every expect invokes a new process twice, with cleared env/unusable PATH.
+    // No Default or Marshal call precedes Subsume in either public API profile.
+    for (mode, offset) in [("subsume", 0), ("raw-subsume", 2)] {
+        files.expect(mode, &selectors, relation_wire(mode, expected[offset]));
+        files.expect(
+            mode,
+            &[selectors[1], selectors[0]],
+            relation_wire(mode, expected[offset + 1]),
+        );
+    }
+}
+
+#[test]
+fn handwritten_relation_controls_both_directions_and_profiles() {
+    // Columns: ordinary forward/reverse, Raw forward/reverse. Independent
+    // handwritten expectations, not inferred from flags/status/CLI exports.
+    let cases = [
+        ("plain-marked", "1|2", "*1|2", [true, true, false, true]),
+        ("opposite-marks", "*1|2", "1|*2", [true, true, false, false]),
+        ("flat-bottom", "(*1|2)&(*2|1)", "1|2", [true; 4]),
+        ("forced", "(*1|2)&1", "1", [true; 4]),
+        ("eliminated", "(*1|2)&2", "2", [true; 4]),
+        ("multiple", "*1|*2|3", "1|2|3", [true, true, true, false]),
+        ("abstract", "*int|1", "int", [true; 4]),
+        ("int-top", "int", "_", [false, true, false, true]),
+        ("false-bool", "false", "bool", [false, true, false, true]),
+        ("null-top", "null", "_", [false, true, false, true]),
+        (
+            "min-int",
+            "-9223372036854775808",
+            "int",
+            [false, true, false, true],
+        ),
+        (
+            "max-int",
+            "9223372036854775807",
+            "int",
+            [false, true, false, true],
+        ),
+        ("conflict", "1&2", "1", [false, true, false, true]),
+        ("distinct", "1", "2", [false; 4]),
+        ("plain-reflexive", "1|2", "1|2", [true; 4]),
+        ("marked-reflexive", "*1|2", "*1|2", [true; 4]),
+        ("scalar-reflexive", "false", "false", [true; 4]),
+        (
+            "176-operands",
+            "(*1|2)|*3",
+            "*2|1",
+            [true, false, false, false],
+        ),
+    ];
+    for (name, super_expr, sub_expr, expected) in cases {
+        let files = Files::new(&format!(
+            "package relation\n// {name}\nsuperValue: ({super_expr})\nsubValue: ({sub_expr})\nunrelated: 1&2\n"
+        ));
+        expect_relations(&files, ["superValue", "subValue"], expected);
+    }
+}
+
+#[test]
+fn separately_pinned_source_forward_reverse_relation_states() {
+    // Both fields are self-contained source expressions, NEVER field references
+    // or API Unify results. Incomplete in both orders does not predict Raw.
+    let cases = [
+        (
+            "176-genuine",
+            "(((*1|2)|*3)&(*2|1))",
+            "((*2|1)&((*1|2)|*3))",
+            [true, true, false, true],
+        ),
+        (
+            "176-asymmetric",
+            "(*1|2)&((*1|2)|*3)",
+            "(((*1|2)|*3)&(*1|2))",
+            [true, true, true, false],
+        ),
+        (
+            "176-abstract-asymmetric",
+            "(*int|1)&((*1|2)|3)",
+            "(((*1|2)|3)&(*int|1))",
+            [true, true, true, false],
+        ),
+        (
+            "176-nested-asymmetric",
+            "(*((*1|2)&(1|*2))|3)&(*3|1|2)",
+            "(*3|1|2)&(*((*1|2)&(1|*2))|3)",
+            [true, true, false, true],
+        ),
+        (
+            "186-asymmetric-one",
+            "((*1|2)|(*2|1))&(*1|2)",
+            "(*1|2)&((*1|2)|(*2|1))",
+            [true, true, false, true],
+        ),
+        (
+            "186-asymmetric-two",
+            "(((*1|2)&(*1|3))|3)&(*3|1)",
+            "(*3|1)&(((*1|2)&(*1|3))|3)",
+            [true, true, false, true],
+        ),
+        (
+            "186-genuine",
+            "((*3|1)|3)&((*1|2)|(*3|2))",
+            "((*1|2)|(*3|2))&((*3|1)|3)",
+            [true; 4],
+        ),
+        (
+            "188-dead-mark-genuine",
+            "(((*1|2)|*3)&(1|2))",
+            "((1|2)&((*1|2)|*3))",
+            [true; 4],
+        ),
+        (
+            "188-regression-genuine",
+            "(*((*1|2)|3)|(*4|5))&(1|4)",
+            "(1|4)&(*((*1|2)|3)|(*4|5))",
+            [true; 4],
+        ),
+        (
+            "188-bottom-genuine",
+            "(((*1|2)&(*2|1))|1)&(*1|2)",
+            "(*1|2)&(((*1|2)&(*2|1))|1)",
+            [true, true, false, true],
+        ),
+        (
+            "188-asymmetric",
+            "(*((*1|2)|3)|(*4|5))&(1|2|3|4|5)",
+            "(1|2|3|4|5)&(*((*1|2)|3)|(*4|5))",
+            [true, true, false, true],
+        ),
+        (
+            "188-m2-asymmetric",
+            "(*(*3|1)|2)&(1|2)",
+            "(1|2)&(*(*3|1)|2)",
+            [true, true, false, true],
+        ),
+    ];
+    for (name, source_forward, source_reverse, expected) in cases {
+        let files = Files::new(&format!(
+            "// {name}\nsourceForward: ({source_forward})\nsourceReverse: ({source_reverse})\n"
+        ));
+        expect_relations(&files, ["sourceForward", "sourceReverse"], expected);
+    }
+}
+
+#[test]
+fn relation_flat_preference_ambiguity_has_fresh_v1_observations() {
+    let files = Files::new("flat: (*1|2)&(*2|1)\nplain: 1|2\n");
+    let incomplete = "{\"formatVersion\":1,\"mode\":\"inspect\",\"leftDefault\":null,\"rightDefault\":null,\"defaultSelected\":false,\"status\":\"incomplete\",\"value\":null}\n";
+    files.expect("inspect", &["flat"], incomplete);
+    files.expect("inspect", &["plain"], incomplete);
+    // Separately observed acceptance, not a consequence of matching v1 fields.
+    expect_relations(&files, ["flat", "plain"], [true; 4]);
+}
+
+#[test]
+fn relation_exact_protocol_and_renamed_file_nested_selectors() {
+    let files = Files::new("wide: int\nnarrow: 1\n");
+    expect_relations(&files, ["wide", "narrow"], [true, false, true, false]);
+    let path = files.write(
+        "renamed relation source.cue",
+        b"package renamed\nbox: {\"wide field\": int, \"narrow field\": 1}\n",
+    );
+    for mode in ["subsume", "raw-subsume"] {
+        for (a, b, accepted) in [
+            ("box.\"wide field\"", "box.\"narrow field\"", true),
+            ("box.\"narrow field\"", "box.\"wide field\"", false),
+        ] {
+            for _ in 0..2 {
+                let output = files.invoke(&[mode, path.to_str().expect("UTF-8 path"), a, b]);
+                assert!(output.status.success());
+                assert!(output.stderr.is_empty());
+                assert_eq!(output.stdout, relation_wire(mode, accepted).as_bytes());
+            }
+        }
+    }
+}
+
+#[test]
+fn relation_setup_admission_and_selector_failures_both_modes() {
+    let files = Files::new("left: int\nright: 1\nbox: {value: 1}\n");
+    for mode in ["subsume", "raw-subsume"] {
+        for args in [
+            vec![mode],
+            vec![mode, "probe.cue"],
+            vec![mode, "probe.cue", "left"],
+            vec![mode, "probe.cue", "left", "right", "left"],
+            vec![mode, "missing.cue", "left", "right"],
+            vec![mode, ".", "left", "right"],
+        ] {
+            setup_failure(files.invoke(&args));
+        }
+        for bad in ["", "left[", "absent", "box"] {
+            setup_failure(files.run(mode, &[bad, "right"]));
+            setup_failure(files.run(mode, &["left", bad]));
+        }
+    }
+    for source in [
+        "left: (",
+        "import \"math\"\nleft: int\nright: 1\n",
+        "left: int\nright: 1\nunrelated: right\n",
+        "left: int\nright: 1\nunrelated: missing\n",
+        "left: int\nright: 1\nunrelated: [1,2]\n",
+        "left: int\nright: 1\nunrelated: 1+2\n",
+        "left: int\nright: 1\nlet alias = 1\n",
+        "left: int\nright: 1\nbox: {other: right}\n",
+    ] {
+        files.write("probe.cue", source.as_bytes());
+        for mode in ["subsume", "raw-subsume"] {
+            setup_failure(files.run(mode, &["left", "right"]));
+        }
+    }
+    for label in [
+        "_",
+        "int",
+        "bool",
+        "string",
+        "bytes",
+        "number",
+        "float",
+        "\\u0069nt",
+    ] {
+        for quoted in [false, true] {
+            // The escaped spelling is meaningful only inside a quoted label.
+            if label.starts_with('\\') && !quoted {
+                continue;
+            }
+            let label = if quoted {
+                format!("\"{label}\"")
+            } else {
+                label.into()
+            };
+            for declaration in [format!("{label}: 1"), format!("box: {{{label}: 1}}")] {
+                files.write(
+                    "probe.cue",
+                    format!("left: 1\nright: 1\n{declaration}\n").as_bytes(),
+                );
+                for mode in ["subsume", "raw-subsume"] {
+                    setup_failure(files.run(mode, &["left", "right"]));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn relation_source_and_both_selector_caps_are_inclusive() {
+    let files = Files::new("left: int\nright: 1\n");
+    let mut source = b"left: int\nright: 1\n".to_vec();
+    source.resize(65536, b' ');
+    files.write("probe.cue", &source);
+    expect_relations(&files, ["left", "right"], [true, false, true, false]);
+    source.push(b' ');
+    files.write("probe.cue", &source);
+    for mode in ["subsume", "raw-subsume"] {
+        setup_failure(files.run(mode, &["left", "right"]));
+    }
+    let label = "é".repeat(127);
+    let limit = format!("\"{label}\"");
+    let over = format!("\"{label}a\"");
+    assert_eq!(limit.len(), 256);
+    assert_eq!(over.len(), 257);
+    files.write("probe.cue", format!("{limit}: int\nright: 1\n").as_bytes());
+    expect_relations(&files, [&limit, "right"], [true, false, true, false]);
+    files.write("probe.cue", format!("{over}: int\nright: 1\n").as_bytes());
+    for mode in ["subsume", "raw-subsume"] {
+        setup_failure(files.run(mode, &[&over, "right"]));
+        setup_failure(files.run(mode, &["right", &over]));
+    }
+}
+
+// Also run in subprocesses below: broken providers must never reach a fallback.
+#[test]
+fn relation_provider_setup_requires_absolute_executable() {
+    let files = Files::new("left: int\nright: 1\n");
+    for mode in ["subsume", "raw-subsume"] {
+        files.expect(mode, &["left", "right"], relation_wire(mode, true));
+    }
+}
+
+#[test]
+fn relation_broken_provider_is_fatal_without_fallback() {
+    let files = Files::new("left: int\nright: 1\n");
+    let unreadable = files.write("unreadable-relation", b"not an oracle");
+    fs::set_permissions(&unreadable, fs::Permissions::from_mode(0o111)).expect("unreadable");
+    let not_executable = files.write("not-executable-relation", b"not an oracle");
+    let invalid = files.write("invalid-relation", b"not executable format");
+    fs::set_permissions(&invalid, fs::Permissions::from_mode(0o755)).expect("executable");
+    for path in [
+        None,
+        Some(Path::new("relative-relation-oracle")),
+        Some(files.0.as_path()),
+        Some(files.0.join("absent-relation-oracle").as_path()),
+        Some(unreadable.as_path()),
+        Some(not_executable.as_path()),
+        Some(invalid.as_path()),
+    ] {
+        let mut command = Command::new(std::env::current_exe().expect("current test binary"));
+        command
+            .args([
+                "--exact",
+                "relation_provider_setup_requires_absolute_executable",
+                "--nocapture",
+            ])
+            .env_clear()
+            .env("PATH", NO_PATH);
+        if let Some(path) = path {
+            command.env(PROVIDER, path);
+        }
+        let output = command.output().expect("isolated relation provider test");
+        assert!(
+            !output.status.success(),
+            "invalid relation provider accepted: {path:?}"
+        );
+    }
+}
