@@ -470,6 +470,47 @@
             mkdir -p "$out/bin"
             go build -mod=vendor -trimpath -o "$out/bin/cuestacean-default-observer" ./cmd/cuestacean-default-observer
           '';
+      # Separate instrumented oracle: the pinned evaluator is changed only by
+      # three bounded diagnostic hooks. Never wire this into rustPackage/seeds.
+      defaultTrace =
+        pkgs:
+        pkgs.runCommand "cuestacean-default-trace"
+          {
+            nativeBuildInputs = [
+              pkgs.go
+              pkgs.perl
+            ];
+            meta.mainProgram = "cuestacean-default-trace";
+          }
+          ''
+            cp -R ${pkgs.cue.src} source
+            chmod -R u+w source
+            cd source
+            ln -s ${pkgs.cue.goModules} vendor
+            mkdir -p cmd/cuestacean-default-trace "$out/bin"
+            cp ${../../bootstrap/oracles/default-trace/adt.go} internal/core/adt/cuestacean_trace.go
+            cp ${../../bootstrap/oracles/default-trace/adt_test.go} internal/core/adt/cuestacean_trace_test.go
+            cp ${../../bootstrap/oracles/default-trace/main.go} cmd/cuestacean-default-trace/main.go
+            cp ${../../bootstrap/oracles/default-trace/main_test.go} cmd/cuestacean-default-trace/main_test.go
+            perl -0pi -e '
+              my $n = s~(\Qfunc (n *nodeContext) crossProduct(dst, cross []*nodeContext, dn *envDisjunct, mode runMode) []*nodeContext {\E\n)~$1\ttraceID := cuestaceanTraceEnter()\n~g;
+              die "trace entry hook drift" unless $n == 1;
+              $n = s~(\thasNonMaybe := false\n)~\tcuestaceanTraceTrials(traceID, tmp, leftDropsDefault, rightDropsDefault)\n$1~g;
+              die "trace trials hook drift" unless $n == 1;
+              $n = s~(\treturn dst\n\}\n\nfunc combineDefault2)~\tcuestaceanTraceResults(traceID, dst)\n$1~g;
+              die "trace results hook drift" unless $n == 1;
+            ' internal/core/adt/disjunct2.go
+            # Removing exactly the hook lines must restore the pinned source.
+            perl -ne 'print unless /^\t(?:traceID := cuestaceanTraceEnter\(\)|cuestaceanTraceTrials\(traceID, tmp, leftDropsDefault, rightDropsDefault\)|cuestaceanTraceResults\(traceID, dst\))\n$/' \
+              internal/core/adt/disjunct2.go > restored.go
+            cmp restored.go ${pkgs.cue.src}/internal/core/adt/disjunct2.go
+            diff -u --label pinned/disjunct2.go --label instrumented/disjunct2.go ${pkgs.cue.src}/internal/core/adt/disjunct2.go internal/core/adt/disjunct2.go > "$out/instrumentation.diff" || test "$?" = 1
+            export CGO_ENABLED=0 GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+            export HOME=$TMPDIR GOCACHE=$TMPDIR/go-cache
+            go test -mod=vendor ./internal/core/adt -run '^TestCuestacean'
+            go test -mod=vendor ./cmd/cuestacean-default-trace
+            go build -mod=vendor -trimpath -o "$out/bin/cuestacean-default-trace" ./cmd/cuestacean-default-trace
+          '';
       defaultObserverVerification =
         pkgs:
         let
@@ -477,11 +518,13 @@
           # recursive build-time dependencies, unlike runtime output references.
           seedClosure = pkgs.closureInfo { rootPaths = [ (codegenSeed pkgs).drvPath ]; };
         in
-        pkgs.runCommand "cuestacean-default-observer-verification" { } ''
-          if grep -Fx ${(defaultObserver pkgs).drvPath} ${seedClosure}/store-paths; then
-            echo "observer leaked into compiler construction graph" >&2
-            exit 1
-          fi
+        pkgs.runCommand "cuestacean-default-observer-verification" { nativeBuildInputs = [ pkgs.jq ]; } ''
+          for forbidden in ${(defaultObserver pkgs).drvPath} ${(defaultTrace pkgs).drvPath}; do
+            if grep -Fx "$forbidden" ${seedClosure}/store-paths; then
+              echo "observer leaked into compiler construction graph" >&2
+              exit 1
+            fi
+          done
           mkdir -p "$out"
           cp ${seedClosure}/store-paths "$out/seed-build-paths"
           cp ${seedClosure}/registration "$out/seed-build-registration"
@@ -491,6 +534,12 @@
           env -i PATH=/nonexistent ${defaultObserver pkgs}/bin/cuestacean-default-observer inspect probe.cue a > "$out/observation.json"
           printf '%s\n' '{"formatVersion":1,"mode":"inspect","leftDefault":null,"rightDefault":null,"defaultSelected":true,"status":"concrete","value":1}' > expected.json
           cmp expected.json "$out/observation.json"
+          printf '%s\n' ${(defaultTrace pkgs).drvPath} > "$out/forbidden-trace-drv"
+          env -i PATH=/nonexistent ${defaultTrace pkgs}/bin/cuestacean-default-trace trace probe.cue a > "$out/trace.json"
+          jq -c '{formatVersion,mode,defaultSelected,status,value}' "$out/trace.json" > trace-summary.json
+          printf '%s\n' '{"formatVersion":1,"mode":"trace","defaultSelected":true,"status":"concrete","value":1}' > trace-expected.json
+          cmp trace-expected.json trace-summary.json
+          jq -e '.batches | length > 0' "$out/trace.json" > /dev/null
         '';
 
       # Delete only staged build copies, never the working tree. Neither stage
@@ -541,8 +590,10 @@
           ];
           CUESTACEAN_BOOTSTRAP_JSON = jsonExports pkgs;
           CUESTACEAN_DEFAULT_OBSERVER = "${defaultObserver pkgs}/bin/cuestacean-default-observer";
+          CUESTACEAN_DEFAULT_TRACE = "${defaultTrace pkgs}/bin/cuestacean-default-trace";
           preCheck = old.preCheck + ''
             cargo test --offline --no-default-features --test default_observer
+            cargo test --offline --no-default-features --test default_trace
           '';
           postPatch = clearArtifacts + ''
             # Do not leak strict shell options into later stdenv hooks.
@@ -712,7 +763,7 @@
             set -euo pipefail
             # These identities are forbidden only in the native construction
             # graph. This separate oracle/check package is not Go-CUE-free.
-            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath} ${(executor pkgs).drvPath} ${(defaultObserver pkgs).drvPath}; do
+            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath} ${(executor pkgs).drvPath} ${(defaultObserver pkgs).drvPath} ${(defaultTrace pkgs).drvPath}; do
               if grep -Fx "$forbidden" ${nativeDemandPolicyBuildClosure pkgs}/store-paths; then
                 echo "forbidden bootstrap dependency: $forbidden" >&2; exit 1
               fi
@@ -773,7 +824,7 @@
           }
           ''
             set -euo pipefail
-            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath} ${(executor pkgs).drvPath} ${(defaultObserver pkgs).drvPath}; do
+            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath} ${(executor pkgs).drvPath} ${(defaultObserver pkgs).drvPath} ${(defaultTrace pkgs).drvPath}; do
               if grep -Fx "$forbidden" ${nativeBuilderBuildClosure pkgs}/store-paths; then
                 echo "forbidden bootstrap dependency: $forbidden" >&2; exit 1
               fi
@@ -840,7 +891,7 @@
           }
           ''
             set -euo pipefail
-            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath} ${(executor pkgs).drvPath} ${(defaultObserver pkgs).drvPath}; do
+            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath} ${(executor pkgs).drvPath} ${(defaultObserver pkgs).drvPath} ${(defaultTrace pkgs).drvPath}; do
               if grep -Fx "$forbidden" ${nativeBuildClosure pkgs}/store-paths; then
                 echo "forbidden bootstrap dependency: $forbidden" >&2; exit 1
               fi
@@ -870,6 +921,7 @@
           native-ast-builders = nativeBuilders pkgs;
           native-demand-policies = nativeDemandPolicies pkgs;
           default-observer = defaultObserver pkgs;
+          default-trace = defaultTrace pkgs;
         }
       );
 
@@ -896,6 +948,7 @@
             CUESTACEAN_BOOTSTRAP_JSON = jsonExports pkgs;
             CUESTACEAN_DEMAND_POLICIES = nativeDemandPolicies pkgs;
             CUESTACEAN_DEFAULT_OBSERVER = "${defaultObserver pkgs}/bin/cuestacean-default-observer";
+            CUESTACEAN_DEFAULT_TRACE = "${defaultTrace pkgs}/bin/cuestacean-default-trace";
             packages = [
               pkgs.cue
               pkgs.rustc

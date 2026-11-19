@@ -78,6 +78,16 @@ Repo-wide `shaka preflight` also validates the CUE project schema and rejects
 drift in generated files or unaccounted GitHub Actions workflows. `taplo.toml`
 excludes direnv and Cargo caches from formatting, not project TOML sources.
 
+## Default research oracles
+
+`default-observer` retains the [public API profile](../../docs/default-observer.md).
+The separate `default-trace` package records [pinned upstream batch transitions](../../docs/default-lifetime-trace.md)
+without changing native construction or authorizing defaults. The devshell and
+executor provide mandatory `CUESTACEAN_DEFAULT_OBSERVER` / `CUESTACEAN_DEFAULT_TRACE`
+paths; neither provider belongs to the base compiler seed. The existing
+`default-observer` check now verifies both providers' exclusion from seed graphs.
+Trace output is diagnostic evidence, never a native artifact-construction input.
+
 ## Additional Jujutsu workspaces
 
 From the root of an additional `jj workspace`, explicitly root Nix's source at

@@ -1,0 +1,144 @@
+package main
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"cuelang.org/go/cue/ast"
+	"cuelang.org/go/cue/token"
+)
+
+func TestCuestaceanAdmission(t *testing.T) {
+	for _, source := range []string{"a: 0", "package p\na: *-9223372036854775808|+9223372036854775807", "a: (*1|2)&(1|2)"} {
+		if _, err := admit([]byte(source), "a"); err != nil {
+			t.Fatalf("%s: %v", source, err)
+		}
+	}
+	for _, source := range []string{
+		"", "package p", "a: 1\nb: 2", "a: 1\na: 2", "a: int", "a: b", "a: _", "a: true", "a: null", "a: 1.0", "a: 0x1", "a: 1_000", "a: 1e2", "a: 1+2", "a: [1]", "a: {b: 1}", "a?: 1", "a!: 1", "#a: 1", "_a: 1", "\"a\": 1", "a: 1 @foo()", "let x = 1\na: 1", "import \"math\"\na: 1", "a: -(-1)", "a: -(1)", "a: --1", "a: +9223372036854775808", "a: -9223372036854775809", "a: 9223372036854775808",
+		"a: " + strings.Repeat("(", 16) + "1" + strings.Repeat(")", 16),
+	} {
+		if _, err := admit([]byte(source), "a"); err == nil {
+			t.Errorf("admitted %s", source)
+		}
+	}
+	for _, label := range []string{"", "_", "int", "bool", "string", "bytes", "number", "float", "_x", "a.b", "é", strings.Repeat("a", 65)} {
+		if labelOK(label) {
+			t.Errorf("label %q", label)
+		}
+	}
+	if !labelOK("A_1") || !labelOK(strings.Repeat("a", 64)) {
+		t.Fatal("valid labels")
+	}
+	// Explicit grouping isolates node count from the depth guard.
+	var tree func(int) string
+	tree = func(d int) string {
+		if d == 0 {
+			return "1"
+		}
+		return "(" + tree(d-1) + "|" + tree(d-1) + ")"
+	}
+	// Five levels: 94 nodes, depth 11; six: 190 nodes, depth 13.
+	if _, err := admit([]byte("a: "+tree(5)), "a"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := admit([]byte("a: "+tree(6)), "a"); err == nil {
+		t.Fatal("node cap")
+	}
+	var balanced func(int) ast.Expr
+	balanced = func(d int) ast.Expr {
+		if d == 0 {
+			return &ast.BasicLit{Kind: token.INT, Value: "1"}
+		}
+		return &ast.BinaryExpr{Op: token.OR, X: balanced(d - 1), Y: balanced(d - 1)}
+	}
+	var e ast.Expr = balanced(6) // 127 nodes.
+	for want := 127; want <= 129; want++ {
+		nodes := 0
+		if ok := expression(e, 1, &nodes); ok != (want <= 128) || nodes != want {
+			t.Fatalf("node boundary %d: %d %v", want, nodes, ok)
+		}
+		e = &ast.ParenExpr{X: e}
+	}
+	if _, err := admit([]byte("a: "+strings.Repeat("(", 15)+"1"+strings.Repeat(")", 15)), "a"); err != nil {
+		t.Fatal("depth boundary", err)
+	}
+}
+
+func TestCuestaceanEncodedBoundary(t *testing.T) {
+	// Exercise only the encoder's byte guard, not finite-source admission.
+	out := observation{FormatVersion: 1, Mode: "trace", Status: "concrete", Value: json.RawMessage(`""`)}
+	base, err := encode(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, size := range []int{byteLimit, byteLimit + 1} {
+		out.Value = json.RawMessage(`"` + strings.Repeat("x", size-len(base)) + `"`)
+		b, err := encode(out)
+		if size == byteLimit {
+			if err != nil || len(b) != size || b[len(b)-1] != '\n' {
+				t.Fatalf("exact encoded limit: %d %v", len(b), err)
+			}
+		} else if err == nil || b != nil {
+			t.Fatal("one-over encoded limit")
+		}
+	}
+	if b, err := encode(observation{Value: json.RawMessage(`1`)}); err != nil || len(b) == 0 {
+		t.Fatal("encoder recovery", err)
+	}
+}
+
+func TestCuestaceanObservation(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "input.cue")
+	for _, row := range []struct {
+		source, status, value string
+		selected              bool
+	}{
+		{"a: *1|2", "concrete", "1", true},
+		{"a: 1|2", "incomplete", "null", false},
+		{"a: 1&2", "conflict", "null", false},
+		{"a: -9223372036854775808", "concrete", "-9223372036854775808", false},
+	} {
+		if err := os.WriteFile(path, []byte(row.source), 0600); err != nil {
+			t.Fatal(err)
+		}
+		b, err := observe([]string{"trace", path, "a"})
+		if err != nil {
+			t.Fatal(row.source, err)
+		}
+		var out observation
+		if err := json.Unmarshal(b, &out); err != nil {
+			t.Fatal(err)
+		}
+		if out.Status != row.status || string(out.Value) != row.value || out.DefaultSelected != row.selected || out.Batches == nil || b[len(b)-1] != '\n' {
+			t.Fatalf("unexpected %s", b)
+		}
+		if row.source == "a: *1|2" && (len(out.Batches) != 1 || len(out.Batches[0].Trials) != 2 || len(out.Batches[0].Results) != 2) {
+			t.Fatal("missing trace hooks")
+		}
+		again, err := observe([]string{"trace", path, "a"})
+		if err != nil || string(b) != string(again) {
+			t.Fatal("nondeterministic", err)
+		}
+	}
+	for _, args := range [][]string{nil, {"inspect", path, "a"}, {"trace", path}, {"trace", path, "a", "extra"}, {"trace", path, "b"}, {"trace", path, "a.b"}, {"trace", path + "missing", "a"}} {
+		if b, err := observe(args); err == nil || b != nil {
+			t.Fatalf("setup leaked %q %v", b, err)
+		}
+	}
+	if err := os.WriteFile(path, []byte(strings.Repeat(" ", byteLimit+1)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := observe([]string{"trace", path, "a"}); err == nil || b != nil {
+		t.Fatal("source cap")
+	}
+	if b, err := encode(observation{Value: json.RawMessage(`"` + strings.Repeat("x", byteLimit) + `"`)}); err == nil || b != nil {
+		t.Fatal("encoded cap")
+	}
+	if b, err := encode(observation{Value: json.RawMessage(`invalid`)}); err == nil || b != nil {
+		t.Fatal("encoding failure")
+	}
+}
