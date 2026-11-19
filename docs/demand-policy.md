@@ -22,15 +22,20 @@ production CUE and generated artifacts remain unchanged.
 ## What CUE owns versus native work
 
 A raw CUE schema and policy program under `bootstrap/spikes/` export a small
-instruction tree. Go CUE is an explicit **test-policy export dependency**, not an
-oracle secretly called after semantic failure. Export policy before graph calls;
-the graph/VM never executes processes, reads policy paths or retries through CUE.
+instruction tree. At #180, Go CUE was an explicit **test-policy export dependency**,
+not an oracle secretly called after semantic failure. The
+[#182 native provider](native-demand-policies.md) subsequently closes those two
+artifact-construction paths; Go CUE remains a separate mandatory oracle, not the
+provider. Supply native policy artifacts before graph calls; missing environment/
+files fail setup. The graph/VM never executes processes, reads policy paths or
+retries through CUE.
 Tests keep independent handwritten expected actions/results plus mandatory pinned
 CUE semantic probes, rather than comparing the same policy with itself.
 
 Raw paths: `bootstrap/spikes/demand-policy-schema.cue` supplies definitions only;
 `bootstrap/spikes/demand-policy.cue` and `demand-policy-defer.cue` are separate
-programs. All use package `demandpolicy`. Export the entire root with
+programs. All use package `demandpolicy`. Reproduce the separate oracle by
+exporting the entire root with
 `cue export <schema-path> <one-program-path> --out json` (no expression selector).
 Never load the canonical and alternate program together. Use fresh processes.
 
@@ -198,7 +203,9 @@ Decision: the checked facts -> executable CUE-authored dispatch -> certified
 native action boundary is viable for this test-only scalar fragment. Native
 world/meet/audit/fact algorithms, checked VM/accounting/certificates and flat
 preference primitives remain native, not passive storage. The native reference
-is evidence, not a fallback. Go CUE remains the explicit test-policy exporter.
+is evidence, not a fallback. Go CUE was the explicit test-policy exporter in #180;
+[#182](native-demand-policies.md) replaces that provider without changing dispatch
+semantics or weakening separate upstream comparisons.
 Nested preference suppression/reactivation is still unresolved, the old static
 falsification and conservative coverage cost are intact, and #175 remains held.
 This does not authorize a production graph or claim CUE specification semantics

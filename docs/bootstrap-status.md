@@ -43,7 +43,9 @@ retained/suppressed recipes and defers unresolved nested preference policy rathe
 than guessing a value. It is a conservative experimental classification, not a
 completed contextual default calculus. The [#180 dispatch-policy experiment](demand-policy.md)
 puts that conservative action choice in a CUE-authored instruction tree over
-checked native facts; it does not solve nested default lifetime or unhold #175.
+checked native facts. [#182 native demand-policy artifacts](native-demand-policies.md)
+supply both experimental programs independently of Go CUE; separate oracle checks
+remain. Neither step solves nested default lifetime or unholds #175.
 Pinned CUE order discrepancies are separate evidence, not an excuse for the gap.
 Production parsing/evaluation stays unchanged. These experiments do not complete
 the real policies' default/pattern/optional-field/import closures.

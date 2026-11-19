@@ -6,7 +6,10 @@ Milestone [#169](https://github.com/kolohelios/cuestacean/issues/169), agreed af
 The [#171 family extension](native-builder-family.md) reused the initial
 language/implementation for all 12 current builder specs with its own artifact and
 proof. [#173 lexical bindings](native-let-bindings.md) extend this native subset
-without changing those raw builder inputs or their JSON/Rust results. The original atom artifact and two-file attestation stay unchanged.
+without changing those raw builder inputs or their JSON/Rust results. The
+[#182 demand-policy artifact cut](native-demand-policies.md) reuses that same
+exporter/language for two experimental dispatch programs, with its own three-file
+raw cut and proof. The original atom artifact and two-file attestation stay unchanged.
 
 ## Boundary and ownership
 

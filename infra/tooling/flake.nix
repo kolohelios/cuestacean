@@ -413,6 +413,9 @@
             sourceRoot="$sourceRoot/executor"
           '';
           cargoLock.lockFile = ../../bootstrap/executor/Cargo.lock;
+          # Test-only provider; seed overrides inherit the native artifact, not its
+          # Go-CUE-dependent verifier. No policy JSON is embedded in seed binaries.
+          CUESTACEAN_DEMAND_POLICIES = nativeDemandPolicies pkgs;
           nativeCheckInputs = [
             pkgs.rustfmt
             pkgs.clippy
@@ -547,6 +550,9 @@
                 ../../bootstrap/spec-export/tests
                 ../../bootstrap/ast-schema.cue
                 ../../bootstrap/tests/invalid/ast-operation.cue
+                ../../bootstrap/spikes/demand-policy-schema.cue
+                ../../bootstrap/spikes/demand-policy.cue
+                ../../bootstrap/spikes/demand-policy-defer.cue
               ]
               ++ map (fixture: ../../bootstrap + "/${fixture}.cue") builderExportFixtures
             )
@@ -585,6 +591,69 @@
             cargo test --offline --all-targets --release
           '';
         });
+      demandPolicySources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/spikes/demand-policy-schema.cue
+            ../../bootstrap/spikes/demand-policy.cue
+            ../../bootstrap/spikes/demand-policy-defer.cue
+          ];
+        };
+      nativeDemandPolicies =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-demand-policies" { } ''
+          set -euo pipefail
+          mkdir -p "$out"
+          for program in demand-policy demand-policy-defer; do
+            env -i PATH=/nonexistent ${specExporter pkgs}/bin/cuestacean-spec-export \
+              ${demandPolicySources pkgs}/spikes/demand-policy-schema.cue \
+              ${demandPolicySources pkgs}/spikes/"$program.cue" > first.json
+            env -i PATH=/nonexistent ${specExporter pkgs}/bin/cuestacean-spec-export \
+              ${demandPolicySources pkgs}/spikes/demand-policy-schema.cue \
+              ${demandPolicySources pkgs}/spikes/"$program.cue" > second.json
+            cmp first.json second.json
+            cp first.json "$out/$program.json"
+          done
+        '';
+      nativeDemandPolicyBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          # Derivation roots attest build inputs, not merely runtime references.
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativeDemandPolicies pkgs).drvPath
+          ];
+        };
+      nativeDemandPolicyVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-demand-policies-verification"
+          {
+            nativeBuildInputs = [
+              pkgs.cue
+              pkgs.jq
+            ];
+          }
+          ''
+            set -euo pipefail
+            # These identities are forbidden only in the native construction
+            # graph. This separate oracle/check package is not Go-CUE-free.
+            for forbidden in ${pkgs.cue.drvPath} ${pkgs.cue.src} ${(jsonExports pkgs).drvPath} ${(executor pkgs).drvPath}; do
+              if grep -Fx "$forbidden" ${nativeDemandPolicyBuildClosure pkgs}/store-paths; then
+                echo "forbidden bootstrap dependency: $forbidden" >&2; exit 1
+              fi
+            done
+            for program in demand-policy demand-policy-defer; do
+              cue export ${demandPolicySources pkgs}/spikes/demand-policy-schema.cue \
+                ${demandPolicySources pkgs}/spikes/"$program.cue" --out json | jq -S . > oracle.json
+              cmp oracle.json ${nativeDemandPolicies pkgs}/"$program.json"
+            done
+            mkdir -p "$out"
+            cp ${nativeDemandPolicyBuildClosure pkgs}/store-paths "$out/native-build-paths"
+            cp ${nativeDemandPolicyBuildClosure pkgs}/registration "$out/native-build-registration"
+            printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeDemandPolicies pkgs).drvPath} > "$out/native-build-roots"
+          '';
       builderSources =
         pkgs:
         pkgs.lib.fileset.toSource {
@@ -724,6 +793,7 @@
           spec-export = specExporter pkgs;
           native-ast-atom = nativeAtom pkgs;
           native-ast-builders = nativeBuilders pkgs;
+          native-demand-policies = nativeDemandPolicies pkgs;
         }
       );
 
@@ -748,6 +818,7 @@
         {
           default = pkgs.mkShell {
             CUESTACEAN_BOOTSTRAP_JSON = jsonExports pkgs;
+            CUESTACEAN_DEMAND_POLICIES = nativeDemandPolicies pkgs;
             packages = [
               pkgs.cue
               pkgs.rustc
@@ -775,6 +846,7 @@
           native-spec-tests = specTests pkgs;
           native-spec-closure = nativeVerification pkgs;
           native-builder-family = nativeBuilderVerification pkgs;
+          native-demand-policies = nativeDemandPolicyVerification pkgs;
           bootstrap-codegen =
             pkgs.runCommand "cuestacean-bootstrap-codegen"
               {
