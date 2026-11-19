@@ -602,6 +602,7 @@
             cargo test --offline --no-default-features --test default_trace
             cargo test --offline --no-default-features --test batch_defaults
             cargo test --offline --no-default-features --test flat_default_sources
+            cargo test --offline --no-default-features --test recursive_default_scheduling
           '';
           postPatch = clearArtifacts + ''
             # Do not leak strict shell options into later stdenv hooks.

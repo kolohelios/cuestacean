@@ -69,9 +69,12 @@ zero-priority mode-transition phase over supplied successful-trial facts, checke
 against additive origin-aware traces. It does not construct survivors from source
 or replace the held default solver/readiness policy. The [#204 flat source-batch
 experiment](flat-default-sources.md) constructs survivors and carries original
-modes across flat IR conjunctions, reusing that primitive. Nested scheduling and
-production demand/default admission remain unestablished.
-These steps do not solve nested default lifetime or unhold #175.
+modes across flat IR conjunctions, reusing that primitive. The [#206 recursive
+scalar-IR hypothesis](recursive-default-scheduling.md) constructs nested trial
+batches, distinguishing singleton forwarding from enclosing-attempt origin writes.
+It matches the bounded concrete controls, not a certified general lifetime law;
+run modes, partial-vertex equality and broader scheduling remain unmodeled.
+Production demand/default admission remains held; these steps do not unhold #175.
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
 bytes remain stable. The [#196 typed prefix-list extension](native-prefix-lists.md)
