@@ -6,6 +6,321 @@ import (
 	"testing"
 )
 
+func equalityBatch(t *testing.T, mode int) int {
+	t.Helper()
+	if cuestaceanCapture == nil {
+		if err := CuestaceanTraceEqualityStart(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	id := cuestaceanTraceEnter()
+	cuestaceanTraceRunMode(id, mode)
+	cuestaceanTraceTrials(id, nil, true, true)
+	return id
+}
+
+func equalityStop(t *testing.T, id int, failed bool) []CuestaceanTraceBatch {
+	t.Helper()
+	cuestaceanTraceResults(id, nil)
+	c := cuestaceanCapture
+	if c.depth != 0 {
+		t.Fatal("unbalanced equality capture", c.depth)
+	}
+	if failed {
+		sticky, records := c.err, c.records
+		if sticky == nil {
+			t.Fatal("missing equality failure")
+		}
+		next := cuestaceanTraceEnter()
+		cuestaceanTraceRunMode(next, 4)
+		cuestaceanTraceAppend(nil)
+		cuestaceanTraceResults(next, nil)
+		if c.err != sticky || c.records != records || c.depth != 0 {
+			t.Fatal("not sticky/balanced")
+		}
+	}
+	b, err := CuestaceanTraceStop()
+	if (err != nil) != failed || (failed && b != nil) || cuestaceanCapture != nil {
+		t.Fatal(b, err)
+	}
+	if failed {
+		id := equalityBatch(t, 4)
+		cuestaceanTraceResults(id, nil)
+		if _, err := CuestaceanTraceStop(); err != nil {
+			t.Fatal("recovery", err)
+		}
+	}
+	return b
+}
+
+func TestCuestaceanEqualityModes(t *testing.T) {
+	for _, start := range []func() error{CuestaceanTraceStart, CuestaceanTraceOriginsStart, CuestaceanTraceHistoryStart} {
+		if err := start(); err != nil {
+			t.Fatal(err)
+		}
+		cuestaceanTraceRunMode(-1, 255)
+		token := cuestaceanTraceAppend(nil)
+		cuestaceanTraceCompare(token, nil, true)
+		cuestaceanTraceIdentity(token, nil)
+		cuestaceanTraceAccept(token)
+		cuestaceanTraceInsert(token, -1)
+		if cuestaceanTraceEqualityEnabled() || token != (cuestaceanTraceAppendToken{}) || cuestaceanCapture.records != 0 {
+			t.Fatal("old capture inspected equality")
+		}
+		if _, err := CuestaceanTraceStop(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, mode := range []int{1, 2, 3, 4, 0, 255} {
+		id := equalityBatch(t, mode)
+		b := equalityStop(t, id, mode == 0 || mode == 255)
+		if len(b) != 0 && b[0].Phase.RunMode != [...]string{"ignore", "attempt-only", "yield", "finalize"}[mode-1] {
+			t.Fatal(b)
+		}
+	}
+}
+
+func TestCuestaceanEqualitySnapshots(t *testing.T) {
+	id := equalityBatch(t, 4)
+	num := &Num{K: IntKind}
+	num.X.SetInt64(-9223372036854775808)
+	x := &nodeContext{node: &Vertex{BaseValue: num}}
+	x.defaultMode, x.origDefaultMode = isDefault, notDefault
+	a := cuestaceanTraceAppend(x)
+	x.defaultMode = notDefault
+	num.X.SetInt64(9223372036854775807)
+	cuestaceanTraceInsert(a, 0)
+	// A direct indirection must stay null, even when its target is numeric.
+	x.node = &Vertex{BaseValue: &Vertex{BaseValue: num}}
+	for _, partial := range []bool{true, false} {
+		for _, accept := range []bool{true, false} {
+			a := cuestaceanTraceAppend(x)
+			cuestaceanTraceCompare(a, x, partial)
+			if accept {
+				cuestaceanTraceAccept(a)
+			} else {
+				cuestaceanTraceInsert(a, 1)
+			}
+		}
+	}
+	a = cuestaceanTraceAppend(x)
+	cuestaceanTraceCompare(a, x, true)
+	cuestaceanTraceIdentity(a, x)
+	b := equalityStop(t, id, false)
+	p := b[0].Phase
+	if *p.Appends[0].Candidate.Value != -9223372036854775808 || p.Appends[0].Candidate.Mode != "default" || *p.Appends[0].Candidate.OriginalMode != "not" {
+		t.Fatal(p)
+	}
+	for i, want := range []string{"partial", "insert", "final", "insert"} {
+		a := p.Appends[i+1]
+		if a.Kind != want || a.Candidate.Value != nil || a.Comparisons[0].Existing.Value != nil || a.Comparisons[0].Accepted != (i%2 == 0) {
+			t.Fatal(a)
+		}
+	}
+	last := p.Appends[5]
+	if last.Kind != "identity" || last.Index != 1 || last.Comparisons[0].Accepted || !last.Comparisons[1].Accepted || last.Comparisons[1].Index != 1 {
+		t.Fatal(last)
+	}
+	if len(p.Appends[0].Comparisons) != 0 {
+		t.Fatal("insert comparisons")
+	}
+}
+
+func TestCuestaceanEqualityMixedRecords(t *testing.T) {
+	if err := CuestaceanTraceEqualityStart(); err != nil {
+		t.Fatal(err)
+	}
+	if err := CuestaceanTraceEqualityStart(); err == nil {
+		t.Fatal("overlapping equality capture")
+	}
+	id := cuestaceanTraceEnter()
+	cuestaceanTraceRunMode(id, 4)
+	num := &Num{K: IntKind}
+	num.X.SetInt64(9223372036854775807)
+	x := &nodeContext{node: &Vertex{BaseValue: num}}
+	x.defaultMode, x.origDefaultMode = notDefault, maybeDefault
+	trial := &nodeContext{disjuncts: []*nodeContext{x, x}}
+	cuestaceanTraceOrigin(id, x, 0)
+	cuestaceanTraceTrials(id, []*nodeContext{trial}, false, false)
+	a := cuestaceanTraceAppend(x)
+	cuestaceanTraceCompare(a, x, true)
+	cuestaceanTraceAccept(a)
+	// Simulate the subsequent promotion/mutation, never an observer side effect.
+	x.defaultMode = isDefault
+	num.X.SetInt64(7)
+	cuestaceanTraceResults(id, []*nodeContext{x})
+	if cuestaceanCapture.records != 3+2*2+2+3+3 {
+		t.Fatal("mixed v4 record formula", cuestaceanCapture.records)
+	}
+	b, err := CuestaceanTraceStop()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := b[0].Phase.Appends[0].Comparisons[0].Existing
+	if r.Mode != "not" || *r.OriginalMode != "maybe" || *r.Value != 9223372036854775807 || b[0].Results[0].Mode != "default" || *b[0].Results[0].Value != 7 {
+		t.Fatal("existing snapshot not copied", b)
+	}
+}
+
+func TestCuestaceanEqualityInterleaving(t *testing.T) {
+	id := equalityBatch(t, 2)
+	x := &nodeContext{}
+	parent := cuestaceanTraceAppend(x)
+	child := cuestaceanTraceEnter()
+	cuestaceanTraceRunMode(child, 2)
+	if token := cuestaceanTraceAppend(nil); token != (cuestaceanTraceAppendToken{}) {
+		t.Fatal("stage0 attributed to parent")
+	}
+	cuestaceanTraceTrials(child, nil, true, true)
+	ct := cuestaceanTraceAppend(x)
+	cuestaceanTraceInsert(ct, 0)
+	cuestaceanTraceResults(child, nil)
+	// Reentrant appends in one batch have independent LIFO state.
+	nested := cuestaceanTraceAppend(x)
+	cuestaceanTraceCompare(nested, x, false)
+	cuestaceanTraceAccept(nested)
+	cuestaceanTraceCompare(parent, x, true)
+	cuestaceanTraceInsert(parent, 1)
+	b := equalityStop(t, id, false)
+	if len(b) != 2 || len(b[0].Phase.Appends) != 2 || len(b[1].Phase.Appends) != 1 || b[0].Phase.Appends[0].Kind != "insert" || b[0].Phase.Appends[1].Kind != "final" {
+		t.Fatal(b)
+	}
+}
+
+func TestCuestaceanEqualityFailures(t *testing.T) {
+	for _, failure := range []string{"missingMode", "duplicateMode", "incomplete", "accept", "insert", "duplicate", "malformed", "stale", "lifo", "batch", "unknownCandidate", "unknownExisting"} {
+		t.Run(failure, func(t *testing.T) {
+			id := equalityBatch(t, 4)
+			x := &nodeContext{}
+			zero := cuestaceanTraceAppendToken{}
+			cuestaceanTraceCompare(zero, nil, false)
+			cuestaceanTraceIdentity(zero, nil)
+			cuestaceanTraceAccept(zero)
+			cuestaceanTraceInsert(zero, -1)
+			a := cuestaceanTraceAppend(x)
+			switch failure {
+			case "missingMode":
+				cuestaceanCapture.batches[id].Phase.RunMode = ""
+			case "duplicateMode":
+				// Duplicate is rejected even at the correct entry stage.
+				cuestaceanCapture.stages[id] = 0
+				cuestaceanTraceRunMode(id, 4)
+			case "incomplete":
+			case "accept":
+				cuestaceanTraceAccept(a)
+			case "insert":
+				cuestaceanTraceInsert(a, 1)
+			case "duplicate":
+				cuestaceanTraceInsert(a, 0)
+				cuestaceanTraceInsert(a, 0)
+			case "malformed":
+				a.event = -1
+				cuestaceanTraceAccept(a)
+			case "stale":
+				cuestaceanTraceInsert(a, 0)
+				equalityStop(t, id, false)
+				id = equalityBatch(t, 4)
+				cuestaceanTraceAppend(x) // Same batch/event numbers, different capture.
+				cuestaceanTraceInsert(a, 0)
+			case "lifo":
+				cuestaceanTraceAppend(x)
+				cuestaceanTraceInsert(a, 0)
+			case "batch":
+				child := equalityBatch(t, 4)
+				cuestaceanTraceCompare(a, x, true)
+				cuestaceanTraceResults(child, nil)
+			case "unknownCandidate":
+				x.origDefaultMode = 255
+				cuestaceanTraceAppend(x)
+			case "unknownExisting":
+				x.defaultMode = 255
+				cuestaceanTraceCompare(a, x, true)
+			}
+			equalityStop(t, id, true)
+		})
+	}
+	// Actual missing run-mode hook, not only a cleared mandatory field.
+	if err := CuestaceanTraceEqualityStart(); err != nil {
+		t.Fatal(err)
+	}
+	id := cuestaceanTraceEnter()
+	cuestaceanTraceTrials(id, nil, true, true)
+	equalityStop(t, id, true)
+}
+
+func TestCuestaceanEqualityCaps(t *testing.T) {
+	for _, vector := range []string{"appends", "comparisons"} {
+		for _, width := range []int{64, 65} {
+			id := equalityBatch(t, 4)
+			x := &nodeContext{}
+			a := cuestaceanTraceAppendToken{}
+			if vector == "comparisons" {
+				a = cuestaceanTraceAppend(x)
+			}
+			for i := 0; i < width; i++ {
+				if vector == "appends" {
+					a = cuestaceanTraceAppend(x)
+					cuestaceanTraceInsert(a, 0)
+				} else {
+					cuestaceanTraceCompare(a, x, false)
+				}
+			}
+			if vector == "comparisons" {
+				cuestaceanTraceInsert(a, width)
+			}
+			if width == 64 {
+				want := 3 * 64
+				if vector == "comparisons" {
+					want += 3
+				}
+				if cuestaceanCapture.records != want {
+					t.Fatal("vector accounting", cuestaceanCapture.records)
+				}
+			}
+			equalityStop(t, id, width == 65)
+		}
+	}
+	for _, over := range []bool{false, true} {
+		if err := CuestaceanTraceEqualityStart(); err != nil {
+			t.Fatal(err)
+		}
+		x := &nodeContext{}
+		v := make([]*nodeContext, 64)
+		for i := range v {
+			v[i] = x
+		}
+		for batch := 0; batch < 8; batch++ {
+			id := cuestaceanTraceEnter()
+			cuestaceanTraceRunMode(id, 4)
+			for range v {
+				cuestaceanTraceOrigin(id, x, 0)
+			}
+			cuestaceanTraceTrials(id, v, true, true)
+			for range v {
+				a := cuestaceanTraceAppend(x)
+				cuestaceanTraceInsert(a, 0)
+			}
+			results := v
+			if over && batch == 7 {
+				results = v[:63]
+			}
+			cuestaceanTraceResults(id, results)
+		}
+		want := 4096
+		if over {
+			want = 4094
+		}
+		if cuestaceanCapture.records != want || cuestaceanCapture.err != nil {
+			t.Fatal("record formula", cuestaceanCapture.records)
+		}
+		id := equalityBatch(t, 4)
+		if over {
+			cuestaceanTraceAppend(x)
+		} // 4094 + 3 = 4097, exactly one over.
+		equalityStop(t, id, over)
+	}
+}
+
 func TestCuestaceanHistory(t *testing.T) {
 	for _, start := range []func() error{CuestaceanTraceStart, CuestaceanTraceOriginsStart} {
 		if err := start(); err != nil {

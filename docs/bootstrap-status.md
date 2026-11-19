@@ -74,7 +74,11 @@ scalar-IR hypothesis](recursive-default-scheduling.md) constructs nested trial
 batches, distinguishing singleton forwarding from enclosing-attempt origin writes.
 It matches the bounded concrete controls, not a certified general lifetime law;
 run modes, partial-vertex equality and broader scheduling remain unmodeled.
-Production demand/default admission remains held; these steps do not unhold #175.
+The [#208 equality-path trace](default-equality-trace.md) observes actual run modes
+and append comparisons separately: a matching source control coalesces partial
+vertices, so finalized-only admission has an explicit coverage cost. This is not
+permission to admit partial equality. Production demand/default admission remains
+held; these steps do not unhold #175.
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
 bytes remain stable. The [#196 typed prefix-list extension](native-prefix-lists.md)
