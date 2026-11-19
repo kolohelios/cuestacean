@@ -117,6 +117,124 @@ fn compare(schema: &str, source: &str, expected: &Value) -> String {
     native
 }
 
+fn projection_fixtures() -> Vec<(&'static str, Value)> {
+    vec![
+        (
+            "preference-projection",
+            json!({"formatVersion":1,"body":{
+                "op":"if","field":"absent",
+                "then":{"op":"return","action":"ordinary"},
+                "else":{"op":"if","field":"bottom",
+                    "then":{"op":"return","action":"ordinary"},
+                    "else":{"op":"return","action":"preferred"}}
+            }}),
+        ),
+        (
+            "preference-projection-defer",
+            json!({"formatVersion":1,"body":{"op":"return","action":"defer"}}),
+        ),
+    ]
+}
+
+#[test]
+fn projection_exports_match_handwritten_trees_with_independent_raw_oracles() {
+    let schema = program("preference-projection-schema");
+    for (name, expected) in projection_fixtures() {
+        let source = program(name);
+        let original = compare(&schema, &source, &expected);
+        assert_eq!(
+            compare(
+                &schema.replace("#Policy", "#Envelope"),
+                &source.replace("#Policy", "#Envelope"),
+                &expected
+            ),
+            original
+        );
+        let reordered = source
+            .replace(
+                "op: \"if\", field: \"absent\"",
+                "field: \"absent\", op: \"if\"",
+            )
+            .replace(
+                "op: \"if\", field: \"bottom\"",
+                "field: \"bottom\", op: \"if\"",
+            );
+        assert_eq!(
+            export(&schema, &reordered).expect("projection field order"),
+            original
+        );
+        assert!(export("package projectionpolicy\n", &source).is_err());
+        assert_eq!(
+            export(&schema, "package projectionpolicy\n"),
+            Err(Error::Syntax("missing root embedding"))
+        );
+        let required = (1..=4096)
+            .find(|limit| export_with_limit(&schema, &source, *limit).is_ok())
+            .expect("unchanged exporter work cap");
+        assert_eq!(
+            export_with_limit(&schema, &source, required - 1),
+            Err(Error::Limit("evaluation steps"))
+        );
+        assert_eq!(
+            export_with_limit(&schema, &source, required).expect("exact work"),
+            original
+        );
+        assert_eq!(
+            export(&schema, &source).expect("failure recovery"),
+            original
+        );
+    }
+    let combined = format!(
+        "{}\n{}",
+        program("preference-projection"),
+        program("preference-projection-defer").replacen("package projectionpolicy", "", 1)
+    );
+    assert_eq!(export(&schema, &combined), Err(Error::Conflict));
+}
+
+#[test]
+fn projection_exporter_has_no_phase_or_vocabulary_special_cases() {
+    let schema = program("preference-projection-schema");
+    for field in ["absent", "bottom"] {
+        for action in ["ordinary", "preferred", "defer"] {
+            let source = format!(
+                "package projectionpolicy\n#Policy & {{body: {{op: \"if\", field: \"{field}\", then: {{op: \"return\", action: \"{action}\"}}, else: {{op: \"return\", action: \"defer\"}}}}}}\n"
+            );
+            compare(
+                &schema,
+                &source,
+                &json!({"formatVersion":1,"body":{"op":"if","field":field,"then":{"op":"return","action":action},"else":{"op":"return","action":"defer"}}}),
+            );
+        }
+    }
+    compare(
+        &schema.replace("\"defer\"", "\"pause\""),
+        &program("preference-projection-defer").replace("\"defer\"", "\"pause\""),
+        &json!({"formatVersion":1,"body":{"op":"return","action":"pause"}}),
+    );
+    for (body, error) in [
+        ("{op: \"return\", action: \"flat\"}", Error::Conflict),
+        (
+            "{op: \"if\", field: \"empty\", then: {op: \"return\", action: \"defer\"}, else: {op: \"return\", action: \"defer\"}}",
+            Error::Conflict,
+        ),
+        ("{op: \"return\"}", Error::Incomplete),
+        (
+            "{op: \"return\", action: \"defer\", extra: 1}",
+            Error::Conflict,
+        ),
+    ] {
+        let source = format!("package projectionpolicy\n#Policy & {{body: {body}}}\n");
+        assert_eq!(export(&schema, &source), Err(error));
+        let cli = RawFiles::new(&schema, &source).cli(false);
+        assert!(!cli.status.success());
+        assert!(cli.stdout.is_empty(), "no partial invalid projection JSON");
+        let upstream = cue(&schema, &source);
+        assert!(!upstream.status.success());
+        assert!(upstream.stdout.is_empty());
+    }
+}
+
 #[test]
 fn both_policies_match_full_handwritten_trees_library_cli_and_raw_cue() {
     let schema = schema();

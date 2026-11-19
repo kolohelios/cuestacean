@@ -70,6 +70,7 @@ pub enum Readiness {
     FlatPreference,
     DeferredNested,
     PolicyDeferred,
+    ProjectionDeferred,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -342,6 +343,31 @@ impl Graph {
         work_limit: usize,
         policy: &policy::Policy,
     ) -> Result<DemandReport, Error> {
+        policy.require_dispatch()?;
+        self.demand_policies(refinement, work_limit, policy, None)
+    }
+
+    pub fn demand_with_policies(
+        &self,
+        refinement: Domain,
+        work_limit: usize,
+        dispatch: &policy::Policy,
+        projection: &policy::Policy,
+    ) -> Result<DemandReport, Error> {
+        // Structural typing precedes work/allowance checks, even on paths that
+        // will never execute the projection policy. Admission itself is free.
+        dispatch.require_dispatch()?;
+        projection.require_projection()?;
+        self.demand_policies(refinement, work_limit, dispatch, Some(projection))
+    }
+
+    fn demand_policies(
+        &self,
+        refinement: Domain,
+        work_limit: usize,
+        policy: &policy::Policy,
+        projection: Option<&policy::Policy>,
+    ) -> Result<DemandReport, Error> {
         if work_limit > MAX_WORK {
             return Err(Error::Limit("work allowance exceeds hard cap"));
         }
@@ -381,10 +407,19 @@ impl Graph {
                 if facts.nested {
                     return Err(Error::Unsupported("uncertified flat action"));
                 }
-                let (demand, preferred) = self.flat(&worlds, &constraints, &mut work)?;
-                (Readiness::FlatPreference, demand, Some(preferred))
+                if let Some(projection) = projection {
+                    let (readiness, demand, preferred) =
+                        self.project_flat(&worlds, &constraints, projection, &mut work)?;
+                    (readiness, demand, Some(preferred))
+                } else {
+                    let (demand, preferred) = self.flat(&worlds, &constraints, &mut work)?;
+                    (Readiness::FlatPreference, demand, Some(preferred))
+                }
             }
             policy::Action::Defer => (Readiness::PolicyDeferred, Demand::Suspended, None),
+            policy::Action::Ordinary | policy::Action::Preferred => {
+                return Err(Error::Unsupported("non-dispatch action"));
+            }
         };
         work.charge(1)?;
         Ok(DemandReport {
@@ -449,6 +484,59 @@ impl Graph {
             Demand::Incomplete
         };
         Ok((demand, preferred))
+    }
+
+    // Called only after the dispatch flat certificate has excluded entered
+    // nested recipes. Association computes facts, not a preselected domain.
+    fn project_flat(
+        &self,
+        worlds: &[World],
+        constraints: &[Domain],
+        policy: &policy::Policy,
+        work: &mut Work,
+    ) -> Result<(Readiness, Demand, Preference), Error> {
+        let association = self.preference(self.root, 0, worlds, work)?;
+        let facts = policy::ProjectionFacts {
+            absent: matches!(association, Association::Absent),
+            bottom: matches!(association, Association::Present(0)),
+        };
+        let action = policy.execute_projection(&facts, work)?;
+        work.charge(1)?; // Projection certificate, before report allocation.
+        match action {
+            policy::Action::Ordinary if facts.absent || facts.bottom => {}
+            policy::Action::Preferred if !facts.absent && !facts.bottom => {}
+            policy::Action::Defer => {}
+            _ => return Err(Error::Unsupported("uncertified projection action")),
+        }
+        // Even deferral publishes the observed flat preference. Unsafe actions
+        // above must reject before projecting/copying preferred candidates.
+        let preferred = match association {
+            Association::Absent => Preference::Absent,
+            Association::Present(0) => Preference::Bottom,
+            Association::Present(selected) => {
+                Preference::Values(project(worlds, Some(selected), work)?)
+            }
+        };
+        if let policy::Action::Defer = action {
+            return Ok((Readiness::ProjectionDeferred, Demand::Suspended, preferred));
+        }
+        work.charge(1)?; // New-path scalar extraction; no extraction on defer.
+        let selected = match action {
+            policy::Action::Ordinary => constraints,
+            policy::Action::Preferred => match &preferred {
+                Preference::Values(values) => values,
+                _ => return Err(Error::Unsupported("uncertified preferred domain")),
+            },
+            _ => return Err(Error::Unsupported("non-projection action")),
+        };
+        let demand = if worlds.is_empty() {
+            Demand::Conflict
+        } else if let [Domain::Value(value)] = selected {
+            Demand::Concrete(*value)
+        } else {
+            Demand::Incomplete
+        };
+        Ok((Readiness::FlatPreference, demand, preferred))
     }
 
     // Traverse every source occurrence, including impossible and M3-suppressed

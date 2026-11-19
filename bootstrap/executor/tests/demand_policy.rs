@@ -48,6 +48,23 @@ fn raw_cue(program: &str) -> Vec<u8> {
 }
 
 #[test]
+fn scoped_projection_api_can_defer_an_evaluated_flat_preference() {
+    let dispatch =
+        Policy::from_json(r#"{"formatVersion":1,"body":{"op":"return","action":"flat"}}"#)
+            .expect("dispatch scope");
+    let projection = Policy::from_projection_json(
+        r#"{"formatVersion":1,"body":{"op":"return","action":"defer"}}"#,
+    )
+    .expect("projection scope");
+    let report = graph(choice(1, 2))
+        .demand_with_policies(Domain::Top, 4096, &dispatch, &projection)
+        .expect("scoped demand");
+    assert_eq!(report.readiness, Readiness::ProjectionDeferred);
+    assert_eq!(report.demand, Demand::Suspended);
+    assert_eq!(report.preferred, Some(Preference::Values(domains(&[1]))));
+}
+
+#[test]
 fn native_artifacts_match_separate_fresh_raw_cue_exports() {
     let directory = PathBuf::from(
         std::env::var_os("CUESTACEAN_DEMAND_POLICIES").expect("mandatory native policy directory"),

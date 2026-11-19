@@ -437,6 +437,7 @@
             cargo test --offline --no-default-features --test default_provenance
             cargo test --offline --no-default-features --test default_readiness
             cargo test --offline --no-default-features --test demand_policy
+            cargo test --offline --no-default-features --test preference_projection
           '';
         };
 
@@ -553,6 +554,9 @@
                 ../../bootstrap/spikes/demand-policy-schema.cue
                 ../../bootstrap/spikes/demand-policy.cue
                 ../../bootstrap/spikes/demand-policy-defer.cue
+                ../../bootstrap/spikes/preference-projection-schema.cue
+                ../../bootstrap/spikes/preference-projection.cue
+                ../../bootstrap/spikes/preference-projection-defer.cue
               ]
               ++ map (fixture: ../../bootstrap + "/${fixture}.cue") builderExportFixtures
             )
@@ -591,6 +595,12 @@
             cargo test --offline --all-targets --release
           '';
         });
+      demandPolicyPairs = builtins.concatStringsSep " " [
+        "demand-policy-schema:demand-policy"
+        "demand-policy-schema:demand-policy-defer"
+        "preference-projection-schema:preference-projection"
+        "preference-projection-schema:preference-projection-defer"
+      ];
       demandPolicySources =
         pkgs:
         pkgs.lib.fileset.toSource {
@@ -599,6 +609,9 @@
             ../../bootstrap/spikes/demand-policy-schema.cue
             ../../bootstrap/spikes/demand-policy.cue
             ../../bootstrap/spikes/demand-policy-defer.cue
+            ../../bootstrap/spikes/preference-projection-schema.cue
+            ../../bootstrap/spikes/preference-projection.cue
+            ../../bootstrap/spikes/preference-projection-defer.cue
           ];
         };
       nativeDemandPolicies =
@@ -606,12 +619,14 @@
         pkgs.runCommand "cuestacean-native-demand-policies" { } ''
           set -euo pipefail
           mkdir -p "$out"
-          for program in demand-policy demand-policy-defer; do
+          for pair in ${demandPolicyPairs}; do
+            schema="''${pair%%:*}"
+            program="''${pair#*:}"
             env -i PATH=/nonexistent ${specExporter pkgs}/bin/cuestacean-spec-export \
-              ${demandPolicySources pkgs}/spikes/demand-policy-schema.cue \
+              ${demandPolicySources pkgs}/spikes/"$schema.cue" \
               ${demandPolicySources pkgs}/spikes/"$program.cue" > first.json
             env -i PATH=/nonexistent ${specExporter pkgs}/bin/cuestacean-spec-export \
-              ${demandPolicySources pkgs}/spikes/demand-policy-schema.cue \
+              ${demandPolicySources pkgs}/spikes/"$schema.cue" \
               ${demandPolicySources pkgs}/spikes/"$program.cue" > second.json
             cmp first.json second.json
             cp first.json "$out/$program.json"
@@ -644,8 +659,10 @@
                 echo "forbidden bootstrap dependency: $forbidden" >&2; exit 1
               fi
             done
-            for program in demand-policy demand-policy-defer; do
-              cue export ${demandPolicySources pkgs}/spikes/demand-policy-schema.cue \
+            for pair in ${demandPolicyPairs}; do
+              schema="''${pair%%:*}"
+              program="''${pair#*:}"
+              cue export ${demandPolicySources pkgs}/spikes/"$schema.cue" \
                 ${demandPolicySources pkgs}/spikes/"$program.cue" --out json | jq -S . > oracle.json
               cmp oracle.json ${nativeDemandPolicies pkgs}/"$program.json"
             done

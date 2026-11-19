@@ -202,8 +202,11 @@ a separate conservative alternate changes behavior without recompiling Rust.
 Native meet/world enumeration, fact extraction, auditing, generic VM/accounting,
 response certificates and action primitives remain native algorithms. The native
 reference dispatcher is retained for independent evidence, not used as a fallback.
-This is one checked experimental policy boundary, not a production graph/default
-solver or a claim that the graph's semantics are now entirely CUE-hosted.
+The [#184 projection-policy phase](preference-projection-policy.md) further
+separates ordinary/preferred-domain selection from native association/set
+calculation, with explicit phase admission and action certificates. These are
+checked experimental policy boundaries, not a production graph/default solver or
+a claim that the graph's semantics are now entirely CUE-hosted.
 
 ## Closure and decision gate
 
