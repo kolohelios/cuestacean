@@ -179,3 +179,8 @@ The subsequent [#214 concrete design](native-default-admission-design.md) record
 proposed identities/residuals/feasibility and complete non-scalar witnesses; its
 reviews explicitly return NO-GO with named missing selection and identity laws,
 not an implementation approval.
+
+The user subsequently approved pursuing a separately scoped [#216 tagged-struct
+contract](tagged-default-admission.md), without narrowing #175. That future
+implementation contract is reviewed for an explicitly finite one-group profile;
+it does not satisfy original #175's broader Gate A or authorize general defaults.
