@@ -127,6 +127,13 @@ modules/CLI files and only these two native policies. Their eight-source constru
 is separate from legacy four-compiler construction; production joins all six.
 Four policy constructors/the joined six-seed graph remain Go-dependent. This does
 not change Rust kernel ownership, schema semantics or #175 admission.
+The [#228 scanner-policy DATA cut](native-scan-lowering-policy.md) adds a third
+canonical native policy input: concrete shared helper definitions, eight flow
+cases, six predicate cases and one separately materialized scalar advance default.
+Three two-file invocations retain existing bounds; structural assembly is not CUE
+constraint merging. Three other policy constructors/the joined six-seed path still
+need Go CUE. Scanner schema evaluation and compiler seed isolation are NOT included;
+the native AST/meta compiler construction paths remain unchanged.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
