@@ -1,6 +1,11 @@
 # CUE-defined lowering-driver compiler
 
-`meta-lowering{,-fragments}.cue` emits complete Rust drivers for the
+`meta-lowering-body.cue` and the two canonical scalar alias sources
+(`meta-text-alias.cue`, `meta-next-rule-alias.cue`) own the compiler instructions.
+Their [native policy-data artifact](../docs/native-meta-lowering-policy.md) supplies
+the canonical backend without Go construction; `meta-lowering-fragments.cue` is
+the Go-only schema/required-slot bridge for independent validation and raw
+contextual overrides. The compiler emits complete Rust drivers for the
 [shared lowering DSL](lowering.md): header, dispatch layout, alias arms, expression
 bodies, optional assembly method, module statements and footer. Native `Expr::emit`
 and `module::emit` are removed. The compiled meta driver regenerates its whole
@@ -10,11 +15,13 @@ source emission, not a fully self-hosted CUE parser/compiler or bootstrap closur
 ## Bootstrap and native boundary
 
 Six no-default-feature seeds build without generated Rust. The lowering compiler
-seed interprets fresh Go-CUE-exported `meta-lowering.json`; parsing/interpreting that
+seed interprets fresh natively constructed `meta-lowering.json`; parsing/interpreting that
 policy does not recursively call the compiler. It generates `meta-lowering.rs`.
 Production `compiled-lowering` uses that compiled driver for full-module emission,
 including its own regeneration. JSON stays build-only; Rust is a drift baseline,
-never a seed input.
+never a seed input. AST and meta are now two independently native policy-data
+inputs; the shared six-compiler seed still depends on four other Go-constructed
+policies. This does not establish native full-schema evaluation or Go-free seeds.
 
 Typed/scoped validation, original-text structural checking, canonical metadata
 projection, reference DSL execution and checked kernels remain native. The native

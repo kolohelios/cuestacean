@@ -18,6 +18,11 @@ assertions/classifications intact.
 
 ## Exact proposed profile predicate
 
+This is the tagged-STRUCT subprofile. Subsequent [#224](native-meta-lowering-policy.md)
+adds a separately reviewed scalar literal-preference subprofile with the same
+single-group/field-path/context/declaration exclusions. It does not relax the
+struct alternative/disjoint-witness rules below or establish general defaults.
+
 Apply this WHOLE-DOCUMENT predicate whenever marked syntax is present; check it
 BEFORE branch evaluation, even for branches/contexts that will not be selected.
 Preference-free documents retain their existing language, error behavior and

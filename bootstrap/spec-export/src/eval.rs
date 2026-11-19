@@ -150,10 +150,17 @@ impl Evaluator<'_> {
                     _ => return Err(Error::Unsupported("missing immediate mark")),
                 };
                 self.step(2)?;
-                let (Expr::Struct(p_fields), Expr::Struct(q_fields)) =
-                    (&self.doc.nodes[p], &self.doc.nodes[q])
-                else {
-                    return Err(Error::Unsupported("tagged struct alternatives"));
+                let (p_fields, q_fields) = match (&self.doc.nodes[p], &self.doc.nodes[q]) {
+                    // One literal preference under default-free context needs no
+                    // disjointness witness, even when Q overlaps or equals P.
+                    (Expr::Literal(_), Expr::Literal(_) | Expr::Type(_) | Expr::Top) => {
+                        // Preserve syntax depth on the marked side, including
+                        // its wrapper, and charge both constructor inspections.
+                        self.constructor(p, depth + 2, true)?;
+                        return self.constructor(q, depth + 1, false);
+                    }
+                    (Expr::Struct(p_fields), Expr::Struct(q_fields)) => (p_fields, q_fields),
+                    _ => return Err(Error::Unsupported("tagged struct alternatives")),
                 };
                 // Include the mark wrapper in syntax depth, on its own side.
                 self.constructor(p, depth + 2, true)?;

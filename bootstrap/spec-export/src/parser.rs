@@ -122,7 +122,13 @@ fn lex(source: &str, count: &mut usize) -> Result<Vec<Token>, Error> {
                 {
                     pos += 1;
                 }
-                Token::Word(source[start..pos].into())
+                let word = &source[start..pos];
+                // Adjacent _| is the beginning of bottom syntax, not Top
+                // followed by a disjunction. Keep the inherited rejection.
+                if word == "_" && bytes.get(pos) == Some(&b'|') {
+                    return Err(Error::Unsupported("value reference or type"));
+                }
+                Token::Word(word.into())
             }
             b'!' if bytes.get(pos + 1) == Some(&b'=') => {
                 pos += 2;

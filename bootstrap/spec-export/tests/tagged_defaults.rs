@@ -282,6 +282,7 @@ fn file_conjunction_field_and_alternative_order_preserve_contextual_results() {
 
 #[test]
 fn whole_document_guard_cannot_be_bypassed_by_unused_or_unselected_content() {
+    check(r#"{v:(*1|2)}"#, Ok(json!({"v":1})));
     let base = format!("{{v:({FLAT})}}");
     for root in [
         format!("#Unused:{{x:1}}\n{base}"),
@@ -301,7 +302,6 @@ fn whole_document_guard_cannot_be_bypassed_by_unused_or_unselected_content() {
         r#"{v:(*{tag:"a"}|{tag:"b",n:(1|1)})}"#.into(),
         r#"{v:((*{tag:"a"}|{tag:"b"})|{tag:"c"})}"#.into(),
         r#"{v:(*{tag:"a"}|*{tag:"b"})}"#.into(),
-        r#"{v:(*1|2)}"#.into(),
         r#"{v:*( {tag:"a"}&{n:1} )|{tag:"b"}}"#.into(),
         r#"{v:*{tag:"a"}}"#.into(),
     ] {

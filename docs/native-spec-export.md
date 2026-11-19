@@ -49,8 +49,11 @@ use must not mutate a shared template or another list item.
 
 The separately reviewed [#218 tagged-default profile](tagged-default-admission.md)
 admits exactly one marked tagged-struct choice with Top under its whole-document
-guard. It is not a general expansion of the language below; preference-free
-behavior stays unchanged. Full default/closure/reuse admission #175 remains held.
+guard. The separately reviewed [#224 scalar class](native-meta-lowering-policy.md)
+also admits one concrete literal preference against literal/type/Top, without
+relaxing the tagged-struct witness or shared exclusions. Neither class admits
+general defaults; preference-free behavior stays unchanged. Full default/closure/
+reuse compatibility remains tracked by #175.
 
 Explicitly reject unsupported syntax: imports, general defaults, optional/required field
 markers, hidden fields, field-value references, comprehensions/patterns/interpolation,

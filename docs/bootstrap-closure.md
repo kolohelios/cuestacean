@@ -13,8 +13,10 @@ constructs one integer-literal case, and [#222 complete AST-policy DATA](native-
 extends that boundary with an independently native ordinary body and disjoint
 materialized-module assembly. Canonical AST policy DATA no longer needs Go CUE
 construction; full #LoweringPolicy schema validation remains a separate Go oracle.
-Other exports and the five other compiler-policy constructors still depend on Go
-CUE. Wider feature expansion stays deferred. The later
+The later [#224 meta-policy DATA cut](native-meta-lowering-policy.md) constructs a
+second complete input using an ordinary body and two separately admitted flat
+scalar aliases. Other exports and four remaining compiler-policy constructors
+still depend on Go CUE. Wider feature expansion stays deferred. The later
 [#182 demand-policy cut](native-demand-policies.md) natively constructs the two
 experimental dispatch policies from their unchanged three-file raw closure. They
 are test-only graph policies, not any of the six lowering-policy exports; their
@@ -135,7 +137,8 @@ artifact-free native Rust sources --no-default-features------+
 The seed package embeds fresh exported policies through
 `CUESTACEAN_BOOTSTRAP_JSON`; no-default-features is **artifact-free**, not
 **Go-CUE-independent**. Its canonical AST policy data input is independently native
-since #222; the shared package still needs five other Go-constructed policies. Production `compiled-lowering` selects generated drivers;
+since #222, and its meta policy data since #224; the shared package still needs
+four other Go-constructed policies. Production `compiled-lowering` selects generated drivers;
 `source` enables `semantics`. The final sandbox also checks compiler-only,
 semantics-only and compiled-lowering isolation. Committed Rust is a drift baseline,
 never a seed input. See `clearArtifacts`, `codegenSeed`, `executor`, and
