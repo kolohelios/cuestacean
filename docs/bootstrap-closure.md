@@ -47,9 +47,9 @@ Representative actual edges (paths below are relative to `bootstrap/`):
 | --- | --- | --- |
 | `literal.cue` | `schema.cue` | `#Program.entry -> #Expression`; root additionally refines `#IntegerLiteral`. The expression union reaches recursive collection definitions and `list` validators, not just the integer definition. |
 | `ast-atom.cue` | `ast-schema.cue` | `#BuildProgram -> #BuildParameter, #BuildExpression`; expression union reaches argument/string/integer/object; object field values recurse to expression. No imports. |
-| `whitespace.cue` | `schema.cue`, `scanner-fragments.cue` | `#ScanProgram.body -> #ScanStatement`; `#WhitespaceBody` composes statement/predicate data. |
-| `integer-literal.cue` | `schema.cue`, `decimal-fragments.cue` | `#IntegerSpellingScanner` composes sign/radix digit runs; `#ScanProgram` recursively checks represented control. |
-| `identifier.cue` | `schema.cue` | File-local `let` byte tables call `list.Range`/`list.Concat`; scanner schema constrains the result. |
+| `whitespace.cue` | `scanner-schema.cue`, `scanner-fragments.cue` | `#ScanProgram.body -> #ScanStatement`; `#WhitespaceBody` composes statement/predicate data. |
+| `integer-literal.cue` | `scanner-schema.cue`, `decimal-fragments.cue` | `#IntegerSpellingScanner` composes sign/radix digit runs; `#ScanProgram` recursively checks represented control. |
+| `identifier.cue` | `scanner-schema.cue` | File-local `let` byte tables call `list.Range`/`list.Concat`; scanner schema constrains the result. |
 | `primary.cue`, `pratt.cue` | `schema.cue`, corresponding `*-fragments.cue` | `#PrimaryControl`/`#PrattControl -> #PrattProgram`; hidden flags/default minima affect actual conditional list generation. Record/conjunction primary and item controls have separately selected fragment files. |
 | `logical-and.cue` | `schema.cue`, `equality-fragments.cue`, `logic-fragments.cue` | `#LogicProgram -> #BinaryControlProgram`; parameterized `#ConcreteSide.condition -> #UnifySide`, in the other fragment. This is a genuine multi-file edge. |
 | `evaluation.cue` | `schema.cue` | `#EvaluationRules -> #EvaluateChild`; export constructs instructions, not the arithmetic result of an input program. |
@@ -57,8 +57,9 @@ Representative actual edges (paths below are relative to `bootstrap/`):
 
 The `case` table includes alternate/previous policies and source controls, not only
 these examples. A missing-reference diagnostic is a setup failure, never a valid
-negative-schema result. Invalid fixtures load both schema files; the three AST
-negative fixtures are additionally checked with the small schema **alone**.
+negative-schema result. Invalid fixtures explicitly load expression, AST and
+scanner schemas; the three AST negative fixtures are additionally checked with
+the small AST schema **alone**.
 
 ### Actual specification-language requirements
 
@@ -68,7 +69,7 @@ negative fixtures are additionally checked with the small schema **alone**.
 | Scope, field references, `let`, template reuse | `equality-fragments.cue:#ConcreteSide` specializes `_side` independently; `lowering-fragments.cue:#InstructionLowering` binds `Node`, `L`, `R`, `Unary`, `Binary`. | Lexical bindings and fresh instances; no accidental sharing of specialized fields. DSL `bind/get/letBounds` instructions are a different language. |
 | Ordinary/optional/required fields | `schema.cue:#OptionalSliceExpression` has `lower?`/`upper?`; `#LoweringExpression` conditionally constrains `upperFirst?`. `ast-schema.cue` supplies omitted singleton `formatVersion: 1`. | Presence/completeness semantics and bottom checks. No explicit `!:` declarations were found in the inspected export inputs; ordinary fields still impose constraints and can contribute values. |
 | Disjunctions and defaults | Recursive tagged unions in both schemas; `schema.cue:#PrattProgram` defaults `target` to `"parser"`; `primary-fragments.cue:#PrimaryControl` has multiple preferred flags/minima; `scan-lowering-fragments.cue` has overridable preferred source templates. | General default calculus, including non-integer/list/string/struct choices and interacting preferences. The single-integer preference spike is insufficient. Singleton insertion is not default selection. |
-| Open lists and list constraints | `ast-schema.cue:#BuildObject.fields`, `#BuildProgram.parameters`; `schema.cue:#ScanByteIn` has a required first item plus open tail; collection shapes use `list.MaxItems`. | Typed list constraints and recursive validation, not only immutable concrete list values. |
+| Open lists and list constraints | `ast-schema.cue:#BuildObject.fields`, `#BuildProgram.parameters`; `scanner-schema.cue:#ScanByteIn` has a required first item plus open tail; collection shapes use `list.MaxItems`. | Typed list constraints and recursive validation, not only immutable concrete list values. |
 | Conditionals/comprehensions | `pratt-fragments.cue` conditionally emits postfix clauses; `decimal-fragments.cue` flattens sign/digit programs with `for`; `schema.cue` checks optional presence via `!= _\|_`. | Export-time guards, bottom/presence, iteration and field/list generation. `{op:"while"}` alone is not evidence of a CUE loop. |
 | Dynamic labels, patterns and interpolation | `lowering-fragments.cue` builds aliases/cases with `for name, method ... {"\(name)": ...}`; `schema.cue:#LoweringPolicy` constrains `[string & !=""]` fields. | Pattern/dynamic-field application, scope and string interpolation. A builder's represented dynamic JSON key is not a CUE dynamic label. |
 | Imports and builtins | Export inputs import `list`; actual calls include `Range`, `Concat`, `MaxItems`, `UniqueItems`. `schema.cue:#RecordEntry` uses builtin `len`; record checks use hidden `_bytes`/`_unique` fields. | Checked builtin implementations and their constraint/error semantics, import resolution and hidden-field export rules. |
@@ -257,9 +258,12 @@ unchanged export boundary, not a native exporter or broader source capabilities.
    to every current AST builder and makes it the production provider, including
    nested objects, integer payloads and alternate versions/escaped names. It
    retains export-versus-DSL validation boundaries and the original atom cut.
-2. Select one scanner/import closure (for example `identifier.cue`) and one policy
-   closure, with explicit `list`/regex/default/let requirements. Do not assume the
-   integer-default spike implements their list/string/struct preferences.
+2. The [#194 scanner-schema step](scanner-schema-closure.md) isolates the scanner
+   schema unchanged, selects unmodified `group-open.cue` as the first exact two-file
+   target and characterizes remaining native gaps. This is still Go-CUE-backed
+   construction. Wider scanner/import closure (for example `identifier.cue`) and
+   compiler-policy closure need explicit list/regex/default/let requirements; the
+   scalar-default studies do not implement their list/string/struct preferences.
 3. Close the six lowering-policy exports, including the self-regenerating meta
    policy, before claiming the six compiler seeds no longer depend on Go CUE.
 4. Replace the complete specification-export cut and repeat fresh artifact-free
