@@ -165,4 +165,7 @@ nix develop ./infra/tooling --command cargo test \
 
 Production defaults remain held. A new readiness policy must explain this
 both-order, live-support/no-suppression counterexample, not only the earlier
-marked-ancestor case or the separately pinned order discrepancies.
+marked-ancestor case or the separately pinned order discrepancies. The
+[#188 context-partitioned hypothesis](contextual-preference-spike.md) investigates
+a different algorithm independently; its additional both-order falsifications
+are not grounds to relax this study's rejected admission.
