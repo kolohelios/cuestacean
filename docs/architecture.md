@@ -24,7 +24,7 @@ not invoke Go CUE at runtime.
 ```text
 BUILD THE IMPLEMENTATION
 CUE specifications: schemas + grammar + executable DSL programs/policies
-    | native exporter evaluates builder and bounded AST/meta policy closures
+    | native exporter evaluates builder and bounded AST/meta/scanner policy closures
     | pinned Go CUE evaluates other closures (including defaults/comprehensions)
     v
 build-only JSON: validated grammar data and represented DSL programs/policies

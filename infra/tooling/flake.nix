@@ -324,6 +324,10 @@
                 ../../bootstrap/ast-lowering-body.cue
                 ../../bootstrap/ast-integer-policy.cue
                 ../../bootstrap/scan-lowering-fragments.cue
+                ../../bootstrap/scan-lowering-helpers.cue
+                ../../bootstrap/scan-lowering-flow.cue
+                ../../bootstrap/scan-lowering-predicates.cue
+                ../../bootstrap/scan-advance-policy.cue
                 ../../bootstrap/meta-lowering-fragments.cue
                 ../../bootstrap/meta-lowering-body.cue
                 ../../bootstrap/meta-text-alias.cue
@@ -347,6 +351,11 @@
             for fixture in ${fixtureNames}; do
               echo "exporting $fixture"
               case "$fixture" in
+                scan-lowering)
+                  mkdir -p "$out"
+                  cp ${nativeScanLoweringPolicy pkgs}/scan-lowering.json "$out/scan-lowering.json"
+                  continue
+                  ;;
                 meta-lowering)
                   mkdir -p "$out"
                   cp ${nativeMetaLoweringPolicy pkgs}/meta-lowering.json "$out/meta-lowering.json"
@@ -408,6 +417,9 @@
               case "$fixture" in
                 tests/valid/ast-lowering-*)
                   inputs+=("${cueSources}/ast-lowering-body.cue" "${cueSources}/ast-integer-policy.cue") ;;
+                tests/valid/scan-lowering-*)
+                  inputs+=("${cueSources}/scan-lowering-helpers.cue" "${cueSources}/scan-lowering-flow.cue"
+                    "${cueSources}/scan-lowering-predicates.cue" "${cueSources}/scan-advance-policy.cue") ;;
                 tests/valid/meta-lowering-*|tests/valid/meta-driver-previous)
                   inputs+=("${cueSources}/meta-lowering-body.cue" "${cueSources}/meta-text-alias.cue" "${cueSources}/meta-next-rule-alias.cue") ;;
               esac
@@ -903,6 +915,13 @@
                 ../../bootstrap/meta-lowering.cue
                 ../../bootstrap/tests/valid/meta-lowering-forced.cue
                 ../../bootstrap/tests/valid/meta-driver-previous.cue
+                ../../bootstrap/scan-lowering.cue
+                ../../bootstrap/scan-lowering-fragments.cue
+                ../../bootstrap/scan-lowering-helpers.cue
+                ../../bootstrap/scan-lowering-flow.cue
+                ../../bootstrap/scan-lowering-predicates.cue
+                ../../bootstrap/scan-advance-policy.cue
+                ../../bootstrap/tests/valid/scan-lowering-unicode.cue
                 ../../bootstrap/scanner-schema.cue
                 ../../bootstrap/group-open.cue
                 ../../bootstrap/ast-schema.cue
@@ -1185,6 +1204,233 @@
             cp ${nativeAstIntegerPolicyBuildClosure pkgs}/registration "$out/native-build-registration"
             printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeAstIntegerPolicy pkgs).drvPath} > "$out/native-build-roots"
           '';
+      scanLoweringPolicySources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/native-policy-package.cue
+            ../../bootstrap/scan-lowering-helpers.cue
+            ../../bootstrap/scan-lowering-flow.cue
+            ../../bootstrap/scan-lowering-predicates.cue
+            ../../bootstrap/scan-advance-policy.cue
+          ];
+        };
+      scanPolicyComposition = pkgs: ''
+        compose() {
+          test "$(wc -c < "$1")" -le 65536
+          test "$(wc -c < "$2")" -le 65536
+          env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -s -S \
+            -f ${../../bootstrap/compose-policy.jq} "$1" "$2" > "$3"
+          test "$(wc -c < "$3")" -le 65536
+        }
+        assemble() { compose "$1" "$2" part.json; compose part.json "$3" "$4"; }
+      '';
+      nativeScanLoweringPolicy =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-scan-lowering-policy" { } ''
+          set -euo pipefail
+          mkdir -p "$PWD/home"
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          jq=${pkgs.jq}/bin/jq
+          for binary in "$exporter" "$jq"; do
+            test -r "$binary" && test -x "$binary"
+            case "$binary" in /*) ;; *) exit 1 ;; esac
+          done
+          ${scanPolicyComposition pkgs}
+          for run in first second; do
+            for module in flow predicates advance; do
+              companion=scan-lowering-helpers
+              source=scan-lowering-$module
+              if test "$module" = advance; then companion=native-policy-package; source=scan-advance-policy; fi
+              env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" \
+                ${scanLoweringPolicySources pkgs}/"$companion.cue" \
+                ${scanLoweringPolicySources pkgs}/"$source.cue" > "$run-$module.json"
+              test "$(wc -c < "$run-$module.json")" -le 65536
+            done
+            assemble "$run-flow.json" "$run-predicates.json" "$run-advance.json" "$run.json"
+            for order in 'flow predicates advance' 'flow advance predicates' 'predicates flow advance' \
+              'predicates advance flow' 'advance flow predicates' 'advance predicates flow'; do
+              read -r a b c <<< "$order"
+              assemble "$run-$a.json" "$run-$b.json" "$run-$c.json" left.json
+              compose "$run-$b.json" "$run-$c.json" right-part.json
+              compose "$run-$a.json" right-part.json right.json
+              cmp "$run.json" left.json; cmp "$run.json" right.json
+            done
+          done
+          for module in flow predicates advance; do cmp "first-$module.json" "second-$module.json"; done
+          cmp first.json second.json
+          mkdir -p "$out"
+          cp first.json "$out/scan-lowering.json"
+        '';
+      nativeScanLoweringPolicyBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativeScanLoweringPolicy pkgs).drvPath
+          ];
+        };
+      nativeScanLoweringPolicyVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-scan-lowering-policy-verification" { } ''
+          set -euo pipefail
+          for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} \
+            ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+            ${executor pkgs} ${(executor pkgs).drvPath} \
+            ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+            ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+            ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+            if grep -Fx "$forbidden" ${nativeScanLoweringPolicyBuildClosure pkgs}/store-paths; then
+              echo "forbidden scanner construction dependency: $forbidden" >&2; exit 1
+            fi
+          done
+          mkdir -p "$out" "$PWD/probe/home"
+          cd probe
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          oracle=${pkgs.cue}/bin/cue
+          codegen=${executor pkgs}/bin/bootstrap-scan-codegen
+          jq=${pkgs.jq}/bin/jq
+          rustfmt=${pkgs.rustfmt}/bin/rustfmt
+          for binary in "$exporter" "$oracle" "$codegen" "$jq" "$rustfmt"; do
+            test -r "$binary" && test -x "$binary"
+            case "$binary" in /*) ;; *) exit 1 ;; esac
+          done
+          native() { env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$@"; }
+          cue() { env -i HOME="$PWD/home" PATH=/nonexistent "$oracle" "$@"; }
+          json() { env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -S .; }
+          format() { env -i HOME="$PWD/home" PATH=/nonexistent "$rustfmt" --edition 2024; }
+          generate() { env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" "$@" | format; }
+          ${scanPolicyComposition pkgs}
+          schema=${../../bootstrap/schema.cue}
+          bridge=${../../bootstrap/scan-lowering-fragments.cue}
+          selector=${../../bootstrap/scan-lowering.cue}
+          cp ${scanLoweringPolicySources pkgs}/*.cue .
+          helpers=scan-lowering-helpers.cue
+          flow=scan-lowering-flow.cue
+          predicates=scan-lowering-predicates.cue
+          advance=scan-advance-policy.cue
+          raw() { cue export "$schema" "$bridge" "$selector" "$helpers" "$flow" "$predicates" "$advance" "$@"; }
+          no_export() {
+            if cue export "$@" > failed.json 2> failed.err; then exit 1; fi
+            test ! -s failed.json && test -s failed.err
+          }
+          native "$helpers" "$flow" > flow.json
+          native "$helpers" "$predicates" > predicates.json
+          native native-policy-package.cue "$advance" > advance.json
+          assemble flow.json predicates.json advance.json policy.json
+          cmp policy.json ${nativeScanLoweringPolicy pkgs}/scan-lowering.json
+          cmp policy.json ${jsonExports pkgs}/scan-lowering.json
+          raw | json > raw.json
+          cmp policy.json raw.json
+          cue export "$schema" "$bridge" "$selector" policy.json | json > validated.json
+          cmp policy.json validated.json
+          for missing in "$flow" "$predicates" "$advance"; do
+            providers=("$helpers")
+            for source in "$flow" "$predicates" "$advance"; do
+              if test "$source" != "$missing"; then providers+=("$source"); fi
+            done
+            no_export "$schema" "$bridge" "$selector" "''${providers[@]}"
+            grep -F 'incomplete value' failed.err
+            cue eval "$schema" "$bridge" "$selector" "''${providers[@]}" > /dev/null
+            cp failed.err "$missing-missing.err"
+          done
+          no_export "$schema" "$bridge" "$selector" "$flow" "$predicates" "$advance"
+          grep -E 'reference .*not found|undefined' failed.err
+          cp failed.err helpers-missing.err
+          raw ${../../bootstrap/tests/valid/scan-lowering-unicode.cue} | json > unicode.json
+          cmp unicode.json ${jsonExports pkgs}/tests/valid/scan-lowering-unicode.json
+          no_export "$schema" "$bridge" "$selector" policy.json ${../../bootstrap/tests/valid/scan-lowering-unicode.cue}
+          cp failed.err late-override.err
+          for machine in ${scannerNames}; do
+            generate ${jsonExports pkgs}/"$machine.json" policy.json > scanner.rs
+            cmp scanner.rs ${../../bootstrap/generated}/"$(basename "$machine").rs"
+          done
+          generate ${jsonExports pkgs}/tests/valid/scanner-advance.json unicode.json > unicode.rs
+          cmp unicode.rs ${../../bootstrap/generated}/scan-unicode-advance.rs
+          # Complete independent expected source; these controls emit, not execute.
+          printf '%s\n' '{"formatVersion":1,"body":[{"op":"if","condition":{"op":"hasByte"},"then":[{"op":"setFlag","value":true}],"else":[]},{"op":"advance"}]}' > tiny.json
+          for owner in helper flow predicate advance; do
+            banner='// Generated by bootstrap-scan-codegen. Do not edit by hand.'
+            step='cursor.step()?;'
+            condition='cursor.peek().is_some()'
+            advancement='cursor.advance()?;'
+            case "$owner" in
+              helper)
+                substitute "$helpers" variant.cue --replace-fail 'cursor.step()?;' '// Helper control.\ncursor.step()?;'
+                native variant.cue "$flow" > variant-flow.json
+                assemble variant-flow.json predicates.json advance.json variant.json
+                step=$'// Helper control.\ncursor.step()?;' ;;
+              flow)
+                substitute "$flow" variant.cue --replace-fail '// Generated by bootstrap-scan-codegen.' '// Flow control.\n// Generated by bootstrap-scan-codegen.'
+                native "$helpers" variant.cue > variant-flow.json
+                assemble variant-flow.json predicates.json advance.json variant.json
+                banner=$'// Flow control.\n'"$banner" ;;
+              predicate)
+                substitute "$predicates" variant.cue --replace-fail 'cursor.peek().is_some()' 'cursor.peek().is_none()'
+                native "$helpers" variant.cue > variant-predicates.json
+                assemble flow.json variant-predicates.json advance.json variant.json
+                condition='cursor.peek().is_none()' ;;
+              advance)
+                substitute "$advance" variant.cue --replace-fail 'cursor.advance()' 'cursor.advance_char()'
+                native native-policy-package.cue variant.cue > variant-advance.json
+                assemble flow.json predicates.json variant-advance.json variant.json
+                advancement='cursor.advance_char()?;' ;;
+            esac
+            case "$owner" in
+              helper) cue export "$schema" "$bridge" "$selector" variant.cue "$flow" "$predicates" "$advance" ;;
+              flow) cue export "$schema" "$bridge" "$selector" "$helpers" variant.cue "$predicates" "$advance" ;;
+              predicate) cue export "$schema" "$bridge" "$selector" "$helpers" "$flow" variant.cue "$advance" ;;
+              advance) cue export "$schema" "$bridge" "$selector" "$helpers" "$flow" "$predicates" variant.cue ;;
+            esac | json > variant-raw.json
+            cmp variant.json variant-raw.json
+            generate tiny.json variant.json > "$owner.rs"
+            format > "$owner-expected.rs" <<RUST
+          $banner
+          use crate::scanner::{Cursor, Error, Scan};
+          pub fn scan(source: &str, offset: usize) -> Result<Scan, Error> {
+              let mut cursor = Cursor::new(source, offset)?;
+              $step
+              if $condition {
+                  $step
+                  cursor.set_flag(true);
+              }
+              cursor.step()?;
+              $advancement
+              Ok(cursor.finish())
+          }
+          RUST
+            cmp "$owner.rs" "$owner-expected.rs"
+          done
+          for invalid in opcode shape; do
+            if test "$invalid" = opcode; then
+              substitute "$flow" invalid.cue --replace-fail 'op: "concat"' 'op: "unknownNativeControl"'
+            else
+              substitute "$flow" invalid.cue --replace-fail 'formatVersion: 1' 'formatVersion: "wrong"'
+            fi
+            native "$helpers" invalid.cue > invalid-flow.json
+            assemble invalid-flow.json predicates.json advance.json invalid.json
+            no_export "$schema" "$bridge" "$selector" "$helpers" invalid.cue "$predicates" "$advance"
+            cp failed.err "$invalid-schema.err"
+            if env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" tiny.json invalid.json > invalid.rs 2> invalid.err; then exit 1; fi
+            test ! -s invalid.rs && test -s invalid.err
+            cp invalid.err "$invalid-typed.err"
+          done
+          # Shape-valid DATA can still violate the consumer's lexical scope.
+          substitute "$helpers" unbound.cue --replace-fail 'name: "then"' 'name: "unbound"'
+          native unbound.cue "$flow" > unbound-flow.json
+          assemble unbound-flow.json predicates.json advance.json unbound.json
+          cue export "$schema" "$bridge" "$selector" unbound.cue "$flow" "$predicates" "$advance" | json > unbound-raw.json
+          cmp unbound.json unbound-raw.json
+          if env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" tiny.json unbound.json > unbound.rs 2> unbound-typed.err; then exit 1; fi
+          test ! -s unbound.rs && test -s unbound-typed.err
+          grep -F 'unknown binding' unbound-typed.err
+          cp policy.json unicode.rs *-expected.rs helper.rs flow.rs predicate.rs advance.rs *-missing.err late-override.err *-schema.err *-typed.err "$out/"
+          cp ${nativeScanLoweringPolicyBuildClosure pkgs}/store-paths "$out/native-build-paths"
+          cp ${nativeScanLoweringPolicyBuildClosure pkgs}/registration "$out/native-build-registration"
+          printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeScanLoweringPolicy pkgs).drvPath} > "$out/native-build-roots"
+        '';
       metaLoweringPolicySources =
         pkgs:
         pkgs.lib.fileset.toSource {
@@ -1802,6 +2048,7 @@
           native-ast-integer-policy = nativeAstIntegerPolicy pkgs;
           native-ast-lowering-policy = nativeAstLoweringPolicy pkgs;
           native-meta-lowering-policy = nativeMetaLoweringPolicy pkgs;
+          native-scan-lowering-policy = nativeScanLoweringPolicy pkgs;
           native-codegen-core = nativeCodegenCore pkgs;
           default-observer = defaultObserver pkgs;
           default-trace = defaultTrace pkgs;
@@ -1865,6 +2112,7 @@
           native-ast-integer-policy = nativeAstIntegerPolicyVerification pkgs;
           native-ast-lowering-policy = nativeAstLoweringPolicyVerification pkgs;
           native-meta-lowering-policy = nativeMetaLoweringPolicyVerification pkgs;
+          native-scan-lowering-policy = nativeScanLoweringPolicyVerification pkgs;
           native-codegen-core = nativeCoreVerification pkgs;
           bootstrap-codegen =
             pkgs.runCommand "cuestacean-bootstrap-codegen"

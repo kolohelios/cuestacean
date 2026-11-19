@@ -1,7 +1,14 @@
 # Shared CUE scanner compiler backend
 
-`scan-lowering{,-fragments}.cue` owns scanner module/statement layout, predicate
-composition and source-branch simplification through the [shared engine](lowering.md).
+`scan-lowering-flow.cue`, `scan-lowering-predicates.cue`, shared finite
+`scan-lowering-helpers.cue` definitions and the raw scalar `scan-advance-policy.cue`
+own scanner layout/predicate composition/branch simplification through the
+[shared engine](lowering.md). Their [native policy DATA artifact](../docs/native-scan-lowering-policy.md)
+assembles independently materialized disjoint modules; `scan-lowering-fragments.cue`
+retains the Go-only schema/all15-required-slot bridge and `scan-lowering.cue` selector.
+Raw overrides load ALL providers before contextual preference selection, not concrete
+default JSON. Helper let-to-definition refactoring preserves this finite data/override
+boundary, not general contextual equivalence or new specification semantics.
 Existing leaf control syntax and scanner goldens remain unchanged except the
 production string scanner, intentionally compacted with [composable predicates](scanner-predicates.md).
 
@@ -67,5 +74,8 @@ single-`advance` program: it consumes λ while reference ASCII advancement rejec
 This deliberate compiler-policy adversary does not relax the default ASCII cursor
 contract. Compiled binding fixtures check captures, escaped selectors/strings,
 lazy projection and fixed successful outputs. Native flow analysis, pattern
-formatting, policy compilation and Go CUE export remain bootstrap boundaries;
-this is not full compiler self-hosting or a measured performance improvement.
+formatting and policy compilation remain native boundaries. Canonical scanner
+policy DATA is now native alongside AST/meta; schema validation/raw overrides
+remain Go-backed and the scanner compiler still uses the legacy construction path.
+This is not full scanner schema evaluation, compiler self-hosting or a measured
+performance improvement.
