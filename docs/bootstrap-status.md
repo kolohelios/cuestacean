@@ -67,7 +67,10 @@ facts, not a native replacement model or complete source-occurrence provenance.
 The [#202 native scalar batch primitive](native-batch-defaults.md) implements one
 zero-priority mode-transition phase over supplied successful-trial facts, checked
 against additive origin-aware traces. It does not construct survivors from source
-or replace the held default solver/readiness policy.
+or replace the held default solver/readiness policy. The [#204 flat source-batch
+experiment](flat-default-sources.md) constructs survivors and carries original
+modes across flat IR conjunctions, reusing that primitive. Nested scheduling and
+production demand/default admission remain unestablished.
 These steps do not solve nested default lifetime or unhold #175.
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

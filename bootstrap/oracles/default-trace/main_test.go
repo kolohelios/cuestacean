@@ -11,6 +11,35 @@ import (
 	"cuelang.org/go/cue/token"
 )
 
+func TestCuestaceanHistoryWire(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "input.cue")
+	if err := os.WriteFile(path, []byte("a: *1|2"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	b, err := observe([]string{"trace-history", path, "a"})
+	want := `{"formatVersion":3,"mode":"trace-history","defaultSelected":true,"status":"concrete","value":1,"batches":[{"id":0,"depth":0,"leftDropsDefault":true,"rightDropsDefault":false,"trials":[{"mode":"maybe","originalMode":"default","leftMode":"maybe","leftOriginalMode":"maybe","value":1,"nested":[]},{"mode":"maybe","originalMode":"not","leftMode":"maybe","leftOriginalMode":"maybe","value":2,"nested":[]}],"results":[{"mode":"default","originalMode":"default","value":1},{"mode":"not","originalMode":"not","value":2}]}]}` + "\n"
+	if err != nil || string(b) != want {
+		t.Fatalf("history wire: %s %v", b, err)
+	}
+	for _, mode := range []string{"trace", "trace-origins"} {
+		old, err := observe([]string{mode, path, "a"})
+		var out observation
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(old, &out); err != nil {
+			t.Fatal(err)
+		}
+		for _, batch := range out.Batches {
+			for _, result := range batch.Results {
+				if result.OriginalMode != nil {
+					t.Fatal("history leaked into old mode")
+				}
+			}
+		}
+	}
+}
+
 func TestCuestaceanOriginsWire(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "input.cue")
 	if err := os.WriteFile(path, []byte("a: *1|2"), 0600); err != nil {

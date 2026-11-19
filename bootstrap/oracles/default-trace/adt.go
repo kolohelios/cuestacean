@@ -6,8 +6,9 @@ import "fmt"
 type CuestaceanTraceMode string
 
 type CuestaceanTraceResult struct {
-	Mode  CuestaceanTraceMode `json:"mode"`
-	Value *int64              `json:"value"`
+	Mode         CuestaceanTraceMode  `json:"mode"`
+	OriginalMode *CuestaceanTraceMode `json:"originalMode,omitempty"`
+	Value        *int64               `json:"value"`
 }
 
 type CuestaceanTraceTrial struct {
@@ -38,6 +39,7 @@ type cuestaceanTraceCapture struct {
 	stages         [128]uint8
 	err            error
 	originsEnabled bool
+	historyEnabled bool
 	origins        [128][][2]CuestaceanTraceMode
 }
 
@@ -54,6 +56,14 @@ func CuestaceanTraceOriginsStart() error {
 		return err
 	}
 	cuestaceanCapture.originsEnabled = true
+	return nil
+}
+
+func CuestaceanTraceHistoryStart() error {
+	if err := CuestaceanTraceOriginsStart(); err != nil {
+		return err
+	}
+	cuestaceanCapture.historyEnabled = true
 	return nil
 }
 
@@ -174,7 +184,12 @@ func cuestaceanTraceValue(n *nodeContext) *int64 {
 }
 
 func (c *cuestaceanTraceCapture) result(n *nodeContext) CuestaceanTraceResult {
-	return CuestaceanTraceResult{c.mode(n.defaultMode), cuestaceanTraceValue(n)}
+	r := CuestaceanTraceResult{Mode: c.mode(n.defaultMode), Value: cuestaceanTraceValue(n)}
+	if c.historyEnabled {
+		m := c.mode(n.origDefaultMode)
+		r.OriginalMode = &m
+	}
+	return r
 }
 
 func cuestaceanTraceTrials(id int, tmp []*nodeContext, left, right bool) {
@@ -191,7 +206,7 @@ func cuestaceanTraceTrials(id int, tmp []*nodeContext, left, right bool) {
 	}
 	// Check all nested widths and cumulative records before allocating copies.
 	for _, n := range tmp {
-		if !c.reserve(len(n.disjuncts), len(n.disjuncts)) {
+		if !c.reserve(len(n.disjuncts), c.resultRecords(len(n.disjuncts))) {
 			return
 		}
 	}
@@ -219,13 +234,20 @@ func cuestaceanTraceTrials(id int, tmp []*nodeContext, left, right bool) {
 	c.stages[id] = 1
 }
 
+func (c *cuestaceanTraceCapture) resultRecords(width int) int {
+	if c.historyEnabled {
+		return 2 * width
+	}
+	return width
+}
+
 func cuestaceanTraceResults(id int, dst []*nodeContext) {
 	c := cuestaceanCapture
 	if c == nil {
 		return
 	}
 	defer func() { c.depth-- }()
-	if !c.current(id, 1) || !c.reserve(len(dst), len(dst)) {
+	if !c.current(id, 1) || !c.reserve(len(dst), c.resultRecords(len(dst))) {
 		return
 	}
 	b := &c.batches[id]

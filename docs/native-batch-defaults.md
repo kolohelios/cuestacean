@@ -172,3 +172,8 @@ Independent queries match all three native inventories (1407 derivations/3392
 full build paths each) and seed inventory (1436/3466). Current provider/consumer
 exclusions and absent seed-provider environment are verified. This is not minimal
 seed-source or Go-CUE-free seed attestation. #175 and its saved prototype stay held.
+
+The [#204 flat source-batch follow-up](flat-default-sources.md) reuses this exact
+primitive to construct successful trials and retain first-origin history across
+flat hand-built IR groups. It does not rewrite this API, admit nested sources or
+supply a production default/readiness certificate.

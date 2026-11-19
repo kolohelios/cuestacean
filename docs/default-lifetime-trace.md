@@ -25,7 +25,8 @@ Keep approximately <=1500 changed lines. Preserve Apache-2.0/upstream notices.
 The additive [#202 origin-aware extension](native-batch-defaults.md) adds a fourth
 v2-only capture hook and `trace-origins` observations, preserving all v1 wire bytes
 and limits. The three-hook construction/results below describe the original #200
-milestone, not the later producer identity.
+milestone, not the later producer identity. The subsequent [#204 history mode](flat-default-sources.md)
+adds v3 nested/final result origins without extra hooks, preserving both old modes.
 
 ## Instrumented oracle, not changed semantics
 

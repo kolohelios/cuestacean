@@ -544,6 +544,8 @@
           jq -e '.batches | length > 0' "$out/trace.json" > /dev/null
           env -i PATH=/nonexistent ${defaultTrace pkgs}/bin/cuestacean-default-trace trace-origins probe.cue a > "$out/trace-origins.json"
           jq -e '.formatVersion == 2 and .mode == "trace-origins" and .value == 1 and all(.batches[].trials[]; .leftMode == "maybe" and .leftOriginalMode == "maybe")' "$out/trace-origins.json" > /dev/null
+          env -i PATH=/nonexistent ${defaultTrace pkgs}/bin/cuestacean-default-trace trace-history probe.cue a > "$out/trace-history.json"
+          jq -e '.formatVersion == 3 and .mode == "trace-history" and .value == 1 and .batches[0].results == [{mode:"default",originalMode:"default",value:1},{mode:"not",originalMode:"not",value:2}]' "$out/trace-history.json" > /dev/null
         '';
 
       # Delete only staged build copies, never the working tree. Neither stage
@@ -599,6 +601,7 @@
             cargo test --offline --no-default-features --test default_observer
             cargo test --offline --no-default-features --test default_trace
             cargo test --offline --no-default-features --test batch_defaults
+            cargo test --offline --no-default-features --test flat_default_sources
           '';
           postPatch = clearArtifacts + ''
             # Do not leak strict shell options into later stdenv hooks.

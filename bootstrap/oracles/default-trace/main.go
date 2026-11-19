@@ -134,8 +134,8 @@ func encode(out observation) ([]byte, error) {
 }
 
 func observe(args []string) ([]byte, error) {
-	if len(args) != 3 || (args[0] != "trace" && args[0] != "trace-origins") || !labelOK(args[2]) {
-		return nil, fmt.Errorf("expected trace or trace-origins FILE FIELD")
+	if len(args) != 3 || (args[0] != "trace" && args[0] != "trace-origins" && args[0] != "trace-history") || !labelOK(args[2]) {
+		return nil, fmt.Errorf("expected trace, trace-origins or trace-history FILE FIELD")
 	}
 	file, err := os.Open(args[1])
 	if err != nil {
@@ -156,6 +156,8 @@ func observe(args []string) ([]byte, error) {
 	start := adt.CuestaceanTraceStart
 	if args[0] == "trace-origins" {
 		start = adt.CuestaceanTraceOriginsStart
+	} else if args[0] == "trace-history" {
+		start = adt.CuestaceanTraceHistoryStart
 	}
 	if err := start(); err != nil {
 		return nil, err
@@ -175,6 +177,8 @@ func observe(args []string) ([]byte, error) {
 	out := observation{FormatVersion: 1, Mode: args[0]}
 	if args[0] == "trace-origins" {
 		out.FormatVersion = 2
+	} else if args[0] == "trace-history" {
+		out.FormatVersion = 3
 	}
 	selected, out.DefaultSelected = selected.Default()
 	if selected.Err() != nil {
