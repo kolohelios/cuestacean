@@ -1,6 +1,59 @@
 //! Falsifiable recursive scalar IR hypothesis; never a production default gate.
 #[path = "../../spikes/batch_defaults.rs"]
 mod batch_defaults;
+
+#[test]
+fn audited_promotion_keeps_first_position_without_charging_old_api() {
+    use batch_defaults::{Body, Leaf, Mode, Trial, execute_audited};
+    let input = [Mode::Not, Mode::Default].map(|incoming| Trial {
+        mode: Mode::Maybe,
+        left_mode: Mode::Maybe,
+        left_origin: Mode::Maybe,
+        incoming,
+        body: Body::Scalar(7),
+    });
+    let old = batch_defaults::execute(&input, 4096).expect("old path");
+    let audit = execute_audited(&input, 4096).expect("audited path");
+    assert_eq!((old.work, audit.report.work), (13, 32));
+    assert_eq!(old.results, audit.report.results);
+    assert_eq!(audit.appends.len(), 2);
+    let first = &audit.appends[0];
+    let next = &audit.appends[1];
+    let comparison = &next.comparisons[0];
+    assert_eq!((first.occurrence.trial, first.occurrence.child), (0, None));
+    assert_eq!((next.occurrence.trial, next.occurrence.child), (1, None));
+    assert_eq!(
+        first.candidate,
+        Leaf {
+            value: 7,
+            mode: Mode::Not
+        }
+    );
+    assert_eq!(
+        next.candidate,
+        Leaf {
+            value: 7,
+            mode: Mode::Default
+        }
+    );
+    assert_eq!(
+        (first.index, first.coalesced, next.index, next.coalesced),
+        (0, false, 0, true)
+    );
+    assert!(first.comparisons.is_empty() && comparison.matched);
+    assert_eq!(
+        (comparison.occurrence.trial, comparison.occurrence.child),
+        (0, None)
+    );
+    assert_eq!(
+        comparison.existing,
+        Leaf {
+            value: 7,
+            mode: Mode::Not
+        }
+    );
+}
+
 #[path = "../../spikes/flat_default_sources.rs"]
 mod flat_default_sources;
 #[path = "../../spikes/recursive_default_scheduling.rs"]

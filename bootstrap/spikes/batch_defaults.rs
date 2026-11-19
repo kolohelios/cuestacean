@@ -55,6 +55,36 @@ pub struct Report {
     pub work: usize,
 }
 
+/// Encounter position in the supplied batch, not a source identity.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Occurrence {
+    pub trial: usize,
+    pub child: Option<usize>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Comparison {
+    /// First insertion into the compared destination slot, even after promotion.
+    pub occurrence: Occurrence,
+    pub existing: Leaf,
+    pub matched: bool,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Append {
+    pub occurrence: Occurrence,
+    pub candidate: Leaf,
+    pub index: usize,
+    pub coalesced: bool,
+    pub comparisons: Vec<Comparison>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct AuditedReport {
+    pub report: Report,
+    pub appends: Vec<Append>,
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
     Unsupported(&'static str),
@@ -127,25 +157,106 @@ fn combine(a: Mode, b: Mode, drop_a: bool, drop_b: bool, work: &mut Work) -> Res
     ))
 }
 
-fn append(results: &mut Vec<Leaf>, leaf: Leaf, work: &mut Work) -> Result<(), Error> {
+struct Audit {
+    appends: Vec<Append>,
+    first: Vec<Occurrence>,
+    comparisons: usize,
+}
+
+// Extra audit work, always before the covered snapshots/allocations/insertion:
+// initialization 3; candidate (occurrence, leaf, comparison-vector header) 3;
+// comparison (first occurrence, existing leaf, insertion) 3; first insertion 1;
+// completed append insertion 1; final retention 1 + appends + comparisons.
+// Successful total = old work + 4 + 5*A + 4*C + U. Retention is logical work
+// even when buffers move. No quadratic preallocation or separate audit budget.
+fn append(
+    results: &mut Vec<Leaf>,
+    leaf: Leaf,
+    position: (usize, Option<usize>),
+    audit: &mut Option<Audit>,
+    work: &mut Work,
+) -> Result<(), Error> {
     work.charge(1)?;
-    for existing in results.iter_mut() {
+    let mut event = if audit.is_some() {
+        work.charge(3)?;
+        Some(Append {
+            occurrence: Occurrence {
+                trial: position.0,
+                child: position.1,
+            },
+            candidate: leaf.clone(),
+            index: results.len(),
+            coalesced: false,
+            comparisons: Vec::new(),
+        })
+    } else {
+        None
+    };
+    for (index, existing) in results.iter_mut().enumerate() {
         work.charge(1)?;
-        if existing.value == leaf.value {
+        // Reserve evidence work before copying the actual pre-promotion state.
+        if let (Some(audit), Some(event)) = (audit.as_mut(), event.as_mut()) {
+            work.charge(3)?;
+            event.comparisons.push(Comparison {
+                occurrence: audit.first[index],
+                existing: existing.clone(),
+                matched: false,
+            });
+            audit.comparisons += 1;
+        }
+        let matched = existing.value == leaf.value;
+        if let Some(event) = event.as_mut() {
+            event.comparisons[index].matched = matched;
+        }
+        if matched {
             if leaf.mode == Mode::Default {
                 existing.mode = Mode::Default;
+            }
+            if let Some(event) = event.as_mut() {
+                event.index = index;
+                event.coalesced = true;
+            }
+            if let (Some(audit), Some(event)) = (audit.as_mut(), event) {
+                work.charge(1)?;
+                audit.appends.push(event);
             }
             return Ok(());
         }
     }
     work.charge(1)?;
+    if let (Some(audit), Some(event)) = (audit.as_mut(), event.as_ref()) {
+        work.charge(1)?;
+        audit.first.push(event.occurrence);
+    }
     results.push(leaf);
+    if let (Some(audit), Some(event)) = (audit.as_mut(), event) {
+        work.charge(1)?;
+        audit.appends.push(event);
+    }
     Ok(())
 }
 
 /// Execute one already-successful batch, not source scheduling or a solver.
 /// Admission precedes charged execution; errors never publish a partial report.
 pub fn execute(trials: &[Trial], work_limit: usize) -> Result<Report, Error> {
+    execute_inner(trials, work_limit, false).map(|(report, _)| report)
+}
+
+/// Capture the actual append comparisons in this invocation, not a replay.
+/// The returned work includes all audit retention; errors expose no transcript.
+pub fn execute_audited(trials: &[Trial], work_limit: usize) -> Result<AuditedReport, Error> {
+    let (report, audit) = execute_inner(trials, work_limit, true)?;
+    Ok(AuditedReport {
+        report,
+        appends: audit.map_or_else(Vec::new, |audit| audit.appends),
+    })
+}
+
+fn execute_inner(
+    trials: &[Trial],
+    work_limit: usize,
+    audited: bool,
+) -> Result<(Report, Option<Audit>), Error> {
     if work_limit > MAX_WORK {
         return Err(Error::Limit("work allowance"));
     }
@@ -155,6 +266,16 @@ pub fn execute(trials: &[Trial], work_limit: usize) -> Result<Report, Error> {
         limit: work_limit,
     };
     work.charge(1)?;
+    let mut audit = if audited {
+        work.charge(3)?;
+        Some(Audit {
+            appends: Vec::new(),
+            first: Vec::new(),
+            comparisons: 0,
+        })
+    } else {
+        None
+    };
     let mut left_drops = true;
     let mut right_drops = true;
     for trial in trials {
@@ -169,7 +290,7 @@ pub fn execute(trials: &[Trial], work_limit: usize) -> Result<Report, Error> {
 
     let mut results = Vec::new();
     let mut has_non_maybe = false;
-    for trial in trials {
+    for (trial_index, trial) in trials.iter().enumerate() {
         work.charge(1)?;
         match &trial.body {
             Body::Scalar(value) => {
@@ -186,11 +307,13 @@ pub fn execute(trials: &[Trial], work_limit: usize) -> Result<Report, Error> {
                         value: *value,
                         mode,
                     },
+                    (trial_index, None),
+                    &mut audit,
                     &mut work,
                 )?;
             }
             Body::Nested(children) => {
-                for child in children {
+                for (child_index, child) in children.iter().enumerate() {
                     work.charge(1)?;
                     // This maximum is a separate upstream combineDefault call.
                     work.charge(1)?;
@@ -203,6 +326,8 @@ pub fn execute(trials: &[Trial], work_limit: usize) -> Result<Report, Error> {
                             value: child.value,
                             mode,
                         },
+                        (trial_index, Some(child_index)),
+                        &mut audit,
                         &mut work,
                     )?;
                 }
@@ -219,11 +344,17 @@ pub fn execute(trials: &[Trial], work_limit: usize) -> Result<Report, Error> {
     }
     // Charge the header and all leaf copies before report allocation/copying.
     work.charge(1 + results.len())?;
-    Ok(Report {
-        left_drops,
-        right_drops,
-        has_non_maybe,
-        results: results.clone(),
-        work: work.used,
-    })
+    if let Some(audit) = &audit {
+        work.charge(1 + audit.appends.len() + audit.comparisons)?;
+    }
+    Ok((
+        Report {
+            left_drops,
+            right_drops,
+            has_non_maybe,
+            results: results.clone(),
+            work: work.used,
+        },
+        audit,
+    ))
 }

@@ -176,4 +176,7 @@ seed-source or Go-CUE-free seed attestation. #175 and its saved prototype stay h
 The [#204 flat source-batch follow-up](flat-default-sources.md) reuses this exact
 primitive to construct successful trials and retain first-origin history across
 flat hand-built IR groups. It does not rewrite this API, admit nested sources or
-supply a production default/readiness certificate.
+supply a production default/readiness certificate. The [#210 opt-in audit](native-coalescing-audit.md)
+subsequently shares this same transition/append path while recording native
+candidate/comparison snapshots. The unaudited API's reports, admission and exact
+work counts remain unchanged; audit costs are additional and explicitly bounded.

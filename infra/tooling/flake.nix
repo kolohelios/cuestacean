@@ -620,6 +620,7 @@
             cargo test --offline --no-default-features --test flat_default_sources
             cargo test --offline --no-default-features --test recursive_default_scheduling
             cargo test --offline --no-default-features --test default_equality_trace
+            cargo test --offline --no-default-features --test native_coalescing_audit
           '';
           postPatch = clearArtifacts + ''
             # Do not leak strict shell options into later stdenv hooks.

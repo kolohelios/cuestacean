@@ -209,4 +209,6 @@ entries remain excluded. No Go-free/minimal-source seed claim follows.
 Remaining work is a separately reviewed contextual scheduling/equality/projection
 admission, not selecting values from diagnostic events. Source parsing, abstract
 domains, references/layers/collections and production demand remain unestablished.
-#175 and its saved prototype remain held.
+#175 and its saved prototype remain held. The [#210 native audit](native-coalescing-audit.md)
+adds an opt-in transcript to the actual native append path, comparing only the
+explicit scalar projection of these observations, not native partial/final kinds.
