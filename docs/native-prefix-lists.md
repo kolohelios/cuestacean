@@ -150,3 +150,10 @@ verifier independently matches 1436/3466, with observer absent from graph/provid
 environment. This is not Go-CUE-free seed or minimal seed-source attestation.
 The full unchanged scanner closure still fails natively as Unsupported/no JSON;
 #175 and its separate prototype remain held.
+
+Subsequent [#198 readiness work](native-container-readiness.md) found a gap that
+these passing tests did not cover: `[1,...int]|[1]` has equal projected JSON but
+different open/closed bounds, so pinned CUE remains Incomplete. The same
+JSON-only deduplication gap predates this extension for closed/open structs.
+#198 retains container bounds during branch comparison; this historical evidence
+is not proof of general residual-constraint equivalence.
