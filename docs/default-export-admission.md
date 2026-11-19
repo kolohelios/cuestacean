@@ -2,6 +2,24 @@
 
 Milestone [#212](https://github.com/kolohelios/cuestacean/issues/212).
 
+## Current planning role: compatibility umbrella
+
+After #221, the user explicitly approved treating #175 as a long-term
+compatibility umbrella, NOT the critical delivery gate. Its broader original
+profile, counterexamples and held prototype remain unresolved; none are silently
+reclassified as satisfied. The failed eager pair representation is evidence, not
+a mandated implementation architecture. The historical gate inventory below
+still describes those semantic obligations, not a requirement to solve all of them
+before every useful compiler-input milestone.
+
+Choose bounded work from actual remaining Go-dependent inputs, with an exact
+source/consumer contract, independent evidence and construction proof for each.
+Keep incomplete preferences live, error/fallback discipline, current bounds,
+retained assertions and protected validation. Smaller capabilities close their
+own issues, not this umbrella. Scope/authority choices remain explicit.
+The [#222 AST-policy data cut](native-ast-lowering-policy.md) follows that direction
+without adding exporter semantics or claiming full native schema evaluation.
+
 ## Decision checkpoint, not semantic admission
 
 This is the next decision after the [native coalescing audit](native-coalescing-audit.md).
@@ -71,10 +89,10 @@ sufficient to close the issue.
 
 ## Three explicit remaining gates
 
-### A. Semantic admission design — next, currently open
+### A. Broader semantic admission design — open, not a global delivery gate
 
-Before further production edits, agree a parser-to-demand contract over the
-current exporter representation. It must state:
+Before production edits implementing that BROADER profile, agree a parser-to-demand
+contract over the current exporter representation. It must state:
 
 - Which residual value, preference/support, group and closure facts survive at
   EACH demanded data path, including nested fields and reused definitions/lets.
@@ -161,14 +179,13 @@ native exporter, the real fragment AND the original functional matrix are covere
 and Gate C succeeds. Research APIs, Go traces and scalar transcript agreement are
 prerequisites/evidence, not substitutes for those conditions.
 
-Immediate direction is Gate A: draft `docs/native-default-admission-design.md`
-with parser-to-residual-to-demand representation, contextual meet/equivalence and
-projection rules, ownership/ledgers, and minimal non-scalar witnesses. Then review
-that proposed contract against the original matrix before any production edits. Do not schedule another trace/audit
-endpoint as the default continuation. If the only defensible proposal is a narrower
-production capability, surface that scope decision explicitly rather than promising
-that #175 is almost done. Any newly discovered blocker belongs here or on #175,
-with a minimal witness and a named missing invariant.
+The historical Gate A design was reviewed in #214 and remains NO-GO for the
+broader profile. It is no longer the default next delivery. Follow the user-approved
+consumer-driven planning role above: select a real remaining Go-dependent compiler
+input, specify the bounded admitted cut and validate it independently. Do not
+schedule another trace/audit endpoint or promise #175 is almost done by default.
+Any new broader semantic blocker belongs here or on #175 with a minimal witness
+and named missing invariant; it need not block an unrelated supported source cut.
 
 ## Focused review outcome
 

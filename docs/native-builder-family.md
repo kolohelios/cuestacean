@@ -95,8 +95,10 @@ nix build --no-link ./infra/tooling#native-ast-builders
 nix build --no-link ./infra/tooling#checks.x86_64-linux.native-builder-family
 ```
 
-All AST *specification exports* become independently native, not all AST compiler
-inputs: `ast-lowering.json` and other lowering policies still require Go CUE.
-No general references/defaults/imports, wider source profile, self-hosting or
-performance claim follows. Subsequent policy-closure/interface work needs its own
+At #171 all AST *specification exports* became independently native, not the
+compiler policies. Subsequently [#222](native-ast-lowering-policy.md) independently
+constructs the complete canonical `ast-lowering.json` DATA from separately admitted
+modules; other lowering policies still require Go CUE. This does not imply native
+schema evaluation, general references/defaults/imports, a wider source profile,
+self-hosting or a performance claim. Subsequent policy-closure/interface work needs its own
 bounded selection; the native bootstrap policy remains explicitly native.

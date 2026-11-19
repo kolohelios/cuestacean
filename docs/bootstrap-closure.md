@@ -8,11 +8,13 @@ isolated the closure and characterized upstream behavior. Following the reviewed
 #162–#165 findings and user agreement under #161, [#169](native-spec-export.md)
 adds an isolated native exporter/artifact path. The [#171 family step](native-builder-family.md)
 now makes independently native artifacts the production provider for all 12 AST
-builder specifications. Other exports and the six complete compiler policies still
-depend on Go CUE; the later [#220 integer-policy input](native-ast-integer-policy.md)
-independently constructs ONE integer-literal case for the AST default policy.
-That partial input does not close a complete compiler policy. Wider feature
-expansion stays deferred. The later
+builder specifications. The later [#220 integer-policy input](native-ast-integer-policy.md)
+constructs one integer-literal case, and [#222 complete AST-policy DATA](native-ast-lowering-policy.md)
+extends that boundary with an independently native ordinary body and disjoint
+materialized-module assembly. Canonical AST policy DATA no longer needs Go CUE
+construction; full #LoweringPolicy schema validation remains a separate Go oracle.
+Other exports and the five other compiler-policy constructors still depend on Go
+CUE. Wider feature expansion stays deferred. The later
 [#182 demand-policy cut](native-demand-policies.md) natively constructs the two
 experimental dispatch policies from their unchanged three-file raw closure. They
 are test-only graph policies, not any of the six lowering-policy exports; their
@@ -32,8 +34,9 @@ JSON parsing or calling the eager expression VM.
 The authoritative export manifest is `infra/tooling/flake.nix`: `exportFixtures`,
 `builderFixtures`/`builderExportFixtures`, `cueSources`, and `jsonExports`' exact
 native-provider membership and per-CUE-fixture fragment selection. Canonical
-`ast-lowering` additionally receives the native integer-case JSON root; its
-explicit override fixtures instead receive the canonical raw two-alternative owner. AST positive
+`ast-lowering` is copied from the complete native policy artifact; its explicit
+override fixtures receive the ordinary raw body and canonical raw two-alternative
+integer owner before context. AST positive
 exports come from `nativeBuilders`; the production bundle copies them and does
 not run Go CUE for those fixtures. Distinguish three closures:
 
@@ -131,7 +134,8 @@ artifact-free native Rust sources --no-default-features------+
 
 The seed package embeds fresh exported policies through
 `CUESTACEAN_BOOTSTRAP_JSON`; no-default-features is **artifact-free**, not
-**Go-CUE-independent**. Production `compiled-lowering` selects generated drivers;
+**Go-CUE-independent**. Its canonical AST policy data input is independently native
+since #222; the shared package still needs five other Go-constructed policies. Production `compiled-lowering` selects generated drivers;
 `source` enables `semantics`. The final sandbox also checks compiler-only,
 semantics-only and compiled-lowering isolation. Committed Rust is a drift baseline,
 never a seed input. See `clearArtifacts`, `codegenSeed`, `executor`, and

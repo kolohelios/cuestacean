@@ -84,17 +84,15 @@ opt-in evidence costs share the unchanged work guard; the old API costs remain
 unchanged. Production demand/default admission stays held; these steps do not
 unhold #175.
 
-**Original #175:** follow the [#212 admission checkpoint](default-export-admission.md),
-not another trace/audit endpoint by default. #175 is blocked at semantic admission
-before exporter implementation and production attestation. Draft/review the
-parser-to-residual-to-demand contract against non-scalar contexts and the original
-functional matrix; a smaller tagged-struct capability requires explicit separate
-scope approval and cannot silently close #175. These are three acceptance gates,
-not a percentage/ETA or a promise of three PRs. The [#214 residual/demand design](native-default-admission-design.md)
-now proposes concrete retained representations and non-scalar witnesses, but its
-focused reviews return NO-GO: contextual selection, stable use/closure identity,
-feasibility/public unresolved disposition and ledger fit are not established.
-No production implementation is authorized by that design document.
+**#175 compatibility umbrella:** after #221 the user explicitly approved changing
+its planning role, not weakening correctness or declaring the broader profile done.
+The [#212 inventory](default-export-admission.md) and [#214 NO-GO design](native-default-admission-design.md)
+retain unresolved contextual selection, use/closure identity, feasibility and
+ledger obligations, original counterexamples and held prototype. They are NOT a
+global gate before every useful compiler-input delivery. Select bounded milestones
+from actual remaining Go dependencies, with precise source/consumer contracts and
+independent proofs; smaller capabilities close their own issues. No general
+semantic implementation GO or automatic trace/audit continuation follows.
 
 **Separately approved #216/#218:** [tagged-struct admission](tagged-default-admission.md)
 is explicitly NOT a narrowed definition of #175. The native exporter now implements
@@ -109,6 +107,14 @@ SAME profile and direct two-file raw cut: the canonical AST default policy now
 receives one independently native integer case, while Go CUE still validates and
 constructs the rest. Override fixtures load the unresolved raw owner explicitly;
 a materialized default artifact is not a late-refinement interface.
+The [#222 complete AST-policy DATA cut](native-ast-lowering-policy.md) now constructs
+the remaining ordinary lexical-let body independently and structurally assembles
+disjoint materialized modules. Canonical `ast-lowering.json` is copied from that
+native artifact, skipping Go construction for this first complete compiler-policy
+input. This is not mixed marked/let admission or native #LoweringPolicy schema
+evaluation: Go remains an independent schema oracle/raw override provider, and
+the five other policy constructors still use it. Shared six-compiler seeds remain
+Go-dependent. Progress follows this concrete input frontier, not solving #175 first.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
