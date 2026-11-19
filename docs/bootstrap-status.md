@@ -60,6 +60,10 @@ compiler construction.
 Its API flags are not native preference-state certificates. The [#192 subsumption
 observations](default-subsumption-observer.md) separately compare ordinary and
 Raw API acceptance, without treating rejection as a proof of negative ordering.
+The [#200 instrumented batch trace](default-lifetime-trace.md) observes the pinned
+upstream evaluator's actual batch-local drop/default-mode transitions on preserved
+failures, separately from the uninstrumented public observer. It supplies research
+facts, not a native replacement model or complete source-occurrence provenance.
 These steps do not solve nested default lifetime or unhold #175.
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

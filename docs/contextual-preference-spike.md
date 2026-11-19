@@ -231,6 +231,13 @@ verifier's retained paths. Pinned CUE/source, full production JSON and current
 downstream executor are absent from construction, not the separate verifier/
 consumer closure. No new kernel/test/expected answer enters native construction.
 
+The [#200 batch trace](default-lifetime-trace.md) follows up by observing the
+pinned upstream `crossProduct` phase directly instead of modifying this failed
+candidate. Drop-default facts belong to particular successful trial batches;
+public final flags and global occurrence support are not the same observation.
+The trace still does not reconstruct full failed-branch/source provenance or
+supply a native lifetime algorithm; all three genuine failures above stay held.
+
 Focused reproduction:
 
 ```sh
