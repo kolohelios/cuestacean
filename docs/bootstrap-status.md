@@ -67,7 +67,10 @@ bytes remain stable. The [#196 typed prefix-list extension](native-prefix-lists.
 adds native boolean values/types and required list prefixes with retained tail
 constraints. Native scanner construction still requires separately reviewed
 optional/range/regex/default semantics; the unchanged full scanner closure
-continues to reject natively as Unsupported.
+continues to reject natively as Unsupported. [#198 container-bound readiness](native-container-readiness.md)
+corrects native JSON-only disjunction deduplication: equal JSON with different
+open/closed container bounds is not ready. Optional fields remain unsupported;
+those constraints would need richer residual evidence than bound flags alone.
 Pinned CUE order discrepancies are separate evidence, not an excuse for the gap.
 Production parsing/evaluation stays unchanged. These experiments do not complete
 the real policies' default/pattern/optional-field/import closures.

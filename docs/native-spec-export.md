@@ -78,9 +78,11 @@ fixed/open lists use the fixed length, reject shorter-than-prefix lengths and
 constrain every supplied item with every applicable prefix/tail.
 
 Disjunction explores compatible branches with a shared budget. Eliminate
-conflicting alternatives; deduplicate identical complete results. Distinct complete
-results, or a compatible incomplete alternative, leave export Incomplete; never
-choose a branch just because it is already concrete. Unsupported/resource errors
+conflicting alternatives; deduplicate complete results only when exact JSON AND
+canonical container bounds agree ([#198 readiness](native-container-readiness.md)).
+Equal projected JSON can conceal open/closed alternatives. Different bounds,
+distinct complete results, or a compatible incomplete alternative leave export
+Incomplete; never choose a branch just because its JSON is already concrete. Unsupported/resource errors
 are not alternative contradictions. Check shallow literal/type incompatibility
 before recursive demands, and do not let one incomplete field conceal another
 field's contradiction. No field named `op` has privileged semantic treatment.

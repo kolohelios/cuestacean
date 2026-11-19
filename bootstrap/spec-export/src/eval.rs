@@ -30,6 +30,14 @@ struct State {
     active: Vec<Id>,
 }
 
+// JSON projection alone loses container bounds. Entries follow canonical JSON
+// container preorder; scalars contribute no entry. Closure identities and tail
+// syntax are deliberately not part of this bounded export-readiness witness.
+struct Materialized {
+    value: Value,
+    closed: Vec<bool>,
+}
+
 struct Evaluator<'a> {
     doc: &'a Document,
     remaining: usize,
@@ -54,7 +62,7 @@ pub(crate) fn evaluate(doc: &Document, work_limit: usize) -> Result<Value, Error
         .iter()
         .map(|&id| Term { id, groups: vec![] })
         .collect();
-    evaluator.demand(terms, 1, false)
+    evaluator.demand(terms, 1, false).map(|result| result.value)
 }
 
 impl Evaluator<'_> {
@@ -94,7 +102,12 @@ impl Evaluator<'_> {
         }
     }
 
-    fn demand(&mut self, terms: Vec<Term>, depth: usize, shallow: bool) -> Result<Value, Error> {
+    fn demand(
+        &mut self,
+        terms: Vec<Term>,
+        depth: usize,
+        shallow: bool,
+    ) -> Result<Materialized, Error> {
         self.step(1)?;
         if depth > 32 {
             return Err(Error::Limit("output depth"));
@@ -103,7 +116,7 @@ impl Evaluator<'_> {
             tasks: terms.into_iter().rev().map(Task::Visit).collect(),
             ..State::default()
         }];
-        let mut result = None;
+        let mut result: Option<Materialized> = None;
         let mut incomplete = false;
         let mut distinct = false;
         while let Some(mut state) = pending.pop() {
@@ -187,10 +200,13 @@ impl Evaluator<'_> {
             match self.materialize(&state.atoms, depth, shallow) {
                 Ok(value) => {
                     if let Some(previous) = &result {
-                        // Equality traverses bounded materialized JSON, and is work too.
-                        self.inspect(previous)?;
-                        self.inspect(&value)?;
-                        distinct |= previous != &value;
+                        // Charge both JSON and witness traversal even when an earlier
+                        // difference could short-circuit the actual comparison.
+                        self.inspect(&previous.value)?;
+                        self.inspect(&value.value)?;
+                        self.step(previous.closed.len() + value.closed.len())?;
+                        distinct |=
+                            previous.value != value.value || previous.closed != value.closed;
                     } else {
                         result = Some(value);
                     }
@@ -225,7 +241,12 @@ impl Evaluator<'_> {
         Ok(())
     }
 
-    fn materialize(&mut self, atoms: &[Term], depth: usize, shallow: bool) -> Result<Value, Error> {
+    fn materialize(
+        &mut self,
+        atoms: &[Term],
+        depth: usize,
+        shallow: bool,
+    ) -> Result<Materialized, Error> {
         // First inspect every shallow constraint. A missing deep field must not
         // conceal an incompatible tag, type, length, or closed field admission.
         let mut shape = None;
@@ -300,12 +321,16 @@ impl Evaluator<'_> {
                 return Err(Error::Incomplete);
             }
             self.value()?;
-            return match value {
-                Value::String(text) => Ok(Value::String(self.text(text)?)),
-                Value::Number(number) => Ok(Value::Number(number.clone())),
-                Value::Bool(value) => Ok(Value::Bool(*value)),
+            let value = match value {
+                Value::String(text) => Value::String(self.text(text)?),
+                Value::Number(number) => Value::Number(number.clone()),
+                Value::Bool(value) => Value::Bool(*value),
                 _ => unreachable!(),
             };
+            return Ok(Materialized {
+                value,
+                closed: vec![],
+            });
         }
         match shape {
             Some(Shape::Struct) => {
@@ -338,12 +363,17 @@ impl Evaluator<'_> {
                     return Err(error);
                 }
                 self.value()?;
+                self.step(1)?;
+                // Even a group admitting no fields closes an empty struct.
+                let mut closed = vec![!admitted.is_empty()];
                 let mut output = Map::new();
                 let mut incomplete = false;
                 for (name, terms) in fields {
                     match self.demand(terms, depth + 1, false) {
                         Ok(value) => {
-                            output.insert(self.text(name)?, value);
+                            self.step(value.closed.len())?;
+                            closed.extend(value.closed);
+                            output.insert(self.text(name)?, value.value);
                         }
                         Err(Error::Incomplete) => incomplete = true,
                         Err(error) => return Err(error),
@@ -352,7 +382,10 @@ impl Evaluator<'_> {
                 if incomplete {
                     return Err(Error::Incomplete);
                 }
-                Ok(Value::Object(output))
+                Ok(Materialized {
+                    value: Value::Object(output),
+                    closed,
+                })
             }
             Some(Shape::List) => {
                 // Project only the known prefix of an open list, retaining every
@@ -369,6 +402,9 @@ impl Evaluator<'_> {
                     return Err(Error::Incomplete);
                 }
                 self.value()?;
+                self.step(1)?;
+                // Use the final normalized length, not an earlier open projection.
+                let mut closed = vec![length.is_some()];
                 let mut output = Vec::new();
                 let mut incomplete = false;
                 for index in 0..count {
@@ -383,7 +419,11 @@ impl Evaluator<'_> {
                         }
                     }
                     match self.demand(terms, depth + 1, false) {
-                        Ok(value) => output.push(value),
+                        Ok(value) => {
+                            self.step(value.closed.len())?;
+                            closed.extend(value.closed);
+                            output.push(value.value);
+                        }
                         Err(Error::Incomplete) => incomplete = true,
                         Err(error) => return Err(error),
                     }
@@ -391,7 +431,10 @@ impl Evaluator<'_> {
                 if incomplete {
                     return Err(Error::Incomplete);
                 }
-                Ok(Value::Array(output))
+                Ok(Materialized {
+                    value: Value::Array(output),
+                    closed,
+                })
             }
             _ => Err(Error::Incomplete),
         }
