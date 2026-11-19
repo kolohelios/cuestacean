@@ -65,7 +65,7 @@ Any required metadata must be derived from admitted syntax, not source-name test
 
 ## Representation and contextual selection
 
-The future parser/evaluator interface must explicitly represent Top and the two
+The parser/evaluator interface must explicitly represent Top and the two
 ordered alternatives plus which is marked. Preserve binary syntax/node/depth
 accounting; do not join parenthesized or referenced groups. No parser-only mark
 may leak to ordinary materialization. Admission must reject the entire document
@@ -191,7 +191,7 @@ covered allocations/copies. Materialization/output uses the existing ledgers;
 no feasibility work bypass, branch reset, stack override or raised guard.
 Do not promise every syntactically admitted input avoids existing Limit errors.
 
-Future implementation ownership must be agreed AFTER reviews: parser/model/name
+Implementation ownership must be agreed AFTER reviews: parser/model/name
 resolution versus profile/feasibility/evaluator, with coordinator independent tests,
 raw-fragment evidence, Nix and integration. Use current main, not a wholesale merge
 of the held prototype. Keep native construction free of exported JSON, generated
@@ -251,7 +251,109 @@ used an unusable PATH and owned scratch HOME. These are oracle observations, NOT
 passing native feature tests. A separate semantic review also reported 12 probes
 and eight alternative/field/file-order variants; no aggregate coverage claim follows.
 
-Current production source/parser/evaluator behavior, artifacts and construction
-identities remain unchanged by this documentation slice. Original #175 and its
+At the #217 documentation merge, production source/parser/evaluator behavior,
+artifacts and construction identities were unchanged. Original #175 and its
 saved prototype stay open/held. The next bounded task is implementation of THIS
 reviewed profile, not broader default admission or another trace endpoint.
+
+## #218 concrete interface and implementation GO
+
+Two independent focused parser/evaluator interface reviews approved these
+additions against merged #217 before implementation. The earlier semantic
+predicate is unchanged. Coordinator implementation GO is limited to this exact
+interface, predicate and ownership; it is NOT production acceptance or #175 GO.
+
+```rust
+// Crate-private additions; public export/error APIs stay unchanged.
+Expr::Top;
+Expr::Marked(Id); // counted syntax wrapper; never ordinary materialization
+Document { nodes, definitions, roots, marked: bool, lets: usize }
+```
+
+`marked` is token-derived presence across both already-lexed source files, NOT an
+admission certificate. Quoted/comment stars do not activate it. Without it, `_`
+still takes the exact legacy Unsupported path. `lets` retains the parser binding
+count, even after name resolution; never infer declaration absence from resolved
+reachable IDs. Cycle traversal includes the Marked child. A mark parses one
+operand above conjunction/disjunction precedence (minimum 3 versus 2/1), with its
+own syntax node/height; parenthesized operands remain intact. A mark around And/Or,
+nested marks, extra Or, or non-struct alternatives cannot pass admission.
+
+The evaluator runs charged whole-document admission before demand, including all
+arena nodes, root-tree occurrences, declaration metadata and nonselected context.
+Only a private successfully admitted state enables tagged demand. At a field path,
+And adds conjuncts without navigating or duplicating that path; list ancestry is
+still excluded. Collect complete local terms before either trial. Deep structural
+possibility is required for shallow requests in this profile: a shallow container
+check alone cannot certify absence of deep contradictions. Compute both branch
+feasibilities without boolean short circuit, sharing the same remaining ledger;
+full demand selects, then ordinary materialization may still return Incomplete.
+Top/Marked on the unadmitted ordinary path fail defensively, never reach an
+unreachable materialization match or enable new preference-free language.
+
+Agreed distinct ownership: parser owner changes only
+`bootstrap/spec-export/src/{model,parser,bindings}.rs`; evaluator owner changes only
+`bootstrap/spec-export/src/eval.rs`, including defensive Document initializers.
+Coordinator owns independent tests, docs, Nix and integration. No new production
+module or expansion of the eight-file source cut. Immutable stable-main handoffs,
+read-only cross-reviews, all required evidence and final production acceptance
+remain mandatory. Future implementation changes to the admitted class require
+renewed focused review, not a permissive guard adjustment.
+
+## Implemented capability and independent local evidence
+
+#218 implements this exact profile on main's current exporter, not the held #175
+prototype. Immutable parser handoff `2b3dad789334fdfdc3c12d1f823ae98aa2a46c07`
+and evaluator handoff `09c6f694c1fd8bcd94dffae47f15d615d518cc81` were integrated
+by owned path. Cross-review caught two P/Q struct inspections preceding their
+charge; the coordinator added the charge before inspection. Duplicate target
+answers/unit probes were removed from production source and retained as independent
+integration evidence. The existing private defensive tests gain unadmitted
+Top/Marked rejection; no old assertion or held counterexample changes.
+
+Eight independent integration groups in
+`bootstrap/spec-export/tests/tagged_defaults.rs` compare complete authored JSON
+and exact native errors with fresh pinned CUE/native processes. The real raw
+integer choice is read intact from `ast-lowering-fragments.cue`, including BOTH
+alternatives; package-bearing wrappers do not introduce a selector or full policy
+schema. The old exporter failed this default-path regression as Unsupported after
+the oracle produced the independently expected JSON. New coverage includes the
+three target outcomes, preferred-feasible Incomplete versus concrete Q, deep/list
+elimination, ancestor/unrelated-sibling conflicts, duplicate conjuncts, all-Top
+incompleteness, generic bool/string/exact-i64 tags, ordering/renaming, every profile
+exclusion including unused/nonselected content, name/range errors, and exact
+lowered-work failure/recovery. Comparing a pruned Q with a fully feasible Q checks
+that a surviving P does not skip Q's charged feasibility work.
+
+The `native-spec-closure` sandbox additionally runs the minimal PRODUCTION exporter
+on raw source wrappers, before consulting expected answers or Go CUE. It checks
+default/text complete JSON, repeated reversed inputs and tag-only Incomplete/no
+JSON, under cleared environments, unusable PATH and owned HOME. It retains
+`default.json`, `text.json` and `incomplete.err` alongside existing proof outputs.
+These are verification outputs, never producer inputs. The raw full fragment
+source and hand answers are test/verifier-only; production construction still has
+exactly eight allowlisted files, at
+`/nix/store/11ns7kl8kpb7inipfymx6fwig9mml5cd-source`. No target opcodes, source
+filenames, expected JSON, process execution or provider environment are embedded
+in the production implementation. The raw policy cut remains six files.
+
+Local Linux x86_64 evidence: all 59 exporter tests in four profiles, both complete
+Rust suites/default strict all-target Clippy debug/release, all retained 135
+research groups/four profiles and strict focused Clippy pass. Pinned preflight
+passes 13/13 (seven skips); TEN actual checks and SEVEN packages build AND rebuild,
+including the new production-binary sandbox probes. Six fresh artifact-free
+compilers, feature isolation, generation/drift and independent source/value checks
+remain. Other architectures are omitted, not passed.
+
+All twelve builder outputs, atom/policy artifacts and all 249 full-bundle JSON files
+are byte-identical to #217; committed generated Rust and independent old answers
+are unchanged. Exporter/atom/family/full-JSON/policy constructors legitimately
+change to `5ip9r0q3…`, `ls22c5vl…`, `2klnfln2…`, `331kc4ih…`, `w0jszfsi…`.
+Both oracle constructors remain unchanged. Fresh independent recursive derivation
+and full-build queries match all three native verifier inventories at 1407/3392
+each; the seed inventory matches 1436/3466. Both current providers' outputs and
+derivations, current downstream executor and provider environments are absent;
+native graphs also exclude pinned Go CUE/source and the current JSON bundle.
+No Go-free compiler-seed/minimal-source, full-policy, self-hosting or performance
+claim follows. Final immutable review and protected exact-head CI/confirmed merge
+remain required gates. Original #175 stays open/held and unchanged in scope.

@@ -23,7 +23,7 @@ The three gates below are acceptance gates, NOT a promise of three PRs.
 | --- | --- | --- |
 | Mode transitions and lifetime | Native successful-batch primitive, flat/recursive exact-i64 IR constructors, original-mode history | A reviewed semantic admission for exporter contexts; matching pinned operational order is not confluence or readiness |
 | Scalar coalescing | Actual native append transcript; explicit scalar projection matches bounded v4 controls | Justification for equality/residual deduplication under partial tasks and non-scalar constraints, not merely another trace field |
-| Exporter source syntax | Current production exporter supports ordinary Or, lexical lets, booleans and prefix lists | Group-preserving marks and top `_`; the production model still has unmarked binary `Or(Id,Id)` and no Top |
+| Exporter source syntax | Current production exporter supports ordinary Or, lexical lets, booleans and prefix lists | #218 adds marks/Top only under the separately reviewed one-group tagged guard; general grouping/support admission is still missing |
 | Struct/list residuals | Existing required-field, closure, typed-tail and container-bound behavior | Default support and preferred demand must preserve these constraints across contextual refinement |
 | Public demand | Independent Default/Unify/export observations; conservative research suspension | Production choice among ordinary/preferred/incomplete/conflict without error-triggered fallback |
 | Construction | Existing native producer/build isolation remains checked | Fresh production exporter admission and graph attestation after its implementation sources change |
@@ -184,3 +184,6 @@ The user subsequently approved pursuing a separately scoped [#216 tagged-struct
 contract](tagged-default-admission.md), without narrowing #175. That future
 implementation contract is reviewed for an explicitly finite one-group profile;
 it does not satisfy original #175's broader Gate A or authorize general defaults.
+The separate #218 implementation now covers the actual fragment's three native
+outcomes under that exact guard. It does not satisfy the remaining original matrix
+or grant general exporter implementation GO.

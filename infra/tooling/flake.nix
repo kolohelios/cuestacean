@@ -683,6 +683,7 @@
             ++ pkgs.lib.optionals tests (
               [
                 ../../bootstrap/spec-export/tests
+                ../../bootstrap/ast-lowering-fragments.cue
                 ../../bootstrap/scanner-schema.cue
                 ../../bootstrap/group-open.cue
                 ../../bootstrap/ast-schema.cue
@@ -931,7 +932,56 @@
             ${executor pkgs}/bin/bootstrap-ast-codegen ${nativeAtom pkgs}/ast-atom.json \
               | rustfmt --edition 2024 > actual.rs
             cmp actual.rs ${../../bootstrap/generated/ast-atom.rs}
+            # Test-only raw fragment/answers: none feed specExporter/nativeAtom.
+            # Produce with the minimal production binary BEFORE oracle comparison.
+            tagged="$PWD/tagged"
+            mkdir -p "$tagged/home"
+            printf 'package fragment\n' > "$tagged/schema.cue"
+            pattern='^[[:space:]]*integer: \*'
+            test "$(grep -c "$pattern" ${../../bootstrap/ast-lowering-fragments.cue})" -eq 1
+            choice=$(grep "$pattern" ${../../bootstrap/ast-lowering-fragments.cue} | cut -d: -f2-)
+            test -r ${specExporter pkgs}/bin/cuestacean-spec-export
+            test -x ${specExporter pkgs}/bin/cuestacean-spec-export
+            for name in default text incomplete; do
+              case "$name" in
+                default) context='{}' ;;
+                text) context='{integer:{op:"text",value:"x"}}' ;;
+                incomplete) context='{integer:{op:"text"}}' ;;
+              esac
+              printf 'package fragment\n{integer:(%s)} & %s\n' "$choice" "$context" > "$tagged/program.cue"
+              if [ "$name" = incomplete ]; then
+                if env -i HOME="$tagged/home" PATH=/nonexistent ${specExporter pkgs}/bin/cuestacean-spec-export \
+                  "$tagged/schema.cue" "$tagged/program.cue" > "$tagged/$name.json" 2> "$tagged/$name.err"; then
+                  echo "incomplete tagged branch unexpectedly exported" >&2; exit 1
+                fi
+                test ! -s "$tagged/$name.json"
+                grep -F 'incomplete export demand' "$tagged/$name.err"
+                if env -i HOME="$tagged/home" PATH=/nonexistent ${pkgs.cue}/bin/cue export \
+                  "$tagged/schema.cue" "$tagged/program.cue" > "$tagged/oracle.json" 2> "$tagged/oracle.err"; then
+                  echo "incomplete oracle unexpectedly exported" >&2; exit 1
+                fi
+                test ! -s "$tagged/oracle.json"
+                env -i HOME="$tagged/home" PATH=/nonexistent ${pkgs.cue}/bin/cue eval \
+                  "$tagged/schema.cue" "$tagged/program.cue" > /dev/null
+              else
+                env -i HOME="$tagged/home" PATH=/nonexistent ${specExporter pkgs}/bin/cuestacean-spec-export \
+                  "$tagged/schema.cue" "$tagged/program.cue" > "$tagged/$name.json"
+                env -i HOME="$tagged/home" PATH=/nonexistent ${specExporter pkgs}/bin/cuestacean-spec-export \
+                  "$tagged/program.cue" "$tagged/schema.cue" > "$tagged/repeated.json"
+                cmp "$tagged/repeated.json" "$tagged/$name.json"
+                case "$name" in
+                  default) answer='{"integer":{"op":"concat","parts":[{"op":"text","value":"Value::from("},{"op":"signed","field":"value"},{"op":"text","value":"i64)"}]}}' ;;
+                  text) answer='{"integer":{"op":"text","value":"x"}}' ;;
+                esac
+                printf '%s\n' "$answer" | jq -S . > "$tagged/expected.json"
+                cmp "$tagged/expected.json" "$tagged/$name.json"
+                env -i HOME="$tagged/home" PATH=/nonexistent ${pkgs.cue}/bin/cue export \
+                  "$tagged/schema.cue" "$tagged/program.cue" | jq -S . > "$tagged/oracle.json"
+                cmp "$tagged/oracle.json" "$tagged/$name.json"
+              fi
+            done
             mkdir -p "$out"
+            cp "$tagged/default.json" "$tagged/text.json" "$tagged/incomplete.err" "$out/"
             cp ${nativeBuildClosure pkgs}/store-paths "$out/native-build-paths"
             cp ${nativeBuildClosure pkgs}/registration "$out/native-build-registration"
             printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeAtom pkgs).drvPath} > "$out/native-build-roots"
