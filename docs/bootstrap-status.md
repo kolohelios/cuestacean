@@ -104,6 +104,11 @@ fragment exports concat/default, text/x refinement, and text-only Incomplete;
 whole-document exclusions forbid general nested/closure/alias interactions.
 No full AST policy/schema or general-default admission follows. Original #175
 remains open/held; further default scope requires its own reviewed authority.
+The [#220 production integer-policy input](native-ast-integer-policy.md) uses that
+SAME profile and direct two-file raw cut: the canonical AST default policy now
+receives one independently native integer case, while Go CUE still validates and
+constructs the rest. Override fixtures load the unresolved raw owner explicitly;
+a materialized default artifact is not a late-refinement interface.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

@@ -40,8 +40,12 @@ invariants. Saved prototype tests passing is not a production admission signal.
 
 ## Concrete vertical target: the real AST instruction data
 
-The unmodified target is
-`bootstrap/ast-lowering-fragments.cue:#AstLowering.cases.integer`:
+The original target locator was
+`bootstrap/ast-lowering-fragments.cue:#AstLowering.cases.integer`. The SAME literal
+alternative is now canonically owned by `bootstrap/ast-integer-policy.cue` at
+ordinary data path `cases.integer`, with a required provider slot in the remaining
+AST policy ([#220 source boundary](native-ast-integer-policy.md)). Relocation and
+partial production use do not change original #175's matrix or definition of done:
 
 ```cue
 *{op: "concat", parts: [

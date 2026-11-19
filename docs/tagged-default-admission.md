@@ -357,3 +357,11 @@ native graphs also exclude pinned Go CUE/source and the current JSON bundle.
 No Go-free compiler-seed/minimal-source, full-policy, self-hosting or performance
 claim follows. Final immutable review and protected exact-head CI/confirmed merge
 remain required gates. Original #175 stays open/held and unchanged in scope.
+
+The subsequent [#220 source/consumer integration](native-ast-integer-policy.md)
+moves that unchanged BOTH-alternative expression into its own canonical ordinary
+raw owner and independently native production artifact. The exporter and this
+admission predicate are unchanged. Canonical AST default-policy construction uses
+the materialized artifact; override fixtures explicitly use the unresolved raw
+owner before context. This does not admit full AST policy/schema construction or
+turn selected JSON into a residual preference/refinement interface.

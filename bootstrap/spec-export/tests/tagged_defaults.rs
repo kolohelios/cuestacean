@@ -144,7 +144,7 @@ fn check(root: &str, expected: Result<Value, Error>) {
 
 #[test]
 fn actual_unchanged_integer_instruction_data_has_all_three_native_paths() {
-    let choice = include_str!("../../ast-lowering-fragments.cue")
+    let choice = include_str!("../../ast-integer-policy.cue")
         .lines()
         .find_map(|line| {
             line.trim()
