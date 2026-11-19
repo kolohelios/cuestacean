@@ -6,6 +6,110 @@ import (
 	"testing"
 )
 
+func TestCuestaceanHistory(t *testing.T) {
+	for _, start := range []func() error{CuestaceanTraceStart, CuestaceanTraceOriginsStart} {
+		if err := start(); err != nil {
+			t.Fatal(err)
+		}
+		r := &nodeContext{}
+		r.origDefaultMode = defaultMode(255)
+		id := cuestaceanTraceEnter()
+		cuestaceanTraceTrials(id, nil, true, true)
+		cuestaceanTraceResults(id, []*nodeContext{r})
+		if b, err := CuestaceanTraceStop(); err != nil || b[0].Results[0].OriginalMode != nil {
+			t.Fatal("old mode inspected result history", b, err)
+		}
+	}
+	for _, failure := range []string{"", "records", "nested", "result"} {
+		t.Run(failure, func(t *testing.T) {
+			if err := CuestaceanTraceHistoryStart(); err != nil {
+				t.Fatal(err)
+			}
+			if err := CuestaceanTraceHistoryStart(); err == nil {
+				t.Fatal("overlap")
+			}
+			p := &nodeContext{}
+			r := &nodeContext{}
+			r.defaultMode, r.origDefaultMode = isDefault, notDefault
+			vector := make([]*nodeContext, 64)
+			for i := range vector {
+				vector[i] = r
+			}
+			batch := func(trials, results int) {
+				id := cuestaceanTraceEnter()
+				for i := 0; i < trials; i++ {
+					cuestaceanTraceOrigin(id, p, 0)
+				}
+				cuestaceanTraceTrials(id, vector[:trials], false, false)
+				cuestaceanTraceResults(id, vector[:results])
+			}
+			if failure == "" || failure == "records" {
+				for i := 0; i < 12; i++ {
+					batch(64, 64) // 12 * (3*64 + 2*64) = 3840.
+				}
+				if failure == "records" {
+					batch(49, 55) // Requested total 4097: exactly one over.
+				} else {
+					batch(48, 56) // 3840 + 144 + 112 = 4096.
+					if cuestaceanCapture.records != 4096 {
+						t.Fatal("exact history cap", cuestaceanCapture.records)
+					}
+				}
+			} else {
+				r.origDefaultMode = defaultMode(255)
+				if failure == "nested" {
+					vector[0] = &nodeContext{disjuncts: []*nodeContext{r, r}}
+					batch(1, 1)
+				} else {
+					batch(0, 1) // Invalid origin only inspected by result capture.
+				}
+			}
+			c := cuestaceanCapture
+			if c.depth != 0 {
+				t.Fatal("unbalanced history hooks")
+			}
+			if failure != "" {
+				sticky, records := c.err, c.records
+				if sticky == nil {
+					t.Fatal("missing history failure")
+				}
+				batch(1, 1)
+				if c.err != sticky || c.records != records || c.depth != 0 {
+					t.Fatal("history failure not sticky/balanced")
+				}
+			}
+			b, err := CuestaceanTraceStop()
+			if failure == "" {
+				if err != nil || len(b) != 13 || *b[0].Results[0].OriginalMode != "not" {
+					t.Fatal(b, err)
+				}
+			} else if err == nil || b != nil {
+				t.Fatal("partial history", b, err)
+			}
+			if cuestaceanCapture != nil {
+				t.Fatal("not detached")
+			}
+			if err := CuestaceanTraceHistoryStart(); err != nil {
+				t.Fatal(err)
+			}
+			r.origDefaultMode = notDefault
+			vector[0] = &nodeContext{disjuncts: []*nodeContext{r, r}}
+			batch(1, 1) // 3 + 2*2 + 2 = 9, including nested history.
+			if cuestaceanCapture.records != 9 {
+				t.Fatal("nested history accounting")
+			}
+			b, err = CuestaceanTraceStop()
+			if err != nil || *b[0].Trials[0].Nested[0].OriginalMode != "not" {
+				t.Fatal("history recovery", b, err)
+			}
+			raw, err := json.Marshal(b[0].Trials[0].Nested)
+			if err != nil || string(raw) != `[{"mode":"default","originalMode":"not","value":null},{"mode":"default","originalMode":"not","value":null}]` {
+				t.Fatal("nested history wire", string(raw), err)
+			}
+		})
+	}
+}
+
 func TestCuestaceanOrigins(t *testing.T) {
 	cuestaceanTraceOrigin(-1, nil, 1) // Inactive must not inspect p.
 	if err := CuestaceanTraceStart(); err != nil {
