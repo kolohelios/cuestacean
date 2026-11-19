@@ -137,3 +137,8 @@ ac588ef1c914865dad517b337ea0eb9694a4021c. Stay near 1500 changed lines.
   establish a Go-CUE-free compiler seed or minimal seed source attestation.
 
 Native scanner construction remains unimplemented; #175 remains held.
+Subsequent [#196 work](native-prefix-lists.md) admits boolean values/types and
+required list prefixes as general isolated-exporter capabilities, not a stripped
+scanner schema. The complete two-file target still rejects on its other
+unsupported requirements; #194's unchanged-native-identities evidence above is
+historical, not a claim about #196's changed implementation derivations.

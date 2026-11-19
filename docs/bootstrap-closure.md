@@ -260,8 +260,9 @@ unchanged export boundary, not a native exporter or broader source capabilities.
    retains export-versus-DSL validation boundaries and the original atom cut.
 2. The [#194 scanner-schema step](scanner-schema-closure.md) isolates the scanner
    schema unchanged, selects unmodified `group-open.cue` as the first exact two-file
-   target and characterizes remaining native gaps. This is still Go-CUE-backed
-   construction. Wider scanner/import closure (for example `identifier.cue`) and
+   target and characterizes remaining native gaps. [#196](native-prefix-lists.md)
+   adds native boolean values/types and required-prefix list constraints, but
+   leaves the full scanner schema unsupported. Scanner construction is still Go-CUE-backed. Wider scanner/import closure (for example `identifier.cue`) and
    compiler-policy closure need explicit list/regex/default/let requirements; the
    scalar-default studies do not implement their list/string/struct preferences.
 3. Close the six lowering-policy exports, including the self-regenerating meta

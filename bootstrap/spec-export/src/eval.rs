@@ -3,6 +3,13 @@ use crate::model::{Document, Error, Expr, Id, Type};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Shape {
+    Scalar(Type),
+    Struct,
+    List,
+}
+
 #[derive(Clone)]
 struct Term {
     id: Id,
@@ -80,6 +87,7 @@ impl Evaluator<'_> {
 
     fn literal_type(value: &Value) -> Result<Type, Error> {
         match value {
+            Value::Bool(_) => Ok(Type::Bool),
             Value::String(_) => Ok(Type::String),
             Value::Number(n) if n.as_i64().is_some() => Ok(Type::Int),
             _ => Err(Error::Unsupported("literal type")),
@@ -227,6 +235,7 @@ impl Evaluator<'_> {
         let mut admitted: BTreeMap<usize, BTreeSet<&str>> = BTreeMap::new();
         let mut lists = vec![];
         let mut length = None;
+        let mut minimum = 0;
         for term in atoms {
             self.step(1)?;
             let kind = match &self.doc.nodes[term.id] {
@@ -236,19 +245,13 @@ impl Evaluator<'_> {
                         return Err(Error::Conflict);
                     }
                     literal = Some(value);
-                    if ty == Type::String { 0 } else { 1 }
+                    Shape::Scalar(ty)
                 }
-                Expr::Type(ty) => {
-                    if *ty == Type::String {
-                        0
-                    } else {
-                        1
-                    }
-                }
+                Expr::Type(ty) => Shape::Scalar(*ty),
                 Expr::NotEqual(value) => {
                     let ty = Self::literal_type(value)?;
                     unequal.push(value);
-                    if ty == Type::String { 0 } else { 1 }
+                    Shape::Scalar(ty)
                 }
                 Expr::Struct(entries) => {
                     for (name, id) in entries {
@@ -266,9 +269,10 @@ impl Evaluator<'_> {
                             allowed.insert(name.as_str());
                         }
                     }
-                    2
+                    Shape::Struct
                 }
                 Expr::List(items, tail) => {
+                    minimum = minimum.max(items.len());
                     if tail.is_none() {
                         if length.is_some_and(|old| old != items.len()) {
                             return Err(Error::Conflict);
@@ -276,7 +280,7 @@ impl Evaluator<'_> {
                         length = Some(items.len());
                     }
                     lists.push((term, items, tail));
-                    3
+                    Shape::List
                 }
                 _ => unreachable!("conjunctions and references were flattened"),
             };
@@ -299,11 +303,12 @@ impl Evaluator<'_> {
             return match value {
                 Value::String(text) => Ok(Value::String(self.text(text)?)),
                 Value::Number(number) => Ok(Value::Number(number.clone())),
+                Value::Bool(value) => Ok(Value::Bool(*value)),
                 _ => unreachable!(),
             };
         }
         match shape {
-            Some(2) => {
+            Some(Shape::Struct) => {
                 for allowed in admitted.values() {
                     for name in fields.keys() {
                         self.step(1)?;
@@ -349,11 +354,11 @@ impl Evaluator<'_> {
                 }
                 Ok(Value::Object(output))
             }
-            Some(3) => {
-                // The parser accepts fixed lists and [...T], not prefix+tail.
-                // An unfilled open list projects [], without erasing its tail
-                // constraint before all fixed-list conjuncts have been checked.
-                let count = length.unwrap_or(0);
+            Some(Shape::List) => {
+                // Project only the known prefix of an open list, retaining every
+                // prefix/tail conjunct until all demanded positions are met.
+                // A fixed conjunct selects the exact length instead.
+                let count = length.unwrap_or(minimum);
                 for (_, items, _) in &lists {
                     self.step(1)?;
                     if items.len() > count {

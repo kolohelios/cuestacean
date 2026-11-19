@@ -25,8 +25,9 @@ unchanged. The native semantic policy boundary remains explicitly native.
 - A binding is excluded from its own initializer, including nested expressions;
   an outer binding of the same name may still resolve. Nested initializer contexts
   retain all such exclusions. Other forward bindings remain visible.
-- Search lexical bindings before predeclared `string`/`int`. Other predeclared
-  types remain Unsupported when not shadowed. Thus `let string=1`
+- Search lexical bindings before predeclared `string`/`int` (and `bool` since
+  [#196](native-prefix-lists.md)). Other predeclared types remain Unsupported
+  when not shadowed. Thus `let string=1`
   shadows the predeclared type, while `let string=string` may use the outer builtin.
   Quoted field labels do not declare identifiers or collide with binding names.
 - Unquoted field references are still Unsupported, not a new value-reference

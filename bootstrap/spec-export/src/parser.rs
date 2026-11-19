@@ -242,8 +242,9 @@ impl Parser {
                     label(&word)?;
                     self.node(Expr::Ref(word))?
                 }
-                "let" | "for" | "if" | "in" | "import" | "package" | "true" | "false" | "null"
-                | "_" => {
+                "true" => self.node(Expr::Literal(true.into()))?,
+                "false" => self.node(Expr::Literal(false.into()))?,
+                "let" | "for" | "if" | "in" | "import" | "package" | "null" | "_" => {
                     return Err(Error::Unsupported("value reference or type"));
                 }
                 _ => {
@@ -410,15 +411,15 @@ impl Parser {
     }
     fn list(&mut self, depth: usize) -> Result<Id, Error> {
         self.newlines();
-        if self.peek() == &Token::Ellipsis {
-            self.take();
-            let item = self.expression(depth + 1, 0)?;
-            self.newlines();
-            self.expect(b']')?;
-            return self.node(Expr::List(Vec::new(), Some(item)));
-        }
         let mut items = Vec::new();
         while !self.symbol(b']') {
+            if self.peek() == &Token::Ellipsis {
+                self.take();
+                let tail = self.expression(depth + 1, 0)?;
+                self.newlines();
+                self.expect(b']')?;
+                return self.node(Expr::List(items, Some(tail)));
+            }
             if items.len() >= 64 {
                 return Err(Error::Limit("container items"));
             }
@@ -428,9 +429,6 @@ impl Parser {
             }
             if !self.separators() {
                 return Err(Error::Syntax("list separator"));
-            }
-            if self.peek() == &Token::Ellipsis {
-                return Err(Error::Unsupported("mixed list tail syntax"));
             }
         }
         self.node(Expr::List(items, None))

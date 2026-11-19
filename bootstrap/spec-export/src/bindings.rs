@@ -78,8 +78,9 @@ pub(crate) fn resolve(
                     None => match name.as_str() {
                         "string" => Expr::Type(Type::String),
                         "int" => Expr::Type(Type::Int),
-                        "bool" | "bytes" | "number" | "float" | "uint" | "int8" | "int16"
-                        | "int32" | "int64" | "uint8" | "uint16" | "uint32" | "uint64" => {
+                        "bool" => Expr::Type(Type::Bool),
+                        "bytes" | "number" | "float" | "uint" | "int8" | "int16" | "int32"
+                        | "int64" | "uint8" | "uint16" | "uint32" | "uint64" => {
                             return Err(Error::Unsupported("predeclared type"));
                         }
                         _ => return Err(Error::Unknown(name.clone())),

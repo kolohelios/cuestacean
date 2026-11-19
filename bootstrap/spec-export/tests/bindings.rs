@@ -100,6 +100,13 @@ fn forward_lookup_initializer_exclusion_and_builtin_shadowing() {
     );
     assert_eq!(
         export(&source(""), &source("{v:bool}")),
+        Err(Error::Incomplete)
+    );
+    let bool_incomplete = Sources::new(&source(""), &source("{v:bool}")).oracle();
+    assert!(!bool_incomplete.status.success());
+    assert!(bool_incomplete.stdout.is_empty());
+    assert_eq!(
+        export(&source(""), &source("{v:float}")),
         Err(Error::Unsupported("predeclared type"))
     );
     let incomplete = source("let string=string\n{v:string}");

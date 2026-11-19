@@ -5,6 +5,7 @@ pub(crate) type Id = usize;
 pub(crate) enum Type {
     String,
     Int,
+    Bool,
 }
 #[derive(Clone, Debug)]
 pub(crate) enum Expr {
