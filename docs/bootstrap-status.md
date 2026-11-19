@@ -47,8 +47,11 @@ checked native facts. [#182 native demand-policy artifacts](native-demand-polici
 supply both experimental programs independently of Go CUE; separate oracle checks
 remain. The [#184 projection-policy experiment](preference-projection-policy.md)
 also moves flat ordinary/preferred/defer choice into a scoped CUE policy; native
-association/set algorithms and certificate guards remain. These steps do not solve
-nested default lifetime or unhold #175.
+association/set algorithms and certificate guards remain. The [#186 transparent
+wrapper study](transparent-preference-fragment.md) finds a further genuine
+both-order falsification even with concrete-only leaves, all marks live and no
+suppressed nested recipes. Removing marked ancestors is not a safe admission
+rule. These steps do not solve nested default lifetime or unhold #175.
 Pinned CUE order discrepancies are separate evidence, not an excuse for the gap.
 Production parsing/evaluation stays unchanged. These experiments do not complete
 the real policies' default/pattern/optional-field/import closures.
