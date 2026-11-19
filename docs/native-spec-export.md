@@ -7,6 +7,8 @@ The [#171 family extension](native-builder-family.md) reused the initial
 language/implementation for all 12 current builder specs with its own artifact and
 proof. [#173 lexical bindings](native-let-bindings.md) extend this native subset
 without changing those raw builder inputs or their JSON/Rust results. The
+[#196 typed prefix-list extension](native-prefix-lists.md) adds boolean values/types
+and required-prefix open lists without admitting the full scanner schema. The
 [#182 demand-policy artifact cut](native-demand-policies.md) reuses that same
 exporter/language for two experimental dispatch programs, with its own three-file
 raw cut and proof. The original atom artifact and two-file attestation stay unchanged.
@@ -32,8 +34,8 @@ existing policy/resource limits change.
 
 Both sources declare the same ASCII package name. Parse named `#` definitions,
 one or more root embeddings, regular identifier/quoted field labels, structs,
-fixed lists, typed open lists `[...T]`, parentheses, references to definitions,
-predeclared `string`/`int`, scoped [let bindings](native-let-bindings.md), JSON-style
+fixed lists, typed open lists `[...T]` and `[A, B, ...T]`, parentheses, references to
+definitions, predeclared `string`/`int`/`bool`, boolean literals `true`/`false`, scoped [let bindings](native-let-bindings.md), JSON-style
 quoted strings, decimal i64 literals, conjunction `&`,
 disjunction `|`, and literal inequality `!=`. `&` binds more tightly than `|`.
 Comments are `//`; newline/comma separation must not accept missing separators.
@@ -47,7 +49,7 @@ use must not mutate a shared template or another list item.
 
 Explicitly reject unsupported syntax: imports, defaults, optional/required field
 markers, hidden fields, field-value references, comprehensions/patterns/interpolation,
-boolean/null literals, other numeric forms, computed operations and open struct ellipses. Duplicate
+null literals, boolean inequality, other numeric forms, computed operations and open struct ellipses. Duplicate
 named definition declarations are initially Unsupported (their closedness/merge
 semantics need a separate contract). Duplicate ordinary fields are conjuncts, not
 last-field-wins JSON. Out-of-i64 literals are UnsupportedRange, not CUE conflict.
@@ -69,9 +71,11 @@ be supplied (`formatVersion:1`); abstract string/int fields remain Incomplete.
 An explicit value conflicting with a singleton is Conflict. Closed lists require
 equal lengths; typed open-list constraints apply to each supplied element without
 expanding the tail into infinitely many elements. Pinned CUE exports `[...string]`
-as `[]` when no items are supplied: project the known empty prefix without
-converting the retained open constraint into a permanently closed list. Mixed
-fixed/open lists use the fixed length and constrain every supplied item.
+as `[]` when no items are supplied: project the known prefix without converting
+its retained open constraint into a permanently closed list. Required-prefix lists
+select the longest known prefix if no fixed list supplies the length. Mixed
+fixed/open lists use the fixed length, reject shorter-than-prefix lengths and
+constrain every supplied item with every applicable prefix/tail.
 
 Disjunction explores compatible branches with a shared budget. Eliminate
 conflicting alternatives; deduplicate identical complete results. Distinct complete
@@ -106,7 +110,7 @@ Shared types in `model.rs` (crate-private except Error):
 
 ```rust
 pub type Id = usize;
-pub enum Type { String, Int }
+pub enum Type { String, Int, Bool }
 pub enum Expr {
     Literal(serde_json::Value), Type(Type), NotEqual(serde_json::Value),
     Struct(Vec<(String, Id)>), List(Vec<Id>, Option<Id>), Ref(String),

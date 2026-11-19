@@ -63,8 +63,11 @@ Raw API acceptance, without treating rejection as a proof of negative ordering.
 These steps do not solve nested default lifetime or unhold #175.
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
-bytes remain stable. Native scanner construction still requires separately
-reviewed optional/range/regex/boolean/list/default semantics.
+bytes remain stable. The [#196 typed prefix-list extension](native-prefix-lists.md)
+adds native boolean values/types and required list prefixes with retained tail
+constraints. Native scanner construction still requires separately reviewed
+optional/range/regex/default semantics; the unchanged full scanner closure
+continues to reject natively as Unsupported.
 Pinned CUE order discrepancies are separate evidence, not an excuse for the gap.
 Production parsing/evaluation stays unchanged. These experiments do not complete
 the real policies' default/pattern/optional-field/import closures.

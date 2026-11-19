@@ -182,7 +182,7 @@ fn unsupported_range_syntax_and_resource_failures_are_explicit() {
         value("package p\n#A:#A", "#A"),
         Err(Error::Unsupported(_))
     ));
-    for body in ["*1|int", "{a?:1}", "{_hidden:1}", "1+1", "[1,...int]"] {
+    for body in ["*1|int", "{a?:1}", "{_hidden:1}", "1+1"] {
         assert!(
             matches!(
                 value("package p", body),
@@ -191,6 +191,11 @@ fn unsupported_range_syntax_and_resource_failures_are_explicit() {
             "{body}"
         );
     }
+    // Required prefixes are admitted; a nonfinal tail still must not be dropped.
+    assert!(matches!(
+        value("package p", "[1,...int,2]"),
+        Err(Error::Syntax(_))
+    ));
     assert!(matches!(
         value("package p", "{a:1 b:2}"),
         Err(Error::Syntax(_))

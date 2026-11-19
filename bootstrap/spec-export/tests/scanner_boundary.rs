@@ -172,7 +172,7 @@ fn complete_group_open_raw_closure_and_file_identity() {
 fn whole_schema_remains_unsupported_natively_without_json() {
     let schema = schema();
     let program = fs::read_to_string(root().join("group-open.cue")).expect("raw group-open");
-    // Even unused optional/range/regex/bool/default syntax is outside admission.
+    // Even unused optional/range/regex/default syntax is outside admission.
     // Do not weaken the raw schema or accept Syntax/Conflict/Incomplete here.
     for (first, second) in [(&schema, &program), (&program, &schema)] {
         assert!(matches!(export(first, second), Err(Error::Unsupported(_))));
