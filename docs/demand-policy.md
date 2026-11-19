@@ -19,6 +19,11 @@ preserve every existing falsification/assertion. The held exporter prototype is
 not imported. Production parser, evaluator, exporter fileset/derivation cut, raw
 production CUE and generated artifacts remain unchanged.
 
+The [#184 scoped projection follow-up](preference-projection-policy.md) adds a
+separate ordinary/preferred/defer phase. `from_json` remains dispatch-scoped;
+projection admission is explicit and wrong-phase requests reject even when that
+phase would not execute. The single-policy path below remains reference evidence.
+
 ## What CUE owns versus native work
 
 A raw CUE schema and policy program under `bootstrap/spikes/` export a small

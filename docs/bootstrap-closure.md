@@ -14,6 +14,9 @@ on Go CUE; wider feature expansion stays deferred. The later
 experimental dispatch policies from their unchanged three-file raw closure. They
 are test-only graph policies, not any of the six lowering-policy exports; their
 native artifact proof and separate Go CUE comparison are kept distinct.
+[#184](preference-projection-policy.md) explicitly extends that experimental
+family to four programs/six raw files for scoped flat projection choice, with a
+fresh full construction-graph proof. Original production cuts remain unchanged.
 
 The [solver spike](solver-spike.md) demonstrated bounded dependencies and separate
 default projection, not general schema evaluation. The chosen target avoids

@@ -45,7 +45,10 @@ completed contextual default calculus. The [#180 dispatch-policy experiment](dem
 puts that conservative action choice in a CUE-authored instruction tree over
 checked native facts. [#182 native demand-policy artifacts](native-demand-policies.md)
 supply both experimental programs independently of Go CUE; separate oracle checks
-remain. Neither step solves nested default lifetime or unholds #175.
+remain. The [#184 projection-policy experiment](preference-projection-policy.md)
+also moves flat ordinary/preferred/defer choice into a scoped CUE policy; native
+association/set algorithms and certificate guards remain. These steps do not solve
+nested default lifetime or unhold #175.
 Pinned CUE order discrepancies are separate evidence, not an excuse for the gap.
 Production parsing/evaluation stays unchanged. These experiments do not complete
 the real policies' default/pattern/optional-field/import closures.

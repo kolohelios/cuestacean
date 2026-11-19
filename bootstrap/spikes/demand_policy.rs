@@ -1,4 +1,4 @@
-// Test-only executable dispatch over checked predecision facts, not a solver.
+// Test-only executable dispatch/projection over checked facts, not a solver.
 use super::{Error, Work};
 use serde::Deserialize;
 
@@ -7,7 +7,14 @@ const MAX_NODES: usize = 64;
 const MAX_DEPTH: usize = 16;
 
 pub struct Policy {
+    scope: Scope,
     body: Decision,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum Scope {
+    Dispatch,
+    Projection,
 }
 
 #[derive(Deserialize)]
@@ -38,6 +45,8 @@ pub(super) enum Action {
     Constraints,
     Flat,
     Defer,
+    Ordinary,
+    Preferred,
 }
 
 #[derive(Deserialize)]
@@ -47,6 +56,8 @@ enum Field {
     Forced,
     Recipe,
     Nested,
+    Absent,
+    Bottom,
 }
 
 // Constructed only from the graph's complete bounded observation, never from
@@ -58,8 +69,36 @@ pub(super) struct Facts {
     pub nested: bool,
 }
 
+pub(super) struct ProjectionFacts {
+    pub absent: bool,
+    pub bottom: bool,
+}
+
 impl Policy {
     pub fn from_json(text: &str) -> Result<Self, Error> {
+        Self::decode(text, Scope::Dispatch)
+    }
+
+    pub fn from_projection_json(text: &str) -> Result<Self, Error> {
+        Self::decode(text, Scope::Projection)
+    }
+
+    pub(super) fn require_dispatch(&self) -> Result<(), Error> {
+        self.require_scope(Scope::Dispatch)
+    }
+
+    pub(super) fn require_projection(&self) -> Result<(), Error> {
+        self.require_scope(Scope::Projection)
+    }
+
+    fn require_scope(&self, scope: Scope) -> Result<(), Error> {
+        if self.scope != scope {
+            return Err(Error::Unsupported("wrong policy scope"));
+        }
+        Ok(())
+    }
+
+    fn decode(text: &str, scope: Scope) -> Result<Self, Error> {
         if text.len() > MAX_BYTES {
             return Err(Error::Limit("policy bytes"));
         }
@@ -81,18 +120,73 @@ impl Policy {
             if depth > MAX_DEPTH {
                 return Err(Error::Limit("policy depth"));
             }
-            if let Decision::If {
-                then, otherwise, ..
-            } = decision
-            {
-                pending.push((otherwise, depth + 1));
-                pending.push((then, depth + 1));
+            match decision {
+                Decision::Return { action } => {
+                    let allowed = match action {
+                        Action::Constraints | Action::Flat => scope == Scope::Dispatch,
+                        Action::Ordinary | Action::Preferred => scope == Scope::Projection,
+                        Action::Defer => true,
+                    };
+                    if !allowed {
+                        return Err(Error::Unsupported("wrong-scope policy action"));
+                    }
+                }
+                Decision::If {
+                    field,
+                    then,
+                    otherwise,
+                } => {
+                    let allowed = match field {
+                        Field::Empty | Field::Forced | Field::Recipe | Field::Nested => {
+                            scope == Scope::Dispatch
+                        }
+                        Field::Absent | Field::Bottom => scope == Scope::Projection,
+                    };
+                    if !allowed {
+                        return Err(Error::Unsupported("wrong-scope policy fact"));
+                    }
+                    pending.push((otherwise, depth + 1));
+                    pending.push((then, depth + 1));
+                }
             }
         }
-        Ok(Self { body: program.body })
+        Ok(Self {
+            scope,
+            body: program.body,
+        })
     }
 
     pub(super) fn execute(&self, facts: &Facts, work: &mut Work) -> Result<Action, Error> {
+        self.require_dispatch()?;
+        self.run(work, |field| match field {
+            Field::Empty => Ok(facts.empty),
+            Field::Forced => Ok(facts.forced),
+            Field::Recipe => Ok(facts.recipe),
+            Field::Nested => Ok(facts.nested),
+            Field::Absent | Field::Bottom => Err(Error::Unsupported("non-dispatch fact")),
+        })
+    }
+
+    pub(super) fn execute_projection(
+        &self,
+        facts: &ProjectionFacts,
+        work: &mut Work,
+    ) -> Result<Action, Error> {
+        self.require_projection()?;
+        self.run(work, |field| match field {
+            Field::Absent => Ok(facts.absent),
+            Field::Bottom => Ok(facts.bottom),
+            Field::Empty | Field::Forced | Field::Recipe | Field::Nested => {
+                Err(Error::Unsupported("non-projection fact"))
+            }
+        })
+    }
+
+    fn run(
+        &self,
+        work: &mut Work,
+        read: impl Fn(&Field) -> Result<bool, Error>,
+    ) -> Result<Action, Error> {
         let mut decision = &self.body;
         loop {
             work.charge(1)?; // Instruction visit, including return.
@@ -104,12 +198,7 @@ impl Policy {
                     otherwise,
                 } => {
                     work.charge(1)?; // Only the executed fact read.
-                    let value = match field {
-                        Field::Empty => facts.empty,
-                        Field::Forced => facts.forced,
-                        Field::Recipe => facts.recipe,
-                        Field::Nested => facts.nested,
-                    };
+                    let value = read(field)?;
                     decision = if value { then } else { otherwise };
                 }
             }

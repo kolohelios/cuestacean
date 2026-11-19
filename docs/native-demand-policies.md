@@ -18,6 +18,12 @@ This is native bootstrap export of CUE-authored represented instructions, not
 CUE-hosted specification evaluation, a production graph/default implementation,
 closure of the six compiler policies, full self-hosting or a performance result.
 
+The [#184 projection-policy extension](preference-projection-policy.md) expands
+this artifact family explicitly to six raw files/four programs and re-attests its
+new producer. The historical #182 two-policy contract and hashes below remain
+evidence; the original two dispatch JSON byte results stay unchanged. This does
+not widen the original AST cuts or the exporter production fileset.
+
 ## Exact raw input and artifact closure
 
 Add `native-demand-policies`, receiving only the independently built exporter
