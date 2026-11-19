@@ -61,6 +61,10 @@ Its API flags are not native preference-state certificates. The [#192 subsumptio
 observations](default-subsumption-observer.md) separately compare ordinary and
 Raw API acceptance, without treating rejection as a proof of negative ordering.
 These steps do not solve nested default lifetime or unhold #175.
+The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
+scanner definitions and narrows their Go-CUE construction inputs; complete JSON
+bytes remain stable. Native scanner construction still requires separately
+reviewed optional/range/regex/boolean/list/default semantics.
 Pinned CUE order discrepancies are separate evidence, not an excuse for the gap.
 Production parsing/evaluation stays unchanged. These experiments do not complete
 the real policies' default/pattern/optional-field/import closures.

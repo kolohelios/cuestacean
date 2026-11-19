@@ -296,6 +296,7 @@
             fileset = pkgs.lib.fileset.unions (
               [
                 ../../bootstrap/schema.cue
+                ../../bootstrap/scanner-schema.cue
                 ../../bootstrap/ast-schema.cue
                 ../../bootstrap/scanner-fragments.cue
                 ../../bootstrap/decimal-fragments.cue
@@ -350,6 +351,9 @@
               # Load only the fixture's definition closure. Loading every compiler
               # for a literal can exhaust the CI runner while checking unused CUE.
               schema=schema
+              case "$fixture" in
+                ${builtins.concatStringsSep "|" scannerFixtures}) schema=scanner-schema ;;
+              esac
               fragments=()
               case "$fixture" in
                 pratt|tests/valid/pratt-no-slices|tests/valid/pratt-slice-high-minimum|tests/valid/pratt-no-selectors|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
@@ -391,7 +395,7 @@
               cp first.json "$out/$fixture.json"
             done
             for fixture in ${cueSources}/tests/invalid/*.cue; do
-              if cue export ${cueSources}/schema.cue ${cueSources}/ast-schema.cue "$fixture" --out json > invalid.log 2>&1; then
+              if cue export ${cueSources}/schema.cue ${cueSources}/scanner-schema.cue ${cueSources}/ast-schema.cue "$fixture" --out json > invalid.log 2>&1; then
                 echo "Expected rejection: $fixture" >&2
                 exit 1
               fi
@@ -601,6 +605,8 @@
             ++ pkgs.lib.optionals tests (
               [
                 ../../bootstrap/spec-export/tests
+                ../../bootstrap/scanner-schema.cue
+                ../../bootstrap/group-open.cue
                 ../../bootstrap/ast-schema.cue
                 ../../bootstrap/tests/invalid/ast-operation.cue
                 ../../bootstrap/spikes/demand-policy-schema.cue

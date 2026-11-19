@@ -33,7 +33,11 @@ CUE owns compiler layout and rendered-branch simplification. Upstream Go CUE sti
 
 ## Statement contract
 
-`#ScanProgram` in `schema.cue` contains `formatVersion: 1` and a `body` list.
+`#ScanProgram` in [`scanner-schema.cue`](scanner-schema.cue) contains
+`formatVersion: 1` and a `body` list. The [#194 closure extraction](../docs/scanner-schema-closure.md)
+moves these definitions unchanged; scanner exports select this schema plus their
+explicit fragment/program closure, not the unrelated expression/control schema.
+Go CUE remains the scanner constructor; native scanner export is not established.
 
 | Instruction | Meaning |
 | --- | --- |

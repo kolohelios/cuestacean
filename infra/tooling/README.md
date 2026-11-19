@@ -29,8 +29,9 @@ whitespace, and the [bootstrap export](../../bootstrap/README.md). The flake's
 specifications come from the independent `native-ast-builders` producer, which
 exports each raw program with `ast-schema.cue` twice in separate native processes.
 The bundle copies those checked artifacts and never retries them through Go CUE.
-Other positive fixtures still export twice through Go CUE using `schema.cue` and
-only their required fragments. Malformed expression trees and evaluation rules
+Scanner fixtures export twice through Go CUE using `scanner-schema.cue` and
+only their required fragments; other positive fixtures keep `schema.cue` and
+their existing fragment closure. See the [scanner extraction](../../docs/scanner-schema-closure.md). Malformed expression trees and evaluation rules
 must still fail; JSON stays build-only. `native-builder-family` separately checks
 upstream equality, every regenerated builder golden and the family's full native
 build dependency graph, preserving the original `native-ast-atom` cut/proof.
@@ -40,8 +41,8 @@ resolve this: the recursive expression schema also needed its identical binary s
 factored into one tagged definition, retaining constructor aliases and closed
 fields. Both changes were checked against the previous complete JSON output
 and retained identical bytes. When adding a fixture that references a fragment,
-update that table. Invalid fixtures load both schemas; AST-negative fixtures
-also have isolated small-schema checks.
+update that table. Invalid fixtures explicitly load expression, AST and scanner
+schemas; AST-negative fixtures also have isolated small-schema checks.
 Missing-reference diagnostics fail fixture setup rather than count as schema
 rejections. Both repeated exports and all negative-schema checks remain mandatory. The
 `bootstrap-executor` check builds handwritten evaluator/scanner/AST/Pratt/unification compiler seeds
