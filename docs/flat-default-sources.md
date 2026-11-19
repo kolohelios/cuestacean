@@ -179,4 +179,6 @@ This establishes only flat exact-scalar IR construction/history under the stated
 bounds. Nested genuine failures and pinned asymmetries remain unchanged; no
 parser/solver/readiness or preferred-value interface consumes this module.
 Production defaults (#175), broader scheduling/equality/layers/references and
-collections remain held.
+collections remain held. The [#206 recursive follow-up](recursive-default-scheduling.md)
+separately tests nested exact-scalar IR construction/history; it does not change
+this flat API or establish run-mode/partial-vertex equivalence.
