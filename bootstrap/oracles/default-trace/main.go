@@ -134,8 +134,8 @@ func encode(out observation) ([]byte, error) {
 }
 
 func observe(args []string) ([]byte, error) {
-	if len(args) != 3 || args[0] != "trace" || !labelOK(args[2]) {
-		return nil, fmt.Errorf("expected trace FILE FIELD")
+	if len(args) != 3 || (args[0] != "trace" && args[0] != "trace-origins") || !labelOK(args[2]) {
+		return nil, fmt.Errorf("expected trace or trace-origins FILE FIELD")
 	}
 	file, err := os.Open(args[1])
 	if err != nil {
@@ -153,7 +153,11 @@ func observe(args []string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := adt.CuestaceanTraceStart(); err != nil {
+	start := adt.CuestaceanTraceStart
+	if args[0] == "trace-origins" {
+		start = adt.CuestaceanTraceOriginsStart
+	}
+	if err := start(); err != nil {
 		return nil, err
 	}
 	// Also detach on an early error or panic; normal stop precedes encoding.
@@ -168,7 +172,10 @@ func observe(args []string) ([]byte, error) {
 	if !selected.Exists() {
 		return nil, fmt.Errorf("missing field")
 	}
-	out := observation{FormatVersion: 1, Mode: "trace"}
+	out := observation{FormatVersion: 1, Mode: args[0]}
+	if args[0] == "trace-origins" {
+		out.FormatVersion = 2
+	}
 	selected, out.DefaultSelected = selected.Default()
 	if selected.Err() != nil {
 		out.Status = "conflict"

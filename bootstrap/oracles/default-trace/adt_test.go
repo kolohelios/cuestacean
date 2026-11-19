@@ -6,6 +6,150 @@ import (
 	"testing"
 )
 
+func TestCuestaceanOrigins(t *testing.T) {
+	cuestaceanTraceOrigin(-1, nil, 1) // Inactive must not inspect p.
+	if err := CuestaceanTraceStart(); err != nil {
+		t.Fatal(err)
+	}
+	cuestaceanTraceOrigin(-1, nil, 1) // V1 must not validate or charge.
+	if b, err := CuestaceanTraceStop(); err != nil || len(b) != 0 {
+		t.Fatal(b, err)
+	}
+	for _, failure := range []string{"", "width", "records", "priority", "leftPriority", "originPriority", "missing", "extra", "order", "stage", "unknown"} {
+		t.Run(failure, func(t *testing.T) {
+			if err := CuestaceanTraceOriginsStart(); err != nil {
+				t.Fatal(err)
+			}
+			if err := CuestaceanTraceStart(); err == nil {
+				t.Fatal("overlap")
+			}
+			p := &nodeContext{}
+			p.defaultMode, p.origDefaultMode = notDefault, isDefault
+			r := &nodeContext{}
+			r.defaultMode, r.origDefaultMode = maybeDefault, notDefault
+			vector := make([]*nodeContext, 64)
+			for i := range vector {
+				vector[i] = r
+			}
+			id := cuestaceanTraceEnter()
+			switch failure {
+			case "", "records":
+				// 16 batches * (64 origins*2 + 64 trials + 64 results).
+				for batch := 0; batch < 16; batch++ {
+					if batch != 0 {
+						id = cuestaceanTraceEnter()
+					}
+					for range vector {
+						cuestaceanTraceOrigin(id, p, 0)
+					}
+					cuestaceanTraceTrials(id, vector, false, false)
+					cuestaceanTraceResults(id, vector)
+				}
+				if cuestaceanCapture.records != 4096 || cuestaceanCapture.err != nil {
+					t.Fatal("exact v2 cap", cuestaceanCapture)
+				}
+				if failure == "records" {
+					id = cuestaceanTraceEnter()
+					cuestaceanTraceOrigin(id, p, 0)
+				}
+			case "width":
+				for i := 0; i < 65; i++ {
+					cuestaceanTraceOrigin(id, p, 0)
+				}
+			case "priority":
+				cuestaceanTraceOrigin(id, p, 1)
+			case "leftPriority":
+				p.priority = 1
+				cuestaceanTraceOrigin(id, p, 0)
+			case "originPriority":
+				p.origPriority = 1
+				cuestaceanTraceOrigin(id, p, 0)
+			case "missing":
+				cuestaceanTraceTrials(id, vector[:1], false, false)
+			case "extra":
+				cuestaceanTraceOrigin(id, p, 0)
+				cuestaceanTraceTrials(id, nil, false, false)
+			case "order":
+				cuestaceanTraceEnter()
+				cuestaceanTraceOrigin(id, p, 0)
+			case "stage":
+				cuestaceanTraceTrials(id, nil, false, false)
+				cuestaceanTraceOrigin(id, p, 0)
+			case "unknown":
+				p.origDefaultMode = defaultMode(255)
+				cuestaceanTraceOrigin(id, p, 0)
+			}
+			c := cuestaceanCapture
+			if failure != "" {
+				sticky, records := c.err, c.records
+				if sticky == nil {
+					t.Fatal("missing failure")
+				}
+				cuestaceanTraceOrigin(id, nil, 0)
+				cuestaceanTraceTrials(id, vector, false, false)
+				if c.err != sticky || c.records != records {
+					t.Fatal("not sticky")
+				}
+			}
+			b, err := CuestaceanTraceStop()
+			if failure == "" {
+				if err != nil || len(b) != 16 || len(b[0].Trials) != 64 {
+					t.Fatal(b, err)
+				}
+				trial := b[0].Trials[0]
+				if trial.Mode != "maybe" || trial.OriginalMode != "not" || *trial.LeftMode != "not" || *trial.LeftOriginalMode != "default" {
+					t.Fatal(trial)
+				}
+			} else if err == nil || b != nil {
+				t.Fatal("partial report", b, err)
+			}
+			if cuestaceanCapture != nil {
+				t.Fatal("not detached")
+			}
+			if err := CuestaceanTraceOriginsStart(); err != nil {
+				t.Fatal(err)
+			}
+			if b, err := CuestaceanTraceStop(); err != nil || b == nil || len(b) != 0 {
+				t.Fatal("recovery", b, err)
+			}
+		})
+	}
+}
+
+func TestCuestaceanOriginInterleaving(t *testing.T) {
+	if err := CuestaceanTraceOriginsStart(); err != nil {
+		t.Fatal(err)
+	}
+	p := &nodeContext{}
+	p.defaultMode, p.origDefaultMode = notDefault, isDefault
+	p.disjuncts = []*nodeContext{{}, {}}
+	a := cuestaceanTraceEnter()
+	cuestaceanTraceOrigin(a, p, 0)
+	p.defaultMode, p.origDefaultMode = isDefault, maybeDefault
+	b := cuestaceanTraceEnter()
+	cuestaceanTraceOrigin(b, p, 0)
+	cuestaceanTraceTrials(b, []*nodeContext{p}, false, false)
+	cuestaceanTraceResults(b, nil)
+	cuestaceanTraceOrigin(a, p, 0)
+	cuestaceanTraceTrials(a, []*nodeContext{p, p}, false, false)
+	cuestaceanTraceResults(a, nil)
+	if cuestaceanCapture.records != 15 { // 3*trials + 6 nested children.
+		t.Fatal("origin records charged twice or nested records omitted")
+	}
+	batches, err := CuestaceanTraceStop()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range []CuestaceanTraceMode{"not", "default"} {
+		if *batches[0].Trials[i].LeftMode != want {
+			t.Fatal("uncopied/unordered origins", batches)
+		}
+	}
+	if *batches[1].Trials[0].LeftOriginalMode != "maybe" {
+		t.Fatal(batches)
+	}
+}
+
 func TestCuestaceanLifecycle(t *testing.T) {
 	if cuestaceanTraceEnter() != -1 {
 		t.Fatal("inactive hook")

@@ -11,10 +11,12 @@ type CuestaceanTraceResult struct {
 }
 
 type CuestaceanTraceTrial struct {
-	Mode         CuestaceanTraceMode     `json:"mode"`
-	OriginalMode CuestaceanTraceMode     `json:"originalMode"`
-	Value        *int64                  `json:"value"`
-	Nested       []CuestaceanTraceResult `json:"nested"`
+	Mode             CuestaceanTraceMode     `json:"mode"`
+	OriginalMode     CuestaceanTraceMode     `json:"originalMode"`
+	LeftMode         *CuestaceanTraceMode    `json:"leftMode,omitempty"`
+	LeftOriginalMode *CuestaceanTraceMode    `json:"leftOriginalMode,omitempty"`
+	Value            *int64                  `json:"value"`
+	Nested           []CuestaceanTraceResult `json:"nested"`
 }
 
 type CuestaceanTraceBatch struct {
@@ -35,6 +37,8 @@ type cuestaceanTraceCapture struct {
 	stack          [128]int
 	stages         [128]uint8
 	err            error
+	originsEnabled bool
+	origins        [128][][2]CuestaceanTraceMode
 }
 
 func CuestaceanTraceStart() error {
@@ -43,6 +47,36 @@ func CuestaceanTraceStart() error {
 	}
 	cuestaceanCapture = &cuestaceanTraceCapture{batches: []CuestaceanTraceBatch{}}
 	return nil
+}
+
+func CuestaceanTraceOriginsStart() error {
+	if err := CuestaceanTraceStart(); err != nil {
+		return err
+	}
+	cuestaceanCapture.originsEnabled = true
+	return nil
+}
+
+// Copy predecessor facts at the successful append, after recursive evaluation.
+func cuestaceanTraceOrigin(id int, p *nodeContext, priority int) {
+	c := cuestaceanCapture
+	if c == nil || !c.originsEnabled {
+		return
+	}
+	if !c.current(id, 0) {
+		return
+	}
+	if priority != 0 || p.priority != 0 || p.origPriority != 0 {
+		c.fail("trace origins require priority zero")
+		return
+	}
+	if !c.reserve(len(c.origins[id])+1, 2) {
+		return
+	}
+	pair := [2]CuestaceanTraceMode{c.mode(p.defaultMode), c.mode(p.origDefaultMode)}
+	if c.err == nil {
+		c.origins[id] = append(c.origins[id], pair)
+	}
 }
 
 func CuestaceanTraceStop() ([]CuestaceanTraceBatch, error) {
@@ -148,6 +182,10 @@ func cuestaceanTraceTrials(id int, tmp []*nodeContext, left, right bool) {
 	if c == nil || !c.current(id, 0) {
 		return
 	}
+	if c.originsEnabled && len(c.origins[id]) != len(tmp) {
+		c.fail("trace origin/trial count mismatch")
+		return
+	}
 	if !c.reserve(len(tmp), len(tmp)) {
 		return
 	}
@@ -159,9 +197,13 @@ func cuestaceanTraceTrials(id int, tmp []*nodeContext, left, right bool) {
 	}
 	b := &c.batches[id]
 	b.LeftDropsDefault, b.RightDropsDefault = left, right
-	for _, n := range tmp {
-		t := CuestaceanTraceTrial{c.mode(n.defaultMode), c.mode(n.origDefaultMode),
-			cuestaceanTraceValue(n), []CuestaceanTraceResult{}}
+	for i, n := range tmp {
+		t := CuestaceanTraceTrial{Mode: c.mode(n.defaultMode), OriginalMode: c.mode(n.origDefaultMode),
+			Value: cuestaceanTraceValue(n), Nested: []CuestaceanTraceResult{}}
+		if c.originsEnabled {
+			pair := c.origins[id][i]
+			t.LeftMode, t.LeftOriginalMode = &pair[0], &pair[1]
+		}
 		if c.err != nil {
 			return
 		}

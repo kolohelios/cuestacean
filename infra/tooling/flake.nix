@@ -471,7 +471,7 @@
             go build -mod=vendor -trimpath -o "$out/bin/cuestacean-default-observer" ./cmd/cuestacean-default-observer
           '';
       # Separate instrumented oracle: the pinned evaluator is changed only by
-      # three bounded diagnostic hooks. Never wire this into rustPackage/seeds.
+      # four bounded diagnostic hooks (origin capture is v2-only). No seed wiring.
       defaultTrace =
         pkgs:
         pkgs.runCommand "cuestacean-default-trace"
@@ -495,13 +495,15 @@
             perl -0pi -e '
               my $n = s~(\Qfunc (n *nodeContext) crossProduct(dst, cross []*nodeContext, dn *envDisjunct, mode runMode) []*nodeContext {\E\n)~$1\ttraceID := cuestaceanTraceEnter()\n~g;
               die "trace entry hook drift" unless $n == 1;
+              $n = s~(\t\t\ttmp = append\(tmp, r\)\n)~\t\t\tcuestaceanTraceOrigin(traceID, p, int(priority))\n$1~g;
+              die "trace origin hook drift" unless $n == 1;
               $n = s~(\thasNonMaybe := false\n)~\tcuestaceanTraceTrials(traceID, tmp, leftDropsDefault, rightDropsDefault)\n$1~g;
               die "trace trials hook drift" unless $n == 1;
               $n = s~(\treturn dst\n\}\n\nfunc combineDefault2)~\tcuestaceanTraceResults(traceID, dst)\n$1~g;
               die "trace results hook drift" unless $n == 1;
             ' internal/core/adt/disjunct2.go
-            # Removing exactly the hook lines must restore the pinned source.
-            perl -ne 'print unless /^\t(?:traceID := cuestaceanTraceEnter\(\)|cuestaceanTraceTrials\(traceID, tmp, leftDropsDefault, rightDropsDefault\)|cuestaceanTraceResults\(traceID, dst\))\n$/' \
+            # Removing exactly four hook lines must restore the pinned source.
+            perl -ne 'print unless /^\t(?:traceID := cuestaceanTraceEnter\(\)|cuestaceanTraceTrials\(traceID, tmp, leftDropsDefault, rightDropsDefault\)|cuestaceanTraceResults\(traceID, dst\))\n$/ || /^\t\t\tcuestaceanTraceOrigin\(traceID, p, int\(priority\)\)\n$/' \
               internal/core/adt/disjunct2.go > restored.go
             cmp restored.go ${pkgs.cue.src}/internal/core/adt/disjunct2.go
             diff -u --label pinned/disjunct2.go --label instrumented/disjunct2.go ${pkgs.cue.src}/internal/core/adt/disjunct2.go internal/core/adt/disjunct2.go > "$out/instrumentation.diff" || test "$?" = 1
@@ -540,6 +542,8 @@
           printf '%s\n' '{"formatVersion":1,"mode":"trace","defaultSelected":true,"status":"concrete","value":1}' > trace-expected.json
           cmp trace-expected.json trace-summary.json
           jq -e '.batches | length > 0' "$out/trace.json" > /dev/null
+          env -i PATH=/nonexistent ${defaultTrace pkgs}/bin/cuestacean-default-trace trace-origins probe.cue a > "$out/trace-origins.json"
+          jq -e '.formatVersion == 2 and .mode == "trace-origins" and .value == 1 and all(.batches[].trials[]; .leftMode == "maybe" and .leftOriginalMode == "maybe")' "$out/trace-origins.json" > /dev/null
         '';
 
       # Delete only staged build copies, never the working tree. Neither stage
@@ -594,6 +598,7 @@
           preCheck = old.preCheck + ''
             cargo test --offline --no-default-features --test default_observer
             cargo test --offline --no-default-features --test default_trace
+            cargo test --offline --no-default-features --test batch_defaults
           '';
           postPatch = clearArtifacts + ''
             # Do not leak strict shell options into later stdenv hooks.

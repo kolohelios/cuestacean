@@ -64,6 +64,10 @@ The [#200 instrumented batch trace](default-lifetime-trace.md) observes the pinn
 upstream evaluator's actual batch-local drop/default-mode transitions on preserved
 failures, separately from the uninstrumented public observer. It supplies research
 facts, not a native replacement model or complete source-occurrence provenance.
+The [#202 native scalar batch primitive](native-batch-defaults.md) implements one
+zero-priority mode-transition phase over supplied successful-trial facts, checked
+against additive origin-aware traces. It does not construct survivors from source
+or replace the held default solver/readiness policy.
 These steps do not solve nested default lifetime or unhold #175.
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
