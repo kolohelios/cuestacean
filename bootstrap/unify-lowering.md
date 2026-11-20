@@ -16,8 +16,10 @@ The shared [compiler-only source boundary](../docs/unification-compiler-boundary
 in `executor/src/unification/compiler.rs` decodes/validates the whole original
 control program and lowers its metadata. Parent `unification.rs` retains checked
 value primitives/reference execution and re-exports the same compiler API. This is
-a source split, not isolated compiler construction. Its per-opcode Rust emission and enum-to-source mapping methods
-are removed. This is not full compiler self-hosting or a new CUE language feature.
+a source split; the separate [native compiler constructor](../docs/native-unify-codegen.md)
+now shares that exact core/lowering/module/original CLI in a seven-source façade.
+It embeds only native unify/meta policy DATA, not runtime/root Error or full bundle.
+Its per-opcode Rust emission and enum-to-source mapping methods are removed. This is not full compiler self-hosting or a new CUE language feature.
 
 ## Selection and the typed bridge
 
@@ -95,9 +97,10 @@ references reject eagerly outside ternary programs, including dead arms; unary
 binary-operation restrictions remain. `listSlice` is ternary-only and lowers to
 the checked borrowed slice/constructor kernel. Existing choose/if source layout
 shares a one-hop alias, keeping the backend at 484 values under the unchanged 512
-guard. Existing three native compiler construction paths remain unchanged; the
-unification compiler still uses the legacy full-bundle constructor. Four canonical
-policy DATA inputs are now native, not the control/#LoweringPolicy schema language.
+guard. The fourth native compiler construction path now builds this existing
+unification binary independently. Five canonical policy DATA inputs are native,
+not the control/#LoweringPolicy schema language. Two other compiler binaries/the
+joined seed and full instruction policy still need Go CUE.
 
 ## Bootstrap and evidence
 
