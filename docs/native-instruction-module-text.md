@@ -201,7 +201,7 @@ All249 JSON/12builders/old native DATA/generated Rust unchanged. Exporter9 code 
 native dependent ctor identities legitimately change; all four façade source cuts/
 shared Rust/CLI bytes and raw cuts remain exact. BOTH Go oracle PACKAGE IDs unchanged.
 New literal DATA constructor4a05mwxb/raw2source2waik97s/output62qc3zbb has only header/
-footer (928 canonical bytes), with original Go header newline applied by the consumer.
+footer (924 canonical bytes), with original Go header newline applied by the consumer.
 
 Seventeen fresh recursive/full retained inventories MATCH/exclusions pass: new text
 1407derivations/3392full paths, joined1460/3532. Current Go CLI/source/source drv/full
