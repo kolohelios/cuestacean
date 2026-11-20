@@ -129,3 +129,24 @@ slots without original-owner assistance. Coordinator GO permits ONLY this scope;
 immutable cross/final reviews and full release gates remain mandatory.
 Pause for raw-helper/closedness/schema ambiguity,
 wrong completeness/source effects or unresolved validation. #175 remains OPEN.
+
+## Completed local evidence
+
+Build/raw handoff a2b4893e and tests-only da938dcb preserve immutable parents;
+initial explicit-add braces and factored expected conditional need no guard change.
+101 exporter tests/four profiles, full Rust/default all-target strict Clippy both
+profiles and research135/four profiles pass. Both genuine façade matrices/fresh
+modules and separate drv^* feature rebuilds pass;19 checks/16 packages actually
+built AND rebuilt. Pinned preflight13/13 (7 skipped),1361-file whitespace and597
+relative links pass. All249 JSON/12builders/older DATA/generated Rust unchanged;
+ALL14 older non-bundle PACKAGE constructor drv identities unchanged.
+Strict original-source projection confirms37 body cases/closed local L-R and both
+add alternatives, with only documented root/version/partition/two literal helper
+instantiations/outside-quoted whitespace/comments. Selected raw3 source
+`/nix/store/4yjlr5prkbw1b9pahfvji343s20lk7g7-source`, unchanged table raw2 source
+`/nix/store/mlg3w4xyqfi043fxykfiy64fg9xddigw-source`; union4/canonical11423 bytes.
+Thirteen fresh recursive/full inventories match/exclusions pass; new native Pratt
+policy1412 derivations/3410 full paths, joined seed1452/3510. Original core feature
+graph stays Go-free; scanner feature graph positively Go/source/bundle-backed,
+verification ONLY. Five native policy DATA inputs/three isolated compiler paths;
+one remaining policy constructor/joined six-seed path still Go-dependent.
