@@ -184,6 +184,12 @@ interpreters. One authoritative Kind enum is shared without importing unifier
 programs; the existing native unifier source cut grows to8/test9 for that exact file.
 This is source preparation, NOT a fifth constructor. Five native policy DATA inputs/
 four native compiler binaries and all admission/runtime/guard boundaries remain.
+The [#246 native Pratt compiler](native-pratt-codegen.md) separately constructs that
+existing binary from its exact shared core/Kind/kernel/CLI source cut and ONLY native
+Pratt/meta policy DATA. Production joins core TWO + scanner ONE + unifier ONE +
+Pratt ONE + legacy ONE: FIVE compiler binaries construct independently; FIVE complete
+native policy DATA inputs remain. Fresh Pratt feature generation is independently
+native; scanner PROGRAM/source-feature verification remains deliberately Go-backed.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
@@ -516,9 +522,9 @@ workspace's stale exports for changed specifications.
   development. It is a review/drift baseline, not a required seed input.
 - Nix deletes staged JSON/Rust, builds six native compiler/VM seeds without
   default features, regenerates everything, then compiles/tests the final package.
-  Four compiler binaries embed only native policy JSON through the eight-source
-  AST/meta/unifier and seven-source scanner façades; the other two embed the full
-  Go-dependent bundle. Scanner source-feature verification still needs Go-exported
+  Five compiler binaries embed only native policy JSON through the eight-source
+  AST/meta/unifier/Pratt and seven-source scanner façades; the remaining evaluator
+  compiler embeds the full Go-dependent bundle. Scanner source-feature verification still needs Go-exported
   PROGRAM JSON, never a constructor input. Exports must not depend on seeds or
   committed artifacts. No opcode-emission fallback.
   Seeds interpret the policy; default `compiled-lowering` uses generated Rust.
