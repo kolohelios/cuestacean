@@ -269,10 +269,10 @@ fn exact_control_structure_bounds_and_recovery() -> TestResult {
             );
         }
     }
-    // Five base nodes, 57 nine-node wrappers, two conditions shortened by three.
+    // Five base nodes, 57 nine-node wrappers, three conditions shortened by two.
     let mut result = json!({"op":"integer","value":0});
     for index in 0..57 {
-        let condition = if index < 2 {
+        let condition = if index < 3 {
             json!({"op":"same"})
         } else {
             json!({"op":"kindIs","input":"left","kind":"int"})
