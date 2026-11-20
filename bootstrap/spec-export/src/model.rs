@@ -7,11 +7,21 @@ pub(crate) enum Type {
     Int,
     Bool,
 }
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum StringSlot {
+    Key,
+    Value,
+}
 #[derive(Clone, Debug)]
 pub(crate) enum Template {
     Literal(serde_json::Value),
     Key,
     Value,
+    Interpolated {
+        prefix: String,
+        slot: StringSlot,
+        suffix: String,
+    },
     Struct(Vec<(String, Template)>),
     List(Vec<Template>),
 }

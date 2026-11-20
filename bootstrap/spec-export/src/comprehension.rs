@@ -1,5 +1,5 @@
 //! Finite static specialization; no iterator environment reaches evaluation.
-use crate::model::{Document, Error, Expr, Id, Template};
+use crate::model::{Document, Error, Expr, Id, StringSlot, Template};
 use std::collections::BTreeSet;
 
 struct Preparation {
@@ -19,14 +19,18 @@ impl Preparation {
         self.steps += n;
         Ok(())
     }
-    fn text(&mut self, text: &str) -> Result<String, Error> {
+    fn string_bytes(&mut self, bytes: usize) -> Result<(), Error> {
         self.strings = self
             .strings
-            .checked_add(text.len())
+            .checked_add(bytes)
             .ok_or(Error::Limit("copied strings"))?;
         if self.strings > 65536 {
             return Err(Error::Limit("copied strings"));
         }
+        Ok(())
+    }
+    fn text(&mut self, text: &str) -> Result<String, Error> {
+        self.string_bytes(text.len())?;
         Ok(text.to_owned())
     }
     fn instantiate(&mut self, template: &Template, key: &str, value: &str) -> Result<Id, Error> {
@@ -38,6 +42,29 @@ impl Preparation {
         let expr = match template {
             Template::Key => Expr::Literal(self.text(key)?.into()),
             Template::Value => Expr::Literal(self.text(value)?.into()),
+            Template::Interpolated {
+                prefix,
+                slot,
+                suffix,
+            } => {
+                // The instantiate visit plus two append steps, even for empty affixes.
+                self.step(2)?;
+                let row = match slot {
+                    StringSlot::Key => key,
+                    StringSlot::Value => value,
+                };
+                let bytes = prefix
+                    .len()
+                    .checked_add(row.len())
+                    .and_then(|n| n.checked_add(suffix.len()))
+                    .ok_or(Error::Limit("copied strings"))?;
+                self.string_bytes(bytes)?;
+                let mut text = String::with_capacity(bytes);
+                text.push_str(prefix);
+                text.push_str(row);
+                text.push_str(suffix);
+                Expr::Literal(text.into())
+            }
             Template::Literal(serde_json::Value::String(text)) => {
                 Expr::Literal(self.text(text)?.into())
             }

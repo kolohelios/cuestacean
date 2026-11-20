@@ -10,17 +10,13 @@ package bootstrap
 	// The alternate policy overrides only sum's default right-child selection.
 	let R = {op: "try", value: {op: "group", value: {op: "lower", field: *"right" | "left"}}}
 	let V = {op: "try", value: {op: "group", value: {op: "lower", field: "value"}}}
-	let Unary = {
-		lowerExclusiveBound: "lower_exclusive_bound", upperExclusiveBound: "upper_exclusive_bound"
-		lowerBound:          "lower_bound", upperBound:                    "upper_bound", negate:  "negate"
-		logicalNot:          "logical_not", length:                        "length", stringLength: "string_length", listLength: "list_length", recordLength: "record_length"
-	}
 	let Binary = {
 		index:       "index", difference:       "difference", product:    "product", divide:        "divide", modulo:    "modulo", quotient: "quotient"
 		recordIndex: "record_index", listIndex: "list_index", logicalAnd: "logical_and", logicalOr: "logical_or", equal: "equal"
 	}
 	aliases: {
-		for name, _ in Unary {"\(name)": "unaryRuntime"}
+		lowerExclusiveBound: _, upperExclusiveBound: _, lowerBound: _, upperBound: _, negate: _
+		logicalNot: _, length: _, stringLength: _, listLength: _, recordLength: _
 		for name, _ in Binary {"\(name)": "binaryRuntime"}
 	}
 	module: [{
@@ -71,10 +67,7 @@ package bootstrap
 		boolean: {op: "ok", value: {op: "call", path: "runtime::Value::Boolean", args: [{op: "boolean", field: "value"}]}}
 		field: {op: "call", path: "runtime::integer", args: [Node, Field]}
 		evaluate: {op: "call", path: "evaluate", args: [{op: "try", value: {op: "call", path: "runtime::field", args: [Node, Field]}}, Context]}
-		unaryRuntime: {op: "concat", parts: [
-			{op: "select", field: "op", cases: {for name, method in Unary {"\(name)": {op: "text", value: "runtime::\(method)"}}}},
-			{op: "text", value: "("}, V, {op: "text", value: ")"},
-		]}
+		unaryRuntime: _
 		binaryRuntime: {op: "concat", parts: [
 			{op: "select", field: "op", cases: {for name, method in Binary {"\(name)": {op: "text", value: "runtime::\(method)"}}}},
 			{op: "text", value: "("}, L, {op: "text", value: ", "}, R, {op: "text", value: ")"},

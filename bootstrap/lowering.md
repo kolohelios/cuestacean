@@ -1,7 +1,11 @@
 # CUE-owned IR-to-Rust lowering
 
 [`lowering-fragments.cue`](lowering-fragments.cue) defines executable expression
-lowering for the evaluation instructions, including scalar equality/inequality. [`lowering.cue`](lowering.cue)
+lowering for the evaluation instructions, including scalar equality/inequality.
+The [native unary module](../docs/native-instruction-unary-tables.md) retains the
+original Unary map/two CUE comprehensions, including `runtime::\(method)` string
+substitution. It supplies ten aliases/one case to the still-Go-built full policy;
+binary/module/default constraints and actual schema checks remain separate. [`lowering.cue`](lowering.cue)
 selects the normal program. CUE chooses runtime calls, constructor layout,
 recursive instruction-field selection, grouping and Result propagation.
 `bootstrap-codegen` no longer contains a per-instruction emission match. The
