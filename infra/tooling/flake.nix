@@ -1077,6 +1077,11 @@
             ++ pkgs.lib.optionals tests (
               [
                 ../../bootstrap/spec-export/tests
+                ../../bootstrap/instruction-unary-tables.cue
+                ../../bootstrap/lowering-fragments.cue
+                ../../bootstrap/lowering.cue
+                ../../bootstrap/tests/valid/lowering-left-twice.cue
+                ../../bootstrap/tests/valid/lowering-reverse.cue
                 ../../bootstrap/pratt-lowering-tables.cue
                 ../../bootstrap/pratt-lowering-body.cue
                 ../../bootstrap/pratt-add-policy.cue

@@ -325,6 +325,11 @@ impl Parser {
                 let value = match self.take() {
                     Token::Text(value) => value.into(),
                     Token::Integer(value) => value.into(),
+                    Token::Interpolation { prefix, suffix, .. }
+                        if !prefix.is_empty() || !suffix.is_empty() =>
+                    {
+                        return Err(Error::Unsupported("string interpolation context"));
+                    }
                     Token::Word(_) => return Err(Error::Unsupported("inequality operand")),
                     _ => return Err(Error::Syntax("literal inequality operand")),
                 };
