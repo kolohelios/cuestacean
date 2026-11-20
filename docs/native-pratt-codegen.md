@@ -164,7 +164,7 @@ Full Rust/default all-target strict Clippy debug/release/exporter109 four/
 research135 four/both old boundary4groups EACH four pass. ALL22 distinct checks/
 19 NON-DEFAULT packages actually BUILT AND REBUILT; all FOUR genuine façade matrices/
 fresh modules plus separate explicit drv^* rebuilds pass. Pinned preflight13/13
-(7 skips;23 checks discovered incl default alias),1382-file whitespace/613 relative
+(7 skips;23 discovery entries, not check executions),1382-file whitespace/613 relative
 links pass. Discovery/cache counts are not substituted for actual build execution.
 
 Native constructor pidzmsg8 has source8 rbv8ia79; feature4nn5fjc1 uses source9
