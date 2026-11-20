@@ -4,15 +4,12 @@ package bootstrap
 #PrattLowering: #LoweringPolicy & {
 	let L = {op: "lower", field: "left"}
 	let R = {op: "lower", field: "right"}
-	let MinimumCalls = {parseSliceUpper: "parse_slice_upper", parseRecordValue: "parse_record_value", parseIndex: "parse_index", parseListElement: "parse_list_element", parseGroup: "parse_group", parseNot: "parse_not", parseNegation: "parse_negation"}
-	aliases: {for name, _ in MinimumCalls {"\(name)": "parseMinimum"}}
-	let SelectorCalls = {scanSelector: "scan_selector", advanceSelector: "advance_selector", selectorWhitespace: "selector_whitespace", scanSelectorString: "scan_selector_string", parseSelectorString: "parse_selector_string", parseSelectorIdentifier: "parse_selector_identifier", buildSelector: "build_selector"}
+	aliases: {
+		parseSliceUpper: _, parseRecordValue: _, parseIndex:    _, parseListElement: _
+		parseGroup:      _, parseNot:         _, parseNegation: _
+	}
 	cases: {
-		selectorAction: {op: "concat", parts: [
-			{op: "text", value: "_frame.step()?;\n_frame."},
-			{op: "select", field: "action", cases: {for name, method in SelectorCalls {"\(name)": {op: "text", value: method}}}},
-			{op: "text", value: "()?;\n"},
-		]}
+		selectorAction: _
 		action: {op: "concat", parts: [
 			{op: "text", value: "_frame.step()?;\n_frame."},
 			{op: "identifier", field: "action", snake: true}, {op: "text", value: "()?;\n"},
@@ -72,11 +69,7 @@ package bootstrap
 		and: {op: "concat", parts: [L, {op: "text", value: " && "}, R]}
 		setBindingPower: {op: "concat", parts: [{op: "text", value: "_frame.step()?;\n_frame.set_binding_power("},
 			{op: "lower", field: "value"}, {op: "text", value: ")?;\n"}]}
-		parseMinimum: {op: "concat", parts: [
-			{op: "text", value: "_frame.step()?;\n_frame."},
-			{op: "select", field: "op", cases: {for name, method in MinimumCalls {"\(name)": {op: "text", value: method}}}},
-			{op: "text", value: "("}, {op: "lower", field: "minimum"}, {op: "text", value: ")?;\n"},
-		]}
+		parseMinimum: _
 		while: {op: "concat", parts: [{op: "text", value: "while { _frame.step()?; "},
 			{op: "lower", field: "condition"}, {op: "text", value: " } {\n"},
 			{op: "list", field: "body"}, {op: "text", value: "}\n"}]}

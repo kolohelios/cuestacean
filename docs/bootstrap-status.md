@@ -148,6 +148,13 @@ leaves compose disjointly; the separate Go bridge retains every case/branch/alia
 slot and live raw overrides. TWO other policy constructors/joined seed still require
 Go CUE. Existing THREE isolated compiler paths are unchanged; this is not native
 control-schema evaluation or a fourth compiler constructor.
+The [#234 bounded table-comprehension class](native-map-comprehensions.md) statically
+specializes finite literal-string let maps with exact key interpolation/pure data
+bodies under shared syntax/work/copy bounds. It constructs the native seven-alias/
+two-case Pratt table module from its original three CUE comprehensions; the rest
+of Pratt policy/schema/default add remains Go-built. Counts stay FOUR complete
+native policy inputs/THREE isolated compiler paths, not full/general comprehensions
+or Pratt closure. The exporter source cut grows to nine explicit files.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

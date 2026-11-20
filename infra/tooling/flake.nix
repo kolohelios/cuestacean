@@ -426,6 +426,8 @@
               # Choose the provider before execution: overrides need the raw
               # preference, never the already materialized default artifact.
               case "$fixture" in
+                pratt-lowering|tests/valid/pratt-lowering-*)
+                  inputs+=(${nativePrattTables pkgs}/pratt-lowering-tables.json) ;;
                 tests/valid/unify-lowering-*|tests/valid/integer-kernel-alternate|tests/valid/division-kernel-alternate)
                   inputs+=("${cueSources}/unify-lowering-helpers.cue" "${cueSources}/unify-lowering-values.cue"
                     "${cueSources}/unify-lowering-control.cue" "${cueSources}/unify-difference-policy.cue"
@@ -1055,12 +1057,17 @@
               ../../bootstrap/spec-export/src/parser.rs
               ../../bootstrap/spec-export/src/eval.rs
               ../../bootstrap/spec-export/src/bindings.rs
+              ../../bootstrap/spec-export/src/comprehension.rs
               ../../bootstrap/spec-export/Cargo.toml
               ../../bootstrap/spec-export/Cargo.lock
             ]
             ++ pkgs.lib.optionals tests (
               [
                 ../../bootstrap/spec-export/tests
+                ../../bootstrap/pratt-lowering-tables.cue
+                ../../bootstrap/pratt-lowering-fragments.cue
+                ../../bootstrap/pratt-lowering.cue
+                ../../bootstrap/tests/valid/pratt-lowering-no-increment.cue
                 ../../bootstrap/ast-integer-policy.cue
                 ../../bootstrap/native-policy-package.cue
                 ../../bootstrap/schema.cue
@@ -1611,6 +1618,173 @@
           cp ${nativeUnifyLoweringPolicyBuildClosure pkgs}/store-paths "$out/native-build-paths"
           cp ${nativeUnifyLoweringPolicyBuildClosure pkgs}/registration "$out/native-build-registration"
           printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeUnifyLoweringPolicy pkgs).drvPath} > "$out/native-build-roots"
+        '';
+      prattTableSources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/native-policy-package.cue
+            ../../bootstrap/pratt-lowering-tables.cue
+          ];
+        };
+      nativePrattTables =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-pratt-tables" { } ''
+          set -euo pipefail
+          mkdir -p "$PWD/home"
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          test -r "$exporter" && test -x "$exporter"
+          case "$exporter" in /*) ;; *) exit 1 ;; esac
+          for run in first second; do
+            env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" \
+              ${prattTableSources pkgs}/native-policy-package.cue \
+              ${prattTableSources pkgs}/pratt-lowering-tables.cue > "$run.json"
+            test "$(wc -c < "$run.json")" -le 65536
+          done
+          cmp first.json second.json
+          mkdir -p "$out"
+          cp first.json "$out/pratt-lowering-tables.json"
+        '';
+      nativePrattTablesBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativePrattTables pkgs).drvPath
+          ];
+        };
+      nativePrattTablesVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-pratt-tables-verification" { } ''
+          set -euo pipefail
+          for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} \
+            ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+            ${executor pkgs} ${(executor pkgs).drvPath} \
+            ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+            ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+            ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+            if grep -Fx "$forbidden" ${nativePrattTablesBuildClosure pkgs}/store-paths; then
+              echo "forbidden Pratt table construction dependency: $forbidden" >&2; exit 1
+            fi
+          done
+          test "$(find ${prattTableSources pkgs} -type f | wc -l)" -eq 2
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 9
+          mkdir -p "$out" "$PWD/probe/home"
+          cd probe
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          oracle=${pkgs.cue}/bin/cue
+          codegen=${executor pkgs}/bin/bootstrap-pratt-codegen
+          jq=${pkgs.jq}/bin/jq
+          rustfmt=${pkgs.rustfmt}/bin/rustfmt
+          for binary in "$exporter" "$oracle" "$codegen" "$jq" "$rustfmt"; do
+            test -r "$binary" && test -x "$binary"
+            case "$binary" in /*) ;; *) exit 1 ;; esac
+          done
+          native() { env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" native-policy-package.cue "$1"; }
+          cue() { env -i HOME="$PWD/home" PATH=/nonexistent "$oracle" "$@"; }
+          json() { env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -S .; }
+          format() { env -i HOME="$PWD/home" PATH=/nonexistent "$rustfmt" --edition 2024; }
+          generate() { env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" "$@" | format; }
+          schema=${../../bootstrap/schema.cue}
+          bridge=${../../bootstrap/pratt-lowering-fragments.cue}
+          selector=${../../bootstrap/pratt-lowering.cue}
+          cp ${prattTableSources pkgs}/*.cue .
+          raw() { cue export "$schema" "$bridge" "$selector" pratt-lowering-tables.cue "$@"; }
+          complete() { cue export "$schema" "$bridge" "$selector" "$@"; }
+          native pratt-lowering-tables.cue > tables.json
+          cmp tables.json ${nativePrattTables pkgs}/pratt-lowering-tables.json
+          cue export native-policy-package.cue pratt-lowering-tables.cue | json > oracle-tables.json
+          cmp tables.json oracle-tables.json
+          raw | json > raw.json
+          complete tables.json | json > complete.json
+          cmp raw.json complete.json
+          cmp complete.json ${jsonExports pkgs}/pratt-lowering.json
+          for control in ${prattNames}; do
+            generate ${jsonExports pkgs}/"$control.json" complete.json > control.rs
+            cmp control.rs ${../../bootstrap/generated}/"$(basename "$control").rs"
+          done
+          override=${../../bootstrap/tests/valid/pratt-lowering-no-increment.cue}
+          raw "$override" | json > raw-override.json
+          complete tables.json "$override" | json > override.json
+          cmp raw-override.json override.json
+          cmp override.json ${jsonExports pkgs}/tests/valid/pratt-lowering-no-increment.json
+          generate ${jsonExports pkgs}/pratt.json override.json > override.rs
+          cmp override.rs ${../../bootstrap/generated/pratt-no-increment.rs}
+          no_export() {
+            if complete "$@" > failed.json 2> failed.err; then exit 1; fi
+            test ! -s failed.json && test -s failed.err
+          }
+          no_export
+          grep -F 'incomplete value' failed.err
+          cue eval "$schema" "$bridge" "$selector" > /dev/null
+          env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -c \
+            '([.aliases | keys[] | ["aliases", .]] + [.cases | keys[] | ["cases", .]])[]' tables.json > slots
+          test "$(wc -l < slots)" -eq 9
+          while read -r slot; do
+            env -i HOME="$PWD/home" PATH=/nonexistent "$jq" --argjson slot "$slot" 'delpaths([$slot])' tables.json > missing.json
+            no_export missing.json
+            grep -F 'incomplete value' failed.err
+            cue eval "$schema" "$bridge" "$selector" missing.json > /dev/null
+          done < slots
+          printf '%s\n' '{"formatVersion":1,"body":[{"op":"scanSelector"},{"op":"parseGroup","minimum":{"op":"integer","value":0}}]}' > tiny.json
+          # Each variant changes raw source, native DATA and the real compiler's
+          # COMPLETE output, predicted independently rather than captured.
+          for variant in key method template; do
+            group=parse_group; scan=scan_selector
+            case "$variant" in
+              key) substitute pratt-lowering-tables.cue variant.cue --replace-fail 'parseGroup:' 'temporaryKey:' --replace-fail 'parseNot:' 'parseGroup:' --replace-fail 'temporaryKey:' 'parseNot:'; group=parse_not ;;
+              method) substitute pratt-lowering-tables.cue variant.cue --replace-fail '"parse_group"' '"parse_group_changed"'; group=parse_group_changed ;;
+              template) substitute pratt-lowering-tables.cue variant.cue --replace-fail 'value: method' 'value: "table_template"'; group=table_template; scan=table_template ;;
+            esac
+            native variant.cue > variant.json
+            if cmp -s variant.json tables.json; then exit 1; fi
+            complete variant.json | json > variant-policy.json
+            complete variant.cue | json > variant-raw.json
+            cmp variant-policy.json variant-raw.json
+            generate tiny.json variant-policy.json > "$variant.rs"
+            format > "$variant-expected.rs" <<RUST
+          // Generated by bootstrap-pratt-codegen. Do not edit by hand.
+          use crate::parser::{Error, Frame};
+          pub fn execute(_frame: &mut Frame<'_, '_>) -> Result<(), Error> {
+              _frame.step()?;
+              _frame.$scan()?;
+              _frame.step()?;
+              _frame.$group(0u8)?;
+              Ok(())
+          }
+          RUST
+            cmp "$variant.rs" "$variant-expected.rs"
+          done
+          substitute pratt-lowering-tables.cue invalid.cue --replace-fail 'value: method' 'value: int'
+          if native invalid.cue > invalid.json 2> invalid.err; then exit 1; fi
+          test ! -s invalid.json && test -s invalid.err
+          for invalid in opcode shape unbound; do
+            case "$invalid" in
+              opcode) substitute pratt-lowering-tables.cue invalid.cue --replace-fail 'op: "text", value: method' 'op: "unknownTableOp", value: method' ;;
+              shape) substitute pratt-lowering-tables.cue invalid.cue --replace-fail 'value: method' 'value: true' ;;
+              unbound) substitute pratt-lowering-tables.cue invalid.cue --replace-fail 'op: "text", value: method' 'op: "get", "name": method' ;;
+            esac
+            native invalid.cue > invalid.json
+            if test "$invalid" = unbound; then complete invalid.json > schema-valid.json
+            else no_export invalid.json; cp failed.err "$out/$invalid-schema.err"; fi
+            # Replace only these cases in a known COMPLETE policy, so absence of
+            # formatVersion or other required slots cannot fake typed rejection.
+            env -i HOME="$PWD/home" PATH=/nonexistent "$jq" --slurpfile m invalid.json '.cases.selectorAction=$m[0].cases.selectorAction | .cases.parseMinimum=$m[0].cases.parseMinimum' complete.json > malformed.json
+            if env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" tiny.json malformed.json > invalid.rs 2> invalid.err; then exit 1; fi
+            test ! -s invalid.rs && test -s invalid.err
+            case "$invalid" in
+              opcode) grep -F 'unknown variant `unknownTableOp`' invalid.err ;;
+              shape) grep -F 'invalid type: boolean `true`, expected a string' invalid.err ;;
+              unbound) grep -F 'unknown binding' invalid.err ;;
+            esac
+            cp invalid.err "$out/$invalid-typed.err"
+          done
+          cp tables.json complete.json override.json *-expected.rs key.rs method.rs template.rs "$out/"
+          cp ${nativePrattTablesBuildClosure pkgs}/store-paths "$out/native-build-paths"
+          cp ${nativePrattTablesBuildClosure pkgs}/registration "$out/native-build-registration"
+          printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativePrattTables pkgs).drvPath} > "$out/native-build-roots"
         '';
       scanLoweringPolicySources =
         pkgs:
@@ -2458,6 +2632,7 @@
           native-meta-lowering-policy = nativeMetaLoweringPolicy pkgs;
           native-unify-lowering-policy = nativeUnifyLoweringPolicy pkgs;
           native-scan-lowering-policy = nativeScanLoweringPolicy pkgs;
+          native-pratt-tables = nativePrattTables pkgs;
           native-codegen-core = nativeCodegenCore pkgs;
           native-scan-codegen = nativeScanCodegen pkgs;
           default-observer = defaultObserver pkgs;
@@ -2524,6 +2699,7 @@
           native-meta-lowering-policy = nativeMetaLoweringPolicyVerification pkgs;
           native-unify-lowering-policy = nativeUnifyLoweringPolicyVerification pkgs;
           native-scan-lowering-policy = nativeScanLoweringPolicyVerification pkgs;
+          native-pratt-tables = nativePrattTablesVerification pkgs;
           native-codegen-core = nativeCoreVerification pkgs;
           native-scan-codegen = nativeScannerVerification pkgs;
           bootstrap-codegen =

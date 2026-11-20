@@ -1,7 +1,12 @@
 # CUE-owned Pratt compiler backend
 
-[`pratt-lowering-fragments.cue`](pratt-lowering-fragments.cue) describes how every
-Pratt/primary number, condition and statement becomes Rust. It also emits the
+[`pratt-lowering-fragments.cue`](pratt-lowering-fragments.cue) and the authoritative
+`pratt-lowering-tables.cue` describe how Pratt/primary control becomes Rust. The
+[native table module](../docs/native-map-comprehensions.md) evaluates the original
+finite MinimumCalls/SelectorCalls maps and three comprehensions; Go still builds
+the remaining full policy and unresolved add preference. Required table slots and
+no-increment context remain live; no hand-expanded table/emitter or full-policy
+native claim follows. It also emits the
 parser-driver wrapper. `pratt.rs` no longer has per-opcode emission matches or
 hardcoded generated-source boilerplate. This is distinct from `pratt.cue` and
 `primary.cue`, which describe runtime parser behavior.
