@@ -878,6 +878,7 @@
               ../../bootstrap/native-unify-codegen/Cargo.lock
               ../../bootstrap/native-unify-codegen/src/lib.rs
               ../../bootstrap/executor/src/unification/compiler.rs
+              ../../bootstrap/executor/src/unification/kind.rs
               ../../bootstrap/executor/src/lowering.rs
               ../../bootstrap/executor/src/module.rs
               ../../bootstrap/executor/src/bin/bootstrap-unify-codegen.rs
@@ -971,8 +972,8 @@
             test -d "$featureTests" && test -d "$policyVerification" && test -d "$fullExecutor"
             find ${nativeUnifierSources pkgs false} -type f | sort > "$out/constructor-source-paths"
             find ${nativeUnifierSources pkgs true} -type f | sort > "$out/test-source-paths"
-            test "$(wc -l < "$out/constructor-source-paths")" -eq 7
-            test "$(wc -l < "$out/test-source-paths")" -eq 8
+            test "$(wc -l < "$out/constructor-source-paths")" -eq 8
+            test "$(wc -l < "$out/test-source-paths")" -eq 9
             printf '%s\n' meta-lowering.json unify-lowering.json > expected-policies
             find ${nativeUnifierPolicies pkgs} -type f -printf '%f\n' | sort > "$out/policy-files"
             cmp expected-policies "$out/policy-files"

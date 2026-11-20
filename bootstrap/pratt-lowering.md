@@ -13,6 +13,14 @@ parser-driver wrapper. `pratt.rs` no longer has per-opcode emission matches or
 hardcoded generated-source boilerplate. This is distinct from `pratt.cue` and
 `primary.cue`, which describe runtime parser behavior.
 
+The [compiler/runtime source boundary](../docs/pratt-compiler-boundary.md) makes
+`executor/src/pratt/compiler.rs` the authoritative typed decoder/validation/
+metadata-projection/lowering core. Parent pratt.rs retains original parser and
+four runtime-frame interpreters/public paths. Both share the exact original Kind
+source via its existing unification::Kind path, not a copied enum/runtime stub.
+This is source preparation, NOT a fifth native compiler constructor; four existing
+compiler binaries construct natively and all semantic/guard boundaries remain.
+
 The [expression-list target](list-expressions.md) now shares this compiler:
 validated target metadata selects CUE-owned Parser Frame versus ListFrame headers.
 Checked method names and item-kind spelling are emitted in CUE; native code owns
