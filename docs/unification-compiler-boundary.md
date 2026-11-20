@@ -118,3 +118,21 @@ compiler core, seven explicit public re-exports, minimal pub(super) parent shari
 interleaved Side validator move, runtime-free same-source test root/real feature
 aliases, unchanged execution/guards and bounded move budget. Coordinator GO permits
 ONLY this architecture split; immutable cross/final reviews and all gates remain.
+
+## Completed local evidence
+
+Kernel e89e7906 and tests-only19d1f648 retain immutable parents. Exact source
+projection accounts for ALL1943 original lines once, except shared module doc twice;
+both projected files are byte-identical after pinned rustfmt and ONLY documented
+imports/module/re-exports/pub(super)/test-helper paths. No algorithm/literal change.
+Four new boundary groups execute EACH default/no-default debug/release with strict
+Clippy; full Rust/default all-target Clippy both profiles/exporter109 four profiles/
+research135 four profiles pass. Both genuine façade matrices/fresh modules and
+separate drv^* rebuilds pass.20 checks/17 packages actually build AND rebuild;
+preflight13/13 (7 skipped; cached Nix discovery0 not execution),1368-file whitespace/
+602 relative links pass. All249 JSON/12builders/old DATA/generated Rust unchanged;
+ALL17 public PACKAGE constructor drv identities unchanged INCLUDING exports.
+Fourteen fresh recursive/full retained inventories MATCH; original native source
+cuts unchanged, core feature Go-free/scanner source-feature Go-backed verification
+ONLY. Same-source boundary test has no runtime/root Error/Value stubs but remains
+full-library verification, NOT a fourth constructor or Go-free construction proof.
