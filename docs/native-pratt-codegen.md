@@ -140,3 +140,41 @@ exact relative source MEMBERSHIP, regular provider file checks, all18 NON-DEFAUL
 package identities and EACH fresh driver's success/error/recovery independently.
 These reviews establish static feasibility only, not scratch/sandbox/native closure
 or release validation. Immutable cross/final reviews and all gates remain mandatory.
+
+## Completed local evidence
+
+Immutable build ac812294 and test-only3c7fb803 were integrated ONLY by owned paths;
+validation dependency overlays are separate children. No shared Rust/CUE/CLI/
+existing façade changes or evidence fixes. Source8/test9 membership and all four
+shared modules/original CLI byte-identical; lock differs ONLY by root package name.
+Native policy directory contains ONLY unchanged pratt/meta DATA. All18 previous
+NON-DEFAULT package constructor drv IDs INCLUDING exports/native unifier unchanged;
+all249 JSON/12builders/old DATA/generated Rust unchanged. Actual six origins resolve
+core2/scanner1/unifier1/Pratt1/legacy1. No full executor substituted for native Pratt.
+
+New feature derivative executes28 shared units EACH plus7 empty/8 compiled
+independent groups EACH debug/release, strict all-target Clippy4. Both fresh drivers
+independently execute real Context success/error/success; CLI setup/read/typed/
+custom negatives and all five complete wrapper/layout/private-metadata predictions
+pass. New native verifier matches ALL fixtures/no-increment/THREE owner-effect
+complete independent Rust predictions and exact typed malformed-policy diagnostics.
+Actual compiled no-increment overflow/right-nesting/full executor controls remain.
+
+Full Rust/default all-target strict Clippy debug/release/exporter109 four/
+research135 four/both old boundary4groups EACH four pass. ALL22 distinct checks/
+19 NON-DEFAULT packages actually BUILT AND REBUILT; all FOUR genuine façade matrices/
+fresh modules plus separate explicit drv^* rebuilds pass. Pinned preflight13/13
+(7 skips;23 checks discovered incl default alias),1382-file whitespace/613 relative
+links pass. Discovery/cache counts are not substituted for actual build execution.
+
+Native constructor pidzmsg8 has source8 rbv8ia79; feature4nn5fjc1 uses source9
+q3v1lcdk; native two-policy directory0hrvx6hk. Sixteen fresh recursive/full inventories
+MATCH retained: Pratt1424derivations/3437full paths, joined1459/3529. Current Go
+CLI/source/source drv/full bundle/executor/legacyjoined/BOTHoracle outputs-drvs/
+provider env exclusions pass; Pratt constructor also excludes ALL THREE siblings.
+Pratt feature inventory MATCHES retained/1430derivations3454full paths and is
+independently native, as are original core/unifier features; scanner source-feature
+positively Go-backed VERIFICATION ONLY. FIVE native compiler binaries/FIVE DATA,
+not full seed/PROGRAM/schema/instruction-policy/default closure. Only Linuxx86_64
+validated; immutable final exact-tree review/retirement/protected CI/confirmed merge
+gates remain mandatory.
