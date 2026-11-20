@@ -123,3 +123,37 @@ sandbox closure. Reviewer correction requires all six raw source-owner effects
 through the NEW façade, retaining variants only in verifier output. Coordinator GO
 permits ONLY the interfaces/ownership above; immutable cross/final reviews and ALL
 validation/CI/merge gates remain. Pause rather than silently expand scope.
+
+## Implemented evidence
+
+Immutable build5186d1b4, tests c257110b, test correction2ad6e0f5 and build children
+bd21f788/b78bb4f0 were integrated ONLY by owned paths. Initial boundary fixture
+counted514, not512: three shorter conditions reduce six scalar nodes; exact512/513
+assertions remain. Cross-review also caught a copied no-op source feature: removed,
+not admitted. Strict feature shell is locally scoped/fail-fast. Earlier failures/
+superseded runs are NOT passing evidence. Shared Rust/CLI/CUE/old façades unchanged.
+
+Actual new feature profiles run28 shared tests EACH plus6 interpreted/7 compiled
+integration groups EACH debug/release, strict all-target Clippy four profiles. Both
+fresh compiled drivers execute real Driver/Context; Cargo rejects unknown source
+feature (setup evidence, not semantics). All control goldens/three alternate compiler
+policies/SIX owner-source effects deterministically match independent complete Rust;
+existing actual full-executor compiled execution controls remain green.
+
+Full Rust/default all-target strict Clippy debug/release, exporter109/four,
+research135/four and boundary4/four pass. ALL21 checks/18 packages actually build AND
+rebuild. Pinned preflight13/13 (7 skips;22 discovered checks includes default alias),
+1373-file whitespace/607 relative links pass. All17 previous public PACKAGE drv IDs
+INCLUDING exports/249JSON/12builders/old DATA/generated Rust unchanged. Six actual
+compiler origins are core2/scanner1/unifier1/legacy2. Three genuine façade matrices
+use fresh modules; separate explicit drv^* feature rebuilds are required above.
+
+New constructor h1bkq13a has exact7-source js5yl1lg cut; feature c04245pr has exact8
+fx77kqb7 cut; TWO native policies c5prial9. Four shared files compare byte-exact and
+lock differs ONLY by package root name. Fifteen fresh recursive/full inventories
+MATCH retained; unifier1423 derivations/3434 full paths, joined1456/3521. Current Go
+CLI/source/source drv/full bundle/executor/legacyjoined/BOTHoracle out-drvs/provider
+envs excluded from native construction; interpreted unifier also excludes sibling
+compilers. Unifier feature inventory MATCHES retained and independently excludes
+Go; original core feature remains native, scanner source-feature positively Go-backed
+VERIFICATION ONLY. Five native DATA/four compiler binaries, not full seed closure.
