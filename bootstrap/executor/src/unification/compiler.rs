@@ -24,21 +24,9 @@ pub enum Endpoint {
     Lower,
     Upper,
 }
-#[derive(Clone, Copy, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum Kind {
-    Null,
-    Top,
-    Integer,
-    Int,
-    Bounds,
-    Boolean,
-    Bool,
-    Text,
-    String,
-    List,
-    Record,
-}
+#[path = "kind.rs"]
+mod kind;
+pub use kind::Kind;
 #[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Relation {

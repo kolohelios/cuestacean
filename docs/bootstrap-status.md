@@ -178,6 +178,12 @@ core TWO + scanner ONE + unifier ONE + legacy TWO: FOUR existing compiler binari
 now construct independently; FIVE complete native policy DATA inputs remain. Fresh
 unifier compiled-feature generation is independently native; scanner source-feature
 PROGRAM inputs remain Go-backed verification only. No runtime/API/admission change.
+The [#244 Pratt compiler boundary](pratt-compiler-boundary.md) separates unchanged
+typed compiler/validation/projection/lowering from parser and four runtime-frame
+interpreters. One authoritative Kind enum is shared without importing unifier
+programs; the existing native unifier source cut grows to8/test9 for that exact file.
+This is source preparation, NOT a fifth constructor. Five native policy DATA inputs/
+four native compiler binaries and all admission/runtime/guard boundaries remain.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
@@ -511,7 +517,7 @@ workspace's stale exports for changed specifications.
 - Nix deletes staged JSON/Rust, builds six native compiler/VM seeds without
   default features, regenerates everything, then compiles/tests the final package.
   Four compiler binaries embed only native policy JSON through the eight-source
-  AST/meta and seven-source scanner/unifier façades; the other two embed the full
+  AST/meta/unifier and seven-source scanner façades; the other two embed the full
   Go-dependent bundle. Scanner source-feature verification still needs Go-exported
   PROGRAM JSON, never a constructor input. Exports must not depend on seeds or
   committed artifacts. No opcode-emission fallback.

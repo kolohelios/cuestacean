@@ -157,3 +157,14 @@ envs excluded from native construction; interpreted unifier also excludes siblin
 compilers. Unifier feature inventory MATCHES retained and independently excludes
 Go; original core feature remains native, scanner source-feature positively Go-backed
 VERIFICATION ONLY. Five native DATA/four compiler binaries, not full seed closure.
+
+## Subsequent shared source boundary (#244)
+
+The [Pratt compiler boundary](pratt-compiler-boundary.md) moves the exact existing
+Kind enum into authoritative unification/kind.rs, re-exported at the same public
+paths. Current native unifier source/test cuts are therefore EIGHT/NINE, adding
+ONLY that real file to the original seven/eight above. Policies, Cargo/features,
+CLI/VM/compiler algorithms and all six binary origins remain unchanged. Its public
+constructor identity legitimately changes; the seventeen other package identities
+stay unchanged. Fresh native construction/feature/rebuild/graph proofs are required,
+not permission to reuse the historical seven-source result as current evidence.
