@@ -12,9 +12,11 @@ The finite helper rewrite is not general let/definition contextual equivalence.
 It reuses the same [lowering compiler/kernel](lowering.md) as evaluator and Pratt
 compilation; the bootstrap compiler count remains six.
 
-Native `unification.rs` still decodes and validates the whole original control
-program, exposes checked value primitives, and interprets solver control for
-reference tests. Its per-opcode Rust emission and enum-to-source mapping methods
+The shared [compiler-only source boundary](../docs/unification-compiler-boundary.md)
+in `executor/src/unification/compiler.rs` decodes/validates the whole original
+control program and lowers its metadata. Parent `unification.rs` retains checked
+value primitives/reference execution and re-exports the same compiler API. This is
+a source split, not isolated compiler construction. Its per-opcode Rust emission and enum-to-source mapping methods
 are removed. This is not full compiler self-hosting or a new CUE language feature.
 
 ## Selection and the typed bridge

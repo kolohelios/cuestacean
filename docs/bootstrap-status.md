@@ -167,6 +167,11 @@ class. The original ten-entry unary map/two CUE comprehensions now supply native
 partial instruction DATA. Full instruction policy remains Go-built (binary tables,
 module strings and preferences are separate blockers); counts stay FIVE complete
 native policies/THREE isolated compilers. All original guards/exclusions remain.
+The [#240 unification compiler boundary](unification-compiler-boundary.md) separates
+the existing typed decoder/validation/projection/lowering core from runtime execution,
+retaining public APIs and algorithms. Same-source verification compiles the core
+without runtime/root Error stubs. This preparatory source split does NOT add a fourth
+constructor; five native policy DATA inputs/three isolated compilers remain the count.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
