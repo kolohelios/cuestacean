@@ -929,19 +929,21 @@
             )
           '';
           checkPhase = ''
-            set -euo pipefail
-            runHook preCheck
-            for profile in debug release; do
-              releaseFlag=
-              if [ "$profile" = release ]; then releaseFlag=--release; fi
-              for features in "" compiled-lowering; do
-                cargo test --offline --locked --all-targets --no-default-features \
-                  $releaseFlag --features "$features"
-                cargo clippy --offline --locked --all-targets --no-default-features \
-                  $releaseFlag --features "$features" -- -D warnings
+            (
+              set -euo pipefail
+              runHook preCheck
+              for profile in debug release; do
+                releaseFlag=
+                if [ "$profile" = release ]; then releaseFlag=--release; fi
+                for features in "" compiled-lowering; do
+                  cargo test --offline --locked --all-targets --no-default-features \
+                    $releaseFlag --features "$features"
+                  cargo clippy --offline --locked --all-targets --no-default-features \
+                    $releaseFlag --features "$features" -- -D warnings
+                done
               done
-            done
-            runHook postCheck
+              runHook postCheck
+            )
           '';
         });
       nativeUnifierVerification =
