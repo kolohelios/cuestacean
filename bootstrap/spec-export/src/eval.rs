@@ -80,8 +80,11 @@ impl Evaluator<'_> {
     fn admit(&mut self) -> Result<(), Error> {
         self.step(1)?;
         self.step(self.doc.definitions.len() + self.doc.lets)?;
-        if !self.doc.definitions.is_empty() || self.doc.lets != 0 {
+        if self.doc.lets != 0 {
             return Err(Error::Unsupported("tagged declarations"));
+        }
+        if !self.doc.definitions.is_empty() {
+            return self.admit_named_scalar();
         }
         let mut ors = 0;
         let mut marks = 0;
@@ -109,6 +112,84 @@ impl Evaluator<'_> {
         }
         if choices != 1 {
             return Err(Error::Unsupported("one tagged occurrence required"));
+        }
+        Ok(())
+    }
+
+    // One direct instantiation only: retain the real Ref/closure evaluation.
+    // For n single-field structs, admission costs 28 + 3n, including admit's
+    // existing two-step prefix. The post-admission root stamp remains separate.
+    fn admit_named_scalar(&mut self) -> Result<(), Error> {
+        // Definition/root counts, root kind/name, body kind, comprehension count.
+        self.step(6)?;
+        if self.doc.definitions.len() != 1 || self.doc.roots.len() != 1 {
+            return Err(Error::Unsupported(
+                "one scalar definition and root required",
+            ));
+        }
+        let (name, &body) = self
+            .doc
+            .definitions
+            .first_key_value()
+            .expect("one definition");
+        let Expr::Ref(root_name) = &self.doc.nodes[self.doc.roots[0]] else {
+            return Err(Error::Unsupported("direct scalar definition root required"));
+        };
+        if root_name != name
+            || !matches!(self.doc.nodes[body], Expr::Struct(_))
+            || self.doc.comprehensions != 0
+        {
+            return Err(Error::Unsupported("scalar definition profile"));
+        }
+        let (mut ors, mut marks, mut refs) = (0, 0, 0);
+        for node in &self.doc.nodes {
+            self.step(1)?;
+            match node {
+                Expr::Literal(value) => {
+                    Self::literal_type(value)?;
+                }
+                Expr::Type(_) | Expr::Top => {}
+                Expr::Struct(fields) if fields.len() == 1 => {}
+                Expr::Ref(_) => refs += 1,
+                Expr::Marked(_) => marks += 1,
+                Expr::Or(a, b) => {
+                    ors += 1;
+                    // Inspect both operands, then P/Q, before accepting scalar
+                    // syntax. context also supports structs; this gate must not.
+                    self.step(4)?;
+                    let (p, q) = match (&self.doc.nodes[*a], &self.doc.nodes[*b]) {
+                        (Expr::Marked(_), Expr::Marked(_)) => {
+                            return Err(Error::Unsupported("two marked alternatives"));
+                        }
+                        (Expr::Marked(p), _) => (*p, *b),
+                        (_, Expr::Marked(p)) => (*p, *a),
+                        _ => return Err(Error::Unsupported("missing immediate mark")),
+                    };
+                    if !matches!(
+                        (&self.doc.nodes[p], &self.doc.nodes[q]),
+                        (
+                            Expr::Literal(_),
+                            Expr::Literal(_) | Expr::Type(_) | Expr::Top
+                        )
+                    ) {
+                        return Err(Error::Unsupported("scalar definition alternatives"));
+                    }
+                }
+                _ => return Err(Error::Unsupported("scalar definition arena")),
+            }
+        }
+        self.step(3)?;
+        if ors != 1 || marks != 1 || refs != 1 {
+            return Err(Error::Unsupported(
+                "one scalar choice and reference required",
+            ));
+        }
+        let mut choices = 0;
+        // Include the direct root Ref in syntax depth, without rewriting it.
+        self.context(body, 2, true, true, &mut choices)?;
+        self.step(1)?;
+        if choices != 1 {
+            return Err(Error::Unsupported("one scalar occurrence required"));
         }
         Ok(())
     }

@@ -2,6 +2,9 @@ package bootstrap
 
 #InstructionModuleText: close({header: string, footer: string})
 
+#InstructionModuleFirst: close({op: string})
+#InstructionModuleStep: close({op: string})
+
 // Executable recursion/Result layout, not Rust's instruction enum dispatch.
 #InstructionLowering: #LoweringPolicy & {
 	let Node = {op: "path", value: "node"}
@@ -24,12 +27,10 @@ package bootstrap
 	module: [{
 		op:    "text"
 		value: #InstructionModuleText.header + "\n"
-	}, {
-		op: *"firstRule" | "lastRule"
-	}, {
+	}, #InstructionModuleFirst, {
 		op: "whileRules"
 		body: [{op: "kind"}, {op: "text", value: " => "}, {op: "expression"},
-			{op: "text", value: ",\n"}, {op: *"nextRule" | "previousRule"}]
+			{op: "text", value: ",\n"}, #InstructionModuleStep]
 	}, {
 		op:    "text"
 		value: #InstructionModuleText.footer
