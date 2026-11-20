@@ -1038,6 +1038,186 @@
             cp ${featureClosure}/registration "$out/feature-build-registration"
             printf '%s\n' ${tests.drvPath} > "$out/feature-build-roots"
           '';
+      nativePrattSources =
+        pkgs: includeTests:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions (
+            [
+              ../../bootstrap/native-pratt-codegen/Cargo.toml
+              ../../bootstrap/native-pratt-codegen/Cargo.lock
+              ../../bootstrap/native-pratt-codegen/src/lib.rs
+              ../../bootstrap/executor/src/pratt/compiler.rs
+              ../../bootstrap/executor/src/unification/kind.rs
+              ../../bootstrap/executor/src/lowering.rs
+              ../../bootstrap/executor/src/module.rs
+              ../../bootstrap/executor/src/bin/bootstrap-pratt-codegen.rs
+            ]
+            ++ pkgs.lib.optionals includeTests [ ../../bootstrap/native-pratt-codegen/tests/compiler.rs ]
+          );
+        };
+      nativePrattPolicies =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-pratt-policies" { } ''
+          mkdir -p "$out"
+          cp ${nativePrattLoweringPolicy pkgs}/pratt-lowering.json "$out/pratt-lowering.json"
+          cp ${nativeMetaLoweringPolicy pkgs}/meta-lowering.json "$out/meta-lowering.json"
+        '';
+      nativePrattCodegen =
+        pkgs:
+        pkgs.rustPlatform.buildRustPackage {
+          pname = "cuestacean-native-pratt-codegen";
+          version = "0.1.0";
+          src = nativePrattSources pkgs false;
+          postUnpack = ''
+            sourceRoot="$sourceRoot/native-pratt-codegen"
+          '';
+          cargoLock.lockFile = ../../bootstrap/native-pratt-codegen/Cargo.lock;
+          CUESTACEAN_BOOTSTRAP_JSON = nativePrattPolicies pkgs;
+          cargoBuildFlags = [ "--no-default-features" ];
+          # Construction never executes shared defensive tests or expected code.
+          doCheck = false;
+          meta.license = pkgs.lib.licenses.asl20;
+        };
+      nativePrattTests =
+        pkgs:
+        (nativePrattCodegen pkgs).overrideAttrs (_: {
+          pname = "cuestacean-native-pratt-codegen-tests";
+          src = nativePrattSources pkgs true;
+          nativeCheckInputs = [ pkgs.clippy ];
+          doCheck = true;
+          postPatch = ''
+            (
+              set -euo pipefail
+              mkdir -p ../generated "$TMPDIR/pratt-home"
+              tool=${nativeCodegenCore pkgs}/bin/bootstrap-lower-codegen
+              case "$tool" in /*) ;; *) echo "nonabsolute compiler provider: $tool" >&2; exit 1 ;; esac
+              test -f "$tool" && test -r "$tool" && test -x "$tool"
+              for name in pratt-lowering meta-lowering; do
+                env -i PATH=/nonexistent HOME="$TMPDIR/pratt-home" \
+                  "$tool" ${nativePrattPolicies pkgs}/"$name.json" > "../generated/$name.rs"
+              done
+            )
+          '';
+          checkPhase = ''
+            (
+              set -euo pipefail
+              runHook preCheck
+              for profile in debug release; do
+                releaseFlag=
+                if [ "$profile" = release ]; then releaseFlag=--release; fi
+                for features in "" compiled-lowering; do
+                  cargo test --offline --locked --all-targets --no-default-features \
+                    $releaseFlag --features "$features"
+                  cargo clippy --offline --locked --all-targets --no-default-features \
+                    $releaseFlag --features "$features" -- -D warnings
+                done
+              done
+              runHook postCheck
+            )
+          '';
+        });
+      nativePrattVerification =
+        pkgs:
+        let
+          pratt = nativePrattCodegen pkgs;
+          tests = nativePrattTests pkgs;
+          closure = pkgs.closureInfo { rootPaths = [ pratt.drvPath ]; };
+          featureClosure = pkgs.closureInfo { rootPaths = [ tests.drvPath ]; };
+        in
+        pkgs.runCommand "cuestacean-native-pratt-codegen-verification"
+          {
+            nativeBuildInputs = [ pkgs.rustfmt ];
+            featureTests = tests;
+            policyVerification = nativePrattLoweringPolicyVerification pkgs;
+            fullExecutor = executor pkgs;
+          }
+          ''
+            set -euo pipefail
+            mkdir -p "$out" "$TMPDIR/pratt-home"
+            for tool in ${pratt}/bin/bootstrap-pratt-codegen ${pkgs.rustfmt}/bin/rustfmt; do
+              case "$tool" in /*) ;; *) echo "nonabsolute verifier tool: $tool" >&2; exit 1 ;; esac
+              test -f "$tool" && test -r "$tool" && test -x "$tool"
+            done
+            test -d "$featureTests" && test -d "$policyVerification" && test -d "$fullExecutor"
+            printf '%s\n' executor/src/bin/bootstrap-pratt-codegen.rs executor/src/lowering.rs \
+              executor/src/module.rs executor/src/pratt/compiler.rs executor/src/unification/kind.rs \
+              native-pratt-codegen/Cargo.lock native-pratt-codegen/Cargo.toml \
+              native-pratt-codegen/src/lib.rs > expected-sources
+            (cd ${nativePrattSources pkgs false}; find . -type f -printf '%P\n' | sort) > "$out/constructor-source-paths"
+            cmp expected-sources "$out/constructor-source-paths"
+            printf '%s\n' native-pratt-codegen/tests/compiler.rs >> expected-sources
+            (cd ${nativePrattSources pkgs true}; find . -type f -printf '%P\n' | sort) > "$out/test-source-paths"
+            cmp expected-sources "$out/test-source-paths"
+            printf '%s\n' meta-lowering.json pratt-lowering.json > expected-policies
+            find ${nativePrattPolicies pkgs} -type f -printf '%P\n' | sort > "$out/policy-files"
+            cmp expected-policies "$out/policy-files"
+            for paths in ${closure}/store-paths ${featureClosure}/store-paths; do
+              for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} ${pkgs.cue.src.drvPath} \
+                ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+                ${executor pkgs} ${(executor pkgs).drvPath} \
+                ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+                ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+                ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+                ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+                if grep -Fx "$forbidden" "$paths"; then
+                  echo "forbidden native Pratt construction dependency: $forbidden" >&2; exit 1
+                fi
+              done
+            done
+            # Feature generation legitimately uses the native core lower compiler.
+            for forbidden in ${nativeCodegenCore pkgs} ${(nativeCodegenCore pkgs).drvPath} \
+              ${nativeScanCodegen pkgs} ${(nativeScanCodegen pkgs).drvPath} \
+              ${nativeUnifyCodegen pkgs} ${(nativeUnifyCodegen pkgs).drvPath}; do
+              if grep -Fx "$forbidden" ${closure}/store-paths; then
+                echo "sibling compiler in native Pratt constructor: $forbidden" >&2; exit 1
+              fi
+            done
+            test -x ${codegenSeed pkgs}/bin/bootstrap-pratt-codegen
+            generate() {
+              env -i PATH=/nonexistent HOME="$TMPDIR/pratt-home" \
+                ${pratt}/bin/bootstrap-pratt-codegen "$@" | \
+                env -i PATH=/nonexistent HOME="$TMPDIR/pratt-home" ${pkgs.rustfmt}/bin/rustfmt --edition 2024
+            }
+            for control in ${prattNames}; do
+              generate ${jsonExports pkgs}/"$control.json" > first.rs
+              generate ${jsonExports pkgs}/"$control.json" > second.rs
+              cmp first.rs second.rs
+              cmp first.rs ${../../bootstrap/generated}/"$(basename "$control").rs"
+              cp first.rs "$out/$(basename "$control").rs"
+            done
+            for repeat in 1 2; do
+              generate ${jsonExports pkgs}/pratt.json \
+                ${jsonExports pkgs}/tests/valid/pratt-lowering-no-increment.json > "$repeat.rs"
+            done
+            cmp 1.rs 2.rs
+            cmp 1.rs ${../../bootstrap/generated/pratt-no-increment.rs}
+            cp 1.rs "$out/pratt-no-increment.rs"
+            # All three raw source owners have independently predicted whole-source effects.
+            for owner in body add tables; do
+              generate "$policyVerification/tiny.json" "$policyVerification/owner-$owner-policy.json" > first.rs
+              generate "$policyVerification/tiny.json" "$policyVerification/owner-$owner-policy.json" > second.rs
+              cmp first.rs second.rs
+              cmp first.rs "$policyVerification/$owner-expected.rs"
+              cp first.rs "$out/owner-$owner.rs"
+            done
+            for invalid in opcode shape unbound; do
+              status=0
+              env -i PATH=/nonexistent HOME="$TMPDIR/pratt-home" \
+                ${pratt}/bin/bootstrap-pratt-codegen "$policyVerification/tiny.json" \
+                "$policyVerification/malformed-$invalid-policy.json" > invalid.rs 2> invalid.err || status=$?
+              test "$status" -eq 2
+              test ! -s invalid.rs
+              cmp invalid.err "$policyVerification/$invalid-typed.err"
+              cp invalid.err "$out/$invalid-typed.err"
+            done
+            cp ${closure}/store-paths "$out/native-build-paths"
+            cp ${closure}/registration "$out/native-build-registration"
+            printf '%s\n' ${pratt.drvPath} > "$out/native-build-roots"
+            cp ${featureClosure}/store-paths "$out/feature-build-paths"
+            cp ${featureClosure}/registration "$out/feature-build-registration"
+            printf '%s\n' ${tests.drvPath} > "$out/feature-build-roots"
+          '';
       legacyCodegenSeed =
         pkgs:
         (rustPackage pkgs).overrideAttrs (old: {
@@ -1051,8 +1231,6 @@
             "--no-default-features"
             "--bin"
             "bootstrap-codegen"
-            "--bin"
-            "bootstrap-pratt-codegen"
           ];
           postPatch = clearArtifacts;
           # The tests require generated modules. Break that bootstrap cycle here;
@@ -1068,6 +1246,7 @@
             (nativeCodegenCore pkgs)
             (nativeScanCodegen pkgs)
             (nativeUnifyCodegen pkgs)
+            (nativePrattCodegen pkgs)
             (legacyCodegenSeed pkgs)
           ];
           postBuild = ''
@@ -1081,9 +1260,8 @@
             done
             test "$(readlink -f "$out/bin/bootstrap-scan-codegen")" = "$(readlink -f ${nativeScanCodegen pkgs}/bin/bootstrap-scan-codegen)"
             test "$(readlink -f "$out/bin/bootstrap-unify-codegen")" = "$(readlink -f ${nativeUnifyCodegen pkgs}/bin/bootstrap-unify-codegen)"
-            for name in bootstrap-codegen bootstrap-pratt-codegen; do
-              test "$(readlink -f "$out/bin/$name")" = "$(readlink -f ${legacyCodegenSeed pkgs}/bin/"$name")"
-            done
+            test "$(readlink -f "$out/bin/bootstrap-pratt-codegen")" = "$(readlink -f ${nativePrattCodegen pkgs}/bin/bootstrap-pratt-codegen)"
+            test "$(readlink -f "$out/bin/bootstrap-codegen")" = "$(readlink -f ${legacyCodegenSeed pkgs}/bin/bootstrap-codegen)"
           '';
         };
       nativeCoreVerification =
@@ -1977,6 +2155,7 @@
             changed=("''${owners[@]}")
             case "$variant" in body) b=variant.json; changed[0]=variant.cue ;; add) a=variant.json; changed[1]=variant.cue ;; tables) t=variant.json; changed[2]=variant.cue ;; esac
             assemble "$b" "$a" "$t" variant-policy.json
+            cp variant-policy.json "$out/owner-$variant-policy.json"
             if cmp -s variant-policy.json policy.json; then exit 1; fi
             cue export "$schema" "$bridge" "$selector" "''${changed[@]}" | json > variant-raw.json
             cmp variant-policy.json variant-raw.json
@@ -2005,6 +2184,7 @@
             substitute pratt-lowering-body.cue invalid.cue --replace-fail '{op: "text", value: "_frame.minimum()"}' "$replacement"
             native invalid.cue > invalid.json
             assemble invalid.json add.json tables.json malformed.json
+            cp malformed.json "$out/malformed-$invalid-policy.json"
             if test "$invalid" = unbound; then complete malformed.json > schema-valid.json
             else
               if complete malformed.json > invalid-schema.json 2> invalid-schema.err; then exit 1; fi
@@ -2020,7 +2200,7 @@
             esac
             cp invalid.err "$out/$invalid-typed.err"
           done
-          cp policy.json override.json body.rs add.rs tables.rs *-expected.rs "$out/"
+          cp tiny.json policy.json override.json body.rs add.rs tables.rs *-expected.rs "$out/"
           cp ${nativePrattLoweringPolicyBuildClosure pkgs}/store-paths "$out/native-build-paths"
           cp ${nativePrattLoweringPolicyBuildClosure pkgs}/registration "$out/native-build-registration"
           printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativePrattLoweringPolicy pkgs).drvPath} > "$out/native-build-roots"
@@ -3243,6 +3423,7 @@
           native-codegen-core = nativeCodegenCore pkgs;
           native-scan-codegen = nativeScanCodegen pkgs;
           native-unify-codegen = nativeUnifyCodegen pkgs;
+          native-pratt-codegen = nativePrattCodegen pkgs;
           default-observer = defaultObserver pkgs;
           default-trace = defaultTrace pkgs;
         }
@@ -3313,6 +3494,7 @@
           native-codegen-core = nativeCoreVerification pkgs;
           native-scan-codegen = nativeScannerVerification pkgs;
           native-unify-codegen = nativeUnifierVerification pkgs;
+          native-pratt-codegen = nativePrattVerification pkgs;
           bootstrap-codegen =
             pkgs.runCommand "cuestacean-bootstrap-codegen"
               {

@@ -169,3 +169,7 @@ Go-backed VERIFICATION ONLY. Five native policy DATA/four binaries remain, no ne
 constructor or native schema/default admission. Full-library boundary tests remain
 Go-backed verification. Only Linuxx86_64 validated; final exact-tree/CI/merge gates
 above remain mandatory.
+
+Subsequent [#246 native Pratt construction](native-pratt-codegen.md) uses this exact
+core/Kind in an independent eight-source/two-policy façade; that separate milestone
+integrates the existing fifth binary, not a capability claimed by #244 itself.

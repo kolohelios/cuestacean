@@ -18,8 +18,11 @@ The [compiler/runtime source boundary](../docs/pratt-compiler-boundary.md) makes
 metadata-projection/lowering core. Parent pratt.rs retains original parser and
 four runtime-frame interpreters/public paths. Both share the exact original Kind
 source via its existing unification::Kind path, not a copied enum/runtime stub.
-This is source preparation, NOT a fifth native compiler constructor; four existing
-compiler binaries construct natively and all semantic/guard boundaries remain.
+That source-preparation step did not add a constructor. The separate
+[native Pratt constructor](../docs/native-pratt-codegen.md) now shares those exact
+sources/Kind/kernel/original CLI with only native Pratt/meta policy DATA. Five
+existing compiler binaries construct independently; this does not export native
+PROGRAM/schema data, expose a parser/runtime façade or change semantic/guard bounds.
 
 The [expression-list target](list-expressions.md) now shares this compiler:
 validated target metadata selects CUE-owned Parser Frame versus ListFrame headers.
