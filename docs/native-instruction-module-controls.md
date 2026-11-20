@@ -184,3 +184,33 @@ Independent pinned-CUE cases and raw helper probes establish interface feasibili
 not implemented native success/closure proof. Resource threshold captures are not
 independent formulas. Immutable cross/final reviews and ALL validation/CI/merge
 gates remain; pause for widened semantics/identity/feasibility/scope.
+
+## Local evidence
+
+Implementation18e791e/tests2c77ddf integrate as8c1ec1b; no follow-up code fixes.
+Independent original-derived projection byte-matches ALL five CUE sources. Removing
+ONLY the new admission gate/helper recovers the ENTIRE original evaluator exactly,
+including inline admission tail/context/constructors/Ref/closure/possible/demand/
+normalization/selection. Original priorities/literals/module positions retained.
+No parser change, new API or answer seed. Existing two tests only add eight required
+raw-helper input lines; no assertion changes. All115 old+8new=123 exporter tests EACH
+four profiles, strict all-target Clippy4 pass. Full executor/default debug+release
+strict Clippy,135 retained research groups EACHfour and both boundary4groups EACHfour
+pass. Formula-derived112/106 and cumulative work/depth/source/token/encoded/copy
+witnesses pass; new syntax/value/depth ceilings are explicitly dominated as above.
+
+First full24check/21NONDEFAULT package build AND rebuild and pinned preflight13/13
+(seven skips) pass. Discovery49 entries is NOT49 unique checks/execution proof.
+18 fresh recursive AND full retained inventories/exclusions pass; three native
+feature generators exclude Go, scanner source-feature positively Go-backed only
+verification. Both Go oracle PACKAGE IDs unchanged. All249 JSON/12builders/old DATA/
+generated Rust unchanged; four authoritative compiler source cuts unchanged.
+Controls raw4 is /nix/store/hdg7aawlkf43syqcyfgy4d06jxh1vla0-source, constructor
+contains ONLYfirst.json/step.json; old text raw2/unary raw2 unchanged. Actual four
+complete independently predicted tiny Rust/control mutations, raw/materialized
+canonical, raw left-twice/reverse/mixed, selected+reverse conflict/no JSON and typed/
+missing-op controls pass. No verifier feeds construction. Initial120/200-second
+worker interruptions excluded and completed explicit runs replace them; early
+feature-rebuild setup missed uncaptured roots, not a semantic negative/pass.
+Final same-captured-root builds/rebuilds, separately rebuilt feature roots, refreshed
+inventories/preflight and immutable exact-tree reviews/CI remain release gates.
