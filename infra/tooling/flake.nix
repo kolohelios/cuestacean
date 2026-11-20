@@ -2484,6 +2484,10 @@
           }
           RUST
             cmp "$variant.rs" "$variant-expected.rs"
+            cp variant.cue "$variant-source.cue"
+            cp variant.json "$variant-tables.json"
+            cp variant-policy.json "$variant-policy.json"
+            cp variant-raw.json "$variant-raw-policy.json"
           done
           for control in lowering lowering-left-twice lowering-reverse; do
             generate ${jsonExports pkgs}/evaluation.json "$control.json" > "$control.rs"
@@ -2497,9 +2501,11 @@
             env -i HOME="$PWD/home" PATH=/nonexistent "$driver" ${jsonExports pkgs}/"$policyName.json" | format > "$name.rs"
             cmp "$name.rs" ${../../bootstrap/generated}/"$name.rs"
           done
-          cp tables.json expected.json lowering*.json *-expected.rs key.rs method.rs affix.rs "$out/"
+          cp tables.json expected.json lowering*.json last-next*.json first-previous*.json \
+            key-* method-* affix-* key.rs method.rs affix.rs "$out/"
           cp ${nativeInstructionBinaryTablesBuildClosure pkgs}/store-paths "$out/native-build-paths"
           cp ${nativeInstructionBinaryTablesBuildClosure pkgs}/registration "$out/native-build-registration"
+          printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeInstructionBinaryTables pkgs).drvPath} > "$out/native-build-roots"
         '';
       instructionUnarySources =
         pkgs:
