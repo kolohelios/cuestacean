@@ -141,6 +141,13 @@ DATA. Production joins native-core two + scanner one + legacy three. Its real
 strictly outside constructor closure; original native-core feature generation stays
 independently native. Scanner PROGRAM/schema export and three other policy inputs/
 joined six-seed path remain Go-dependent; no shared Rust/CLI/guard semantics change.
+The [#232 unification-policy DATA cut](native-unify-lowering-policy.md) adds a fourth
+canonical input using finite collision-free helper definitions, two ordinary
+partitions and three isolated existing scalar preferences. Nested integer branch
+leaves compose disjointly; the separate Go bridge retains every case/branch/alias
+slot and live raw overrides. TWO other policy constructors/joined seed still require
+Go CUE. Existing THREE isolated compiler paths are unchanged; this is not native
+control-schema evaluation or a fourth compiler constructor.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

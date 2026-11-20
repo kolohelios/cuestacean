@@ -26,8 +26,13 @@ exports/the joined seed still need Go CUE. The [#230 scanner compiler cut](nativ
 then isolates the existing scanner binary behind a seven-source/two-native-policy
 façade without changing the original native core. Production joins native three
 and legacy three. Scanner PROGRAM/schema export remains Go-backed; its source-
-feature generation is explicitly verification, not construction. Wider expansion
-stays deferred. The later
+feature generation is explicitly verification, not construction. The
+[#232 unification-policy DATA cut](native-unify-lowering-policy.md) adds a fourth
+canonical policy input: two ordinary partitions and three isolated scalar defaults
+with shared collision-free finite helper definitions. TWO other policy constructors
+and the joined seed still need Go CUE. Unification compiler construction/control
+schema remain separate; existing three isolated compiler paths stay unchanged.
+Wider expansion stays deferred. The later
 [#182 demand-policy cut](native-demand-policies.md) natively constructs the two
 experimental dispatch policies from their unchanged three-file raw closure. They
 are test-only graph policies, not any of the six lowering-policy exports; their
@@ -156,8 +161,8 @@ The seed package embeds fresh exported policies through
 since #222, and its meta policy data since #224. Since #226 the two corresponding
 binaries use a separate eight-source constructor/native two-file policy directory,
 with genuine AST-builder/compiled-driver feature checks outside construction.
-The joined six-bin seed still needs three other Go-constructed policies after
-#228 adds native scanner policy DATA. Since #230 scanner binary construction uses
+The joined six-bin seed still needs TWO other Go-constructed policies after
+#228 adds native scanner and #232 native unification policy DATA. Since #230 scanner binary construction uses
 its separate seven-source/two-policy façade; all27 generated wrapper programs in
 its source-feature test build still use Go-exported specifications, strictly as
 verification inputs. The original native-core feature path remains independently

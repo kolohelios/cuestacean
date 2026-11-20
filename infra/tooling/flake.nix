@@ -320,6 +320,12 @@
                 ../../bootstrap/lowering-fragments.cue
                 ../../bootstrap/pratt-lowering-fragments.cue
                 ../../bootstrap/unify-lowering-fragments.cue
+                ../../bootstrap/unify-lowering-helpers.cue
+                ../../bootstrap/unify-lowering-values.cue
+                ../../bootstrap/unify-lowering-control.cue
+                ../../bootstrap/unify-difference-policy.cue
+                ../../bootstrap/unify-divide-policy.cue
+                ../../bootstrap/unify-same-policy.cue
                 ../../bootstrap/ast-lowering-fragments.cue
                 ../../bootstrap/ast-lowering-body.cue
                 ../../bootstrap/ast-integer-policy.cue
@@ -351,6 +357,11 @@
             for fixture in ${fixtureNames}; do
               echo "exporting $fixture"
               case "$fixture" in
+                unify-lowering)
+                  mkdir -p "$out"
+                  cp ${nativeUnifyLoweringPolicy pkgs}/unify-lowering.json "$out/unify-lowering.json"
+                  continue
+                  ;;
                 scan-lowering)
                   mkdir -p "$out"
                   cp ${nativeScanLoweringPolicy pkgs}/scan-lowering.json "$out/scan-lowering.json"
@@ -415,6 +426,10 @@
               # Choose the provider before execution: overrides need the raw
               # preference, never the already materialized default artifact.
               case "$fixture" in
+                tests/valid/unify-lowering-*|tests/valid/integer-kernel-alternate|tests/valid/division-kernel-alternate)
+                  inputs+=("${cueSources}/unify-lowering-helpers.cue" "${cueSources}/unify-lowering-values.cue"
+                    "${cueSources}/unify-lowering-control.cue" "${cueSources}/unify-difference-policy.cue"
+                    "${cueSources}/unify-divide-policy.cue" "${cueSources}/unify-same-policy.cue") ;;
                 tests/valid/ast-lowering-*)
                   inputs+=("${cueSources}/ast-lowering-body.cue" "${cueSources}/ast-integer-policy.cue") ;;
                 tests/valid/scan-lowering-*)
@@ -1068,6 +1083,17 @@
                 ../../bootstrap/scan-lowering-predicates.cue
                 ../../bootstrap/scan-advance-policy.cue
                 ../../bootstrap/tests/valid/scan-lowering-unicode.cue
+                ../../bootstrap/unify-lowering-helpers.cue
+                ../../bootstrap/unify-lowering-values.cue
+                ../../bootstrap/unify-lowering-control.cue
+                ../../bootstrap/unify-difference-policy.cue
+                ../../bootstrap/unify-divide-policy.cue
+                ../../bootstrap/unify-same-policy.cue
+                ../../bootstrap/unify-lowering-fragments.cue
+                ../../bootstrap/unify-lowering.cue
+                ../../bootstrap/tests/valid/integer-kernel-alternate.cue
+                ../../bootstrap/tests/valid/division-kernel-alternate.cue
+                ../../bootstrap/tests/valid/unify-lowering-permissive.cue
                 ../../bootstrap/scanner-schema.cue
                 ../../bootstrap/group-open.cue
                 ../../bootstrap/ast-schema.cue
@@ -1350,6 +1376,242 @@
             cp ${nativeAstIntegerPolicyBuildClosure pkgs}/registration "$out/native-build-registration"
             printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeAstIntegerPolicy pkgs).drvPath} > "$out/native-build-roots"
           '';
+      unifyLoweringPolicySources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/native-policy-package.cue
+            ../../bootstrap/unify-lowering-helpers.cue
+            ../../bootstrap/unify-lowering-values.cue
+            ../../bootstrap/unify-lowering-control.cue
+            ../../bootstrap/unify-difference-policy.cue
+            ../../bootstrap/unify-divide-policy.cue
+            ../../bootstrap/unify-same-policy.cue
+          ];
+        };
+      unifyPolicyComposition = pkgs: ''
+        compose() {
+          test "$1" != "$3" && test "$2" != "$3"
+          test "$(wc -c < "$1")" -le 65536
+          test "$(wc -c < "$2")" -le 65536
+          env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -s -S \
+            -f ${../../bootstrap/compose-policy.jq} "$1" "$2" > "$3"
+          test "$(wc -c < "$3")" -le 65536
+        }
+        assemble() {
+          compose "$1" "$2" assemble-1.json
+          compose assemble-1.json "$3" assemble-2.json
+          compose assemble-2.json "$4" assemble-3.json
+          compose assemble-3.json "$5" "$6"
+        }
+      '';
+      nativeUnifyLoweringPolicy =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-unify-lowering-policy" { } ''
+          set -euo pipefail
+          mkdir -p "$PWD/home"
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          jq=${pkgs.jq}/bin/jq
+          for binary in "$exporter" "$jq"; do
+            test -r "$binary" && test -x "$binary"
+            case "$binary" in /*) ;; *) exit 1 ;; esac
+          done
+          ${unifyPolicyComposition pkgs}
+          sources=${unifyLoweringPolicySources pkgs}
+          for source in "$sources"/*.cue; do test "$(wc -c < "$source")" -le 65536; done
+          for run in first second; do
+            for module in values control difference divide same; do
+              companion=native-policy-package; source=unify-$module-policy
+              case "$module" in values|control) companion=unify-lowering-helpers; source=unify-lowering-$module ;; esac
+              env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" \
+                "$sources/$companion.cue" "$sources/$source.cue" > "$run-$module.json"
+              test "$(wc -c < "$run-$module.json")" -le 65536
+            done
+            assemble "$run-values.json" "$run-control.json" "$run-difference.json" "$run-divide.json" "$run-same.json" "$run.json"
+            env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -nr '
+              def permutations: if length == 0 then [] else .[] as $x | [.[] | select(. != $x)] | permutations | [$x] + . end;
+              ["values","control","difference","divide","same"] | permutations | join(" ")' > orders
+            test "$(wc -l < orders)" -eq 120
+            while read -r a b c d e; do
+              assemble "$run-$a.json" "$run-$b.json" "$run-$c.json" "$run-$d.json" "$run-$e.json" left.json
+              compose "$run-$d.json" "$run-$e.json" right-1.json
+              compose "$run-$c.json" right-1.json right-2.json
+              compose "$run-$b.json" right-2.json right-3.json
+              compose "$run-$a.json" right-3.json right.json
+              cmp "$run.json" left.json; cmp "$run.json" right.json
+            done < orders
+          done
+          for module in values control difference divide same; do cmp "first-$module.json" "second-$module.json"; done
+          cmp first.json second.json
+          mkdir -p "$out"
+          cp first.json "$out/unify-lowering.json"
+        '';
+      nativeUnifyLoweringPolicyBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativeUnifyLoweringPolicy pkgs).drvPath
+          ];
+        };
+      nativeUnifyLoweringPolicyVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-unify-lowering-policy-verification" { } ''
+          set -euo pipefail
+          for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} \
+            ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+            ${executor pkgs} ${(executor pkgs).drvPath} \
+            ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+            ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+            ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+            if grep -Fx "$forbidden" ${nativeUnifyLoweringPolicyBuildClosure pkgs}/store-paths; then
+              echo "forbidden unification construction dependency: $forbidden" >&2; exit 1
+            fi
+          done
+          mkdir -p "$out" "$PWD/probe/home"
+          cd probe
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          oracle=${pkgs.cue}/bin/cue
+          codegen=${executor pkgs}/bin/bootstrap-unify-codegen
+          jq=${pkgs.jq}/bin/jq
+          rustfmt=${pkgs.rustfmt}/bin/rustfmt
+          for binary in "$exporter" "$oracle" "$codegen" "$jq" "$rustfmt"; do
+            test -r "$binary" && test -x "$binary"
+            case "$binary" in /*) ;; *) exit 1 ;; esac
+          done
+          native() { env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$@"; }
+          cue() { env -i HOME="$PWD/home" PATH=/nonexistent "$oracle" "$@"; }
+          json() { env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -S .; }
+          format() { env -i HOME="$PWD/home" PATH=/nonexistent "$rustfmt" --edition 2024; }
+          generate() { env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" "$@" | format; }
+          ${unifyPolicyComposition pkgs}
+          schema=${../../bootstrap/schema.cue}
+          bridge=${../../bootstrap/unify-lowering-fragments.cue}
+          selector=${../../bootstrap/unify-lowering.cue}
+          cp ${unifyLoweringPolicySources pkgs}/*.cue .
+          owners=(unify-lowering-helpers.cue unify-lowering-values.cue unify-lowering-control.cue
+            unify-difference-policy.cue unify-divide-policy.cue unify-same-policy.cue)
+          raw() { cue export "$schema" "$bridge" "$selector" "''${owners[@]}" "$@"; }
+          raw | json > raw.json
+          cmp raw.json ${nativeUnifyLoweringPolicy pkgs}/unify-lowering.json
+          cmp raw.json ${jsonExports pkgs}/unify-lowering.json
+          cue export "$schema" "$bridge" "$selector" raw.json | json > validated.json
+          cmp raw.json validated.json
+          for control in ${unifyNames}; do
+            generate ${jsonExports pkgs}/"$control.json" raw.json > control.rs
+            cmp control.rs ${../../bootstrap/generated}/"$(basename "$control").rs"
+          done
+          for pair in 'unify-lowering-permissive unify-equality-probe unify-permissive-bool' \
+            'integer-kernel-alternate difference-control difference-as-product' \
+            'division-kernel-alternate divide-control divide-as-quotient'; do
+            read -r policy control golden <<< "$pair"
+            raw ${../../bootstrap}/tests/valid/"$policy.cue" | json > override.json
+            cmp override.json ${jsonExports pkgs}/tests/valid/"$policy.json"
+            if test "$control" = unify-equality-probe; then control=tests/valid/$control; fi
+            generate ${jsonExports pkgs}/"$control.json" override.json > override.rs
+            cmp override.rs ${../../bootstrap/generated}/"$golden.rs"
+          done
+          no_export() {
+            if cue export "$@" > failed.json 2> failed.err; then exit 1; fi
+            test ! -s failed.json && test -s failed.err
+          }
+          for missing in 0 1 2 3 4 5; do
+            providers=()
+            for index in 0 1 2 3 4 5; do
+              if test "$index" != "$missing"; then providers+=("''${owners[$index]}"); fi
+            done
+            no_export "$schema" "$bridge" "$selector" "''${providers[@]}"
+            if test "$missing" = 0; then grep -E 'reference .*not found|undefined' failed.err
+            else
+              grep -F 'incomplete value' failed.err
+              cue eval "$schema" "$bridge" "$selector" "''${providers[@]}" > /dev/null
+            fi
+            cp failed.err "$missing-missing.err"
+          done
+          # Test each required slot independently; the bridge must not supply it.
+          env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -c '
+            ([.cases | keys[] | ["cases", .]] +
+             [.cases.integerPrimitive.cases | keys[] | ["cases","integerPrimitive","cases",.]] +
+             [["aliases","choose"]])[]' raw.json > slots
+          test "$(wc -l < slots)" -eq 41
+          while read -r slot; do
+            env -i HOME="$PWD/home" PATH=/nonexistent "$jq" --argjson slot "$slot" 'delpaths([$slot])' raw.json > missing.json
+            no_export "$schema" "$bridge" "$selector" missing.json
+            grep -F 'incomplete value' failed.err
+            cue eval "$schema" "$bridge" "$selector" missing.json > /dev/null
+          done < slots
+          for policy in unify-lowering-permissive integer-kernel-alternate division-kernel-alternate; do
+            no_export "$schema" "$bridge" "$selector" raw.json ${../../bootstrap}/tests/valid/"$policy.cue"
+          done
+          materialize() {
+            native "''${owners[0]}" "''${owners[1]}" > values.json
+            native "''${owners[0]}" "''${owners[2]}" > control.json
+            native native-policy-package.cue "''${owners[3]}" > difference.json
+            native native-policy-package.cue "''${owners[4]}" > divide.json
+            native native-policy-package.cue "''${owners[5]}" > same.json
+            assemble values.json control.json difference.json divide.json same.json variant.json
+          }
+          materialize; cmp variant.json raw.json
+          printf '%s\n' '{"formatVersion":1,"result":{"op":"if","condition":{"op":"same"},"then":{"op":"integerPrimitive","operation":"difference"},"else":{"op":"integerPrimitive","operation":"divide"}}}' > tiny.json
+          # Independently predicted COMPLETE source for each of the six owners.
+          for index in 0 1 2 3 4 5; do
+            source="''${owners[$index]}"
+            banner='// Generated by bootstrap-unify-codegen. Do not edit by hand.'
+            prefix='if ('; condition='Ok::<_, Error>(_left == _right)'
+            difference='crate::runtime::integer_difference(&_left, &_right)'
+            divide='crate::runtime::integer_divide(&_left, &_right)'
+            case "$index" in
+              0) substitute "$source" variant.cue --replace-fail 'if (' 'if /* Helper */ ('; prefix='if /* Helper */ (' ;;
+              1) substitute "$source" variant.cue --replace-fail '// Generated by bootstrap-unify-codegen.' '// Values control.\n// Generated by bootstrap-unify-codegen.'; banner=$'// Values control.\n'"$banner" ;;
+              2) substitute "$source" variant.cue --replace-fail '"if": #UnifyLoweringConditional' '"if": {op: "concat", parts: [{op: "text", value: "/* Control */ "}, #UnifyLoweringConditional]}'; prefix='/* Control */ if (' ;;
+              3) substitute "$source" variant.cue --replace-fail 'crate::runtime::integer_difference' '/* Difference */ crate::runtime::integer_difference'; difference="/* Difference */ $difference" ;;
+              4) substitute "$source" variant.cue --replace-fail 'crate::runtime::integer_divide' '/* Divide */ crate::runtime::integer_divide'; divide="/* Divide */ $divide" ;;
+              5) substitute "$source" variant.cue --replace-fail 'Ok::<_, Error>(_left == _right)' 'Ok::<_, Error>(/* Same */ _left == _right)'; condition='Ok::<_, Error>(/* Same */ _left == _right)' ;;
+            esac
+            owners[$index]=variant.cue
+            materialize
+            raw | json > variant-raw.json
+            cmp variant.json variant-raw.json
+            if cmp -s raw.json variant.json; then exit 1; fi
+            generate tiny.json variant.json > "$index.rs"
+            format > "$index-expected.rs" <<RUST
+          $banner
+          use crate::{Error, runtime::Value};
+          pub fn unify(_left: Value, _right: Value) -> Result<Value, Error> {
+              $prefix$condition)? { $difference } else { $divide }
+          }
+          RUST
+            cmp "$index.rs" "$index-expected.rs"
+            owners[$index]="$source"
+          done
+          for invalid in opcode shape unbound; do
+            case "$invalid" in
+              opcode) substitute "''${owners[1]}" invalid.cue --replace-fail 'op: "concat"' 'op: "unknownNativeControl"' ;;
+              shape) substitute "''${owners[1]}" invalid.cue --replace-fail 'formatVersion: 1' 'formatVersion: "wrong"' ;;
+              unbound) substitute "''${owners[1]}" invalid.cue --replace-fail '{op: "lower", field: "result"}' '{op: "get", name: "unbound"}' ;;
+            esac
+            source="''${owners[1]}"; owners[1]=invalid.cue
+            materialize
+            if test "$invalid" = unbound; then
+              raw | json > valid-shape.json; cmp valid-shape.json variant.json
+            else
+              no_export "$schema" "$bridge" "$selector" "''${owners[@]}"
+              cp failed.err "$invalid-schema.err"
+            fi
+            if env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" tiny.json variant.json > invalid.rs 2> invalid.err; then exit 1; fi
+            test ! -s invalid.rs && test -s invalid.err
+            if test "$invalid" = unbound; then grep -F 'unknown binding' invalid.err; fi
+            cp invalid.err "$invalid-typed.err"
+            owners[1]="$source"
+          done
+          cp raw.json "$out/unify-lowering.json"
+          cp *-missing.err *-schema.err *-typed.err [0-5].rs *-expected.rs "$out/"
+          cp ${nativeUnifyLoweringPolicyBuildClosure pkgs}/store-paths "$out/native-build-paths"
+          cp ${nativeUnifyLoweringPolicyBuildClosure pkgs}/registration "$out/native-build-registration"
+          printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeUnifyLoweringPolicy pkgs).drvPath} > "$out/native-build-roots"
+        '';
       scanLoweringPolicySources =
         pkgs:
         pkgs.lib.fileset.toSource {
@@ -2194,6 +2456,7 @@
           native-ast-integer-policy = nativeAstIntegerPolicy pkgs;
           native-ast-lowering-policy = nativeAstLoweringPolicy pkgs;
           native-meta-lowering-policy = nativeMetaLoweringPolicy pkgs;
+          native-unify-lowering-policy = nativeUnifyLoweringPolicy pkgs;
           native-scan-lowering-policy = nativeScanLoweringPolicy pkgs;
           native-codegen-core = nativeCodegenCore pkgs;
           native-scan-codegen = nativeScanCodegen pkgs;
@@ -2259,6 +2522,7 @@
           native-ast-integer-policy = nativeAstIntegerPolicyVerification pkgs;
           native-ast-lowering-policy = nativeAstLoweringPolicyVerification pkgs;
           native-meta-lowering-policy = nativeMetaLoweringPolicyVerification pkgs;
+          native-unify-lowering-policy = nativeUnifyLoweringPolicyVerification pkgs;
           native-scan-lowering-policy = nativeScanLoweringPolicyVerification pkgs;
           native-codegen-core = nativeCoreVerification pkgs;
           native-scan-codegen = nativeScannerVerification pkgs;
