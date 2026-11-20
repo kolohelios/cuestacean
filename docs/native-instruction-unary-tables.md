@@ -177,3 +177,7 @@ After [#248 module text extraction](native-instruction-module-text.md), Go-only 
 policy verifier/oracle helpers additionally load the concrete raw text definition
 (or the imported native helper). The unary constructor remains its exact original
 raw TWO inputs; no header/footer dependency is added to unary DATA construction.
+After [#252 Binary extraction](native-instruction-binary-tables.md), Go full-policy
+helpers independently export/import the default-free raw Binary tables and validate
+the isolated required helper before policy composition. This is verification-only;
+unary raw2/exporter9 and all unary constructor identities remain unchanged.

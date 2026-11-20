@@ -5,6 +5,24 @@ package bootstrap
 #InstructionModuleFirst: close({op: string})
 #InstructionModuleStep: close({op: string})
 
+#InstructionBinaryTables: close({
+	aliases: close({
+		index:       string, difference: string, product:    string, divide:    string, modulo: string, quotient: string
+		recordIndex: string, listIndex:  string, logicalAnd: string, logicalOr: string, equal:  string
+	})
+	select: close({
+		op: string, field: string
+		cases: close({
+			index: close({op: string, value: string}), difference: close({op: string, value: string})
+			product: close({op: string, value: string}), divide: close({op: string, value: string})
+			modulo: close({op: string, value: string}), quotient: close({op: string, value: string})
+			recordIndex: close({op: string, value: string}), listIndex: close({op: string, value: string})
+			logicalAnd: close({op: string, value: string}), logicalOr: close({op: string, value: string})
+			equal: close({op: string, value: string})
+		})
+	})
+})
+
 // Executable recursion/Result layout, not Rust's instruction enum dispatch.
 #InstructionLowering: #LoweringPolicy & {
 	let Node = {op: "path", value: "node"}
@@ -15,14 +33,10 @@ package bootstrap
 	// The alternate policy overrides only sum's default right-child selection.
 	let R = {op: "try", value: {op: "group", value: {op: "lower", field: *"right" | "left"}}}
 	let V = {op: "try", value: {op: "group", value: {op: "lower", field: "value"}}}
-	let Binary = {
-		index:       "index", difference:       "difference", product:    "product", divide:        "divide", modulo:    "modulo", quotient: "quotient"
-		recordIndex: "record_index", listIndex: "list_index", logicalAnd: "logical_and", logicalOr: "logical_or", equal: "equal"
-	}
 	aliases: {
 		lowerExclusiveBound: _, upperExclusiveBound: _, lowerBound:   _, upperBound: _, negate:       _
 		logicalNot:          _, length:              _, stringLength: _, listLength: _, recordLength: _
-		for name, _ in Binary {"\(name)": "binaryRuntime"}
+		#InstructionBinaryTables.aliases
 	}
 	module: [{
 		op:    "text"
@@ -51,7 +65,7 @@ package bootstrap
 		evaluate: {op: "call", path: "evaluate", args: [{op: "try", value: {op: "call", path: "runtime::field", args: [Node, Field]}}, Context]}
 		unaryRuntime: _
 		binaryRuntime: {op: "concat", parts: [
-			{op: "select", field: "op", cases: {for name, method in Binary {"\(name)": {op: "text", value: "runtime::\(method)"}}}},
+			#InstructionBinaryTables.select,
 			{op: "text", value: "("}, L, {op: "text", value: ", "}, R, {op: "text", value: ")"},
 		]}
 		sum: {op: "call", path: "runtime::sum", args: [L, R]}
