@@ -142,7 +142,7 @@ existing actual full-executor compiled execution controls remain green.
 
 Full Rust/default all-target strict Clippy debug/release, exporter109/four,
 research135/four and boundary4/four pass. ALL21 checks/18 packages actually build AND
-rebuild. Pinned preflight13/13 (7 skips;22 discovered checks includes default alias),
+rebuild. Pinned preflight13/13 (7 skips;22 discovery entries, not check executions),
 1373-file whitespace/607 relative links pass. All17 previous public PACKAGE drv IDs
 INCLUDING exports/249JSON/12builders/old DATA/generated Rust unchanged. Six actual
 compiler origins are core2/scanner1/unifier1/legacy2. Three genuine façade matrices

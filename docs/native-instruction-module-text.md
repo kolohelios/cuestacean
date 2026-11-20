@@ -166,3 +166,49 @@ wrong types/extras schema failures. Optional exhaustive Go permutations timed ou
 not passed, not a semantic failure and not required. These observations are only
 interface feasibility, never native constructor seeds/expected captures. Immutable
 cross/final reviews and ALL implementation/resource/full release gates remain.
+
+## Completed local evidence
+
+Immutable kernel94361679/format-prediction child886d1d07 and test-only9cd8f54c/
+boundary-category child3b8bb092 integrated ONLY by owned paths; validation dependency
+overlays are not test changes. Source projection independently regenerates ALL THREE
+CUE owners/selector/bridge from the merged original: same header payload after ONLY
+uniform cue fmt margin3→2, exact footer spelling, original Go +newline and every
+retained body/default/R/Binary/alias/module-order token. Both schema/raw/imported
+canonical and actual left-twice/reverse policies stay byte-identical; new complete
+independent tiny-Rust header/footer effects and actual compiled controls pass.
+
+All115 exporter tests (109 retained+6 new) pass EACH default/no-default debug/release;
+strict all-target Clippy EACHfour profiles passes. Raw CLI/oracle two-file orders/
+rename/independent complete tree/missing2/wrong types/extras/ordinary-string recovery,
+value-only contexts/eager empty-map+unused negatives/BOM/control/delimiter/margin
+cases pass. Resource proofs retain exact old scalar/template work7+11n, cumulative
+syntax/depth/items/tokens/source64KiB/copy/encoded caps, no per-line charge. Earlier
+malformed-category/pretty-array count corrections preserve exact assertions; shell
+timeout interruptions are not passing evidence, explicit completed reruns are.
+
+Full executor/default all-target strict Clippy debug/release/research135 four/both
+old boundary4groups EACHfour pass. ALL23 named checks/20 NON-DEFAULT packages actually
+build AND rebuild; release captures ONE drv-root list before both explicit drv^*
+commands so documentary source snapshots cannot swap build/rebuild inputs. All FOUR
+genuine façade matrices/fresh drivers and separate explicit feature rebuilds pass.
+Preflight13/13 (7 skips; discovery entries are NOT unique checks/execution proof),
+1387-file whitespace/617 relative links pass. Old discovery-alias wording is corrected
+in three historical proof notes; the named-check and non-default-package inventories
+remain explicit, never inferred from discovery totals.
+
+All249 JSON/12builders/old native DATA/generated Rust unchanged. Exporter9 code and
+native dependent ctor identities legitimately change; all four façade source cuts/
+shared Rust/CLI bytes and raw cuts remain exact. BOTH Go oracle PACKAGE IDs unchanged.
+New literal DATA constructor4a05mwxb/raw2source2waik97s/output62qc3zbb has only header/
+footer (928 canonical bytes), with original Go header newline applied by the consumer.
+
+Seventeen fresh recursive/full retained inventories MATCH/exclusions pass: new text
+1407derivations/3392full paths, joined1460/3532. Current Go CLI/source/source drv/full
+bundle/exec/legacyjoined/BOTHoracle outputs-drvs/provider env absent from native
+construction; core/unifier/Pratt features remain independently native, scanner
+source-feature positively Go-backed VERIFICATION ONLY. Native text is PARTIAL
+instruction DATA: FIVE complete policies/FIVE compiler binaries remain. Full policy/
+Binary/reused-R/module-control defaults/schema/PROGRAM/seed closure stay Go-dependent;
+#175 OPEN. Linuxx86_64 only; exact-tree reviews/retirement/protected CI/confirmed merge
+remain mandatory.

@@ -153,7 +153,7 @@ Full executor/default all-target strict Clippy debug/release/exporter109 four/
 research135 four/old+new boundary4groups EACH four pass. ALL21 checks/18 packages
 actually build AND rebuild; all THREE genuine façade matrices/fresh modules plus
 separate explicit drv^* feature rebuilds pass. Pinned preflight13/13 (7 skips;22
-checks discovered incl default alias),1377-file whitespace/610 relative links pass.
+discovery entries, not check executions),1377-file whitespace/610 relative links pass.
 All249 JSON/12builders/old DATA/generated Rust unchanged; ALL17 OTHER prior public
 PACKAGE drv IDs INCLUDING exports unchanged. Actual native unifier changes only
 for source8/test9; exact original Kind/source bytes, unchanged two native policies/
