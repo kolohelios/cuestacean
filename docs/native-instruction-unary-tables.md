@@ -34,7 +34,11 @@ backslashes/comment text/unicode escape spellings MUST NOT activate interpolatio
 
 Dynamic field labels remain EXACT "\(key)" with empty affixes; no affixed/value/
 computed label admission. Any interpolation token outside a comprehension template
-VALUE or that exact key label remains Unsupported. All prior source/iterator/
+VALUE or that exact key label remains Unsupported. Preserve the inherited exact
+empty-affix interpolation spelling's Syntax("literal inequality operand") category
+inside a literal inequality; newly tokenized AFFIXED inequality operands remain
+Unsupported, not Syntax. This exception admits no new interpolation/inequality form.
+All prior source/iterator/
 collision/initializer/unused/cycle, definitions/marked whole-document exclusions,
 item/depth/token/source/syntax/materialized/copy/output caps remain. No general
 runtime environment, changed default admission or error-triggered Go fallback.
@@ -146,3 +150,25 @@ match without original-owner assistance. Coordinator GO permits ONLY this scope;
 immutable implementation/final reviews and all release gates remain. Approximately1500
 coherent changed lines; pause for ambiguity/validation rather than expand syntax,
 raise guards, delete proof or claim full instruction policy/default closure.
+
+## Completed local evidence
+
+Kernel/raw handoff73e4c3d9, consumer-proof childaf4b1072, testsd3c828cf preserve
+immutable parents. Review fixes6bcfc06a/95f6e8e4 add five tests-only CUE inputs and
+pin inequality categories without new successful admission or constructor broadening.
+109 exporter tests EACH four profiles/strict all-target Clippy pass; full Rust/default
+all-target Clippy debug-release and135 research groups/four profiles pass. BOTH
+genuine façade matrices/fresh modules and separate drv^* rebuilds pass; TWENTY checks/
+SEVENTEEN packages actually build AND rebuild. Pinned preflight13/13 (7 skipped),
+1365-file whitespace/600 relative links pass. Earlier superseded compile/diagnostic/
+missing-test-input runs are not counted as passed final validation.
+All249 JSON/12 builders/old native DATA/generated Rust unchanged. Strict original
+source projection retains Unary map/two comprehensions/case plus one literal V
+instantiation/eleven required slots only; Binary/V/default R/module/header unchanged.
+Exporter9 source `/nix/store/minz58icwzmvwadrq437ilx1bp119qay-source`, unary raw2
+source `/nix/store/ak5kdl6n50rc8na23cljg8rdl9rmvidf-source`; canonical2107 bytes.
+Fourteen fresh recursive/full inventories MATCH retained inventories/exclusions;
+native unary1407 derivations/3392 full paths, joined seed1453/3513. Core feature graph
+Go-free; scanner source-feature graph positively Go/source/bundle-backed verification
+ONLY. Five complete native policy DATA inputs/three isolated compiler paths remain;
+full instruction policy construction and joined seed still Go-dependent. #175 OPEN.

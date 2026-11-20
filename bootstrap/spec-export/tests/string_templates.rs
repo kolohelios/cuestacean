@@ -116,7 +116,8 @@ impl Probe {
                 export(a, b)
             );
             let out = self.run(&program, false, reverse);
-            assert!(!out.status.success() && out.stdout.is_empty() && !out.stderr.is_empty());
+            assert!(!out.status.success() && out.stdout.is_empty());
+            assert!(String::from_utf8_lossy(&out.stderr).starts_with("unsupported: "));
         }
     }
 }
@@ -270,6 +271,26 @@ let k=1
 {for k,v in T {"\(k)":{deep:{v:"\(k)"}}}}"#,
     ] {
         probe.reject(body);
+    }
+    for body in [r#"{x: !="pre\(v)"}"#, r#"{x: !="\(v)post"}"#] {
+        probe.reject(body);
+    }
+    // Exact empty-affix interpolation in an inequality historically took this
+    // Syntax path; newly tokenized affixed spellings above remain Unsupported.
+    let program = source(r#"{x: !="\(v)"}"#);
+    for reverse in [false, true] {
+        let (a, b) = if reverse {
+            (program.as_str(), PACKAGE)
+        } else {
+            (PACKAGE, program.as_str())
+        };
+        assert_eq!(
+            export(a, b),
+            Err(Error::Syntax("literal inequality operand"))
+        );
+        let out = probe.run(&program, false, reverse);
+        assert!(!out.status.success() && out.stdout.is_empty());
+        assert_eq!(out.stderr, b"syntax: literal inequality operand\n");
     }
     // Malformed decoded pieces and the inherited hash-string rejection are
     // Syntax, not an either-category weakening of Unsupported checks above.
