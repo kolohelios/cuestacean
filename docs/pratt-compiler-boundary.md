@@ -37,6 +37,10 @@ imports/module declarations/explicit re-exports/narrow visibility/helper test pa
 Parent retains ORIGINAL Number::value/Condition::test, Flow/extended_action/execute/
 interpret and four collection interpreter APIs/ItemFrame/macro/primitives/VM. Keep
 ALL embedded target/return tests, assertions unchanged except moved-helper paths.
+One explicitly reviewed typed-integration exception: annotate existing interpret_list
+binding `let program: Program = parse(input)...` with its SAME original inferred
+Program type. This gives the preserved unconditional pub(crate) alias a genuine
+no-source consumer, without cfg/lint suppression, wrapper or algorithm/API change.
 Re-export public Error/generate/generate_with_policy; preserve pub(crate) Program/
 parse paths used by parser, not new public IR. Private Target/Number/Condition/
 Statement and Program.target/body ONLY pub(super) for parent execution. Preserve
@@ -91,7 +95,8 @@ Strict original-source projection accounts for EVERY original Pratt token in new
 compiler OR retained runtime/tests (only shared module doc may duplicate). Separately
 account for unchanged authoritative unifier compiler and moved Kind enum. Both
 source files/Kind byte-exact after pinned rustfmt plus documented visibility/import/
-module/test helper changes; no rewriting source algorithms or Rust DATA strings.
+module/test helper changes and that ONE inferred-to-explicit Program annotation;
+no rewriting source algorithms or Rust DATA strings.
 
 Preserve all249 JSON/12builders/old native DATA/generated Rust. ALL17 other prior
 PUBLIC package constructor IDs INCLUDING exports stay unchanged; native-unify-
