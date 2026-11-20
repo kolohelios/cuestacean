@@ -929,6 +929,7 @@
             )
           '';
           checkPhase = ''
+            set -euo pipefail
             runHook preCheck
             for profile in debug release; do
               releaseFlag=
