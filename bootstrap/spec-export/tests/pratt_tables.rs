@@ -12,6 +12,8 @@ const PACKAGE: &str = include_str!("../../native-policy-package.cue");
 const TABLES: &str = include_str!("../../pratt-lowering-tables.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../pratt-lowering-fragments.cue");
+const BODY: &str = include_str!("../../pratt-lowering-body.cue");
+const ADD: &str = include_str!("../../pratt-add-policy.cue");
 const SELECTOR: &str = include_str!("../../pratt-lowering.cue");
 const NO_INCREMENT: &str = include_str!("../../tests/valid/pratt-lowering-no-increment.cue");
 // Independently authored mappings from the Pratt backend instruction contract,
@@ -148,6 +150,8 @@ impl Probe {
             ("schema.cue", SCHEMA),
             ("bridge.cue", BRIDGE),
             ("selector.cue", SELECTOR),
+            ("body.cue", BODY),
+            ("add.cue", ADD),
         ];
         if let Some(provider) = provider {
             inputs.push(provider);

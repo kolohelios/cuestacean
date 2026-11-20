@@ -155,6 +155,12 @@ two-case Pratt table module from its original three CUE comprehensions; the rest
 of Pratt policy/schema/default add remains Go-built. Counts stay FOUR complete
 native policy inputs/THREE isolated compiler paths, not full/general comprehensions
 or Pratt closure. The exporter source cut grows to nine explicit files.
+The [#236 complete Pratt policy DATA cut](native-pratt-lowering-policy.md) preserves
+that table constructor and adds the closed ordinary body plus an isolated existing
+tagged `add` preference. Canonical Pratt policy becomes the FIFTH complete native
+input; only instruction/evaluator policy construction still needs Go. THREE isolated
+compiler paths and all admission/guard/schema boundaries remain unchanged. Raw
+no-increment refinement loads all unresolved owners before context, not selected DATA.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

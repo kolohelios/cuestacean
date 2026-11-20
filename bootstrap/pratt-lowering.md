@@ -3,10 +3,12 @@
 [`pratt-lowering-fragments.cue`](pratt-lowering-fragments.cue) and the authoritative
 `pratt-lowering-tables.cue` describe how Pratt/primary control becomes Rust. The
 [native table module](../docs/native-map-comprehensions.md) evaluates the original
-finite MinimumCalls/SelectorCalls maps and three comprehensions; Go still builds
-the remaining full policy and unresolved add preference. Required table slots and
-no-increment context remain live; no hand-expanded table/emitter or full-policy
-native claim follows. It also emits the
+finite MinimumCalls/SelectorCalls maps and three comprehensions. The
+[complete native DATA path](../docs/native-pratt-lowering-policy.md) combines that
+unchanged module with `pratt-lowering-body.cue` and `pratt-add-policy.cue` under the
+existing bounds. Go remains the schema/raw-refinement oracle; no-increment loads
+all three unresolved owners before context. Full native policy DATA is not native
+schema evaluation or isolated Pratt compiler construction. It also emits the
 parser-driver wrapper. `pratt.rs` no longer has per-opcode emission matches or
 hardcoded generated-source boilerplate. This is distinct from `pratt.cue` and
 `primary.cue`, which describe runtime parser behavior.
