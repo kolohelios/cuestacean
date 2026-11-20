@@ -318,7 +318,7 @@ stages, clearing leftover JSON and generated Rust from each staged source copy
 first. This never deletes files in the working tree. CUE JSON exports are an
 independent Nix output built only from CUE sources, not committed artifacts.
 
-1. Construct fresh JSON: native builders/AST/meta/scanner policies plus the other
+1. Construct fresh JSON: native builders/AST/meta/scanner/unification policies plus the other
    Go-CUE-exported closures. The [native core](../../docs/native-codegen-core.md)
    builds existing AST/lowering-policy compiler binaries from eight selected files
    and ONLY the two native policy inputs. The separate

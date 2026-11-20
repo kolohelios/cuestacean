@@ -1,8 +1,14 @@
 # CUE-owned unification compiler backend
 
-[`unify-lowering-fragments.cue`](unify-lowering-fragments.cue) owns all emitted
-unification-control Rust: value/endpoint projections, boolean conditions, branch
-layout, failure constructors, lexical tuple bindings and the function wrapper.
+`unify-lowering-values.cue`/`unify-lowering-control.cue`, finite shared
+`unify-lowering-helpers.cue` definitions and the three raw scalar preference owners
+(`unify-{difference,divide,same}-policy.cue`) own unification-control Rust layout:
+value/endpoint projection, boolean conditions, branches, failures, tuple bindings
+and function wrapper. The [native policy DATA artifact](../docs/native-unify-lowering-policy.md)
+assembles their disjoint materialized namespaces; `unify-lowering-fragments.cue`
+retains Go schema/all33-case/seven-integer-branch/alias required-slot validation.
+Raw overrides load ALL raw owners before context, not selected concrete defaults.
+The finite helper rewrite is not general let/definition contextual equivalence.
 It reuses the same [lowering compiler/kernel](lowering.md) as evaluator and Pratt
 compilation; the bootstrap compiler count remains six.
 
@@ -87,7 +93,9 @@ references reject eagerly outside ternary programs, including dead arms; unary
 binary-operation restrictions remain. `listSlice` is ternary-only and lowers to
 the checked borrowed slice/constructor kernel. Existing choose/if source layout
 shares a one-hop alias, keeping the backend at 484 values under the unchanged 512
-guard. All six seed and feature boundaries remain unchanged.
+guard. Existing three native compiler construction paths remain unchanged; the
+unification compiler still uses the legacy full-bundle constructor. Four canonical
+policy DATA inputs are now native, not the control/#LoweringPolicy schema language.
 
 ## Bootstrap and evidence
 
