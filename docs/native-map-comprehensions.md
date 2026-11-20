@@ -1,4 +1,4 @@
-# Bounded native table comprehensions / Pratt tables (#234 proposal)
+# Bounded native table comprehensions / Pratt tables (#234)
 
 ## Actual dependency and delivery boundary
 
@@ -11,8 +11,9 @@ Four COMPLETE policy inputs/THREE isolated compilers stay the count; no fifth/fu
 Pratt policy, fourth compiler, schema/general-comprehension/default or #175 closure.
 
 Read-only pinned Go exports the raw relocated module to2779 bytes, identical to the
-original policy's aliases plus selectorAction/parseMinimum cases. Current native
-binary rejects it (unsupported string escape/no JSON). This is a regression target,
+original policy's aliases plus selectorAction/parseMinimum cases. The historical
+preimplementation #232 binary rejects it (unsupported string escape/no JSON).
+This is a regression target,
 not captured expected data or production seed. Authoritative two literal maps and
 three executable CUE comprehensions relocate unchanged; NEVER hand-expand tables,
 move their semantic projection into jq, or give names/opcodes/filenames privileges.
@@ -188,3 +189,18 @@ and all resource/source/consumer/release gates remain mandatory. Pause for autho
 wrong lexical semantics or unbounded/uncharged work—not a filename/opcode exemption.
 #175 remains OPEN. Not full Pratt policy, fourth compiler closure, general CUE/loops/
 interpolation/schema/defaults, self-hosting, performance or mathematical minimality.
+
+## Completed local evidence
+
+96 exporter tests/four profiles; full Rust/default all-target strict Clippy both
+profiles; retained135 research groups/four profiles. Eighteen checks/fifteen packages
+actually built AND rebuilt; BOTH genuine façade matrices and their separate feature
+derivatives rebuilt. Pinned preflight13/13 (7 skipped, cached Nix discovery0) is not
+substituted for those executions. All249 JSON,12 builders/old DATA/generated Rust
+unchanged. Twelve fresh recursive/full inventories match retained inventories;
+original core feature graph Go-free, scanner source-feature graph Go-backed only.
+Exporter9 source `/nix/store/6pc3icx3g1lj5jgpfkcsky9q0dyibhl0-source`, raw2 source
+`/nix/store/mlg3w4xyqfi043fxykfiy64fg9xddigw-source`; canonical module2779 bytes.
+Cross-review corrections keep exact Unsupported for extra clauses/single iterator/
+reserved source tokens, Missing Unknown, and nested-empty total40 (preparation9+
+evaluation31 including three retained-bound checks). No successful admission widened.
