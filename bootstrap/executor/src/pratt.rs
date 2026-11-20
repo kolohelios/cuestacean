@@ -232,7 +232,8 @@ pub fn interpret_list(
     input: &str,
     frame: &mut crate::runtime::ListFrame<'_>,
 ) -> Result<(), crate::Error> {
-    let program = parse(input).map_err(|source| crate::Error::ControlProgram { source })?;
+    let program: Program =
+        parse(input).map_err(|source| crate::Error::ControlProgram { source })?;
     if program.target != Target::List {
         return Err(crate::Error::ListState {
             reason: "list control target required",
