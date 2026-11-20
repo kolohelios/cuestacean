@@ -868,6 +868,172 @@
             cp ${closure}/registration "$out/native-build-registration"
             printf '%s\n' ${scanner.drvPath} > "$out/native-build-roots"
           '';
+      nativeUnifierSources =
+        pkgs: includeTests:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions (
+            [
+              ../../bootstrap/native-unify-codegen/Cargo.toml
+              ../../bootstrap/native-unify-codegen/Cargo.lock
+              ../../bootstrap/native-unify-codegen/src/lib.rs
+              ../../bootstrap/executor/src/unification/compiler.rs
+              ../../bootstrap/executor/src/lowering.rs
+              ../../bootstrap/executor/src/module.rs
+              ../../bootstrap/executor/src/bin/bootstrap-unify-codegen.rs
+            ]
+            ++ pkgs.lib.optionals includeTests [ ../../bootstrap/native-unify-codegen/tests/compiler.rs ]
+          );
+        };
+      nativeUnifierPolicies =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-unifier-policies" { } ''
+          mkdir -p "$out"
+          cp ${nativeUnifyLoweringPolicy pkgs}/unify-lowering.json "$out/unify-lowering.json"
+          cp ${nativeMetaLoweringPolicy pkgs}/meta-lowering.json "$out/meta-lowering.json"
+        '';
+      nativeUnifyCodegen =
+        pkgs:
+        pkgs.rustPlatform.buildRustPackage {
+          pname = "cuestacean-native-unify-codegen";
+          version = "0.1.0";
+          src = nativeUnifierSources pkgs false;
+          postUnpack = ''
+            sourceRoot="$sourceRoot/native-unify-codegen"
+          '';
+          cargoLock.lockFile = ../../bootstrap/native-unify-codegen/Cargo.lock;
+          CUESTACEAN_BOOTSTRAP_JSON = nativeUnifierPolicies pkgs;
+          cargoBuildFlags = [ "--no-default-features" ];
+          # Construction never executes shared defensive tests or expected code.
+          doCheck = false;
+          meta.license = pkgs.lib.licenses.asl20;
+        };
+      nativeUnifierTests =
+        pkgs:
+        (nativeUnifyCodegen pkgs).overrideAttrs (_: {
+          pname = "cuestacean-native-unify-codegen-tests";
+          src = nativeUnifierSources pkgs true;
+          nativeCheckInputs = [ pkgs.clippy ];
+          doCheck = true;
+          postPatch = ''
+            (
+              set -euo pipefail
+              mkdir -p ../generated "$TMPDIR/unifier-home"
+              tool=${nativeCodegenCore pkgs}/bin/bootstrap-lower-codegen
+              case "$tool" in /*) ;; *) echo "nonabsolute compiler provider: $tool" >&2; exit 1 ;; esac
+              test -r "$tool" && test -x "$tool"
+              for name in unify-lowering meta-lowering; do
+                env -i PATH=/nonexistent HOME="$TMPDIR/unifier-home" \
+                  "$tool" ${nativeUnifierPolicies pkgs}/"$name.json" > "../generated/$name.rs"
+              done
+            )
+          '';
+          checkPhase = ''
+            runHook preCheck
+            for profile in debug release; do
+              releaseFlag=
+              if [ "$profile" = release ]; then releaseFlag=--release; fi
+              for features in "" compiled-lowering; do
+                cargo test --offline --locked --all-targets --no-default-features \
+                  $releaseFlag --features "$features"
+                cargo clippy --offline --locked --all-targets --no-default-features \
+                  $releaseFlag --features "$features" -- -D warnings
+              done
+            done
+            runHook postCheck
+          '';
+        });
+      nativeUnifierVerification =
+        pkgs:
+        let
+          unifier = nativeUnifyCodegen pkgs;
+          tests = nativeUnifierTests pkgs;
+          closure = pkgs.closureInfo { rootPaths = [ unifier.drvPath ]; };
+          featureClosure = pkgs.closureInfo { rootPaths = [ tests.drvPath ]; };
+        in
+        pkgs.runCommand "cuestacean-native-unify-codegen-verification"
+          {
+            nativeBuildInputs = [ pkgs.rustfmt ];
+            featureTests = tests;
+            policyVerification = nativeUnifyLoweringPolicyVerification pkgs;
+            fullExecutor = executor pkgs;
+          }
+          ''
+            set -euo pipefail
+            mkdir -p "$out" "$TMPDIR/unifier-home"
+            for tool in ${unifier}/bin/bootstrap-unify-codegen ${pkgs.rustfmt}/bin/rustfmt; do
+              case "$tool" in /*) ;; *) echo "nonabsolute verifier tool: $tool" >&2; exit 1 ;; esac
+              test -r "$tool" && test -x "$tool"
+            done
+            test -d "$featureTests" && test -d "$policyVerification" && test -d "$fullExecutor"
+            find ${nativeUnifierSources pkgs false} -type f | sort > "$out/constructor-source-paths"
+            find ${nativeUnifierSources pkgs true} -type f | sort > "$out/test-source-paths"
+            test "$(wc -l < "$out/constructor-source-paths")" -eq 7
+            test "$(wc -l < "$out/test-source-paths")" -eq 8
+            printf '%s\n' meta-lowering.json unify-lowering.json > expected-policies
+            find ${nativeUnifierPolicies pkgs} -type f -printf '%f\n' | sort > "$out/policy-files"
+            cmp expected-policies "$out/policy-files"
+            for paths in ${closure}/store-paths ${featureClosure}/store-paths; do
+              for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} ${pkgs.cue.src.drvPath} \
+                ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+                ${executor pkgs} ${(executor pkgs).drvPath} \
+                ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+                ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+                ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+                ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+                if grep -Fx "$forbidden" "$paths"; then
+                  echo "forbidden native unifier construction dependency: $forbidden" >&2; exit 1
+                fi
+              done
+            done
+            # The interpreted constructor consumes policy DATA, not sibling compilers.
+            # Feature generation legitimately uses the native core lower compiler.
+            for forbidden in ${nativeCodegenCore pkgs} ${(nativeCodegenCore pkgs).drvPath} \
+              ${nativeScanCodegen pkgs} ${(nativeScanCodegen pkgs).drvPath}; do
+              if grep -Fx "$forbidden" ${closure}/store-paths; then
+                echo "sibling compiler in native unifier constructor: $forbidden" >&2; exit 1
+              fi
+            done
+            test -x ${codegenSeed pkgs}/bin/bootstrap-unify-codegen
+            generate() {
+              env -i PATH=/nonexistent HOME="$TMPDIR/unifier-home" \
+                ${unifier}/bin/bootstrap-unify-codegen "$@" | \
+                env -i PATH=/nonexistent HOME="$TMPDIR/unifier-home" ${pkgs.rustfmt}/bin/rustfmt --edition 2024
+            }
+            for control in ${unifyNames}; do
+              generate ${jsonExports pkgs}/"$control.json" > first.rs
+              generate ${jsonExports pkgs}/"$control.json" > second.rs
+              cmp first.rs second.rs
+              cmp first.rs ${../../bootstrap/generated}/"$(basename "$control").rs"
+              cp first.rs "$out/$(basename "$control").rs"
+            done
+            for pair in 'unify-lowering-permissive tests/valid/unify-equality-probe unify-permissive-bool' \
+              'integer-kernel-alternate difference-control difference-as-product' \
+              'division-kernel-alternate divide-control divide-as-quotient'; do
+              read -r policy control golden <<< "$pair"
+              generate ${jsonExports pkgs}/"$control.json" \
+                ${jsonExports pkgs}/tests/valid/"$policy.json" > first.rs
+              generate ${jsonExports pkgs}/"$control.json" \
+                ${jsonExports pkgs}/tests/valid/"$policy.json" > second.rs
+              cmp first.rs second.rs
+              cmp first.rs ${../../bootstrap/generated}/"$golden.rs"
+              cp first.rs "$out/$golden.rs"
+            done
+            # Independently predicted whole-source effects, verification inputs ONLY.
+            for index in 0 1 2 3 4 5; do
+              generate "$policyVerification/tiny.json" "$policyVerification/owner-$index.json" > first.rs
+              generate "$policyVerification/tiny.json" "$policyVerification/owner-$index.json" > second.rs
+              cmp first.rs second.rs
+              cmp first.rs "$policyVerification/$index-expected.rs"
+              cp first.rs "$out/owner-$index.rs"
+            done
+            cp ${closure}/store-paths "$out/native-build-paths"
+            cp ${closure}/registration "$out/native-build-registration"
+            printf '%s\n' ${unifier.drvPath} > "$out/native-build-roots"
+            cp ${featureClosure}/store-paths "$out/feature-build-paths"
+            cp ${featureClosure}/registration "$out/feature-build-registration"
+            printf '%s\n' ${tests.drvPath} > "$out/feature-build-roots"
+          '';
       legacyCodegenSeed =
         pkgs:
         (rustPackage pkgs).overrideAttrs (old: {
@@ -883,8 +1049,6 @@
             "bootstrap-codegen"
             "--bin"
             "bootstrap-pratt-codegen"
-            "--bin"
-            "bootstrap-unify-codegen"
           ];
           postPatch = clearArtifacts;
           # The tests require generated modules. Break that bootstrap cycle here;
@@ -899,6 +1063,7 @@
           paths = [
             (nativeCodegenCore pkgs)
             (nativeScanCodegen pkgs)
+            (nativeUnifyCodegen pkgs)
             (legacyCodegenSeed pkgs)
           ];
           postBuild = ''
@@ -911,7 +1076,8 @@
               test "$(readlink -f "$out/bin/$name")" = "$(readlink -f ${nativeCodegenCore pkgs}/bin/"$name")"
             done
             test "$(readlink -f "$out/bin/bootstrap-scan-codegen")" = "$(readlink -f ${nativeScanCodegen pkgs}/bin/bootstrap-scan-codegen)"
-            for name in bootstrap-codegen bootstrap-pratt-codegen bootstrap-unify-codegen; do
+            test "$(readlink -f "$out/bin/bootstrap-unify-codegen")" = "$(readlink -f ${nativeUnifyCodegen pkgs}/bin/bootstrap-unify-codegen)"
+            for name in bootstrap-codegen bootstrap-pratt-codegen; do
               test "$(readlink -f "$out/bin/$name")" = "$(readlink -f ${legacyCodegenSeed pkgs}/bin/"$name")"
             done
           '';
@@ -1611,6 +1777,7 @@
           }
           RUST
             cmp "$index.rs" "$index-expected.rs"
+            cp variant.json "$out/owner-$index.json"
             owners[$index]="$source"
           done
           for invalid in opcode shape unbound; do
@@ -1634,6 +1801,7 @@
             owners[1]="$source"
           done
           cp raw.json "$out/unify-lowering.json"
+          cp tiny.json "$out/tiny.json"
           cp *-missing.err *-schema.err *-typed.err [0-5].rs *-expected.rs "$out/"
           cp ${nativeUnifyLoweringPolicyBuildClosure pkgs}/store-paths "$out/native-build-paths"
           cp ${nativeUnifyLoweringPolicyBuildClosure pkgs}/registration "$out/native-build-registration"
@@ -3070,6 +3238,7 @@
           native-pratt-lowering-policy = nativePrattLoweringPolicy pkgs;
           native-codegen-core = nativeCodegenCore pkgs;
           native-scan-codegen = nativeScanCodegen pkgs;
+          native-unify-codegen = nativeUnifyCodegen pkgs;
           default-observer = defaultObserver pkgs;
           default-trace = defaultTrace pkgs;
         }
@@ -3139,6 +3308,7 @@
           native-pratt-lowering-policy = nativePrattLoweringPolicyVerification pkgs;
           native-codegen-core = nativeCoreVerification pkgs;
           native-scan-codegen = nativeScannerVerification pkgs;
+          native-unify-codegen = nativeUnifierVerification pkgs;
           bootstrap-codegen =
             pkgs.runCommand "cuestacean-bootstrap-codegen"
               {

@@ -172,6 +172,12 @@ the existing typed decoder/validation/projection/lowering core from runtime exec
 retaining public APIs and algorithms. Same-source verification compiles the core
 without runtime/root Error stubs. This preparatory source split does NOT add a fourth
 constructor; five native policy DATA inputs/three isolated compilers remain the count.
+The [#242 native unification compiler](native-unify-codegen.md) uses that unchanged
+core in a seven-source façade with only native unify/meta policies. Production joins
+core TWO + scanner ONE + unifier ONE + legacy TWO: FOUR existing compiler binaries
+now construct independently; FIVE complete native policy DATA inputs remain. Fresh
+unifier compiled-feature generation is independently native; scanner source-feature
+PROGRAM inputs remain Go-backed verification only. No runtime/API/admission change.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
@@ -504,8 +510,8 @@ workspace's stale exports for changed specifications.
   development. It is a review/drift baseline, not a required seed input.
 - Nix deletes staged JSON/Rust, builds six native compiler/VM seeds without
   default features, regenerates everything, then compiles/tests the final package.
-  Three compiler binaries embed only native policy JSON through the eight-source
-  AST/meta and seven-source scanner façades; the other three embed the full
+  Four compiler binaries embed only native policy JSON through the eight-source
+  AST/meta and seven-source scanner/unifier façades; the other two embed the full
   Go-dependent bundle. Scanner source-feature verification still needs Go-exported
   PROGRAM JSON, never a constructor input. Exports must not depend on seeds or
   committed artifacts. No opcode-emission fallback.
