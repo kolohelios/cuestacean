@@ -131,3 +131,41 @@ duplicates and numeric errors. Evidence line estimate is not a cap. Strict sourc
 projection, actual current native-unifier rebuilds, all package/artifact/graph/full
 validation and immutable cross/final release reviews remain mandatory. No fifth
 constructor or Go-free boundary-test proof follows; pause for widened scope.
+
+## Completed local evidence
+
+Kernel53a69ce5 and tests7a33803a stayed immutable; fix165a5223 is a new child,
+integrated ONLY by owned paths. Four original-source projections BYTE-MATCH after
+pinned rustfmt and documented transforms: ALL1177 Pratt rows once except shared
+module docs twice; ALL649 unifier rows once, exact Kind27–41 moved once. Only one
+same-inferred-type Program annotation joins import/module/re-export/visibility/
+helper-path/blank changes; algorithms/Rust DATA/retained runtime/assertions unchanged.
+Nix changes ONLY the exact Kind source entry and source-count assertions8/9.
+
+Initial no-source strict Clippy exposed an unused Program alias. Both focused
+reviews approved that single genuine typed consumer, preserving unconditional
+crate-private paths without cfg/lint suppression/wrapper. Initial failed/canceled
+runs are NOT passing evidence. All four new groups now pass EACH of four profiles
+with strict focused Clippy; complete five-target metadata/all11Kind tags ×two
+condition families/original-wire errors/default-reference Rust/custom facts pass.
+
+Full executor/default all-target strict Clippy debug/release/exporter109 four/
+research135 four/old+new boundary4groups EACH four pass. ALL21 checks/18 packages
+actually build AND rebuild; all THREE genuine façade matrices/fresh modules plus
+separate explicit drv^* feature rebuilds pass. Pinned preflight13/13 (7 skips;22
+checks discovered incl default alias),1377-file whitespace/610 relative links pass.
+All249 JSON/12builders/old DATA/generated Rust unchanged; ALL17 OTHER prior public
+PACKAGE drv IDs INCLUDING exports unchanged. Actual native unifier changes only
+for source8/test9; exact original Kind/source bytes, unchanged two native policies/
+lock/Cargo/CLI and six compiler origins core2/scanner1/unifier1/legacy2 verified.
+
+Constructor caxqjc3w uses source8 j2qzbp7r; feature j274jjv7 uses source9 fa61cpbd.
+Fifteen fresh recursive/full inventories MATCH retained; native unifier1423drvs/
+3434full paths, joined1456/3521. Current Go CLI/source/source drv/full bundle/exec/
+legacyjoined/BOTHoracle outputs-drvs/provider env exclusions pass; unifier also
+excludes sibling compilers. Core/unifier feature generation independently native,
+unifier feature retained inventory MATCHES; scanner source-feature positively
+Go-backed VERIFICATION ONLY. Five native policy DATA/four binaries remain, no new
+constructor or native schema/default admission. Full-library boundary tests remain
+Go-backed verification. Only Linuxx86_64 validated; final exact-tree/CI/merge gates
+above remain mandatory.
