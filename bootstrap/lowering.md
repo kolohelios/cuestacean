@@ -4,8 +4,13 @@
 lowering for the evaluation instructions, including scalar equality/inequality.
 The [native unary module](../docs/native-instruction-unary-tables.md) retains the
 original Unary map/two CUE comprehensions, including `runtime::\(method)` string
-substitution. It supplies ten aliases/one case to the still-Go-built full policy;
-binary/module/default constraints and actual schema checks remain separate.
+substitution. It supplies ten aliases/one case to the still-Go-built full policy.
+The [native Binary tables](../docs/native-instruction-binary-tables.md) likewise
+supply eleven aliases and the select expression, without changing the operand/
+concat shell or reused-R preference. Its isolated Go helper must export completely
+BEFORE full policy composition; otherwise the policy schema can fill missing
+select.op. Both native constructors remain schema/Go-free; full policy/default
+constraints and actual schema checks stay separate.
 The [native module-text input](../docs/native-instruction-module-text.md) separately
 constructs the original header/footer literals. The Go consumer imports that JSON
 under the required closed helper and retains header + newline. The separate

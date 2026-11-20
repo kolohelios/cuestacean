@@ -361,6 +361,18 @@
             export LC_ALL=C TZ=UTC
             # Import concrete native DATA into the existing Go-backed consumer,
             # never into the independent native constructor.
+            cue import -p bootstrap -l '#InstructionBinaryTables:' \
+              -o "$PWD/instruction-binary-tables.cue" \
+              ${nativeInstructionBinaryTables pkgs}/instruction-binary-tables.json
+            export_policy() {
+              case "$fixture" in
+                lowering|tests/valid/lowering-left-twice|tests/valid/lowering-reverse)
+                  # Do not load a policy selector/context: its schema can backfill op.
+                  cue export ${cueSources}/schema.cue ${cueSources}/lowering-fragments.cue \
+                    "$PWD/instruction-binary-tables.cue" -e '#InstructionBinaryTables' > /dev/null || return ;;
+              esac
+              cue export "$@"
+            }
             cue import -p bootstrap -l '#InstructionModuleText:' \
               -o "$PWD/instruction-module-text.cue" \
               ${nativeInstructionModuleText pkgs}/instruction-module-text.json
@@ -444,7 +456,7 @@
               case "$fixture" in
                 lowering|tests/valid/lowering-left-twice|tests/valid/lowering-reverse)
                   inputs+=("${nativeInstructionUnaryTables pkgs}/instruction-unary-tables.json"
-                    "$PWD/instruction-module-text.cue") ;;
+                    "$PWD/instruction-module-text.cue" "$PWD/instruction-binary-tables.cue") ;;
               esac
               case "$fixture" in
                 lowering)
@@ -471,8 +483,8 @@
                 tests/valid/meta-lowering-*|tests/valid/meta-driver-previous)
                   inputs+=("${cueSources}/meta-lowering-body.cue" "${cueSources}/meta-text-alias.cue" "${cueSources}/meta-next-rule-alias.cue") ;;
               esac
-              cue export "''${inputs[@]}" --out json | jq -S . > first.json
-              cue export "''${inputs[@]}" --out json | jq -S . > second.json
+              export_policy "''${inputs[@]}" --out json | jq -S . > first.json
+              export_policy "''${inputs[@]}" --out json | jq -S . > second.json
               cmp first.json second.json
               mkdir -p "$(dirname "$out/$fixture.json")"
               cp first.json "$out/$fixture.json"
@@ -1444,6 +1456,7 @@
               [
                 ../../bootstrap/spec-export/tests
                 ../../bootstrap/instruction-unary-tables.cue
+                ../../bootstrap/instruction-binary-tables.cue
                 ../../bootstrap/instruction-module-text.cue
                 ../../bootstrap/instruction-module-text-export.cue
                 ../../bootstrap/instruction-module-first.cue
@@ -2229,6 +2242,265 @@
           cp ${nativePrattLoweringPolicyBuildClosure pkgs}/registration "$out/native-build-registration"
           printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativePrattLoweringPolicy pkgs).drvPath} > "$out/native-build-roots"
         '';
+      instructionBinarySources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/native-policy-package.cue
+            ../../bootstrap/instruction-binary-tables.cue
+          ];
+        };
+      nativeInstructionBinaryTables =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-instruction-binary-tables" { } ''
+          set -euo pipefail
+          mkdir -p "$PWD/home"
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          test -f "$exporter" && test -r "$exporter" && test -x "$exporter"
+          case "$exporter" in /*) ;; *) exit 1 ;; esac
+          package=${instructionBinarySources pkgs}/native-policy-package.cue
+          tables=${instructionBinarySources pkgs}/instruction-binary-tables.cue
+          for run in first second reversed; do
+            inputs=("$package" "$tables")
+            if test "$run" = reversed; then inputs=("$tables" "$package"); fi
+            env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "''${inputs[@]}" > "$run.json"
+            test "$(wc -c < "$run.json")" -le 65536
+            cmp first.json "$run.json"
+          done
+          mkdir -p "$out"
+          cp first.json "$out/instruction-binary-tables.json"
+        '';
+      nativeInstructionBinaryTablesBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativeInstructionBinaryTables pkgs).drvPath
+          ];
+        };
+      nativeInstructionBinaryTablesVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-instruction-binary-tables-verification" { } ''
+          set -euo pipefail
+          for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} ${pkgs.cue.src.drvPath} \
+            ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+            ${executor pkgs} ${(executor pkgs).drvPath} \
+            ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+            ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+            ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+            if grep -Fx "$forbidden" ${nativeInstructionBinaryTablesBuildClosure pkgs}/store-paths; then
+              echo "forbidden binary table construction dependency: $forbidden" >&2; exit 1
+            fi
+          done
+          test "$(find ${instructionBinarySources pkgs} -type f | wc -l)" -eq 2
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 9
+          mkdir -p "$out" "$PWD/probe/home"
+          cd probe
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          oracle=${pkgs.cue}/bin/cue
+          codegen=${executor pkgs}/bin/bootstrap-codegen
+          driver=${nativeCodegenCore pkgs}/bin/bootstrap-lower-codegen
+          jq=${pkgs.jq}/bin/jq
+          rustfmt=${pkgs.rustfmt}/bin/rustfmt
+          for binary in "$exporter" "$oracle" "$codegen" "$driver" "$jq" "$rustfmt"; do
+            test -f "$binary" && test -r "$binary" && test -x "$binary"
+            case "$binary" in /*) ;; *) exit 1 ;; esac
+          done
+          cue() { env -i HOME="$PWD/home" PATH=/nonexistent "$oracle" "$@"; }
+          json() { env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -S .; }
+          query() { env -i HOME="$PWD/home" PATH=/nonexistent "$jq" "$@"; }
+          format() { env -i HOME="$PWD/home" PATH=/nonexistent "$rustfmt" --edition 2024; }
+          generate() { env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" "$@" | format; }
+          native() { env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" native-policy-package.cue "$1"; }
+          cp ${instructionBinarySources pkgs}/*.cue .
+          schema=${../../bootstrap/schema.cue}
+          bridge=${../../bootstrap/lowering-fragments.cue}
+          unary=${../../bootstrap/instruction-unary-tables.cue}
+          text=${../../bootstrap/instruction-module-text.cue}
+          first=${../../bootstrap/instruction-module-first.cue}
+          step=${../../bootstrap/instruction-module-step.cue}
+          selector=${../../bootstrap/lowering.cue}
+          place() { cue import -f -p bootstrap -l '#InstructionBinaryTables:' -o "$2" "$1"; }
+          gate() { cue export "$schema" "$bridge" "$1" -e '#InstructionBinaryTables' > /dev/null; }
+          policy() {
+            provider=$1; shift
+            gate "$provider" || return
+            cue export "$schema" "$bridge" "$unary" "$text" "$first" "$step" "$provider" "$@"
+          }
+          # Every raw oracle exports the SAME original default-free table source
+          # independently, then imports and gates it; no old inline owner assists.
+          raw() {
+            cue export native-policy-package.cue "$1" > raw-tables.json || return
+            shift
+            place raw-tables.json raw-placed.cue || return
+            policy raw-placed.cue "$@"
+          }
+          native instruction-binary-tables.cue > tables.json
+          cmp tables.json ${nativeInstructionBinaryTables pkgs}/instruction-binary-tables.json
+          test "$(wc -c < tables.json)" -eq 1429
+          # Independent complete contract tree, not projected from any producer.
+          query -n '
+            [["index","index"],["difference","difference"],["product","product"],
+             ["divide","divide"],["modulo","modulo"],["quotient","quotient"],
+             ["recordIndex","record_index"],["listIndex","list_index"],
+             ["logicalAnd","logical_and"],["logicalOr","logical_or"],["equal","equal"]]
+            | {aliases:(map({key:.[0],value:"binaryRuntime"})|from_entries),
+               select:{op:"select",field:"op",cases:(map({key:.[0],
+                 value:{op:"text",value:("runtime::"+.[1])}})|from_entries)}}' | json > expected.json
+          cmp tables.json expected.json
+          place tables.json placed.cue
+          for context in lowering tests/valid/lowering-left-twice tests/valid/lowering-reverse; do
+            case "$context" in lowering) source="$selector" ;; *) source=${../../bootstrap}/"$context.cue" ;; esac
+            name=$(basename "$context")
+            policy placed.cue "$source" | json > "$name.json"
+            raw instruction-binary-tables.cue "$source" | json > "$name-raw.json"
+            cmp "$name.json" "$name-raw.json"
+            cmp "$name.json" ${jsonExports pkgs}/"$context.json"
+            gate placed.cue
+            cue export "$source" placed.cue "$step" "$first" "$text" "$unary" "$bridge" "$schema" | json > reversed.json
+            cmp "$name.json" reversed.json
+          done
+          # The reused R occurrences remain independently right; only sum refines.
+          query -e '.cases.sum.args[1].value.value.field == "left" and
+            .cases.binaryRuntime.parts[4].value.value.field == "right" and
+            ([.cases.less,.cases.lessEqual,.cases.greater,.cases.greaterEqual,
+              .cases.notEqual,.cases.remainder,.cases.unify.parts[1]] |
+             all(.args[1].value.value.field == "right"))' lowering-left-twice.json > /dev/null
+          for state in last-next first-previous; do
+            case "$state" in last-next) initial=lastRule; advance=nextRule ;; first-previous) initial=firstRule; advance=previousRule ;; esac
+            printf '%s\n' 'package bootstrap' \
+              "#InstructionLowering & {module: [_, {op: \"$initial\"}, {body: [_, _, _, _, {op: \"$advance\"}]}, _]}" > context.cue
+            policy placed.cue context.cue | json > "$state.json"
+            raw instruction-binary-tables.cue context.cue | json > "$state-raw.json"
+            cmp "$state.json" "$state-raw.json"
+          done
+          # Every scalar slot must be independently complete BEFORE policy schema.
+          query -c 'paths(scalars)' tables.json > slots
+          test "$(wc -l < slots)" -eq 35
+          no_helper() {
+            if cue export "$schema" "$bridge" "$1" -e '#InstructionBinaryTables' > failed.json 2> failed.err; then exit 1; fi
+            test ! -s failed.json && test -s failed.err
+          }
+          no_policy() {
+            if policy "$1" "$selector" > failed.json 2> failed.err; then exit 1; fi
+            test ! -s failed.json && test -s failed.err
+          }
+          printf '%s\n' 'package bootstrap' '#InstructionBinaryTables: {}' > missing.cue
+          no_helper missing.cue
+          cue eval "$schema" "$bridge" missing.cue -e '#InstructionBinaryTables' > /dev/null
+          while read -r slot; do
+            query --argjson slot "$slot" 'delpaths([$slot])' tables.json > missing.json
+            place missing.json missing.cue
+            cue eval "$schema" "$bridge" missing.cue -e '#InstructionBinaryTables' > /dev/null
+            no_helper missing.cue
+            grep -F 'incomplete value' failed.err
+            no_policy missing.cue
+            query --argjson slot "$slot" 'setpath($slot;42)' tables.json > invalid.json
+            place invalid.json invalid.cue
+            no_helper invalid.cue
+            no_policy invalid.cue
+          done < slots
+          for extra in '.extra=true' '.aliases.extra="x"' '.select.extra="x"' \
+            '.select.cases.extra={op:"text",value:"x"}' '.select.cases.index.extra="x"'; do
+            query "$extra" tables.json > invalid.json
+            place invalid.json invalid.cue
+            no_helper invalid.cue
+            no_policy invalid.cue
+          done
+          query 'del(.select.op)' tables.json > missing.json
+          place missing.json missing.cue
+          no_helper missing.cue
+          # Deliberate counterfactual: bypassing isolation supplies the missing op.
+          cue export "$schema" "$bridge" "$unary" "$text" "$first" "$step" missing.cue "$selector" > bypass.json
+          query -e '.cases.binaryRuntime.parts[0].op=="select"' bypass.json > /dev/null
+          no_policy missing.cue
+          printf '%s\n' '{"formatVersion":1,"rules":{"a":{"result":{"op":"index","left":{"op":"field","field":"left"},"right":{"op":"field","field":"right"}}},"b":{"result":{"op":"difference","left":{"op":"field","field":"left"},"right":{"op":"field","field":"right"}}}}}' > tiny.json
+          for invalid in opcode child empty-field alias selector-limit; do
+            case "$invalid" in
+              opcode) mutation='.select.op="unknownBinaryOp"' ;;
+              child) mutation='.select.cases.index.op="get"' ;;
+              empty-field) mutation='.select.field=""' ;;
+              alias) mutation='.aliases.index="noSuchCase"' ;;
+              selector-limit) mutation='.select.field=("x"*129)' ;;
+            esac
+            query "$mutation" tables.json > invalid.json
+            place invalid.json invalid.cue
+            gate invalid.cue
+            case "$invalid" in
+              opcode|child|empty-field) no_policy invalid.cue ;;
+              alias|selector-limit)
+                policy invalid.cue "$selector" > invalid-policy.json
+                status=0
+                env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" tiny.json invalid-policy.json > invalid.rs 2> invalid.err || status=$?
+                test "$status" -eq 2 && test ! -s invalid.rs && test -s invalid.err
+                case "$invalid" in
+                  alias) grep -F 'alias must not collide and must target a canonical case' invalid.err ;;
+                  selector-limit) grep -F 'selector must contain 1..=128 bytes' invalid.err ;;
+                esac ;;
+            esac
+          done
+          # Source-only mutations reach the COMPLETE independently predicted Rust.
+          for variant in key method affix; do
+            firstMethod=index; secondMethod=difference
+            case "$variant" in
+              key) substitute instruction-binary-tables.cue variant.cue --replace-fail 'index:' 'temporaryKey:' --replace-fail 'difference:' 'index:' --replace-fail 'temporaryKey:' 'difference:'; firstMethod=difference; secondMethod=index ;;
+              method) substitute instruction-binary-tables.cue variant.cue --replace-fail '"index"' '"index_changed"'; firstMethod=index_changed ;;
+              affix) substitute instruction-binary-tables.cue variant.cue --replace-fail 'runtime::\(method)' 'runtime::changed_\(method)_suffix'; firstMethod=changed_index_suffix; secondMethod=changed_difference_suffix ;;
+            esac
+            native variant.cue > variant.json
+            if cmp -s variant.json tables.json; then exit 1; fi
+            place variant.json variant-placed.cue
+            policy variant-placed.cue "$selector" | json > variant-policy.json
+            raw variant.cue "$selector" | json > variant-raw.json
+            cmp variant-policy.json variant-raw.json
+            generate tiny.json variant-policy.json > "$variant.rs"
+            format > "$variant-expected.rs" <<RUST
+          // Generated by bootstrap-codegen. Do not edit by hand.
+          use bootstrap_executor::{Error, runtime};
+          use serde_json::Value;
+
+          pub fn execute(input: &str) -> Result<i64, Error> {
+              let mut _context = runtime::EvaluationContext::default();
+              runtime::concrete(evaluate(&runtime::program(input)?, &mut _context)?)
+          }
+
+          pub fn execute_json(input: &str) -> Result<Value, Error> {
+              let mut _context = runtime::EvaluationContext::default();
+              runtime::concrete_json(evaluate(&runtime::program(input)?, &mut _context)?)
+          }
+
+          fn evaluate(node: &Value, _context: &mut runtime::EvaluationContext) -> Result<runtime::Value, Error> {
+              _context.visit(|_context| evaluate_node(node, _context))
+          }
+
+          fn evaluate_node(node: &Value, _context: &mut runtime::EvaluationContext) -> Result<runtime::Value, Error> {
+              match runtime::kind(node)? {
+                  "a" => runtime::$firstMethod((runtime::integer(node, "left"))?, (runtime::integer(node, "right"))?),
+                  "b" => runtime::$secondMethod((runtime::integer(node, "left"))?, (runtime::integer(node, "right"))?),
+                  kind => Err(Error::MissingRule { kind: kind.to_string() }),
+              }
+          }
+          RUST
+            cmp "$variant.rs" "$variant-expected.rs"
+          done
+          for control in lowering lowering-left-twice lowering-reverse; do
+            generate ${jsonExports pkgs}/evaluation.json "$control.json" > "$control.rs"
+            case "$control" in lowering) golden=evaluation ;; *) golden=evaluation-''${control#lowering-} ;; esac
+            cmp "$control.rs" ${../../bootstrap/generated}/"$golden.rs"
+          done
+          generate ${../../bootstrap/executor/tests/fixtures/codegen-escaped-rules.json} lowering.json > escaped.rs
+          cmp escaped.rs ${../../bootstrap/generated/codegen-escaped-rules.rs}
+          for policyName in ${loweringNames}; do
+            name=$(basename "$policyName")
+            env -i HOME="$PWD/home" PATH=/nonexistent "$driver" ${jsonExports pkgs}/"$policyName.json" | format > "$name.rs"
+            cmp "$name.rs" ${../../bootstrap/generated}/"$name.rs"
+          done
+          cp tables.json expected.json lowering*.json *-expected.rs key.rs method.rs affix.rs "$out/"
+          cp ${nativeInstructionBinaryTablesBuildClosure pkgs}/store-paths "$out/native-build-paths"
+          cp ${nativeInstructionBinaryTablesBuildClosure pkgs}/registration "$out/native-build-registration"
+        '';
       instructionUnarySources =
         pkgs:
         pkgs.lib.fileset.toSource {
@@ -2306,8 +2578,13 @@
           moduleText=${../../bootstrap/instruction-module-text.cue}
           firstOwner=${../../bootstrap/instruction-module-first.cue}
           stepOwner=${../../bootstrap/instruction-module-step.cue}
-          raw() { cue export "$schema" "$bridge" "$moduleText" "$firstOwner" "$stepOwner" instruction-unary-tables.cue "$@"; }
-          complete() { cue export "$schema" "$bridge" "$moduleText" "$firstOwner" "$stepOwner" "$@"; }
+          # Independent Go-only table provider, never an input to native construction.
+          cue export ${../../bootstrap/native-policy-package.cue} ${../../bootstrap/instruction-binary-tables.cue} > binary.json
+          cue import -p bootstrap -l '#InstructionBinaryTables:' -o binary-placed.cue binary.json
+          binary_gate() { cue export "$schema" "$bridge" binary-placed.cue -e '#InstructionBinaryTables' > /dev/null; }
+          binary_export() { binary_gate || return; cue export "$@" binary-placed.cue; }
+          raw() { binary_export "$schema" "$bridge" "$moduleText" "$firstOwner" "$stepOwner" instruction-unary-tables.cue "$@"; }
+          complete() { binary_export "$schema" "$bridge" "$moduleText" "$firstOwner" "$stepOwner" "$@"; }
           native instruction-unary-tables.cue > tables.json
           cmp tables.json ${nativeInstructionUnaryTables pkgs}/instruction-unary-tables.json
           test "$(wc -c < tables.json)" -eq 2107
@@ -2317,7 +2594,7 @@
           complete tables.json "$selector" | json > complete.json
           cmp raw.json complete.json
           cmp complete.json ${jsonExports pkgs}/lowering.json
-          cue export "$selector" tables.json "$stepOwner" "$firstOwner" "$moduleText" "$bridge" "$schema" | json > reversed.json
+          binary_export "$selector" tables.json "$stepOwner" "$firstOwner" "$moduleText" "$bridge" "$schema" | json > reversed.json
           cmp complete.json reversed.json
           for control in left-twice reverse; do
             context=${../../bootstrap/tests/valid}/lowering-"$control.cue"
@@ -2344,7 +2621,8 @@
             if complete "$@" > failed.json 2> failed.err; then exit 1; fi
             test ! -s failed.json && test -s failed.err
             grep -F 'incomplete value' failed.err
-            cue eval "$schema" "$bridge" "$moduleText" "$firstOwner" "$stepOwner" "$@" > /dev/null
+            binary_gate
+            cue eval "$schema" "$bridge" "$moduleText" "$firstOwner" "$stepOwner" binary-placed.cue "$@" > /dev/null
           }
           no_export "$selector"
           env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -c \
@@ -2507,8 +2785,12 @@
           selector=${../../bootstrap/lowering.cue}
           native() { env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$1" "$textSelector"; }
           place() { cue import -f -p bootstrap -l '#InstructionModuleText:' -o placed.cue "$1"; }
-          raw() { cue export "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" "$helper" "$@"; }
-          complete() { cue export "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" placed.cue "$@"; }
+          cue export ${../../bootstrap/native-policy-package.cue} ${../../bootstrap/instruction-binary-tables.cue} > binary.json
+          cue import -p bootstrap -l '#InstructionBinaryTables:' -o binary-placed.cue binary.json
+          binary_gate() { cue export "$schema" "$bridge" binary-placed.cue -e '#InstructionBinaryTables' > /dev/null; }
+          binary_export() { binary_gate || return; cue export "$@" binary-placed.cue; }
+          raw() { binary_export "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" "$helper" "$@"; }
+          complete() { binary_export "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" placed.cue "$@"; }
           native "$helper" > text.json
           cmp text.json ${nativeInstructionModuleText pkgs}/instruction-module-text.json
           cue export "$helper" "$textSelector" | json > oracle.json
@@ -2522,7 +2804,7 @@
             name=$(basename "$context")
             raw "$source" | json > "$name-raw.json"
             complete "$source" | json > "$name.json"
-            cue export "$source" placed.cue "$stepOwner" "$firstOwner" "$unary" "$bridge" "$schema" | json > "$name-reversed.json"
+            binary_export "$source" placed.cue "$stepOwner" "$firstOwner" "$unary" "$bridge" "$schema" | json > "$name-reversed.json"
             cmp "$name-raw.json" "$name.json"
             cmp "$name-reversed.json" "$name.json"
             cmp "$name.json" ${jsonExports pkgs}/"$context.json"
@@ -2536,8 +2818,9 @@
           # Missing slots are readiness failures, not schema conflicts. A header
           # operand of + reports non-concreteness rather than 'incomplete value'.
           not_ready() {
-            cue eval "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" "$@" > /dev/null
-            if cue export "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" "$@" > failed.json 2> failed.err; then exit 1; fi
+            binary_gate
+            cue eval "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" binary-placed.cue "$@" > /dev/null
+            if binary_export "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" "$@" > failed.json 2> failed.err; then exit 1; fi
             test ! -s failed.json && test -s failed.err
             grep -E 'non-concrete value string in operand to \+|incomplete value string' failed.err
           }
@@ -2552,7 +2835,8 @@
           for invalid in '.header=1' '.footer=false' '.extra="unexpected"'; do
             env -i HOME="$PWD/home" PATH=/nonexistent "$jq" "$invalid" text.json > invalid.json
             place invalid.json
-            if cue eval "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" placed.cue "$selector" > failed.eval 2> failed.err; then exit 1; fi
+            binary_gate
+            if cue eval "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" binary-placed.cue placed.cue "$selector" > failed.eval 2> failed.err; then exit 1; fi
             if complete "$selector" > failed.json 2> failed.err; then exit 1; fi
             test ! -s failed.json && test -s failed.err
             grep -E 'conflicting values|field not allowed' failed.err
@@ -2579,7 +2863,7 @@
             if cmp -s variant.json text.json; then exit 1; fi
             place variant.json
             complete "$selector" | json > variant-policy.json
-            cue export "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" variant.cue "$selector" | json > variant-raw.json
+            binary_export "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" variant.cue "$selector" | json > variant-raw.json
             cmp variant-policy.json variant-raw.json
             generate tiny.json variant-policy.json > "$variant.rs"
             format > "$variant-expected.rs" <<RUST
@@ -2697,7 +2981,11 @@
           selector=${../../bootstrap/lowering.cue}
           first=instruction-module-first.cue
           step=instruction-module-step.cue
-          base() { cue export "$schema" "$bridge" "$text" "$unary" "$@"; }
+          cue export ${../../bootstrap/native-policy-package.cue} ${../../bootstrap/instruction-binary-tables.cue} > binary.json
+          cue import -p bootstrap -l '#InstructionBinaryTables:' -o binary-placed.cue binary.json
+          binary_gate() { cue export "$schema" "$bridge" binary-placed.cue -e '#InstructionBinaryTables' > /dev/null; }
+          binary_export() { binary_gate || return; cue export "$@" binary-placed.cue; }
+          base() { binary_export "$schema" "$bridge" "$text" "$unary" "$@"; }
           raw() { base "$first" "$step" "$@"; }
           selected() { base first-placed.cue step-placed.cue "$@"; }
           for kind in first step; do
@@ -2717,12 +3005,12 @@
           raw "$selector" | json > raw.json
           cmp canonical.json raw.json
           cmp canonical.json ${jsonExports pkgs}/lowering.json
-          cue export "$selector" step-placed.cue first-placed.cue "$unary" "$text" "$bridge" "$schema" | json > reversed.json
+          binary_export "$selector" step-placed.cue first-placed.cue "$unary" "$text" "$bridge" "$schema" | json > reversed.json
           cmp canonical.json reversed.json
           for control in left-twice reverse; do
             context=${../../bootstrap/tests/valid}/lowering-"$control.cue"
             raw "$context" | json > "$control.json"
-            cue export "$context" "$step" "$first" "$unary" "$text" "$bridge" "$schema" | json > reversed.json
+            binary_export "$context" "$step" "$first" "$unary" "$text" "$bridge" "$schema" | json > reversed.json
             cmp "$control.json" reversed.json
             cmp "$control.json" ${jsonExports pkgs}/tests/valid/lowering-"$control.json"
             generate ${jsonExports pkgs}/evaluation.json "$control.json" > "evaluation-$control.rs"
@@ -2745,7 +3033,8 @@
                 printf '%s\n' 'package bootstrap' '#InstructionModuleStep: {}' > shape.cue
                 providers=(first-placed.cue shape.cue) ;;
             esac
-            cue eval "$schema" "$bridge" "$text" "$unary" "''${providers[@]}" "$selector" > /dev/null
+            binary_gate
+            cue eval "$schema" "$bridge" "$text" "$unary" binary-placed.cue "''${providers[@]}" "$selector" > /dev/null
             if base "''${providers[@]}" "$selector" > failed.json 2> failed.err; then exit 1; fi
             test ! -s failed.json && test -s failed.err
             grep -F 'incomplete value' failed.err
@@ -2772,7 +3061,7 @@
             printf '%s\n' 'package bootstrap' \
               "#InstructionLowering & {module: [_, {op: \"$initial\"}, {body: [_, _, _, _, {op: \"$advance\"}]}, _]}" > context.cue
             raw context.cue | json > "$state.json"
-            cue export context.cue "$step" "$first" "$unary" "$text" "$bridge" "$schema" | json > reversed.json
+            binary_export context.cue "$step" "$first" "$unary" "$text" "$bridge" "$schema" | json > reversed.json
             cmp "$state.json" reversed.json
             generate tiny.json "$state.json" > "$state.rs"
             case "$state" in
@@ -3862,6 +4151,7 @@
           native-meta-lowering-policy = nativeMetaLoweringPolicy pkgs;
           native-unify-lowering-policy = nativeUnifyLoweringPolicy pkgs;
           native-scan-lowering-policy = nativeScanLoweringPolicy pkgs;
+          native-instruction-binary-tables = nativeInstructionBinaryTables pkgs;
           native-instruction-unary-tables = nativeInstructionUnaryTables pkgs;
           native-instruction-module-text = nativeInstructionModuleText pkgs;
           native-instruction-module-controls = nativeInstructionModuleControls pkgs;
@@ -3935,6 +4225,7 @@
           native-meta-lowering-policy = nativeMetaLoweringPolicyVerification pkgs;
           native-unify-lowering-policy = nativeUnifyLoweringPolicyVerification pkgs;
           native-scan-lowering-policy = nativeScanLoweringPolicyVerification pkgs;
+          native-instruction-binary-tables = nativeInstructionBinaryTablesVerification pkgs;
           native-instruction-unary-tables = nativeInstructionUnaryTablesVerification pkgs;
           native-instruction-module-text = nativeInstructionModuleTextVerification pkgs;
           native-instruction-module-controls = nativeInstructionModuleControlsVerification pkgs;

@@ -202,6 +202,12 @@ scalar-definition class. Canonical Go consumption imports selected native helper
 raw reverse/left-twice/mixed contexts load BOTH unresolved owners first. Definition
 reuse/aliases/structural defaults/other contexts remain excluded. Counts stay FIVE
 complete policy DATA/FIVE compiler binaries; Binary/reused-R/full policy stay Go-built.
+The [#252 native Binary tables](native-instruction-binary-tables.md) separately
+construct the original eleven aliases and select expression with existing native
+comprehensions. A Go-only isolated completeness stage precedes full policy/schema
+composition: that schema can otherwise backfill a missing selector opcode. Reused-R,
+operand/concat shell and full instruction policy still need Go; no new native
+admission or sixth complete policy/compiler follows.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

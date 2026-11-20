@@ -10,6 +10,7 @@ use std::{
 
 const PACKAGE: &str = include_str!("../../native-policy-package.cue");
 const TABLES: &str = include_str!("../../instruction-unary-tables.cue");
+const BINARY: &str = include_str!("../../instruction-binary-tables.cue");
 const TEXT: &str = include_str!("../../instruction-module-text.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
@@ -56,6 +57,10 @@ fn decoded(out: Output) -> Value {
 }
 fn executable(path: &Path) {
     assert!(path.is_absolute());
+    assert!(
+        fs::metadata(path).expect("metadata").is_file(),
+        "regular tool"
+    );
     fs::File::open(path).expect("readable tool");
     assert_ne!(
         fs::metadata(path).expect("metadata").permissions().mode() & 0o111,
@@ -122,6 +127,56 @@ impl Probe {
             reverse,
         )
     }
+    fn binary_provider(&self, reverse: bool) -> String {
+        let raw = self.run(
+            &self.cue,
+            &["export"],
+            &[("binary-package.cue", PACKAGE), ("binary-raw.cue", BINARY)],
+            reverse,
+        );
+        assert!(
+            raw.status.success(),
+            "binary raw oracle setup: {}",
+            String::from_utf8_lossy(&raw.stderr)
+        );
+        let data = String::from_utf8(raw.stdout).expect("binary Go JSON");
+        let imported = self.run(
+            &self.cue,
+            &[
+                "import",
+                "-p",
+                "bootstrap",
+                "-l",
+                "#InstructionBinaryTables:",
+                "--outfile",
+                "-",
+            ],
+            &[("binary.json", &data)],
+            false,
+        );
+        assert!(
+            imported.status.success(),
+            "binary import setup: {}",
+            String::from_utf8_lossy(&imported.stderr)
+        );
+        let placed = String::from_utf8(imported.stdout).expect("binary Go helper");
+        let gate = self.run(
+            &self.cue,
+            &["export", "-e", "#InstructionBinaryTables"],
+            &[
+                ("schema.cue", SCHEMA),
+                ("bridge.cue", BRIDGE),
+                ("binary-placed.cue", &placed),
+            ],
+            reverse,
+        );
+        assert!(
+            gate.status.success(),
+            "isolated binary helper setup: {}",
+            String::from_utf8_lossy(&gate.stderr)
+        );
+        placed
+    }
     fn policy(
         &self,
         provider: Option<(&str, &str)>,
@@ -129,6 +184,7 @@ impl Probe {
         reverse: bool,
         op: &str,
     ) -> Output {
+        let binary = self.binary_provider(reverse);
         // Replacement bridge ONLY: old Unary owner cannot conceal missing slots.
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
@@ -137,6 +193,7 @@ impl Probe {
             ("module-text.cue", TEXT),
             ("first.cue", FIRST),
             ("step.cue", STEP),
+            ("binary-placed.cue", &binary),
         ];
         if let Some(provider) = provider {
             inputs.push(provider);
