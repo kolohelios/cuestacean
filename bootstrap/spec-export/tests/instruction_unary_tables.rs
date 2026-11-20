@@ -16,6 +16,8 @@ const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
 const SELECTOR: &str = include_str!("../../lowering.cue");
 const TWICE: &str = include_str!("../../tests/valid/lowering-left-twice.cue");
 const REVERSE: &str = include_str!("../../tests/valid/lowering-reverse.cue");
+const FIRST: &str = include_str!("../../instruction-module-first.cue");
+const STEP: &str = include_str!("../../instruction-module-step.cue");
 // Independent instruction-policy contract, never parsed from the owner/export.
 const UNARY: [(&str, &str); 10] = [
     ("lowerExclusiveBound", "lower_exclusive_bound"),
@@ -133,6 +135,8 @@ impl Probe {
             ("bridge.cue", BRIDGE),
             ("selector.cue", SELECTOR),
             ("module-text.cue", TEXT),
+            ("first.cue", FIRST),
+            ("step.cue", STEP),
         ];
         if let Some(provider) = provider {
             inputs.push(provider);

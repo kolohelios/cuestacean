@@ -196,6 +196,12 @@ footer DATA independently. Standard Go-consumer import places that native JSON i
 its required closed helper; raw oracle contexts still load unresolved owners first.
 Full instruction policy/module-control defaults/Binary/reused-R remain Go-built;
 counts stay FIVE complete policy DATA inputs/FIVE compiler binaries, not closure.
+The [#250 native module controls](native-instruction-module-controls.md) separately
+construct the two original cursor preferences using an exact once-instantiated
+scalar-definition class. Canonical Go consumption imports selected native helpers;
+raw reverse/left-twice/mixed contexts load BOTH unresolved owners first. Definition
+reuse/aliases/structural defaults/other contexts remain excluded. Counts stay FIVE
+complete policy DATA/FIVE compiler binaries; Binary/reused-R/full policy stay Go-built.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

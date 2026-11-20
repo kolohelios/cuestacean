@@ -212,3 +212,8 @@ instruction DATA: FIVE complete policies/FIVE compiler binaries remain. Full pol
 Binary/reused-R/module-control defaults/schema/PROGRAM/seed closure stay Go-dependent;
 #175 OPEN. Linuxx86_64 only; exact-tree reviews/retirement/protected CI/confirmed merge
 remain mandatory.
+
+After [#250 module control extraction](native-instruction-module-controls.md), Go
+full-policy helpers also load both unresolved first/step owners for raw contexts.
+The module-text constructor itself remains its exact raw TWO files; no scalar
+preference owner or selected control DATA feeds header/footer construction.

@@ -54,6 +54,12 @@ also admits one concrete literal preference against literal/type/Top, without
 relaxing the tagged-struct witness or shared exclusions. Neither class admits
 general defaults; preference-free behavior stays unchanged. Full default/closure/
 reuse compatibility remains tracked by #175.
+The [#250 once-instantiated scalar definition](native-instruction-module-controls.md)
+adds exactly one definition/one direct root Ref/one Ref total, a single-field Struct
+path to one scalar preference, no siblings/And/lists/other declarations or uses.
+It retains the original reference/closedness/evaluation machinery and explicitly
+charged admission; all old inline costs/exclusions remain. No external context,
+general default-bearing definitions, alias/reuse/closure model or #175 completion.
 
 Explicitly reject unsupported syntax: imports, general defaults, optional/required field
 markers, hidden fields, field-value references, general comprehensions/patterns/interpolation,
