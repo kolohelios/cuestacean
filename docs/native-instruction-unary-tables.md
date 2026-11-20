@@ -172,3 +172,8 @@ native unary1407 derivations/3392 full paths, joined seed1453/3513. Core feature
 Go-free; scanner source-feature graph positively Go/source/bundle-backed verification
 ONLY. Five complete native policy DATA inputs/three isolated compiler paths remain;
 full instruction policy construction and joined seed still Go-dependent. #175 OPEN.
+
+After [#248 module text extraction](native-instruction-module-text.md), Go-only full
+policy verifier/oracle helpers additionally load the concrete raw text definition
+(or the imported native helper). The unary constructor remains its exact original
+raw TWO inputs; no header/footer dependency is added to unary DATA construction.

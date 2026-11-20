@@ -5,7 +5,12 @@ lowering for the evaluation instructions, including scalar equality/inequality.
 The [native unary module](../docs/native-instruction-unary-tables.md) retains the
 original Unary map/two CUE comprehensions, including `runtime::\(method)` string
 substitution. It supplies ten aliases/one case to the still-Go-built full policy;
-binary/module/default constraints and actual schema checks remain separate. [`lowering.cue`](lowering.cue)
+binary/module/default constraints and actual schema checks remain separate.
+The [native module-text input](../docs/native-instruction-module-text.md) separately
+constructs the original header/footer literals. The Go consumer imports that JSON
+under the required closed helper, retains header + newline and both module-control
+defaults; full instruction policy is still Go-built. This admits only LF multiline
+literal VALUES without backslash syntax, not native concat/default/module solving. [`lowering.cue`](lowering.cue)
 selects the normal program. CUE chooses runtime calls, constructor layout,
 recursive instruction-field selection, grouping and Result propagation.
 `bootstrap-codegen` no longer contains a per-instruction emission match. The

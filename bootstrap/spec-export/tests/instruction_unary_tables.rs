@@ -10,6 +10,7 @@ use std::{
 
 const PACKAGE: &str = include_str!("../../native-policy-package.cue");
 const TABLES: &str = include_str!("../../instruction-unary-tables.cue");
+const TEXT: &str = include_str!("../../instruction-module-text.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
 const SELECTOR: &str = include_str!("../../lowering.cue");
@@ -131,6 +132,7 @@ impl Probe {
             ("schema.cue", SCHEMA),
             ("bridge.cue", BRIDGE),
             ("selector.cue", SELECTOR),
+            ("module-text.cue", TEXT),
         ];
         if let Some(provider) = provider {
             inputs.push(provider);

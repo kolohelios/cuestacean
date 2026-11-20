@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 enum Token {
     Word(String),
     Text(String),
+    Multiline(String),
     Interpolation {
         prefix: String,
         name: String,
@@ -32,6 +33,80 @@ fn label(name: &str) -> Result<(), Error> {
 // Decode literal DATA only; decoded backslashes are never scanned for syntax.
 fn string_segment(source: &str) -> Result<String, Error> {
     serde_json::from_str(&format!("\"{source}\"")).map_err(|_| Error::Syntax("quoted string"))
+}
+
+// Validate the raw body and exact closing margin before allocating decoded DATA.
+// Source admission already bounds this entire scan to the combined 64 KiB input.
+fn multiline(source: &str, pos: &mut usize) -> Result<String, Error> {
+    let bytes = source.as_bytes();
+    *pos += 3;
+    if bytes.get(*pos) != Some(&b'\n') {
+        return Err(Error::Unsupported("multiline opening newline"));
+    }
+    *pos += 1;
+    let start = *pos;
+    let mut line = start;
+    let margin = loop {
+        let mut first = line;
+        while matches!(bytes.get(first), Some(b' ' | b'\t')) {
+            first += 1;
+        }
+        loop {
+            if bytes.get(*pos..*pos + 3) == Some(b"\"\"\"") {
+                if *pos != first {
+                    return Err(Error::Unsupported("multiline delimiter position"));
+                }
+                break;
+            }
+            match bytes.get(*pos) {
+                Some(b'\n') => {
+                    *pos += 1;
+                    line = *pos;
+                    break;
+                }
+                Some(b'\\') => return Err(Error::Unsupported("multiline backslash")),
+                Some(0..=8 | 11..=31 | 127) => {
+                    return Err(Error::Unsupported("multiline control character"));
+                }
+                Some(_) if bytes.get(*pos..*pos + 3) == Some(b"\xef\xbb\xbf") => {
+                    return Err(Error::Unsupported("multiline byte order mark"));
+                }
+                Some(_) => *pos += 1,
+                None => return Err(Error::Syntax("unterminated multiline string")),
+            }
+        }
+        if bytes.get(*pos..*pos + 3) == Some(b"\"\"\"") && *pos == first {
+            break &source[line..*pos];
+        }
+    };
+    let end = if line == start { start } else { line - 1 };
+    let body = &source[start..end];
+    let mut length = 0usize;
+    for (index, line) in body.split('\n').enumerate() {
+        let data = if line.is_empty() {
+            line
+        } else {
+            line.strip_prefix(margin)
+                .ok_or(Error::Unsupported("multiline indentation"))?
+        };
+        length = length
+            .checked_add(usize::from(index != 0))
+            .and_then(|n| n.checked_add(data.len()))
+            .filter(|n| *n <= source.len())
+            .ok_or(Error::Limit("source bytes"))?;
+    }
+    let mut decoded = String::with_capacity(length);
+    for (index, line) in body.split('\n').enumerate() {
+        if index != 0 {
+            decoded.push('\n');
+        }
+        if !line.is_empty() {
+            // The first pass validated every prefix and the complete byte length.
+            decoded.push_str(&line[margin.len()..]);
+        }
+    }
+    *pos += 3;
+    Ok(decoded)
 }
 
 fn lex(source: &str, count: &mut usize) -> Result<Vec<Token>, Error> {
@@ -62,10 +137,10 @@ fn lex(source: &str, count: &mut usize) -> Result<Vec<Token>, Error> {
                 pos += 1;
                 Token::Newline
             }
+            b'"' if bytes.get(pos..pos + 3) == Some(b"\"\"\"") => {
+                Token::Multiline(multiline(source, &mut pos)?)
+            }
             b'"' => {
-                if bytes.get(pos..pos + 3) == Some(b"\"\"\"") {
-                    return Err(Error::Unsupported("multiline string"));
-                }
                 pos += 1;
                 let mut segment = pos;
                 let mut interpolation = None;
@@ -295,7 +370,12 @@ impl Parser {
             return Err(Error::Limit("syntax depth"));
         }
         let mut left = match self.take() {
-            Token::Text(value) => self.node(Expr::Literal(value.into()))?,
+            Token::Multiline(_) if self.peek() == &Token::Symbol(b':') => {
+                return Err(Error::Unsupported("multiline field label"));
+            }
+            Token::Text(value) | Token::Multiline(value) => {
+                self.node(Expr::Literal(value.into()))?
+            }
             Token::Integer(value) => self.node(Expr::Literal(value.into()))?,
             Token::Word(word) => match word.as_str() {
                 _ if word.starts_with('#') => {
@@ -329,6 +409,9 @@ impl Parser {
                         if !prefix.is_empty() || !suffix.is_empty() =>
                     {
                         return Err(Error::Unsupported("string interpolation context"));
+                    }
+                    Token::Multiline(_) => {
+                        return Err(Error::Unsupported("multiline inequality operand"));
                     }
                     Token::Word(_) => return Err(Error::Unsupported("inequality operand")),
                     _ => return Err(Error::Syntax("literal inequality operand")),
@@ -454,6 +537,7 @@ impl Parser {
             }
             let name = match self.take() {
                 Token::Text(name) => name,
+                Token::Multiline(_) => return Err(Error::Unsupported("multiline field label")),
                 Token::Word(name) if name.starts_with('#') => {
                     return Err(Error::Unsupported("nested definition"));
                 }
@@ -598,7 +682,7 @@ impl Parser {
         }
         self.syntax()?;
         Ok(match self.take() {
-            Token::Text(text) => Template::Literal(text.into()),
+            Token::Text(text) | Token::Multiline(text) => Template::Literal(text.into()),
             Token::Interpolation {
                 prefix,
                 name,

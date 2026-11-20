@@ -70,6 +70,11 @@ adds exact-key field comprehension over one literal-string lexical let map with
 pure finite templates. It is static specialization, not general interpolation or
 loop evaluation; preparation shares existing work/copy budgets and aggregate syntax
 includes all instantiated nodes. Marked/definition contexts remain excluded.
+The [#248 multiline literal class](native-instruction-module-text.md) adds LF-only
+triple-double-quoted VALUES with exact margin stripping, no backslash syntax/raw
+BOM/CR or other controls beyond LF/TAB. Labels/inequality contexts remain excluded;
+these are the same literal string nodes/work/copy charges, not general strings,
+interpolation, concatenation or changed default admission.
 
 ## Readiness and recursive schema semantics
 
