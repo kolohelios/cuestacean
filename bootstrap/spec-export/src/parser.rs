@@ -1,7 +1,7 @@
 //! Bounded syntax admission for the isolated native specification exporter.
 use crate::{
     bindings::{self, Binding, Scope},
-    model::{Document, Error, Expr, Id, Template},
+    model::{Document, Error, Expr, Id, StringSlot, Template},
 };
 use std::collections::BTreeMap;
 
@@ -9,7 +9,11 @@ use std::collections::BTreeMap;
 enum Token {
     Word(String),
     Text(String),
-    KeyLabel(String),
+    Interpolation {
+        prefix: String,
+        name: String,
+        suffix: String,
+    },
     Integer(i64),
     Symbol(u8),
     NotEqual,
@@ -23,6 +27,11 @@ fn label(name: &str) -> Result<(), Error> {
         return Err(Error::Limit("label bytes"));
     }
     Ok(())
+}
+
+// Decode literal DATA only; decoded backslashes are never scanned for syntax.
+fn string_segment(source: &str) -> Result<String, Error> {
+    serde_json::from_str(&format!("\"{source}\"")).map_err(|_| Error::Syntax("quoted string"))
 }
 
 fn lex(source: &str, count: &mut usize) -> Result<Vec<Token>, Error> {
@@ -53,32 +62,45 @@ fn lex(source: &str, count: &mut usize) -> Result<Vec<Token>, Error> {
                 pos += 1;
                 Token::Newline
             }
-            b'"' if bytes.get(pos + 1..pos + 3) == Some(b"\\(") => {
-                pos += 3;
-                let name = pos;
-                while bytes
-                    .get(pos)
-                    .is_some_and(|b| b.is_ascii_alphanumeric() || *b == b'_')
-                {
-                    pos += 1;
-                }
-                if pos == name || bytes.get(pos..pos + 2) != Some(b")\"") {
-                    return Err(Error::Unsupported("key interpolation"));
-                }
-                let token = Token::KeyLabel(source[name..pos].into());
-                pos += 2;
-                token
-            }
             b'"' => {
                 if bytes.get(pos..pos + 3) == Some(b"\"\"\"") {
                     return Err(Error::Unsupported("multiline string"));
                 }
                 pos += 1;
+                let mut segment = pos;
+                let mut interpolation = None;
                 loop {
                     match bytes.get(pos) {
                         Some(b'"') => {
                             pos += 1;
                             break;
+                        }
+                        Some(b'\\') if bytes.get(pos + 1) == Some(&b'(') => {
+                            if interpolation.is_some() {
+                                return Err(Error::Unsupported("multiple string interpolations"));
+                            }
+                            let prefix = string_segment(&source[segment..pos])?;
+                            pos += 2;
+                            let name = pos;
+                            if !bytes
+                                .get(pos)
+                                .is_some_and(|b| b.is_ascii_alphabetic() || *b == b'_')
+                            {
+                                return Err(Error::Unsupported("string interpolation name"));
+                            }
+                            pos += 1;
+                            while bytes
+                                .get(pos)
+                                .is_some_and(|b| b.is_ascii_alphanumeric() || *b == b'_')
+                            {
+                                pos += 1;
+                            }
+                            if bytes.get(pos) != Some(&b')') {
+                                return Err(Error::Unsupported("string interpolation name"));
+                            }
+                            interpolation = Some((prefix, source[name..pos].to_owned()));
+                            pos += 1;
+                            segment = pos;
                         }
                         Some(b'\\') => {
                             pos += 1;
@@ -95,10 +117,18 @@ fn lex(source: &str, count: &mut usize) -> Result<Vec<Token>, Error> {
                         None => return Err(Error::Syntax("unterminated string")),
                     }
                 }
-                Token::Text(
-                    serde_json::from_str(&source[start..pos])
-                        .map_err(|_| Error::Syntax("quoted string"))?,
-                )
+                if let Some((prefix, name)) = interpolation {
+                    Token::Interpolation {
+                        prefix,
+                        name,
+                        suffix: string_segment(&source[segment..pos - 1])?,
+                    }
+                } else {
+                    Token::Text(
+                        serde_json::from_str(&source[start..pos])
+                            .map_err(|_| Error::Syntax("quoted string"))?,
+                    )
+                }
             }
             b'-' | b'0'..=b'9' => {
                 if bytes[pos] == b'-' {
@@ -287,7 +317,9 @@ impl Parser {
                     })?
                 }
             },
-            Token::KeyLabel(_) => return Err(Error::Unsupported("key interpolation context")),
+            Token::Interpolation { .. } => {
+                return Err(Error::Unsupported("key interpolation context"));
+            }
             Token::NotEqual => {
                 self.newlines();
                 let value = match self.take() {
@@ -432,7 +464,9 @@ impl Parser {
                     self.scopes[self.scope].fields.insert(name.clone());
                     name
                 }
-                Token::KeyLabel(_) => return Err(Error::Unsupported("key interpolation context")),
+                Token::Interpolation { .. } => {
+                    return Err(Error::Unsupported("key interpolation context"));
+                }
                 Token::Ellipsis => return Err(Error::Unsupported("struct ellipsis")),
                 Token::Symbol(b'[') => return Err(Error::Unsupported("pattern field")),
                 _ => return Err(Error::Syntax("field label")),
@@ -520,8 +554,13 @@ impl Parser {
             return Err(Error::Unsupported("comprehension clause"));
         }
         self.newlines();
-        if self.take() != Token::KeyLabel(key.clone()) {
-            return Err(Error::Unsupported("comprehension key label"));
+        match self.take() {
+            Token::Interpolation {
+                prefix,
+                name,
+                suffix,
+            } if prefix.is_empty() && suffix.is_empty() && name == key => {}
+            _ => return Err(Error::Unsupported("comprehension key label")),
         }
         self.expect(b':')?;
         self.newlines();
@@ -555,6 +594,24 @@ impl Parser {
         self.syntax()?;
         Ok(match self.take() {
             Token::Text(text) => Template::Literal(text.into()),
+            Token::Interpolation {
+                prefix,
+                name,
+                suffix,
+            } => {
+                let slot = if name == key {
+                    StringSlot::Key
+                } else if Some(name.as_str()) == value {
+                    StringSlot::Value
+                } else {
+                    return Err(Error::Unsupported("template interpolation slot"));
+                };
+                Template::Interpolated {
+                    prefix,
+                    slot,
+                    suffix,
+                }
+            }
             Token::Integer(n) => Template::Literal(n.into()),
             Token::Word(word) if word == "true" || word == "false" => {
                 Template::Literal((word == "true").into())

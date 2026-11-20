@@ -430,6 +430,10 @@
               esac
               inputs=("${cueSources}/$schema.cue")
               for fragment in "''${fragments[@]}"; do inputs+=("${cueSources}/$fragment.cue"); done
+              case "$fixture" in
+                lowering|tests/valid/lowering-left-twice|tests/valid/lowering-reverse)
+                  inputs+=("${nativeInstructionUnaryTables pkgs}/instruction-unary-tables.json") ;;
+              esac
               inputs+=("${cueSources}/$fixture.cue")
               # Choose the provider before execution: overrides need the raw
               # preference, never the already materialized default artifact.
@@ -1844,6 +1848,203 @@
           cp ${nativePrattLoweringPolicyBuildClosure pkgs}/registration "$out/native-build-registration"
           printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativePrattLoweringPolicy pkgs).drvPath} > "$out/native-build-roots"
         '';
+      instructionUnarySources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/native-policy-package.cue
+            ../../bootstrap/instruction-unary-tables.cue
+          ];
+        };
+      nativeInstructionUnaryTables =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-instruction-unary-tables" { } ''
+          set -euo pipefail
+          mkdir -p "$PWD/home"
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          test -r "$exporter" && test -x "$exporter"
+          case "$exporter" in /*) ;; *) exit 1 ;; esac
+          for run in first second; do
+            env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" \
+              ${instructionUnarySources pkgs}/native-policy-package.cue \
+              ${instructionUnarySources pkgs}/instruction-unary-tables.cue > "$run.json"
+            test "$(wc -c < "$run.json")" -le 65536
+          done
+          cmp first.json second.json
+          mkdir -p "$out"
+          cp first.json "$out/instruction-unary-tables.json"
+        '';
+      nativeInstructionUnaryTablesBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativeInstructionUnaryTables pkgs).drvPath
+          ];
+        };
+      nativeInstructionUnaryTablesVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-instruction-unary-tables-verification" { } ''
+          set -euo pipefail
+          for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} \
+            ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+            ${executor pkgs} ${(executor pkgs).drvPath} \
+            ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+            ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+            ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+            if grep -Fx "$forbidden" ${nativeInstructionUnaryTablesBuildClosure pkgs}/store-paths; then
+              echo "forbidden unary table construction dependency: $forbidden" >&2; exit 1
+            fi
+          done
+          test "$(find ${instructionUnarySources pkgs} -type f | wc -l)" -eq 2
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 9
+          mkdir -p "$out" "$PWD/probe/home"
+          cd probe
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          oracle=${pkgs.cue}/bin/cue
+          codegen=${executor pkgs}/bin/bootstrap-codegen
+          driver=${nativeCodegenCore pkgs}/bin/bootstrap-lower-codegen
+          jq=${pkgs.jq}/bin/jq
+          rustfmt=${pkgs.rustfmt}/bin/rustfmt
+          for binary in "$exporter" "$oracle" "$codegen" "$driver" "$jq" "$rustfmt"; do
+            test -r "$binary" && test -x "$binary"
+            case "$binary" in /*) ;; *) exit 1 ;; esac
+          done
+          native() { env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" native-policy-package.cue "$1"; }
+          cue() { env -i HOME="$PWD/home" PATH=/nonexistent "$oracle" "$@"; }
+          json() { env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -S .; }
+          format() { env -i HOME="$PWD/home" PATH=/nonexistent "$rustfmt" --edition 2024; }
+          generate() { env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" "$@" | format; }
+          schema=${../../bootstrap/schema.cue}
+          bridge=${../../bootstrap/lowering-fragments.cue}
+          selector=${../../bootstrap/lowering.cue}
+          cp ${instructionUnarySources pkgs}/*.cue .
+          raw() { cue export "$schema" "$bridge" instruction-unary-tables.cue "$@"; }
+          complete() { cue export "$schema" "$bridge" "$@"; }
+          native instruction-unary-tables.cue > tables.json
+          cmp tables.json ${nativeInstructionUnaryTables pkgs}/instruction-unary-tables.json
+          test "$(wc -c < tables.json)" -eq 2107
+          cue export native-policy-package.cue instruction-unary-tables.cue | json > oracle-tables.json
+          cmp tables.json oracle-tables.json
+          raw "$selector" | json > raw.json
+          complete tables.json "$selector" | json > complete.json
+          cmp raw.json complete.json
+          cmp complete.json ${jsonExports pkgs}/lowering.json
+          cue export "$selector" tables.json "$bridge" "$schema" | json > reversed.json
+          cmp complete.json reversed.json
+          for control in left-twice reverse; do
+            context=${../../bootstrap/tests/valid}/lowering-"$control.cue"
+            raw "$context" | json > "raw-$control.json"
+            complete tables.json "$context" | json > "$control.json"
+            cmp "raw-$control.json" "$control.json"
+            cmp "$control.json" ${jsonExports pkgs}/tests/valid/lowering-"$control.json"
+            generate ${jsonExports pkgs}/evaluation.json "$control.json" > "evaluation-$control.rs"
+            cmp "evaluation-$control.rs" ${../../bootstrap/generated}/evaluation-"$control.rs"
+          done
+          generate ${jsonExports pkgs}/evaluation.json complete.json > evaluation.rs
+          cmp evaluation.rs ${../../bootstrap/generated/evaluation.rs}
+          generate ${jsonExports pkgs}/tests/valid/evaluation-left-twice.json complete.json > rules-left-twice.rs
+          cmp rules-left-twice.rs ${../../bootstrap/generated/evaluation-left-twice.rs}
+          generate ${../../bootstrap/executor/tests/fixtures/codegen-escaped-rules.json} complete.json > escaped.rs
+          cmp escaped.rs ${../../bootstrap/generated/codegen-escaped-rules.rs}
+          # All six driver policies plus the retained compiled adversarial controls.
+          for policy in ${loweringNames}; do
+            name=$(basename "$policy")
+            env -i HOME="$PWD/home" PATH=/nonexistent "$driver" ${jsonExports pkgs}/"$policy.json" | format > "$name.rs"
+            cmp "$name.rs" ${../../bootstrap/generated}/"$name.rs"
+          done
+          no_export() {
+            if complete "$@" > failed.json 2> failed.err; then exit 1; fi
+            test ! -s failed.json && test -s failed.err
+            grep -F 'incomplete value' failed.err
+            cue eval "$schema" "$bridge" "$@" > /dev/null
+          }
+          no_export "$selector"
+          env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -c \
+            '([.aliases | keys[] | ["aliases", .]] + [.cases | keys[] | ["cases", .]])[]' tables.json > slots
+          test "$(wc -l < slots)" -eq 11
+          while read -r slot; do
+            env -i HOME="$PWD/home" PATH=/nonexistent "$jq" --argjson slot "$slot" 'delpaths([$slot])' tables.json > missing.json
+            no_export missing.json "$selector"
+          done < slots
+          printf '%s\n' '{"formatVersion":1,"rules":{"a":{"result":{"op":"negate","value":{"op":"field","field":"value"}}},"b":{"result":{"op":"length","value":{"op":"field","field":"value"}}}}}' > tiny.json
+          # Predict the COMPLETE source independently, not by editing native output.
+          for variant in key method affix; do
+            first=negate; second=length
+            case "$variant" in
+              key) substitute instruction-unary-tables.cue variant.cue --replace-fail 'negate:' 'temporaryKey:' --replace-fail 'length:' 'negate:' --replace-fail 'temporaryKey:' 'length:'; first=length; second=negate ;;
+              method) substitute instruction-unary-tables.cue variant.cue --replace-fail '"negate"' '"negate_changed"'; first=negate_changed ;;
+              affix) substitute instruction-unary-tables.cue variant.cue --replace-fail 'runtime::\(method)' 'runtime::changed_\(method)'; first=changed_negate; second=changed_length ;;
+            esac
+            native variant.cue > variant.json
+            if cmp -s variant.json tables.json; then exit 1; fi
+            complete variant.json "$selector" | json > variant-policy.json
+            complete variant.cue "$selector" | json > variant-raw.json
+            cmp variant-policy.json variant-raw.json
+            generate tiny.json variant-policy.json > "$variant.rs"
+            format > "$variant-expected.rs" <<RUST
+          // Generated by bootstrap-codegen. Do not edit by hand.
+          use bootstrap_executor::{Error, runtime};
+          use serde_json::Value;
+
+          pub fn execute(input: &str) -> Result<i64, Error> {
+              let mut _context = runtime::EvaluationContext::default();
+              runtime::concrete(evaluate(&runtime::program(input)?, &mut _context)?)
+          }
+
+          pub fn execute_json(input: &str) -> Result<Value, Error> {
+              let mut _context = runtime::EvaluationContext::default();
+              runtime::concrete_json(evaluate(&runtime::program(input)?, &mut _context)?)
+          }
+
+          fn evaluate(node: &Value, _context: &mut runtime::EvaluationContext) -> Result<runtime::Value, Error> {
+              _context.visit(|_context| evaluate_node(node, _context))
+          }
+
+          fn evaluate_node(node: &Value, _context: &mut runtime::EvaluationContext) -> Result<runtime::Value, Error> {
+              match runtime::kind(node)? {
+                  "a" => runtime::$first((runtime::integer(node, "value"))?),
+                  "b" => runtime::$second((runtime::integer(node, "value"))?),
+                  kind => Err(Error::MissingRule { kind: kind.to_string() }),
+              }
+          }
+          RUST
+            cmp "$variant.rs" "$variant-expected.rs"
+          done
+          substitute instruction-unary-tables.cue invalid.cue --replace-fail 'value: "runtime::\(method)"' 'value: int'
+          if native invalid.cue > invalid.json 2> invalid.err; then exit 1; fi
+          test ! -s invalid.json && test -s invalid.err
+          for invalid in opcode shape unbound; do
+            case "$invalid" in
+              opcode) substitute instruction-unary-tables.cue invalid.cue --replace-fail 'op: "text", value: "runtime::\(method)"' 'op: "unknownUnaryOp", value: "runtime::\(method)"' ;;
+              shape) substitute instruction-unary-tables.cue invalid.cue --replace-fail 'value: "runtime::\(method)"' 'value: true' ;;
+              unbound) substitute instruction-unary-tables.cue invalid.cue --replace-fail 'op: "text", value: "runtime::\(method)"' 'op: "get", "name": method' ;;
+            esac
+            native invalid.cue > invalid.json
+            if test "$invalid" = unbound; then
+              complete invalid.json "$selector" > schema-valid.json
+            else
+              if complete invalid.json "$selector" > failed.json 2> failed.err; then exit 1; fi
+              test ! -s failed.json && test -s failed.err
+              cp failed.err "$out/$invalid-schema.err"
+            fi
+            env -i HOME="$PWD/home" PATH=/nonexistent "$jq" --slurpfile m invalid.json '.cases.unaryRuntime=$m[0].cases.unaryRuntime' complete.json > malformed.json
+            if env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" tiny.json malformed.json > invalid.rs 2> invalid.err; then exit 1; fi
+            test ! -s invalid.rs && test -s invalid.err
+            case "$invalid" in
+              opcode) grep -F 'unknown variant `unknownUnaryOp`' invalid.err ;;
+              shape) grep -F 'invalid type: boolean `true`, expected a string' invalid.err ;;
+              unbound) grep -F 'unknown binding' invalid.err ;;
+            esac
+            cp invalid.err "$out/$invalid-typed.err"
+          done
+          cp tables.json complete.json left-twice.json reverse.json *-expected.rs key.rs method.rs affix.rs "$out/"
+          cp ${nativeInstructionUnaryTablesBuildClosure pkgs}/store-paths "$out/native-build-paths"
+          cp ${nativeInstructionUnaryTablesBuildClosure pkgs}/registration "$out/native-build-registration"
+          printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeInstructionUnaryTables pkgs).drvPath} > "$out/native-build-roots"
+        '';
       prattTableSources =
         pkgs:
         pkgs.lib.fileset.toSource {
@@ -2859,6 +3060,7 @@
           native-meta-lowering-policy = nativeMetaLoweringPolicy pkgs;
           native-unify-lowering-policy = nativeUnifyLoweringPolicy pkgs;
           native-scan-lowering-policy = nativeScanLoweringPolicy pkgs;
+          native-instruction-unary-tables = nativeInstructionUnaryTables pkgs;
           native-pratt-tables = nativePrattTables pkgs;
           native-pratt-lowering-policy = nativePrattLoweringPolicy pkgs;
           native-codegen-core = nativeCodegenCore pkgs;
@@ -2927,6 +3129,7 @@
           native-meta-lowering-policy = nativeMetaLoweringPolicyVerification pkgs;
           native-unify-lowering-policy = nativeUnifyLoweringPolicyVerification pkgs;
           native-scan-lowering-policy = nativeScanLoweringPolicyVerification pkgs;
+          native-instruction-unary-tables = nativeInstructionUnaryTablesVerification pkgs;
           native-pratt-tables = nativePrattTablesVerification pkgs;
           native-pratt-lowering-policy = nativePrattLoweringPolicyVerification pkgs;
           native-codegen-core = nativeCoreVerification pkgs;

@@ -59,6 +59,12 @@ across source instances/invocations, source-name or expected-answer dispatch. It
 is not general scope/graph/default solving. Preserve normal lexical let capture,
 initializer exclusions/unused/cycle/field-collision behavior for the source name.
 
+The subsequent [#238 string-template class](native-instruction-unary-tables.md)
+adds exactly one key/value string placeholder with decoded literal affixes in
+TEMPLATE VALUES only. Exact key labels and all source/scope/global exclusions stay;
+its two extra append charges share the same work/copy budgets. This is not general
+interpolation or runtime expression evaluation.
+
 ## Concrete private interfaces and accounting
 
 One kernel/build owner prevents parser/model/expansion drift. Proposed interfaces:

@@ -161,6 +161,12 @@ tagged `add` preference. Canonical Pratt policy becomes the FIFTH complete nativ
 input; only instruction/evaluator policy construction still needs Go. THREE isolated
 compiler paths and all admission/guard/schema boundaries remain unchanged. Raw
 no-increment refinement loads all unresolved owners before context, not selected DATA.
+The [#238 unary string-template module](native-instruction-unary-tables.md) adds one
+string-only interpolation of an iterator inside the existing finite map template
+class. The original ten-entry unary map/two CUE comprehensions now supply native
+partial instruction DATA. Full instruction policy remains Go-built (binary tables,
+module strings and preferences are separate blockers); counts stay FIVE complete
+native policies/THREE isolated compilers. All original guards/exclusions remain.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
