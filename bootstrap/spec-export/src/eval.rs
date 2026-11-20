@@ -53,9 +53,11 @@ pub(crate) fn evaluate(doc: &Document, work_limit: usize) -> Result<Value, Error
     }
     let mut evaluator = Evaluator {
         doc,
-        remaining: work_limit,
+        remaining: work_limit
+            .checked_sub(doc.preparation_steps)
+            .ok_or(Error::Limit("evaluation steps"))?,
         values: 0,
-        strings: 0,
+        strings: doc.preparation_strings,
         next_group: 0,
         admitted: false,
     };
@@ -492,6 +494,9 @@ impl Evaluator<'_> {
                     Expr::Name { .. } => {
                         return Err(Error::Unsupported("unresolved binding name"));
                     }
+                    Expr::Comprehension { .. } => {
+                        return Err(Error::Unsupported("unexpanded comprehension"));
+                    }
                     Expr::Binding(id) => {
                         self.step(1)?;
                         if state.active.contains(id) {
@@ -788,6 +793,10 @@ mod tests {
             roots: vec![0],
             marked: false,
             lets: 0,
+            comprehensions: 0,
+            syntax: 0,
+            preparation_steps: 0,
+            preparation_strings: 0,
         };
         let unresolved = document(vec![Expr::Name {
             scope: 0,

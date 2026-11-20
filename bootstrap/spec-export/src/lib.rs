@@ -1,5 +1,6 @@
 //! Isolated native bootstrap exporter, not a general CUE implementation.
 mod bindings;
+mod comprehension;
 mod eval;
 mod model;
 mod parser;
@@ -26,7 +27,8 @@ pub fn export(schema: &str, program: &str) -> Result<String, Error> {
 
 /// Lower the cumulative evaluation allowance; the hard maximum stays unchanged.
 pub fn export_with_limit(schema: &str, program: &str, work: usize) -> Result<String, Error> {
-    let document = parser::parse(schema, program)?;
+    let mut document = parser::parse(schema, program)?;
+    comprehension::lower(&mut document, work)?;
     let value = eval::evaluate(&document, work)?;
     let mut output = Output(Vec::new());
     serde_json::to_writer_pretty(&mut output, &value).map_err(|_| Error::Limit("encoded bytes"))?;

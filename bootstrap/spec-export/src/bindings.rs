@@ -45,6 +45,25 @@ pub(crate) fn resolve(
             }
         }
     }
+    for node in &doc.nodes {
+        if let Expr::Comprehension {
+            scope, key, value, ..
+        } = node
+        {
+            for name in std::iter::once(key).chain(value.iter()) {
+                if bindings.iter().enumerate().any(|(id, binding)| {
+                    binding.name == *name
+                        && ancestor(scopes, binding.scope, *scope)
+                        && !scopes[*scope].excluded.contains(&id)
+                }) || scopes.iter().enumerate().any(|(id, other)| {
+                    other.fields.contains(name)
+                        && (ancestor(scopes, *scope, id) || ancestor(scopes, id, *scope))
+                }) {
+                    return Err(Error::Unsupported("iterator declaration collision"));
+                }
+            }
+        }
+    }
     let mut used = vec![false; bindings.len()];
     for node in &mut doc.nodes {
         match node {
@@ -108,6 +127,7 @@ fn reject_cycles(doc: &Document) -> Result<(), Error> {
     for (id, node) in doc.nodes.iter().enumerate() {
         match node {
             Expr::Binding(body) | Expr::Marked(body) => edges[id].push(*body),
+            Expr::Comprehension { source, .. } => edges[id].push(*source),
             Expr::Ref(name) => edges[id].push(doc.definitions[name]),
             Expr::And(a, b) | Expr::Or(a, b) => edges[id].extend([*a, *b]),
             Expr::Struct(fields) => edges[id].extend(fields.iter().map(|(_, id)| *id)),

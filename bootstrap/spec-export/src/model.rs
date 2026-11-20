@@ -8,6 +8,23 @@ pub(crate) enum Type {
     Bool,
 }
 #[derive(Clone, Debug)]
+pub(crate) enum Template {
+    Literal(serde_json::Value),
+    Key,
+    Value,
+    Struct(Vec<(String, Template)>),
+    List(Vec<Template>),
+}
+impl Template {
+    pub(crate) fn height(&self) -> usize {
+        1 + match self {
+            Self::Struct(fields) => fields.iter().map(|(_, t)| t.height()).max().unwrap_or(0),
+            Self::List(items) => items.iter().map(Self::height).max().unwrap_or(0),
+            _ => 0,
+        }
+    }
+}
+#[derive(Clone, Debug)]
 pub(crate) enum Expr {
     Top,
     // Syntax wrapper; only whole-document admission may authorize selection.
@@ -26,6 +43,13 @@ pub(crate) enum Expr {
     },
     // Direct body arena ID, not an index into the parser's binding table.
     Binding(Id),
+    Comprehension {
+        source: Id,
+        template: Template,
+        scope: usize,
+        key: String,
+        value: Option<String>,
+    },
     And(Id, Id),
     Or(Id, Id),
 }
@@ -38,6 +62,10 @@ pub(crate) struct Document {
     pub marked: bool,
     // Preserve declarations even when resolution removes their names.
     pub lets: usize,
+    pub comprehensions: usize,
+    pub syntax: usize,
+    pub preparation_steps: usize,
+    pub preparation_strings: usize,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {

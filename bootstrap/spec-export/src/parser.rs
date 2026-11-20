@@ -1,7 +1,7 @@
 //! Bounded syntax admission for the isolated native specification exporter.
 use crate::{
     bindings::{self, Binding, Scope},
-    model::{Document, Error, Expr, Id},
+    model::{Document, Error, Expr, Id, Template},
 };
 use std::collections::BTreeMap;
 
@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 enum Token {
     Word(String),
     Text(String),
+    KeyLabel(String),
     Integer(i64),
     Symbol(u8),
     NotEqual,
@@ -51,6 +52,22 @@ fn lex(source: &str, count: &mut usize) -> Result<Vec<Token>, Error> {
             b'\n' => {
                 pos += 1;
                 Token::Newline
+            }
+            b'"' if bytes.get(pos + 1..pos + 3) == Some(b"\\(") => {
+                pos += 3;
+                let name = pos;
+                while bytes
+                    .get(pos)
+                    .is_some_and(|b| b.is_ascii_alphanumeric() || *b == b'_')
+                {
+                    pos += 1;
+                }
+                if pos == name || bytes.get(pos..pos + 2) != Some(b")\"") {
+                    return Err(Error::Unsupported("key interpolation"));
+                }
+                let token = Token::KeyLabel(source[name..pos].into());
+                pos += 2;
+                token
             }
             b'"' => {
                 if bytes.get(pos..pos + 3) == Some(b"\"\"\"") {
@@ -209,13 +226,19 @@ impl Parser {
         self.newlines();
         self.pos != start
     }
-    fn node(&mut self, expr: Expr) -> Result<Id, Error> {
-        if self.document.nodes.len() >= 2048 {
+    fn syntax(&mut self) -> Result<(), Error> {
+        if self.document.syntax >= 2048 {
             return Err(Error::Limit("syntax nodes"));
         }
+        self.document.syntax += 1;
+        Ok(())
+    }
+    fn node(&mut self, expr: Expr) -> Result<Id, Error> {
+        self.syntax()?;
         let height = 1 + match &expr {
             Expr::And(a, b) | Expr::Or(a, b) => self.heights[*a].max(self.heights[*b]),
             Expr::Marked(id) => self.heights[*id],
+            Expr::Comprehension { template, .. } => template.height(),
             Expr::Struct(fields) => fields
                 .iter()
                 .map(|(_, id)| self.heights[*id])
@@ -264,6 +287,7 @@ impl Parser {
                     })?
                 }
             },
+            Token::KeyLabel(_) => return Err(Error::Unsupported("key interpolation context")),
             Token::NotEqual => {
                 self.newlines();
                 let value = match self.take() {
@@ -372,6 +396,11 @@ impl Parser {
         self.enter_scope(Some(parent));
         let mut fields = Vec::new();
         self.newlines();
+        if self.peek() == &Token::Word("for".into()) {
+            let id = self.comprehension(depth)?;
+            self.scope = parent;
+            return Ok(id);
+        }
         while !self.symbol(b'}') {
             if self.peek() == &Token::Word("let".into()) {
                 self.binding(depth + 1)?;
@@ -403,6 +432,7 @@ impl Parser {
                     self.scopes[self.scope].fields.insert(name.clone());
                     name
                 }
+                Token::KeyLabel(_) => return Err(Error::Unsupported("key interpolation context")),
                 Token::Ellipsis => return Err(Error::Unsupported("struct ellipsis")),
                 Token::Symbol(b'[') => return Err(Error::Unsupported("pattern field")),
                 _ => return Err(Error::Syntax("field label")),
@@ -421,6 +451,164 @@ impl Parser {
         }
         self.scope = parent;
         self.node(Expr::Struct(fields))
+    }
+    fn iterator(&mut self, blank: bool) -> Result<Option<String>, Error> {
+        match self.take() {
+            Token::Word(name) if blank && name == "_" => Ok(None),
+            Token::Word(name)
+                if !name.starts_with('#')
+                    && !matches!(
+                        name.as_str(),
+                        "_" | "let"
+                            | "for"
+                            | "if"
+                            | "in"
+                            | "import"
+                            | "package"
+                            | "true"
+                            | "false"
+                            | "null"
+                    ) =>
+            {
+                label(&name)?;
+                Ok(Some(name))
+            }
+            _ => Err(Error::Unsupported("iterator name")),
+        }
+    }
+    fn comprehension(&mut self, depth: usize) -> Result<Id, Error> {
+        self.take(); // for
+        let key = self
+            .iterator(false)?
+            .ok_or(Error::Unsupported("blank key"))?;
+        if !self.symbol(b',') {
+            return Err(Error::Unsupported("two iterators required"));
+        }
+        let value = self.iterator(true)?;
+        if value.as_ref() == Some(&key) {
+            return Err(Error::Unsupported("duplicate iterator"));
+        }
+        if self.take() != Token::Word("in".into()) {
+            return Err(Error::Unsupported("comprehension clause"));
+        }
+        let source = match self.take() {
+            Token::Word(name) if !name.starts_with('#') => {
+                label(&name)?;
+                self.node(Expr::Name {
+                    scope: self.scope,
+                    excluded: self.initializers.clone(),
+                    name,
+                })?
+            }
+            _ => return Err(Error::Unsupported("comprehension source")),
+        };
+        if !self.symbol(b'{') {
+            return Err(Error::Unsupported("comprehension clause"));
+        }
+        self.newlines();
+        if self.take() != Token::KeyLabel(key.clone()) {
+            return Err(Error::Unsupported("comprehension key label"));
+        }
+        self.expect(b':')?;
+        self.newlines();
+        let template = self.template(depth + 1, &key, value.as_deref())?;
+        self.separators();
+        if !self.symbol(b'}') {
+            return Err(Error::Unsupported("comprehension yield"));
+        }
+        self.separators();
+        if !self.symbol(b'}') {
+            return Err(Error::Unsupported("sole comprehension required"));
+        }
+        self.document.comprehensions += 1;
+        self.node(Expr::Comprehension {
+            source,
+            template,
+            scope: self.scope,
+            key,
+            value,
+        })
+    }
+    fn template(
+        &mut self,
+        depth: usize,
+        key: &str,
+        value: Option<&str>,
+    ) -> Result<Template, Error> {
+        if depth > 32 {
+            return Err(Error::Limit("syntax depth"));
+        }
+        self.syntax()?;
+        Ok(match self.take() {
+            Token::Text(text) => Template::Literal(text.into()),
+            Token::Integer(n) => Template::Literal(n.into()),
+            Token::Word(word) if word == "true" || word == "false" => {
+                Template::Literal((word == "true").into())
+            }
+            Token::Word(word) if word == key => Template::Key,
+            Token::Word(word) if Some(word.as_str()) == value => Template::Value,
+            Token::Symbol(b'{') => {
+                let parent = self.scope;
+                self.enter_scope(Some(parent));
+                self.newlines();
+                let mut fields = Vec::new();
+                while !self.symbol(b'}') {
+                    if fields.len() >= 64 {
+                        return Err(Error::Limit("container items"));
+                    }
+                    let name = match self.take() {
+                        Token::Text(name) => name,
+                        Token::Word(name)
+                            if !name.starts_with(['#', '_'])
+                                && !matches!(
+                                    name.as_str(),
+                                    "let" | "for" | "if" | "in" | "import" | "package"
+                                ) =>
+                        {
+                            if name == key || Some(name.as_str()) == value {
+                                return Err(Error::Unsupported("iterator/field collision"));
+                            }
+                            self.scopes[self.scope].fields.insert(name.clone());
+                            name
+                        }
+                        _ => return Err(Error::Unsupported("template field")),
+                    };
+                    label(&name)?;
+                    if fields.iter().any(|(old, _)| old == &name) {
+                        return Err(Error::Unsupported("duplicate template field"));
+                    }
+                    self.expect(b':')?;
+                    self.newlines();
+                    fields.push((name, self.template(depth + 1, key, value)?));
+                    if self.symbol(b'}') {
+                        break;
+                    }
+                    if !self.separators() {
+                        return Err(Error::Unsupported("template expression"));
+                    }
+                }
+                self.scope = parent;
+                Template::Struct(fields)
+            }
+            Token::Symbol(b'[') => {
+                self.newlines();
+                let mut items = Vec::new();
+                while !self.symbol(b']') {
+                    if items.len() >= 64 {
+                        return Err(Error::Limit("container items"));
+                    }
+                    items.push(self.template(depth + 1, key, value)?);
+                    if self.symbol(b']') {
+                        break;
+                    }
+                    if !self.separators() {
+                        return Err(Error::Unsupported("template expression"));
+                    }
+                }
+                Template::List(items)
+            }
+            _ => return Err(Error::Unsupported("template expression")),
+        })
     }
     fn list(&mut self, depth: usize) -> Result<Id, Error> {
         self.newlines();
@@ -521,6 +709,10 @@ pub(crate) fn parse(schema: &str, program: &str) -> Result<Document, Error> {
             roots: Vec::new(),
             marked,
             lets: 0,
+            comprehensions: 0,
+            syntax: 0,
+            preparation_steps: 0,
+            preparation_strings: 0,
         },
     };
     let package = parser.file()?;

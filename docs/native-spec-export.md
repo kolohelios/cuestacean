@@ -56,7 +56,7 @@ general defaults; preference-free behavior stays unchanged. Full default/closure
 reuse compatibility remains tracked by #175.
 
 Explicitly reject unsupported syntax: imports, general defaults, optional/required field
-markers, hidden fields, field-value references, comprehensions/patterns/interpolation,
+markers, hidden fields, field-value references, general comprehensions/patterns/interpolation,
 null literals, boolean inequality, other numeric forms, computed operations and open struct ellipses. Duplicate
 named definition declarations are initially Unsupported (their closedness/merge
 semantics need a separate contract). Duplicate ordinary fields are conjuncts, not
@@ -64,6 +64,12 @@ last-field-wins JSON. Out-of-i64 literals are UnsupportedRange, not CUE conflict
 There is no filename/definition/opcode-specific result construction. Label-length
 failures are Limit; `_foo` is an unsupported hidden field while `#_Foo` remains a
 definition identifier. Quoted labels are ordinary fields, including `"#Foo"`.
+
+The separately reviewed [#234 finite table class](native-map-comprehensions.md)
+adds exact-key field comprehension over one literal-string lexical let map with
+pure finite templates. It is static specialization, not general interpolation or
+loop evaluation; preparation shares existing work/copy budgets and aggregate syntax
+includes all instantiated nodes. Marked/definition contexts remain excluded.
 
 ## Readiness and recursive schema semantics
 
@@ -189,7 +195,8 @@ nix build --no-link ./infra/tooling#checks.x86_64-linux.native-spec-tests \
   ./infra/tooling#checks.x86_64-linux.native-spec-closure
 ```
 
-`specSources(false)` contains Cargo metadata and the six handwritten source files
+`specSources(false)` contains Cargo metadata and seven handwritten source files
+(nine total after #234 adds finite comprehension specialization)
 only. The test-source variant adds oracle fixtures/expected-answer tests, but is
 not an input of `specExporter` or `nativeAtom`. The artifact receives a separate
 source fileset containing exactly the two CUE files. `nativeBuildClosure` roots
