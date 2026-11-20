@@ -236,6 +236,11 @@ fn lexical_capture_initializer_exclusion_reuse_and_fresh_invocations() {
 #[test]
 fn eager_profile_source_and_collision_exclusions() {
     let probe = Probe::new();
+    for source in [
+        "true", "false", "_", "null", "let", "for", "if", "in", "import", "package",
+    ] {
+        probe.reject(&format!("{{for k,v in {source} {{\"\\(k)\":v}}}}"), false);
+    }
     for template in [
         "outer",
         "string",

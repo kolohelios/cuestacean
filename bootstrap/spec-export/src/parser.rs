@@ -492,7 +492,21 @@ impl Parser {
             return Err(Error::Unsupported("comprehension clause"));
         }
         let source = match self.take() {
-            Token::Word(name) if !name.starts_with('#') => {
+            Token::Word(name)
+                if !name.starts_with('#')
+                    && !matches!(
+                        name.as_str(),
+                        "_" | "true"
+                            | "false"
+                            | "null"
+                            | "for"
+                            | "if"
+                            | "let"
+                            | "in"
+                            | "import"
+                            | "package"
+                    ) =>
+            {
                 label(&name)?;
                 self.node(Expr::Name {
                     scope: self.scope,
