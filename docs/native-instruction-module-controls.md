@@ -187,7 +187,11 @@ gates remain; pause for widened semantics/identity/feasibility/scope.
 
 ## Local evidence
 
-Implementation18e791e/tests2c77ddf integrate as8c1ec1b; no follow-up code fixes.
+Implementation18e791e/tests2c77ddf integrate as8c1ec1b. Final review found the
+parenthesized n29 witness hit the parser guard before admission; evidence-only
+childa99cb1d removes parentheses and proves parsing passed with work0→step Limit
+before full-work Ref-inclusive depth Limit. Both phases pass four profiles+strict
+Clippy4; all formula assertions retained. No production follow-up fixes.
 Independent original-derived projection byte-matches ALL five CUE sources. Removing
 ONLY the new admission gate/helper recovers the ENTIRE original evaluator exactly,
 including inline admission tail/context/constructors/Ref/closure/possible/demand/
