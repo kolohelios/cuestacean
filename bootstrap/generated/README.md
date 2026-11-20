@@ -321,11 +321,15 @@ independent Nix output built only from CUE sources, not committed artifacts.
 1. Construct fresh JSON: native builders/AST/meta/scanner policies plus the other
    Go-CUE-exported closures. The [native core](../../docs/native-codegen-core.md)
    builds existing AST/lowering-policy compiler binaries from eight selected files
-   and ONLY the two native policy inputs. The legacy no-default-feature constructor
-   builds evaluator/scanner/Pratt/unification compilers with the full bundle. Join
-   exactly six fresh binaries; no generated Rust is a construction input. The joined
+   and ONLY the two native policy inputs. The separate
+   [scanner façade](../../docs/native-scan-codegen.md) builds its existing compiler
+   from seven files and only native scanner/meta policies. Legacy no-default-feature
+   construction builds evaluator/Pratt/unification compilers with the full bundle.
+   Join exactly six fresh binaries; no generated Rust is a construction input. The joined
    seed still needs Go CUE. Real façade builder/compiled features are checked using
-   freshly native-generated modules, not committed goldens. The full executor's
+   freshly generated modules, not committed goldens. Scanner source-feature modules
+   require Go-exported PROGRAM specifications only in verification; the original
+   native-core feature-generation path stays independently native. The full executor's
    `source` still enables `semantics`; the narrow façade does not expose an evaluator.
 2. Use the fresh JSON output and the seeds to regenerate lowering drivers,
    evaluator, scanner, AST-builder, Pratt-control and unification Rust. Compile
@@ -358,6 +362,6 @@ Committed Rust modules remain reviewable golden files: the Rust generation
 check still rejects drift. JSON has repeatability and schema checks, not a
 committed byte baseline. CLI tests compare results, errors, and
 exit statuses with the interpreter. Neither the generator nor the shared
-runtime is fully self-hosted yet. Seeds remain Rust; two compiler construction
-paths are now independently native, while the other four and remaining exports
+runtime is fully self-hosted yet. Seeds remain Rust; three compiler construction
+paths are now independently native, while the other three and remaining exports
 still require the upstream Go implementation.

@@ -134,6 +134,13 @@ Three two-file invocations retain existing bounds; structural assembly is not CU
 constraint merging. Three other policy constructors/the joined six-seed path still
 need Go CUE. Scanner schema evaluation and compiler seed isolation are NOT included;
 the native AST/meta compiler construction paths remain unchanged.
+The [#230 native scanner compiler](native-scan-codegen.md) separately isolates its
+existing binary with seven selected source files and only scanner/meta native policy
+DATA. Production joins native-core two + scanner one + legacy three. Its real
+27-wrapper source-feature tests still consume Go-exported scanner PROGRAM data,
+strictly outside constructor closure; original native-core feature generation stays
+independently native. Scanner PROGRAM/schema export and three other policy inputs/
+joined six-seed path remain Go-dependent; no shared Rust/CLI/guard semantics change.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
@@ -466,9 +473,11 @@ workspace's stale exports for changed specifications.
   development. It is a review/drift baseline, not a required seed input.
 - Nix deletes staged JSON/Rust, builds six native compiler/VM seeds without
   default features, regenerates everything, then compiles/tests the final package.
-  Two compiler binaries now embed only native AST/meta policy JSON through the
-  eight-source façade; the other four embed the full Go-dependent bundle. Exports
-  must not depend on seeds or committed artifacts. No opcode-emission fallback.
+  Three compiler binaries embed only native policy JSON through the eight-source
+  AST/meta and seven-source scanner façades; the other three embed the full
+  Go-dependent bundle. Scanner source-feature verification still needs Go-exported
+  PROGRAM JSON, never a constructor input. Exports must not depend on seeds or
+  committed artifacts. No opcode-emission fallback.
   Seeds interpret the policy; default `compiled-lowering` uses generated Rust.
   The reference interpreter remains for explicit custom policies, sharing exact
   rendering/quoting/resource primitives. `compiled-lowering` is independent of

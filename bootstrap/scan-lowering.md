@@ -76,6 +76,8 @@ contract. Compiled binding fixtures check captures, escaped selectors/strings,
 lazy projection and fixed successful outputs. Native flow analysis, pattern
 formatting and policy compilation remain native boundaries. Canonical scanner
 policy DATA is now native alongside AST/meta; schema validation/raw overrides
-remain Go-backed and the scanner compiler still uses the legacy construction path.
-This is not full scanner schema evaluation, compiler self-hosting or a measured
-performance improvement.
+remain Go-backed. The [separate native scanner compiler](../docs/native-scan-codegen.md)
+now reuses the unchanged compiler/CLI through a seven-source/two-native-policy
+constructor. Its source-feature verification still uses Go-exported scanner PROGRAM
+specifications; those never feed compiler construction. This is not full scanner
+schema evaluation, compiler self-hosting or a measured performance improvement.

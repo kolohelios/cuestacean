@@ -692,6 +692,152 @@
             runHook postCheck
           '';
         });
+      nativeScannerSources =
+        pkgs: includeTests:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions (
+            [
+              ../../bootstrap/native-scan-codegen/Cargo.toml
+              ../../bootstrap/native-scan-codegen/Cargo.lock
+              ../../bootstrap/native-scan-codegen/src/lib.rs
+              ../../bootstrap/executor/src/scanner.rs
+              ../../bootstrap/executor/src/lowering.rs
+              ../../bootstrap/executor/src/module.rs
+              ../../bootstrap/executor/src/bin/bootstrap-scan-codegen.rs
+            ]
+            ++ pkgs.lib.optionals includeTests [ ../../bootstrap/native-scan-codegen/tests/compiler.rs ]
+          );
+        };
+      nativeScannerPolicies =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-scanner-policies" { } ''
+          mkdir -p "$out"
+          cp ${nativeScanLoweringPolicy pkgs}/scan-lowering.json "$out/scan-lowering.json"
+          cp ${nativeMetaLoweringPolicy pkgs}/meta-lowering.json "$out/meta-lowering.json"
+        '';
+      nativeScanCodegen =
+        pkgs:
+        pkgs.rustPlatform.buildRustPackage {
+          pname = "cuestacean-native-scan-codegen";
+          version = "0.1.0";
+          src = nativeScannerSources pkgs false;
+          postUnpack = ''
+            sourceRoot="$sourceRoot/native-scan-codegen"
+          '';
+          cargoLock.lockFile = ../../bootstrap/native-scan-codegen/Cargo.lock;
+          CUESTACEAN_BOOTSTRAP_JSON = nativeScannerPolicies pkgs;
+          cargoBuildFlags = [ "--no-default-features" ];
+          # Construction never executes shared defensive tests or expected code.
+          doCheck = false;
+          meta.license = pkgs.lib.licenses.asl20;
+        };
+      nativeScannerTests =
+        pkgs:
+        (nativeScanCodegen pkgs).overrideAttrs (_: {
+          pname = "cuestacean-native-scan-codegen-tests";
+          src = nativeScannerSources pkgs true;
+          nativeCheckInputs = [ pkgs.clippy ];
+          doCheck = true;
+          postPatch = ''
+            (
+              set -euo pipefail
+              mkdir -p ../generated "$TMPDIR/scanner-home"
+              for tool in ${nativeScanCodegen pkgs}/bin/bootstrap-scan-codegen ${nativeCodegenCore pkgs}/bin/bootstrap-lower-codegen; do
+                case "$tool" in /*) ;; *) echo "nonabsolute compiler provider: $tool" >&2; exit 1 ;; esac
+                test -r "$tool" && test -x "$tool"
+              done
+              # PROGRAM specifications are Go-exported: this derivative is a VERIFIER.
+              # Only the 27 production wrappers, never copied committed Rust.
+              for name in ${
+                builtins.concatStringsSep " " (
+                  builtins.filter (name: !(pkgs.lib.hasPrefix "tests/" name)) scannerFixtures
+                )
+              }; do
+                env -i PATH=/nonexistent HOME="$TMPDIR/scanner-home" \
+                  ${nativeScanCodegen pkgs}/bin/bootstrap-scan-codegen \
+                  ${jsonExports pkgs}/"$name.json" > "../generated/$name.rs"
+              done
+              for name in scan-lowering meta-lowering; do
+                env -i PATH=/nonexistent HOME="$TMPDIR/scanner-home" \
+                  ${nativeCodegenCore pkgs}/bin/bootstrap-lower-codegen \
+                  ${nativeScannerPolicies pkgs}/"$name.json" > "../generated/$name.rs"
+              done
+            )
+          '';
+          checkPhase = ''
+            runHook preCheck
+            for profile in debug release; do
+              releaseFlag=
+              if [ "$profile" = release ]; then releaseFlag=--release; fi
+              for features in "" source compiled-lowering source,compiled-lowering; do
+                cargo test --offline --locked --all-targets --no-default-features \
+                  $releaseFlag --features "$features"
+                cargo clippy --offline --locked --all-targets --no-default-features \
+                  $releaseFlag --features "$features" -- -D warnings
+              done
+            done
+            runHook postCheck
+          '';
+        });
+      nativeScannerVerification =
+        pkgs:
+        let
+          scanner = nativeScanCodegen pkgs;
+          closure = pkgs.closureInfo { rootPaths = [ scanner.drvPath ]; };
+        in
+        pkgs.runCommand "cuestacean-native-scan-codegen-verification"
+          {
+            nativeBuildInputs = [ pkgs.rustfmt ];
+            featureTests = nativeScannerTests pkgs;
+            # Retain all prior source-effect/typed gates and real compiled Unicode control.
+            policyVerification = nativeScanLoweringPolicyVerification pkgs;
+            fullExecutor = executor pkgs;
+          }
+          ''
+            set -euo pipefail
+            mkdir -p "$out" "$TMPDIR/scanner-home"
+            for tool in ${scanner}/bin/bootstrap-scan-codegen ${pkgs.rustfmt}/bin/rustfmt; do
+              case "$tool" in /*) ;; *) echo "nonabsolute verifier tool: $tool" >&2; exit 1 ;; esac
+              test -r "$tool" && test -x "$tool"
+            done
+            test -d "$featureTests" && test -d "$policyVerification" && test -d "$fullExecutor"
+            test "$(find ${nativeScannerSources pkgs false} -type f | wc -l)" -eq 7
+            test "$(find ${nativeScannerSources pkgs true} -type f | wc -l)" -eq 8
+            printf '%s\n' meta-lowering.json scan-lowering.json > expected-policies
+            find ${nativeScannerPolicies pkgs} -type f -printf '%f\n' | sort > policies
+            cmp expected-policies policies
+            for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} \
+              ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+              ${executor pkgs} ${(executor pkgs).drvPath} \
+              ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+              ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+              ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+              ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+              if grep -Fx "$forbidden" ${closure}/store-paths; then
+                echo "forbidden native scanner compiler dependency: $forbidden" >&2; exit 1
+              fi
+            done
+            test -x ${codegenSeed pkgs}/bin/bootstrap-scan-codegen
+            generate() {
+              env -i PATH=/nonexistent HOME="$TMPDIR/scanner-home" \
+                ${scanner}/bin/bootstrap-scan-codegen "$@" | \
+                env -i PATH=/nonexistent HOME="$TMPDIR/scanner-home" ${pkgs.rustfmt}/bin/rustfmt --edition 2024
+            }
+            for machine in ${scannerNames}; do
+              generate ${jsonExports pkgs}/"$machine.json" > first.rs
+              generate ${jsonExports pkgs}/"$machine.json" > second.rs
+              cmp first.rs second.rs
+              cmp first.rs ${../../bootstrap/generated}/"$(basename "$machine").rs"
+              cp first.rs "$out/$(basename "$machine").rs"
+            done
+            generate ${jsonExports pkgs}/tests/valid/scanner-advance.json \
+              ${jsonExports pkgs}/tests/valid/scan-lowering-unicode.json > "$out/unicode.rs"
+            cmp "$out/unicode.rs" ${../../bootstrap/generated/scan-unicode-advance.rs}
+            cp ${closure}/store-paths "$out/native-build-paths"
+            cp ${closure}/registration "$out/native-build-registration"
+            printf '%s\n' ${scanner.drvPath} > "$out/native-build-roots"
+          '';
       legacyCodegenSeed =
         pkgs:
         (rustPackage pkgs).overrideAttrs (old: {
@@ -705,8 +851,6 @@
             "--no-default-features"
             "--bin"
             "bootstrap-codegen"
-            "--bin"
-            "bootstrap-scan-codegen"
             "--bin"
             "bootstrap-pratt-codegen"
             "--bin"
@@ -724,6 +868,7 @@
           name = "bootstrap-codegen-seed";
           paths = [
             (nativeCodegenCore pkgs)
+            (nativeScanCodegen pkgs)
             (legacyCodegenSeed pkgs)
           ];
           postBuild = ''
@@ -735,7 +880,8 @@
             for name in bootstrap-ast-codegen bootstrap-lower-codegen; do
               test "$(readlink -f "$out/bin/$name")" = "$(readlink -f ${nativeCodegenCore pkgs}/bin/"$name")"
             done
-            for name in bootstrap-codegen bootstrap-pratt-codegen bootstrap-scan-codegen bootstrap-unify-codegen; do
+            test "$(readlink -f "$out/bin/bootstrap-scan-codegen")" = "$(readlink -f ${nativeScanCodegen pkgs}/bin/bootstrap-scan-codegen)"
+            for name in bootstrap-codegen bootstrap-pratt-codegen bootstrap-unify-codegen; do
               test "$(readlink -f "$out/bin/$name")" = "$(readlink -f ${legacyCodegenSeed pkgs}/bin/"$name")"
             done
           '';
@@ -2050,6 +2196,7 @@
           native-meta-lowering-policy = nativeMetaLoweringPolicy pkgs;
           native-scan-lowering-policy = nativeScanLoweringPolicy pkgs;
           native-codegen-core = nativeCodegenCore pkgs;
+          native-scan-codegen = nativeScanCodegen pkgs;
           default-observer = defaultObserver pkgs;
           default-trace = defaultTrace pkgs;
         }
@@ -2114,6 +2261,7 @@
           native-meta-lowering-policy = nativeMetaLoweringPolicyVerification pkgs;
           native-scan-lowering-policy = nativeScanLoweringPolicyVerification pkgs;
           native-codegen-core = nativeCoreVerification pkgs;
+          native-scan-codegen = nativeScannerVerification pkgs;
           bootstrap-codegen =
             pkgs.runCommand "cuestacean-bootstrap-codegen"
               {

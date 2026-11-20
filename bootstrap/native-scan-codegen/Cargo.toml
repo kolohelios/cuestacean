@@ -1,0 +1,27 @@
+[package]
+name = "cuestacean-native-scan-codegen"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+name = "bootstrap_executor"
+
+[features]
+default = []
+source = []
+compiled-lowering = []
+
+[[bin]]
+name = "bootstrap-scan-codegen"
+path = "../executor/src/bin/bootstrap-scan-codegen.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+snafu = "0.9"
+
+[lints.clippy]
+unwrap_used = "deny"

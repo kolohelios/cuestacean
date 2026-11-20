@@ -22,8 +22,12 @@ Production joins them with four legacy compiler binaries. The
 [#228 scanner-policy DATA cut](native-scan-lowering-policy.md) adds a third native
 canonical input, from shared finite helper definitions/two ordinary case partitions
 and one isolated scalar advance default. Three other policy constructors/other
-exports/the joined seed still need Go CUE; scanner schema/compiler construction
-closure remains separate. Wider expansion stays deferred. The later
+exports/the joined seed still need Go CUE. The [#230 scanner compiler cut](native-scan-codegen.md)
+then isolates the existing scanner binary behind a seven-source/two-native-policy
+façade without changing the original native core. Production joins native three
+and legacy three. Scanner PROGRAM/schema export remains Go-backed; its source-
+feature generation is explicitly verification, not construction. Wider expansion
+stays deferred. The later
 [#182 demand-policy cut](native-demand-policies.md) natively constructs the two
 experimental dispatch policies from their unchanged three-file raw closure. They
 are test-only graph policies, not any of the six lowering-policy exports; their
@@ -120,7 +124,8 @@ AST builder closures --native export twice--+
 other specification closures --Go CUE-------+--> build-only JSON
                                                             |
 eight-source façade + native AST/meta inputs --> two compilers
-artifact-cleared full executor + full bundle --> four compilers
+seven-source façade + native scan/meta inputs -> one compiler
+artifact-cleared full executor + full bundle --> three compilers
                          |                                  |
                          +--> joined six fresh binaries <---+
                                       |
@@ -131,10 +136,10 @@ artifact-cleared full executor + full bundle --> four compilers
                     final package + compiled regeneration/drift
 ```
 
-`codegenSeed` joins two constructor outputs, exactly these SIX binary names.
-The eight-file native-core source cut contains no generated Rust or fixture JSON;
-`legacyCodegenSeed` deletes staged fixture JSON and `generated/*.rs` before building
-only the other four. No constructor consumes committed Rust. Selected policies:
+`codegenSeed` joins THREE constructor outputs, exactly these SIX binary names.
+The eight-file native-core and seven-file scanner cuts contain no generated Rust
+or fixture JSON; `legacyCodegenSeed` deletes staged fixture JSON and `generated/*.rs`
+before building only the other three. No constructor consumes committed Rust. Selected policies:
 
 | Binary | Fresh policy selected in seed mode | Native selector |
 | --- | --- | --- |
@@ -152,8 +157,11 @@ since #222, and its meta policy data since #224. Since #226 the two correspondin
 binaries use a separate eight-source constructor/native two-file policy directory,
 with genuine AST-builder/compiled-driver feature checks outside construction.
 The joined six-bin seed still needs three other Go-constructed policies after
-#228 adds native scanner policy DATA; scanner binary construction still uses the
-legacy full-library/bundle path. This is not a third isolated compiler constructor. Production `compiled-lowering` selects generated drivers;
+#228 adds native scanner policy DATA. Since #230 scanner binary construction uses
+its separate seven-source/two-policy façade; all27 generated wrapper programs in
+its source-feature test build still use Go-exported specifications, strictly as
+verification inputs. The original native-core feature path remains independently
+native. This is three isolated compiler paths, not six-seed or scanner schema closure. Production `compiled-lowering` selects generated drivers;
 `source` enables `semantics`. The final sandbox also checks compiler-only,
 semantics-only and compiled-lowering isolation. Committed Rust is a drift baseline,
 never a seed input. See `clearArtifacts`, `codegenSeed`, `executor`, and

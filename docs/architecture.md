@@ -97,8 +97,11 @@ and [addition](../bootstrap/sum.md) contracts for the exact interfaces.
   [`infra/tooling/flake.nix`](../infra/tooling/flake.nix). `clearArtifacts` removes
   staged JSON/Rust; `codegenSeed` joins six artifact-free compilers. The
   [native core](native-codegen-core.md) builds AST/meta compiler binaries from eight
-  selected source files and two native policies; the legacy constructor builds the
-  other four with the full Go-dependent bundle. `executor` regenerates Rust before
+  selected source files and two native policies. The separate
+  [scanner façade](native-scan-codegen.md) uses seven files and native scanner/meta
+  policies; legacy construction builds the other three with the full Go-dependent
+  bundle. Scanner source-feature test generation still uses Go-exported PROGRAM data,
+  explicitly outside native constructor closure. `executor` regenerates Rust before
   compiling/testing the final package. JSON stays build-only; committed Rust is a
   drift/review baseline, not a seed input. The joined six-seed path still needs Go CUE.
 
