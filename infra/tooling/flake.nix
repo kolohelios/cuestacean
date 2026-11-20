@@ -357,6 +357,11 @@
           ''
             set -euo pipefail
             export LC_ALL=C TZ=UTC
+            # Import concrete native DATA into the existing Go-backed consumer,
+            # never into the independent native constructor.
+            cue import -p bootstrap -l '#InstructionModuleText:' \
+              -o "$PWD/instruction-module-text.cue" \
+              ${nativeInstructionModuleText pkgs}/instruction-module-text.json
             for fixture in ${fixtureNames}; do
               echo "exporting $fixture"
               case "$fixture" in
@@ -432,7 +437,8 @@
               for fragment in "''${fragments[@]}"; do inputs+=("${cueSources}/$fragment.cue"); done
               case "$fixture" in
                 lowering|tests/valid/lowering-left-twice|tests/valid/lowering-reverse)
-                  inputs+=("${nativeInstructionUnaryTables pkgs}/instruction-unary-tables.json") ;;
+                  inputs+=("${nativeInstructionUnaryTables pkgs}/instruction-unary-tables.json"
+                    "$PWD/instruction-module-text.cue") ;;
               esac
               inputs+=("${cueSources}/$fixture.cue")
               # Choose the provider before execution: overrides need the raw
@@ -1426,6 +1432,8 @@
               [
                 ../../bootstrap/spec-export/tests
                 ../../bootstrap/instruction-unary-tables.cue
+                ../../bootstrap/instruction-module-text.cue
+                ../../bootstrap/instruction-module-text-export.cue
                 ../../bootstrap/lowering-fragments.cue
                 ../../bootstrap/lowering.cue
                 ../../bootstrap/tests/valid/lowering-left-twice.cue
@@ -2278,8 +2286,10 @@
           bridge=${../../bootstrap/lowering-fragments.cue}
           selector=${../../bootstrap/lowering.cue}
           cp ${instructionUnarySources pkgs}/*.cue .
-          raw() { cue export "$schema" "$bridge" instruction-unary-tables.cue "$@"; }
-          complete() { cue export "$schema" "$bridge" "$@"; }
+          # Raw text remains an oracle input, not a unary-constructor dependency.
+          moduleText=${../../bootstrap/instruction-module-text.cue}
+          raw() { cue export "$schema" "$bridge" "$moduleText" instruction-unary-tables.cue "$@"; }
+          complete() { cue export "$schema" "$bridge" "$moduleText" "$@"; }
           native instruction-unary-tables.cue > tables.json
           cmp tables.json ${nativeInstructionUnaryTables pkgs}/instruction-unary-tables.json
           test "$(wc -c < tables.json)" -eq 2107
@@ -2289,7 +2299,7 @@
           complete tables.json "$selector" | json > complete.json
           cmp raw.json complete.json
           cmp complete.json ${jsonExports pkgs}/lowering.json
-          cue export "$selector" tables.json "$bridge" "$schema" | json > reversed.json
+          cue export "$selector" tables.json "$moduleText" "$bridge" "$schema" | json > reversed.json
           cmp complete.json reversed.json
           for control in left-twice reverse; do
             context=${../../bootstrap/tests/valid}/lowering-"$control.cue"
@@ -2316,7 +2326,7 @@
             if complete "$@" > failed.json 2> failed.err; then exit 1; fi
             test ! -s failed.json && test -s failed.err
             grep -F 'incomplete value' failed.err
-            cue eval "$schema" "$bridge" "$@" > /dev/null
+            cue eval "$schema" "$bridge" "$moduleText" "$@" > /dev/null
           }
           no_export "$selector"
           env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -c \
@@ -2401,6 +2411,189 @@
           cp ${nativeInstructionUnaryTablesBuildClosure pkgs}/store-paths "$out/native-build-paths"
           cp ${nativeInstructionUnaryTablesBuildClosure pkgs}/registration "$out/native-build-registration"
           printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeInstructionUnaryTables pkgs).drvPath} > "$out/native-build-roots"
+        '';
+      instructionModuleTextSources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/instruction-module-text.cue
+            ../../bootstrap/instruction-module-text-export.cue
+          ];
+        };
+      nativeInstructionModuleText =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-instruction-module-text" { } ''
+          set -euo pipefail
+          mkdir -p "$PWD/home"
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          test -f "$exporter" && test -r "$exporter" && test -x "$exporter"
+          case "$exporter" in /*) ;; *) exit 1 ;; esac
+          helper=${instructionModuleTextSources pkgs}/instruction-module-text.cue
+          selector=${instructionModuleTextSources pkgs}/instruction-module-text-export.cue
+          env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$helper" "$selector" > first.json
+          env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$selector" "$helper" > second.json
+          for run in first second; do test "$(wc -c < "$run.json")" -le 65536; done
+          cmp first.json second.json
+          mkdir -p "$out"
+          cp first.json "$out/instruction-module-text.json"
+        '';
+      nativeInstructionModuleTextBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativeInstructionModuleText pkgs).drvPath
+          ];
+        };
+      nativeInstructionModuleTextVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-instruction-module-text-verification" { } ''
+          set -euo pipefail
+          for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} ${pkgs.cue.src.drvPath} \
+            ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+            ${executor pkgs} ${(executor pkgs).drvPath} \
+            ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+            ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+            ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+            if grep -Fx "$forbidden" ${nativeInstructionModuleTextBuildClosure pkgs}/store-paths; then
+              echo "forbidden module text construction dependency: $forbidden" >&2; exit 1
+            fi
+          done
+          test "$(find ${instructionModuleTextSources pkgs} -type f | wc -l)" -eq 2
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 9
+          mkdir -p "$out" "$PWD/probe/home"
+          cd probe
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          oracle=${pkgs.cue}/bin/cue
+          codegen=${executor pkgs}/bin/bootstrap-codegen
+          jq=${pkgs.jq}/bin/jq
+          rustfmt=${pkgs.rustfmt}/bin/rustfmt
+          for binary in "$exporter" "$oracle" "$codegen" "$jq" "$rustfmt"; do
+            test -f "$binary" && test -r "$binary" && test -x "$binary"
+            case "$binary" in /*) ;; *) exit 1 ;; esac
+          done
+          cue() { env -i HOME="$PWD/home" PATH=/nonexistent "$oracle" "$@"; }
+          json() { env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -S .; }
+          format() { env -i HOME="$PWD/home" PATH=/nonexistent "$rustfmt" --edition 2024; }
+          generate() { env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" "$@" | format; }
+          cp ${instructionModuleTextSources pkgs}/*.cue .
+          helper=instruction-module-text.cue
+          textSelector=instruction-module-text-export.cue
+          schema=${../../bootstrap/schema.cue}
+          bridge=${../../bootstrap/lowering-fragments.cue}
+          unary=${../../bootstrap/instruction-unary-tables.cue}
+          selector=${../../bootstrap/lowering.cue}
+          native() { env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$1" "$textSelector"; }
+          place() { cue import -f -p bootstrap -l '#InstructionModuleText:' -o placed.cue "$1"; }
+          raw() { cue export "$schema" "$bridge" "$unary" "$helper" "$@"; }
+          complete() { cue export "$schema" "$bridge" "$unary" placed.cue "$@"; }
+          native "$helper" > text.json
+          cmp text.json ${nativeInstructionModuleText pkgs}/instruction-module-text.json
+          cue export "$helper" "$textSelector" | json > oracle.json
+          cmp text.json oracle.json
+          place text.json
+          if grep -F '#InstructionModuleText' "$schema"; then
+            echo 'instruction module text collides with the existing schema' >&2; exit 1
+          fi
+          for context in lowering tests/valid/lowering-left-twice tests/valid/lowering-reverse; do
+            case "$context" in lowering) source="$selector" ;; *) source=${../../bootstrap}/"$context.cue" ;; esac
+            name=$(basename "$context")
+            raw "$source" | json > "$name-raw.json"
+            complete "$source" | json > "$name.json"
+            cue export "$source" placed.cue "$unary" "$bridge" "$schema" | json > "$name-reversed.json"
+            cmp "$name-raw.json" "$name.json"
+            cmp "$name-reversed.json" "$name.json"
+            cmp "$name.json" ${jsonExports pkgs}/"$context.json"
+          done
+          generate ${jsonExports pkgs}/evaluation.json lowering.json > evaluation.rs
+          cmp evaluation.rs ${../../bootstrap/generated/evaluation.rs}
+          for control in left-twice reverse; do
+            generate ${jsonExports pkgs}/evaluation.json "lowering-$control.json" > "evaluation-$control.rs"
+            cmp "evaluation-$control.rs" ${../../bootstrap/generated}/evaluation-"$control.rs"
+          done
+          # Missing slots are readiness failures, not schema conflicts. A header
+          # operand of + reports non-concreteness rather than 'incomplete value'.
+          not_ready() {
+            cue eval "$schema" "$bridge" "$unary" "$@" > /dev/null
+            if cue export "$schema" "$bridge" "$unary" "$@" > failed.json 2> failed.err; then exit 1; fi
+            test ! -s failed.json && test -s failed.err
+            grep -E 'non-concrete value string in operand to \+|incomplete value string' failed.err
+          }
+          not_ready "$selector"
+          printf '%s\n' 'package bootstrap' '#InstructionModuleText: {header:string,footer:string}' > shape.cue
+          not_ready shape.cue "$selector"
+          for slot in header footer; do
+            env -i HOME="$PWD/home" PATH=/nonexistent "$jq" --arg slot "$slot" 'del(.[$slot])' text.json > missing.json
+            place missing.json
+            not_ready placed.cue "$selector"
+          done
+          for invalid in '.header=1' '.footer=false' '.extra="unexpected"'; do
+            env -i HOME="$PWD/home" PATH=/nonexistent "$jq" "$invalid" text.json > invalid.json
+            place invalid.json
+            if cue eval "$schema" "$bridge" "$unary" placed.cue "$selector" > failed.eval 2> failed.err; then exit 1; fi
+            if complete "$selector" > failed.json 2> failed.err; then exit 1; fi
+            test ! -s failed.json && test -s failed.err
+            grep -E 'conflicting values|field not allowed' failed.err
+          done
+          substitute "$textSelector" unknown.cue --replace-fail '#InstructionModuleText' '#MissingInstructionModuleText'
+          if env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$helper" unknown.cue > failed.json 2> failed.err; then exit 1; fi
+          test ! -s failed.json && test -s failed.err
+          grep -F 'unknown' failed.err
+          printf '%s\n' '{"formatVersion":1,"rules":{"tiny":{"result":{"op":"int"}}}}' > tiny.json
+          # Source-only changes must reach a COMPLETE independently predicted
+          # evaluator. This handwritten prediction is never constructor input.
+          for variant in header footer; do
+            headerComment='// Generated by bootstrap-codegen. Do not edit by hand.'
+            footerComment=
+            case "$variant" in
+              header)
+                headerComment='// Module text header variant.'
+                substitute "$helper" variant.cue --replace-fail '// Generated by bootstrap-codegen. Do not edit by hand.' "$headerComment" ;;
+              footer)
+                footerComment=$'// Module text footer variant.\n'
+                substitute "$helper" variant.cue --replace-fail '"kind => Err' '"// Module text footer variant.\nkind => Err' ;;
+            esac
+            native variant.cue > variant.json
+            if cmp -s variant.json text.json; then exit 1; fi
+            place variant.json
+            complete "$selector" | json > variant-policy.json
+            cue export "$schema" "$bridge" "$unary" variant.cue "$selector" | json > variant-raw.json
+            cmp variant-policy.json variant-raw.json
+            generate tiny.json variant-policy.json > "$variant.rs"
+            format > "$variant-expected.rs" <<RUST
+          $headerComment
+          use bootstrap_executor::{Error, runtime};
+          use serde_json::Value;
+
+          pub fn execute(input: &str) -> Result<i64, Error> {
+              let mut _context = runtime::EvaluationContext::default();
+              runtime::concrete(evaluate(&runtime::program(input)?, &mut _context)?)
+          }
+
+          pub fn execute_json(input: &str) -> Result<Value, Error> {
+              let mut _context = runtime::EvaluationContext::default();
+              runtime::concrete_json(evaluate(&runtime::program(input)?, &mut _context)?)
+          }
+
+          fn evaluate(node: &Value, _context: &mut runtime::EvaluationContext) -> Result<runtime::Value, Error> {
+              _context.visit(|_context| evaluate_node(node, _context))
+          }
+
+          fn evaluate_node(node: &Value, _context: &mut runtime::EvaluationContext) -> Result<runtime::Value, Error> {
+              match runtime::kind(node)? {
+                  "tiny" => Ok::<_, Error>(runtime::Value::Int),
+                  $footerComment kind => Err(Error::MissingRule { kind: kind.to_string() }),
+              }
+          }
+          RUST
+            cmp "$variant.rs" "$variant-expected.rs"
+          done
+          cp text.json lowering*.json evaluation*.rs header*.rs footer*.rs "$out/"
+          cp ${nativeInstructionModuleTextBuildClosure pkgs}/store-paths "$out/native-build-paths"
+          cp ${nativeInstructionModuleTextBuildClosure pkgs}/registration "$out/native-build-registration"
+          printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeInstructionModuleText pkgs).drvPath} > "$out/native-build-roots"
         '';
       prattTableSources =
         pkgs:
@@ -3418,6 +3611,7 @@
           native-unify-lowering-policy = nativeUnifyLoweringPolicy pkgs;
           native-scan-lowering-policy = nativeScanLoweringPolicy pkgs;
           native-instruction-unary-tables = nativeInstructionUnaryTables pkgs;
+          native-instruction-module-text = nativeInstructionModuleText pkgs;
           native-pratt-tables = nativePrattTables pkgs;
           native-pratt-lowering-policy = nativePrattLoweringPolicy pkgs;
           native-codegen-core = nativeCodegenCore pkgs;
@@ -3489,6 +3683,7 @@
           native-unify-lowering-policy = nativeUnifyLoweringPolicyVerification pkgs;
           native-scan-lowering-policy = nativeScanLoweringPolicyVerification pkgs;
           native-instruction-unary-tables = nativeInstructionUnaryTablesVerification pkgs;
+          native-instruction-module-text = nativeInstructionModuleTextVerification pkgs;
           native-pratt-tables = nativePrattTablesVerification pkgs;
           native-pratt-lowering-policy = nativePrattLoweringPolicyVerification pkgs;
           native-codegen-core = nativeCoreVerification pkgs;

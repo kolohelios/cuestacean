@@ -190,6 +190,12 @@ Pratt/meta policy DATA. Production joins core TWO + scanner ONE + unifier ONE +
 Pratt ONE + legacy ONE: FIVE compiler binaries construct independently; FIVE complete
 native policy DATA inputs remain. Fresh Pratt feature generation is independently
 native; scanner PROGRAM/source-feature verification remains deliberately Go-backed.
+The [#248 native module-text input](native-instruction-module-text.md) adds bounded
+LF-only multiline literal VALUES and constructs the original instruction header/
+footer DATA independently. Standard Go-consumer import places that native JSON in
+its required closed helper; raw oracle contexts still load unresolved owners first.
+Full instruction policy/module-control defaults/Binary/reused-R remain Go-built;
+counts stay FIVE complete policy DATA inputs/FIVE compiler binaries, not closure.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
