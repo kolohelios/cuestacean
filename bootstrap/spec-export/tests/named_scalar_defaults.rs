@@ -308,7 +308,14 @@ fn independently_billed_exact_work_and_ref_inclusive_depth_boundaries() {
             }
         }
     }
-    let (a, b) = pair(29, "int"); // Body depth32 fits parser; Ref makes preferred depth33.
+    // No parentheses: parser body depth32 fits; Ref makes preferred depth33.
+    let a = source(&format!("#X:{}", wrapped("*1 | int".into(), &["v"; 29])));
+    let b = source("#X");
+    // Parsing precedes evaluation: zero work must reach admission's work guard.
+    assert_eq!(
+        export_with_limit(&a, &b, 0),
+        Err(Error::Limit("evaluation steps"))
+    );
     assert_eq!(export(&a, &b), Err(Error::Limit("syntax depth")));
     let (a, b) = pair(28, "int");
     assert_eq!(export(&a, &b), Err(Error::Limit("evaluation steps")));
