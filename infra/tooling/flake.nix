@@ -2417,7 +2417,8 @@
             cmp "$name.json" "$name-raw.json"
             cmp "$name.json" ${jsonExports pkgs}/"$context.json"
             gate placed.cue
-            cue export "$source" placed.cue "$step" "$first" "$text" "$unary" "$bridge" "$schema" | json > reversed.json
+            right_gate
+            cue export "$source" placed.cue "$step" "$first" "$text" "$unary" "$right" "$bridge" "$schema" | json > reversed.json
             cmp "$name.json" reversed.json
           done
           # The reused R occurrences remain independently right; only sum refines.
@@ -2470,8 +2471,10 @@
           query 'del(.select.op)' tables.json > missing.json
           place missing.json missing.cue
           no_helper missing.cue
-          # Deliberate counterfactual: bypassing isolation supplies the missing op.
-          cue export "$schema" "$bridge" "$unary" "$text" "$first" "$step" missing.cue "$selector" > bypass.json
+          # Deliberate counterfactual: bypassing Binary isolation supplies the missing op.
+          # Right completeness remains independent; do not bypass its gate.
+          right_gate
+          cue export "$schema" "$bridge" "$right" "$unary" "$text" "$first" "$step" missing.cue "$selector" > bypass.json
           query -e '.cases.binaryRuntime.parts[0].op=="select"' bypass.json > /dev/null
           no_policy missing.cue
           printf '%s\n' '{"formatVersion":1,"rules":{"a":{"result":{"op":"index","left":{"op":"field","field":"left"},"right":{"op":"field","field":"right"}}},"b":{"result":{"op":"difference","left":{"op":"field","field":"left"},"right":{"op":"field","field":"right"}}}}}' > tiny.json
@@ -2626,7 +2629,7 @@
           jq=${pkgs.jq}/bin/jq
           rustfmt=${pkgs.rustfmt}/bin/rustfmt
           for binary in "$exporter" "$oracle" "$codegen" "$driver" "$jq" "$rustfmt"; do
-            test -r "$binary" && test -x "$binary"
+            test -f "$binary" && test -r "$binary" && test -x "$binary"
             case "$binary" in /*) ;; *) exit 1 ;; esac
           done
           native() { env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" native-policy-package.cue "$1"; }
