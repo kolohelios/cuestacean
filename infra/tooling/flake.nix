@@ -288,6 +288,34 @@
       ++ unifyFixtures
       ++ loweringFixtures;
       fixtureNames = builtins.concatStringsSep " " exportFixtures;
+      # Verification of the real consumer functions, not a native input/seed.
+      # The all-left context would conceal an absent provider without isolation.
+      rightFieldConsumerProbe = ''
+        printf '%s\n' 'package bootstrap' '#InstructionLowering & {' \
+          'cases:{binaryRuntime:{parts:[_,_,_,_,{value:{value:{field:"left"}}},_]}}' \
+          'cases:{sum:{args:[_,{value:{value:{field:"left"}}}]}}' \
+          'cases:{less:{args:[_,{value:{value:{field:"left"}}}]}}' \
+          'cases:{lessEqual:{args:[_,{value:{value:{field:"left"}}}]}}' \
+          'cases:{greater:{args:[_,{value:{value:{field:"left"}}}]}}' \
+          'cases:{greaterEqual:{args:[_,{value:{value:{field:"left"}}}]}}' \
+          'cases:{notEqual:{args:[_,{value:{value:{field:"left"}}}]}}' \
+          'cases:{remainder:{args:[_,{value:{value:{field:"left"}}}]}}' \
+          'cases:{unify:{parts:[_,{args:[_,{value:{value:{field:"left"}}}]},_]}}' \
+          '}' > right-backfill.cue
+        savedRight=$right
+        right=${../../bootstrap/instruction-right-field.cue}
+        consume_right > right-backfill-positive.json
+        test -s right-backfill-positive.json
+        printf '%s\n' 'package bootstrap' '#InstructionRightField:{}' > right-missing.cue
+        right=right-missing.cue
+        if consume_right > right-stopped.json 2> right-stopped.err; then exit 1; fi
+        test ! -s right-stopped.json && test -s right-stopped.err
+        rightStatus=0
+        consume_right > right-stopped-or.json 2> right-stopped-or.err || rightStatus=$?
+        test "$rightStatus" -ne 0
+        test ! -s right-stopped-or.json && test -s right-stopped-or.err
+        right=$savedRight
+      '';
       jsonExports =
         pkgs:
         let
@@ -318,6 +346,7 @@
                 ../../bootstrap/bound-control-fragments.cue
                 ../../bootstrap/exclusive-bound-fragments.cue
                 ../../bootstrap/lowering-fragments.cue
+                ../../bootstrap/instruction-right-field.cue
                 ../../bootstrap/instruction-module-first.cue
                 ../../bootstrap/instruction-module-step.cue
                 ../../bootstrap/pratt-lowering-fragments.cue
@@ -364,7 +393,15 @@
             cue import -p bootstrap -l '#InstructionBinaryTables:' \
               -o "$PWD/instruction-binary-tables.cue" \
               ${nativeInstructionBinaryTables pkgs}/instruction-binary-tables.json
+            cue import -p bootstrap -l '#InstructionRightField:' \
+              -o "$PWD/instruction-right-field.cue" \
+              ${nativeInstructionRightField pkgs}/right-field.json
             export_policy() {
+              case "$fixture" in
+                lowering|tests/valid/lowering-left-twice|tests/valid/lowering-reverse)
+                  cue export ${cueSources}/schema.cue ${cueSources}/lowering-fragments.cue \
+                    "$rightProvider" -e '#InstructionRightField' > /dev/null || return ;;
+              esac
               case "$fixture" in
                 lowering|tests/valid/lowering-left-twice|tests/valid/lowering-reverse)
                   # Do not load a policy selector/context: its schema can backfill op.
@@ -380,6 +417,18 @@
               -o "$PWD/instruction-module-first.cue" ${nativeInstructionModuleControls pkgs}/first.json
             cue import -p bootstrap -l '#InstructionModuleStep:' \
               -o "$PWD/instruction-module-step.cue" ${nativeInstructionModuleControls pkgs}/step.json
+            # Check the actual export_policy wrapper, including conditional calls.
+            right="$PWD/instruction-right-field.cue"
+            fixture=lowering
+            consume_right() {
+              rightProvider=$right
+              export_policy ${cueSources}/schema.cue ${cueSources}/lowering-fragments.cue \
+                "$right" "$PWD/instruction-binary-tables.cue" \
+                ${nativeInstructionUnaryTables pkgs}/instruction-unary-tables.json \
+                "$PWD/instruction-module-text.cue" ${cueSources}/instruction-module-first.cue \
+                ${cueSources}/instruction-module-step.cue right-backfill.cue
+            }
+            ${rightFieldConsumerProbe}
             for fixture in ${fixtureNames}; do
               echo "exporting $fixture"
               case "$fixture" in
@@ -460,9 +509,11 @@
               esac
               case "$fixture" in
                 lowering)
-                  inputs+=("$PWD/instruction-module-first.cue" "$PWD/instruction-module-step.cue") ;;
+                  rightProvider="$PWD/instruction-right-field.cue"
+                  inputs+=("$rightProvider" "$PWD/instruction-module-first.cue" "$PWD/instruction-module-step.cue") ;;
                 tests/valid/lowering-left-twice|tests/valid/lowering-reverse)
-                  inputs+=("${cueSources}/instruction-module-first.cue" "${cueSources}/instruction-module-step.cue") ;;
+                  rightProvider="${cueSources}/instruction-right-field.cue"
+                  inputs+=("$rightProvider" "${cueSources}/instruction-module-first.cue" "${cueSources}/instruction-module-step.cue") ;;
               esac
               inputs+=("${cueSources}/$fixture.cue")
               # Choose the provider before execution: overrides need the raw
@@ -1455,6 +1506,8 @@
             ++ pkgs.lib.optionals tests (
               [
                 ../../bootstrap/spec-export/tests
+                ../../bootstrap/instruction-right-field.cue
+                ../../bootstrap/instruction-right-field-export.cue
                 ../../bootstrap/instruction-unary-tables.cue
                 ../../bootstrap/instruction-binary-tables.cue
                 ../../bootstrap/instruction-module-text.cue
@@ -2324,10 +2377,13 @@
           selector=${../../bootstrap/lowering.cue}
           place() { cue import -f -p bootstrap -l '#InstructionBinaryTables:' -o "$2" "$1"; }
           gate() { cue export "$schema" "$bridge" "$1" -e '#InstructionBinaryTables' > /dev/null; }
+          right=${../../bootstrap/instruction-right-field.cue}
+          right_gate() { cue export "$schema" "$bridge" "$right" -e '#InstructionRightField' > /dev/null; }
           policy() {
             provider=$1; shift
+            right_gate || return
             gate "$provider" || return
-            cue export "$schema" "$bridge" "$unary" "$text" "$first" "$step" "$provider" "$@"
+            cue export "$schema" "$bridge" "$right" "$unary" "$text" "$first" "$step" "$provider" "$@"
           }
           # Every raw oracle exports the SAME original default-free table source
           # independently, then imports and gates it; no old inline owner assists.
@@ -2351,6 +2407,8 @@
                  value:{op:"text",value:("runtime::"+.[1])}})|from_entries)}}' | json > expected.json
           cmp tables.json expected.json
           place tables.json placed.cue
+          consume_right() { policy placed.cue right-backfill.cue; }
+          ${rightFieldConsumerProbe}
           for context in lowering tests/valid/lowering-left-twice tests/valid/lowering-reverse; do
             case "$context" in lowering) source="$selector" ;; *) source=${../../bootstrap}/"$context.cue" ;; esac
             name=$(basename "$context")
@@ -2588,7 +2646,9 @@
           cue export ${../../bootstrap/native-policy-package.cue} ${../../bootstrap/instruction-binary-tables.cue} > binary.json
           cue import -p bootstrap -l '#InstructionBinaryTables:' -o binary-placed.cue binary.json
           binary_gate() { cue export "$schema" "$bridge" binary-placed.cue -e '#InstructionBinaryTables' > /dev/null; }
-          binary_export() { binary_gate || return; cue export "$@" binary-placed.cue; }
+          right=${../../bootstrap/instruction-right-field.cue}
+          right_gate() { cue export "$schema" "$bridge" "$right" -e '#InstructionRightField' > /dev/null; }
+          binary_export() { right_gate || return; binary_gate || return; cue export "$right" "$@" binary-placed.cue; }
           raw() { binary_export "$schema" "$bridge" "$moduleText" "$firstOwner" "$stepOwner" instruction-unary-tables.cue "$@"; }
           complete() { binary_export "$schema" "$bridge" "$moduleText" "$firstOwner" "$stepOwner" "$@"; }
           native instruction-unary-tables.cue > tables.json
@@ -2597,6 +2657,8 @@
           cue export native-policy-package.cue instruction-unary-tables.cue | json > oracle-tables.json
           cmp tables.json oracle-tables.json
           raw "$selector" | json > raw.json
+          consume_right() { complete tables.json right-backfill.cue; }
+          ${rightFieldConsumerProbe}
           complete tables.json "$selector" | json > complete.json
           cmp raw.json complete.json
           cmp complete.json ${jsonExports pkgs}/lowering.json
@@ -2628,7 +2690,8 @@
             test ! -s failed.json && test -s failed.err
             grep -F 'incomplete value' failed.err
             binary_gate
-            cue eval "$schema" "$bridge" "$moduleText" "$firstOwner" "$stepOwner" binary-placed.cue "$@" > /dev/null
+            right_gate
+            cue eval "$schema" "$bridge" "$right" "$moduleText" "$firstOwner" "$stepOwner" binary-placed.cue "$@" > /dev/null
           }
           no_export "$selector"
           env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -c \
@@ -2794,7 +2857,9 @@
           cue export ${../../bootstrap/native-policy-package.cue} ${../../bootstrap/instruction-binary-tables.cue} > binary.json
           cue import -p bootstrap -l '#InstructionBinaryTables:' -o binary-placed.cue binary.json
           binary_gate() { cue export "$schema" "$bridge" binary-placed.cue -e '#InstructionBinaryTables' > /dev/null; }
-          binary_export() { binary_gate || return; cue export "$@" binary-placed.cue; }
+          right=${../../bootstrap/instruction-right-field.cue}
+          right_gate() { cue export "$schema" "$bridge" "$right" -e '#InstructionRightField' > /dev/null; }
+          binary_export() { right_gate || return; binary_gate || return; cue export "$right" "$@" binary-placed.cue; }
           raw() { binary_export "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" "$helper" "$@"; }
           complete() { binary_export "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" placed.cue "$@"; }
           native "$helper" > text.json
@@ -2802,6 +2867,8 @@
           cue export "$helper" "$textSelector" | json > oracle.json
           cmp text.json oracle.json
           place text.json
+          consume_right() { complete right-backfill.cue; }
+          ${rightFieldConsumerProbe}
           if grep -F '#InstructionModuleText' "$schema"; then
             echo 'instruction module text collides with the existing schema' >&2; exit 1
           fi
@@ -2825,7 +2892,8 @@
           # operand of + reports non-concreteness rather than 'incomplete value'.
           not_ready() {
             binary_gate
-            cue eval "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" binary-placed.cue "$@" > /dev/null
+            right_gate
+            cue eval "$schema" "$bridge" "$right" "$unary" "$firstOwner" "$stepOwner" binary-placed.cue "$@" > /dev/null
             if binary_export "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" "$@" > failed.json 2> failed.err; then exit 1; fi
             test ! -s failed.json && test -s failed.err
             grep -E 'non-concrete value string in operand to \+|incomplete value string' failed.err
@@ -2842,7 +2910,8 @@
             env -i HOME="$PWD/home" PATH=/nonexistent "$jq" "$invalid" text.json > invalid.json
             place invalid.json
             binary_gate
-            if cue eval "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" binary-placed.cue placed.cue "$selector" > failed.eval 2> failed.err; then exit 1; fi
+            right_gate
+            if cue eval "$schema" "$bridge" "$right" "$unary" "$firstOwner" "$stepOwner" binary-placed.cue placed.cue "$selector" > failed.eval 2> failed.err; then exit 1; fi
             if complete "$selector" > failed.json 2> failed.err; then exit 1; fi
             test ! -s failed.json && test -s failed.err
             grep -E 'conflicting values|field not allowed' failed.err
@@ -2990,7 +3059,9 @@
           cue export ${../../bootstrap/native-policy-package.cue} ${../../bootstrap/instruction-binary-tables.cue} > binary.json
           cue import -p bootstrap -l '#InstructionBinaryTables:' -o binary-placed.cue binary.json
           binary_gate() { cue export "$schema" "$bridge" binary-placed.cue -e '#InstructionBinaryTables' > /dev/null; }
-          binary_export() { binary_gate || return; cue export "$@" binary-placed.cue; }
+          right=${../../bootstrap/instruction-right-field.cue}
+          right_gate() { cue export "$schema" "$bridge" "$right" -e '#InstructionRightField' > /dev/null; }
+          binary_export() { right_gate || return; binary_gate || return; cue export "$right" "$@" binary-placed.cue; }
           base() { binary_export "$schema" "$bridge" "$text" "$unary" "$@"; }
           raw() { base "$first" "$step" "$@"; }
           selected() { base first-placed.cue step-placed.cue "$@"; }
@@ -3006,6 +3077,8 @@
           cmp step.json expected-step.json
           place first.json First first-placed.cue
           place step.json Step step-placed.cue
+          consume_right() { selected right-backfill.cue; }
+          ${rightFieldConsumerProbe}
           if grep -E '#InstructionModule(First|Step)' "$schema"; then exit 1; fi
           selected "$selector" | json > canonical.json
           raw "$selector" | json > raw.json
@@ -3040,7 +3113,8 @@
                 providers=(first-placed.cue shape.cue) ;;
             esac
             binary_gate
-            cue eval "$schema" "$bridge" "$text" "$unary" binary-placed.cue "''${providers[@]}" "$selector" > /dev/null
+            right_gate
+            cue eval "$schema" "$bridge" "$right" "$text" "$unary" binary-placed.cue "''${providers[@]}" "$selector" > /dev/null
             if base "''${providers[@]}" "$selector" > failed.json 2> failed.err; then exit 1; fi
             test ! -s failed.json && test -s failed.err
             grep -F 'incomplete value' failed.err
@@ -3141,6 +3215,356 @@
           cp ${nativeInstructionModuleControlsBuildClosure pkgs}/store-paths "$out/native-build-paths"
           cp ${nativeInstructionModuleControlsBuildClosure pkgs}/registration "$out/native-build-registration"
           printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeInstructionModuleControls pkgs).drvPath} > "$out/native-build-roots"
+        '';
+      instructionRightFieldSources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/instruction-right-field.cue
+            ../../bootstrap/instruction-right-field-export.cue
+          ];
+        };
+      nativeInstructionRightField =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-instruction-right-field" { } ''
+          set -euo pipefail
+          mkdir -p "$PWD/home" "$out"
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          test -f "$exporter" && test -r "$exporter" && test -x "$exporter"
+          case "$exporter" in /*) ;; *) exit 1 ;; esac
+          owner=${instructionRightFieldSources pkgs}/instruction-right-field.cue
+          selector=${instructionRightFieldSources pkgs}/instruction-right-field-export.cue
+          env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$owner" "$selector" > first.json
+          env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$owner" "$selector" > repeated.json
+          env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$selector" "$owner" > reversed.json
+          for result in first repeated reversed; do
+            test "$(wc -c < "$result.json")" -le 65536
+            cmp first.json "$result.json"
+          done
+          cp first.json "$out/right-field.json"
+        '';
+      nativeInstructionRightFieldBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativeInstructionRightField pkgs).drvPath
+          ];
+        };
+      nativeInstructionRightFieldVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-instruction-right-field-verification" { } ''
+          set -euo pipefail
+          for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} ${pkgs.cue.src.drvPath} \
+            ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+            ${executor pkgs} ${(executor pkgs).drvPath} \
+            ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+            ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+            ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+            if grep -Fx "$forbidden" ${nativeInstructionRightFieldBuildClosure pkgs}/store-paths; then
+              echo "forbidden right-field construction dependency: $forbidden" >&2; exit 1
+            fi
+          done
+          test "$(find ${instructionRightFieldSources pkgs} -type f | wc -l)" -eq 2
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 9
+          mkdir -p "$out" "$PWD/probe/home"
+          cd probe
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          oracle=${pkgs.cue}/bin/cue
+          codegen=${executor pkgs}/bin/bootstrap-codegen
+          driver=${nativeCodegenCore pkgs}/bin/bootstrap-lower-codegen
+          jq=${pkgs.jq}/bin/jq
+          rustfmt=${pkgs.rustfmt}/bin/rustfmt
+          for binary in "$exporter" "$oracle" "$codegen" "$driver" "$jq" "$rustfmt"; do
+            test -f "$binary" && test -r "$binary" && test -x "$binary"
+            case "$binary" in /*) ;; *) exit 1 ;; esac
+          done
+          cue() { env -i HOME="$PWD/home" PATH=/nonexistent "$oracle" "$@"; }
+          query() { env -i HOME="$PWD/home" PATH=/nonexistent "$jq" "$@"; }
+          json() { query -S .; }
+          format() { env -i HOME="$PWD/home" PATH=/nonexistent "$rustfmt" --edition 2024; }
+          generate() { env -i HOME="$PWD/home" PATH=/nonexistent "$codegen" "$@" | format; }
+          native() { env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$@"; }
+          place() { cue import -f -p bootstrap -l '#InstructionRightField:' -o "$2" "$1"; }
+          cp ${instructionRightFieldSources pkgs}/*.cue .
+          schema=${../../bootstrap/schema.cue}
+          bridge=${../../bootstrap/lowering-fragments.cue}
+          unary=${../../bootstrap/instruction-unary-tables.cue}
+          text=${../../bootstrap/instruction-module-text.cue}
+          first=${../../bootstrap/instruction-module-first.cue}
+          step=${../../bootstrap/instruction-module-step.cue}
+          selector=${../../bootstrap/lowering.cue}
+          owner=instruction-right-field.cue
+          rightSelector=instruction-right-field-export.cue
+          cue export ${../../bootstrap/native-policy-package.cue} ${../../bootstrap/instruction-binary-tables.cue} > binary.json
+          cue import -p bootstrap -l '#InstructionBinaryTables:' -o binary-placed.cue binary.json
+          binary_gate() { cue export "$schema" "$bridge" binary-placed.cue -e '#InstructionBinaryTables' > /dev/null; }
+          isolated() { cue "$1" "$schema" "$bridge" "''${@:2}" -e '#InstructionRightField'; }
+          right_gate() { isolated export "$@" > /dev/null; }
+          # Both checks are fail-stop even when the caller uses if or ||.
+          # Raw validation discards selected stdout and reloads the SAME owner.
+          policy() {
+            right=$1; context=$2; order=$3
+            rightInputs=()
+            if test -n "$right"; then rightInputs=("$right"); fi
+            right_gate "''${rightInputs[@]}" || return
+            binary_gate || return
+            touch full-export-started
+            inputs=("$schema" "$bridge" "''${rightInputs[@]}" binary-placed.cue "$unary" "$text" "$first" "$step" "$context")
+            if test "$order" = reverse; then
+              cue export "$context" "$step" "$first" "$text" "$unary" binary-placed.cue "''${rightInputs[@]}" "$bridge" "$schema"
+            else
+              cue export "''${inputs[@]}"
+            fi
+          }
+          native "$owner" "$rightSelector" > right.json
+          native "$rightSelector" "$owner" > right-reversed.json
+          native "$owner" "$rightSelector" > right-repeat.json
+          printf '%s\n' '{"field":"right"}' | json > right-expected.json
+          cue export "$owner" "$rightSelector" | json > right-oracle.json
+          for result in right-reversed right-repeat right-expected right-oracle; do cmp right.json "$result.json"; done
+          cmp right.json ${nativeInstructionRightField pkgs}/right-field.json
+          test "$(wc -c < right.json)" -eq 23
+          place right.json selected.cue
+          policy selected.cue "$selector" forward | json > canonical.json
+          policy "$owner" "$selector" reverse | json > canonical-raw.json
+          cmp canonical.json canonical-raw.json
+          cmp canonical.json ${jsonExports pkgs}/lowering.json
+          # Arbitrary names and ordinary literals use the SAME existing profile.
+          printf '%s\n' 'package arbitrary' '#Pick: {answer: "cold" | *"warm"}' > arbitrary.cue
+          printf '%s\n' 'package arbitrary' '#Pick' > arbitrary-export.cue
+          native arbitrary.cue arbitrary-export.cue > arbitrary.json
+          native arbitrary-export.cue arbitrary.cue > arbitrary-reversed.json
+          printf '%s\n' '{"answer":"warm"}' | json > arbitrary-expected.json
+          cmp arbitrary.json arbitrary-expected.json
+          cmp arbitrary.json arbitrary-reversed.json
+          # Independent nine-site inventory: the aliases share binaryRuntime,
+          # but no other use of the Go lexical R may inherit a site's refinement.
+          cat > sites.tsv <<'SITES'
+          binaryRuntime|cases:{binaryRuntime:{parts:[_,_,_,_,{value:{value:{field:"%s"}}},_]}}
+          sum|cases:{sum:{args:[_,{value:{value:{field:"%s"}}}]}}
+          less|cases:{less:{args:[_,{value:{value:{field:"%s"}}}]}}
+          lessEqual|cases:{lessEqual:{args:[_,{value:{value:{field:"%s"}}}]}}
+          greater|cases:{greater:{args:[_,{value:{value:{field:"%s"}}}]}}
+          greaterEqual|cases:{greaterEqual:{args:[_,{value:{value:{field:"%s"}}}]}}
+          notEqual|cases:{notEqual:{args:[_,{value:{value:{field:"%s"}}}]}}
+          remainder|cases:{remainder:{args:[_,{value:{value:{field:"%s"}}}]}}
+          unify|cases:{unify:{parts:[_,{args:[_,{value:{value:{field:"%s"}}}]},_]}}
+          SITES
+          # Independently authored JSON locations, not scraped from policy DATA.
+          cat > paths.json <<'PATHS'
+          [["cases","binaryRuntime","parts",4,"value","value","field"],
+           ["cases","sum","args",1,"value","value","field"],
+           ["cases","less","args",1,"value","value","field"],
+           ["cases","lessEqual","args",1,"value","value","field"],
+           ["cases","greater","args",1,"value","value","field"],
+           ["cases","greaterEqual","args",1,"value","value","field"],
+           ["cases","notEqual","args",1,"value","value","field"],
+           ["cases","remainder","args",1,"value","value","field"],
+           ["cases","unify","parts",1,"args",1,"value","value","field"]]
+          PATHS
+          # COMPLETE tiny instructions cover every R consumer and all eleven
+          # Binary aliases. Left/right produce visibly different complete trees.
+          cat > methods.tsv <<'METHODS'
+          difference difference 0
+          divide divide 0
+          equal equal 0
+          greater greater 4
+          greaterEqual greater_equal 5
+          index index 0
+          less less 2
+          lessEqual less_equal 3
+          listIndex list_index 0
+          logicalAnd logical_and 0
+          logicalOr logical_or 0
+          modulo modulo 0
+          notEqual not_equal 6
+          product product 0
+          quotient quotient 0
+          recordIndex record_index 0
+          remainder remainder 7
+          sum sum 1
+          unify unify 8
+          METHODS
+          query -Rn '[inputs | split(" ") | {key:.[0],value:{result:{op:.[0],left:{op:"int"},right:{op:"bool"}}}}] | {formatVersion:1,rules:from_entries}' < methods.tsv > tiny.json
+          # The full source prediction is handwritten, never a golden/output edit.
+          expected_rust() {
+            fields=$1
+            : > arms.rs
+            while read -r op method slot; do
+              choice=$(query -r --argjson slot "$slot" '.[$slot]' <<< "$fields")
+              case "$choice" in left) value=Int ;; right) value=Bool ;; *) exit 1 ;; esac
+              expression="runtime::$method((Ok::<_, Error>(runtime::Value::Int))?, (Ok::<_, Error>(runtime::Value::$value))?)"
+              if test "$op" = unify; then expression="(|_context: &mut runtime::EvaluationContext| $expression)(_context)"; fi
+              printf '"%s" => %s,\n' "$op" "$expression" >> arms.rs
+            done < methods.tsv
+            arms=$(< arms.rs)
+            format <<RUST
+          // Generated by bootstrap-codegen. Do not edit by hand.
+          use bootstrap_executor::{Error, runtime};
+          use serde_json::Value;
+          pub fn execute(input: &str) -> Result<i64, Error> {
+              let mut _context = runtime::EvaluationContext::default();
+              runtime::concrete(evaluate(&runtime::program(input)?, &mut _context)?)
+          }
+          pub fn execute_json(input: &str) -> Result<Value, Error> {
+              let mut _context = runtime::EvaluationContext::default();
+              runtime::concrete_json(evaluate(&runtime::program(input)?, &mut _context)?)
+          }
+          fn evaluate(node: &Value, _context: &mut runtime::EvaluationContext) -> Result<runtime::Value, Error> {
+              _context.visit(|_context| evaluate_node(node, _context))
+          }
+          fn evaluate_node(node: &Value, _context: &mut runtime::EvaluationContext) -> Result<runtime::Value, Error> {
+              match runtime::kind(node)? {
+                  $arms
+                  kind => Err(Error::MissingRule { kind: kind.to_string() }),
+              }
+          }
+          RUST
+          }
+          # Keep EVERY variant's source, context, native DATA, raw/native full
+          # policies and complete independently predicted/actual Rust separately.
+          for variant in canonical priority literal; do
+            mkdir "$variant"
+            cp "$rightSelector" "$variant/selector.cue"
+            case "$variant" in
+              canonical) cp "$owner" "$variant/owner.cue"; preferred=right; alternate=left ;;
+              priority)
+                substitute "$owner" "$variant/owner.cue" --replace-fail '*"right" | "left"' '"right" | *"left"'
+                preferred=left; alternate=right ;;
+              literal)
+                substitute "$owner" "$variant/owner.cue" --replace-fail '*"right" | "left"' '*"left" | "left"'
+                preferred=left; alternate=left ;;
+            esac
+            native "$variant/owner.cue" "$variant/selector.cue" > "$variant/native.json"
+            native "$variant/selector.cue" "$variant/owner.cue" > "$variant/native-reversed.json"
+            printf '{"field":"%s"}\n' "$preferred" | json > "$variant/expected.json"
+            cmp "$variant/native.json" "$variant/expected.json"
+            cmp "$variant/native.json" "$variant/native-reversed.json"
+            cue export "$variant/owner.cue" "$variant/selector.cue" | json > "$variant/oracle.json"
+            cmp "$variant/native.json" "$variant/oracle.json"
+            place "$variant/native.json" "$variant/placed.cue"
+            policy "$variant/placed.cue" "$selector" forward | json > "$variant/native-full.json"
+            policy "$variant/owner.cue" "$selector" reverse | json > "$variant/raw-full.json"
+            cmp "$variant/native-full.json" "$variant/raw-full.json"
+            fields=$(query -cn --arg p "$preferred" '[range(9)|$p]')
+            expected_rust "$fields" > "$variant/expected.rs"
+            generate tiny.json "$variant/native-full.json" > "$variant/actual.rs"
+            cmp "$variant/expected.rs" "$variant/actual.rs"
+            # Literal-only mutation has no alternative context to force.
+            if test "$variant" = literal; then continue; fi
+            for mask in none 0 1 2 3 4 5 6 7 8 all even odd; do
+              name="$variant/$mask"
+              mkdir "$name"
+              printf '%s\n' 'package bootstrap' '#InstructionLowering & {' > "$name/context.cue"
+              fields=(); index=0
+              while IFS='|' read -r site constraint; do
+                chosen=$preferred
+                case "$mask:$index" in
+                  all:*|even:0|even:2|even:4|even:6|even:8|odd:1|odd:3|odd:5|odd:7) chosen=$alternate ;;
+                  *) if test "$mask" = "$index"; then chosen=$alternate; fi ;;
+                esac
+                fields+=("$chosen")
+                if test "$chosen" != "$preferred"; then printf "$constraint\n" "$chosen" >> "$name/context.cue"; fi
+                index=$((index + 1))
+              done < sites.tsv
+              printf '%s\n' '}' >> "$name/context.cue"
+              printf '%s\n' "''${fields[@]}" | query -Rn '[inputs]' > "$name/expected-fields.json"
+              for order in forward reverse; do
+                policy "$variant/owner.cue" "$name/context.cue" "$order" | json > "$name/raw-$order.json"
+                query --slurpfile paths paths.json '[getpath($paths[0][])]' "$name/raw-$order.json" > "$name/actual-fields-$order.json"
+                cmp "$name/expected-fields.json" "$name/actual-fields-$order.json"
+                query --slurpfile paths paths.json 'delpaths($paths[0])' "$name/raw-$order.json" | json > "$name/untouched-$order.json"
+                query --slurpfile paths paths.json 'delpaths($paths[0])' canonical.json | json > untouched.json
+                cmp untouched.json "$name/untouched-$order.json"
+                expected_rust "$(< "$name/expected-fields.json")" > "$name/expected-$order.rs"
+                generate tiny.json "$name/raw-$order.json" > "$name/actual-$order.rs"
+                cmp "$name/expected-$order.rs" "$name/actual-$order.rs"
+              done
+              cmp "$name/raw-forward.json" "$name/raw-reverse.json"
+            done
+          done
+          # Missing provider/field: eval succeeds in isolation, export is EMPTY.
+          printf '%s\n' 'package bootstrap' '#InstructionRightField: {}' > missing.cue
+          for missing in owner field; do
+            providers=()
+            if test "$missing" = field; then providers=(missing.cue); fi
+            isolated eval "''${providers[@]}" > "$missing-eval.cue"
+            if isolated export "''${providers[@]}" > "$missing.json" 2> "$missing.err"; then exit 1; fi
+            test ! -s "$missing.json" && test -s "$missing.err"
+          done
+          # Explicit verification-only bypass: all nine contexts backfill R.
+          binary_gate
+          cue export "$schema" "$bridge" "$text" "$unary" "$first" "$step" binary-placed.cue canonical/all/context.cue | json > bypass-all-left.json
+          cmp bypass-all-left.json canonical/all/raw-forward.json
+          # Exercise the ACTUAL policy wrapper under both if and ||, including
+          # the context that could conceal a missing input without isolation.
+          for missing in missing.cue ""; do
+            rm -f full-export-started
+            if policy "$missing" canonical/all/context.cue forward > stopped.json 2> stopped.err; then exit 1; fi
+            test ! -e full-export-started && test ! -s stopped.json && test -s stopped.err
+            status=0
+            policy "$missing" canonical/all/context.cue reverse > stopped-or.json 2> stopped-or.err || status=$?
+            test "$status" -ne 0
+            test ! -e full-export-started && test ! -s stopped-or.json && test -s stopped-or.err
+          done
+          for invalid in '{field:1}' '{field:"right",extra:true}'; do
+            printf '%s\n' 'package bootstrap' "#InstructionRightField: $invalid" > invalid.cue
+            if policy invalid.cue "$selector" forward > invalid.json 2> invalid.err; then exit 1; fi
+            test ! -s invalid.json && test -s invalid.err
+          done
+          # Empty is accepted by the string-only helper, rejected by full schema.
+          printf '%s\n' 'package bootstrap' '#InstructionRightField:{field:""}' > empty.cue
+          right_gate empty.cue
+          if policy empty.cue "$selector" forward > empty.json 2> empty.err; then exit 1; fi
+          test ! -s empty.json && test -s empty.err
+          # 129 nonempty bytes instead pass Go and reach the REAL typed compiler.
+          query -n '{field:([range(129)|"x"]|join(""))}' > long.json
+          place long.json long.cue
+          policy long.cue "$selector" forward > long-policy.json
+          status=0
+          env -i HOME="$PWD/home" PATH=/nonexistent "$driver" long-policy.json > long.rs 2> long.err || status=$?
+          test "$status" -eq 2 && test ! -s long.rs && test -s long.err
+          grep -F 'selector must contain 1..=128 bytes' long.err
+          for control in left-twice reverse; do
+            context=${../../bootstrap/tests/valid}/lowering-"$control.cue"
+            cp "$context" "$control-context.cue"
+            policy "$owner" "$context" forward | json > "$control.json"
+            policy "$owner" "$context" reverse | json > "$control-reversed.json"
+            cmp "$control.json" "$control-reversed.json"
+            cmp "$control.json" ${jsonExports pkgs}/tests/valid/lowering-"$control.json"
+            generate ${jsonExports pkgs}/evaluation.json "$control.json" > "evaluation-$control.rs"
+            cmp "evaluation-$control.rs" ${../../bootstrap/generated}/evaluation-"$control.rs"
+          done
+          if policy selected.cue ${../../bootstrap/tests/valid/lowering-left-twice.cue} forward > selected-conflict.json 2> selected-conflict.err; then exit 1; fi
+          test ! -s selected-conflict.json && test -s selected-conflict.err
+          grep -F 'conflicting values' selected-conflict.err
+          # Both mixed cursor contexts retain the existing output exactly.
+          for state in last-next first-previous; do
+            case "$state" in last-next) initial=lastRule; advance=nextRule ;; first-previous) initial=firstRule; advance=previousRule ;; esac
+            printf '%s\n' 'package bootstrap' "#InstructionLowering & {module:[_,{op:\"$initial\"},{body:[_,_,_,_,{op:\"$advance\"}]},_]}" > "$state.cue"
+            policy "$owner" "$state.cue" forward | json > "$state.json"
+            policy selected.cue "$state.cue" reverse | json > "$state-selected.json"
+            cmp "$state.json" "$state-selected.json"
+          done
+          generate ${jsonExports pkgs}/evaluation.json canonical.json > evaluation.rs
+          cmp evaluation.rs ${../../bootstrap/generated/evaluation.rs}
+          generate ${jsonExports pkgs}/tests/valid/evaluation-left-twice.json canonical.json > rules-left-twice.rs
+          cmp rules-left-twice.rs ${../../bootstrap/generated/evaluation-left-twice.rs}
+          generate ${../../bootstrap/executor/tests/fixtures/codegen-escaped-rules.json} canonical.json > escaped.rs
+          cmp escaped.rs ${../../bootstrap/generated/codegen-escaped-rules.rs}
+          for policyName in ${loweringNames}; do
+            name=$(basename "$policyName")
+            env -i HOME="$PWD/home" PATH=/nonexistent "$driver" ${jsonExports pkgs}/"$policyName.json" | format > "$name.rs"
+            cmp "$name.rs" ${../../bootstrap/generated}/"$name.rs"
+          done
+          cp -R . "$out/evidence"
+          rm -rf "$out/evidence/home"
+          cp ${nativeInstructionRightFieldBuildClosure pkgs}/store-paths "$out/native-build-paths"
+          cp ${nativeInstructionRightFieldBuildClosure pkgs}/registration "$out/native-build-registration"
+          printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeInstructionRightField pkgs).drvPath} > "$out/native-build-roots"
         '';
       prattTableSources =
         pkgs:
@@ -4157,6 +4581,7 @@
           native-meta-lowering-policy = nativeMetaLoweringPolicy pkgs;
           native-unify-lowering-policy = nativeUnifyLoweringPolicy pkgs;
           native-scan-lowering-policy = nativeScanLoweringPolicy pkgs;
+          native-instruction-right-field = nativeInstructionRightField pkgs;
           native-instruction-binary-tables = nativeInstructionBinaryTables pkgs;
           native-instruction-unary-tables = nativeInstructionUnaryTables pkgs;
           native-instruction-module-text = nativeInstructionModuleText pkgs;
@@ -4231,6 +4656,7 @@
           native-meta-lowering-policy = nativeMetaLoweringPolicyVerification pkgs;
           native-unify-lowering-policy = nativeUnifyLoweringPolicyVerification pkgs;
           native-scan-lowering-policy = nativeScanLoweringPolicyVerification pkgs;
+          native-instruction-right-field = nativeInstructionRightFieldVerification pkgs;
           native-instruction-binary-tables = nativeInstructionBinaryTablesVerification pkgs;
           native-instruction-unary-tables = nativeInstructionUnaryTablesVerification pkgs;
           native-instruction-module-text = nativeInstructionModuleTextVerification pkgs;

@@ -208,6 +208,11 @@ comprehensions. A Go-only isolated completeness stage precedes full policy/schem
 composition: that schema can otherwise backfill a missing selector opcode. Reused-R,
 operand/concat shell and full instruction policy still need Go; no new native
 admission or sixth complete policy/compiler follows.
+The [#254 native right-field input](native-instruction-right-field.md) supplies the
+original scalar preference through the existing once-reference profile. R's shell
+and nine per-use contexts remain Go-owned; raw contexts reload the unresolved owner
+after isolated completeness validation, never selected defaults. Full policy still
+needs Go, and native reuse/closure/#175 obligations remain unchanged.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
