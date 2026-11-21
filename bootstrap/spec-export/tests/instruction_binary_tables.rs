@@ -17,6 +17,7 @@ const UNARY: &str = include_str!("../../instruction-unary-tables.cue");
 const TEXT: &str = include_str!("../../instruction-module-text.cue");
 const FIRST: &str = include_str!("../../instruction-module-first.cue");
 const STEP: &str = include_str!("../../instruction-module-step.cue");
+const RIGHT: &str = include_str!("../../instruction-right-field.cue");
 const POLICY: &str = include_str!("../../lowering.cue");
 const TWICE: &str = include_str!("../../tests/valid/lowering-left-twice.cue");
 const REVERSE: &str = include_str!("../../tests/valid/lowering-reverse.cue");
@@ -174,6 +175,20 @@ impl Probe {
         self.run(&self.cue, &[op, "-e", HELPER], &inputs, reverse)
     }
     fn full_unchecked(&self, provider: &str, context: &str, reverse: bool) -> Output {
+        // Binary's deliberate bypass controls must still validate the right owner.
+        let right_gate = self.run(
+            &self.cue,
+            &["export", "-e", "#InstructionRightField"],
+            &[
+                ("schema.cue", SCHEMA),
+                ("bridge.cue", BRIDGE),
+                ("right.cue", RIGHT),
+            ],
+            reverse,
+        );
+        if !right_gate.status.success() {
+            return right_gate;
+        }
         self.full_exports.set(self.full_exports.get() + 1);
         self.run(
             &self.cue,
@@ -186,6 +201,7 @@ impl Probe {
                 ("text.cue", TEXT),
                 ("first.cue", FIRST),
                 ("step.cue", STEP),
+                ("right.cue", RIGHT),
                 ("context.cue", context),
             ],
             reverse,

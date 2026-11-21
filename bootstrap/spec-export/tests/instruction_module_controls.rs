@@ -12,6 +12,7 @@ const FIRST: &str = include_str!("../../instruction-module-first.cue");
 const FIRST_ROOT: &str = include_str!("../../instruction-module-first-export.cue");
 const STEP: &str = include_str!("../../instruction-module-step.cue");
 const STEP_ROOT: &str = include_str!("../../instruction-module-step-export.cue");
+const RIGHT: &str = include_str!("../../instruction-right-field.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
 const TEXT: &str = include_str!("../../instruction-module-text.cue");
@@ -169,12 +170,26 @@ impl Probe {
         op: &str,
     ) -> Output {
         let binary = self.binary_provider(reverse);
+        let gate = self.run(
+            &self.cue,
+            &["export", "-e", "#InstructionRightField"],
+            &[
+                ("schema.cue", SCHEMA),
+                ("bridge.cue", BRIDGE),
+                ("right.cue", RIGHT),
+            ],
+            reverse,
+        );
+        if !gate.status.success() {
+            return gate;
+        }
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
             ("bridge.cue", BRIDGE),
             ("text.cue", TEXT),
             ("unary.cue", UNARY),
             ("binary-placed.cue", &binary),
+            ("right.cue", RIGHT),
         ];
         if let Some(first) = first {
             inputs.push(("first.cue", first));

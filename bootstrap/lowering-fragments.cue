@@ -23,6 +23,8 @@ package bootstrap
 	})
 })
 
+#InstructionRightField: close({field: string})
+
 // Executable recursion/Result layout, not Rust's instruction enum dispatch.
 #InstructionLowering: #LoweringPolicy & {
 	let Node = {op: "path", value: "node"}
@@ -31,7 +33,7 @@ package bootstrap
 	let L = {op: "try", value: {op: "group", value: {op: "lower", field: "left"}}}
 
 	// The alternate policy overrides only sum's default right-child selection.
-	let R = {op: "try", value: {op: "group", value: {op: "lower", field: *"right" | "left"}}}
+	let R = {op: "try", value: {op: "group", value: {op: "lower", field: #InstructionRightField.field}}}
 	let V = {op: "try", value: {op: "group", value: {op: "lower", field: "value"}}}
 	aliases: {
 		lowerExclusiveBound: _, upperExclusiveBound: _, lowerBound:   _, upperBound: _, negate:       _

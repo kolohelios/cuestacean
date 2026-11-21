@@ -11,6 +11,11 @@ concat shell or reused-R preference. Its isolated Go helper must export complete
 BEFORE full policy composition; otherwise the policy schema can fill missing
 select.op. Both native constructors remain schema/Go-free; full policy/default
 constraints and actual schema checks stay separate.
+The [native right-field input](../docs/native-instruction-right-field.md) separately
+supplies R's original scalar preference. Its isolated completeness check runs before
+any policy context: a context could otherwise fill all nine missing uses. Raw
+refinements reload the same unresolved owner after that check; R's reused shell and
+per-use context semantics remain Go-owned, not new native reuse/default support.
 The [native module-text input](../docs/native-instruction-module-text.md) separately
 constructs the original header/footer literals. The Go consumer imports that JSON
 under the required closed helper and retains header + newline. The separate

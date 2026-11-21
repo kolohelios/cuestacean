@@ -177,3 +177,8 @@ VERIFICATION ONLY. Separately rebuilt feature roots, refreshed final identities/
 inventories/preflight, two immutable exact-tree reviews and protected CI through
 confirmed merge remain required gates, not pending passes. FIVE complete native
 policy DATA/FIVE native compilers and broader #175 obligations remain unchanged.
+
+After [#254 right-field extraction](native-instruction-right-field.md), full Go
+policy helpers additionally validate the isolated right input and reload its raw
+unresolved owner before raw contexts. The Binary constructor remains exact raw2/
+exporter9; right preferences/Go completeness never enter its construction closure.
