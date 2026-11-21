@@ -143,3 +143,35 @@ paths above. Isolated type-only validation then SAME body without shape, ALL dir
 caller audits/Right+Binary gates/old assertions and complete final release evidence
 remain mandatory. Pause for semantic/authority/scope ambiguity or line-budget excess;
 no new native language/default/schema/reuse claim follows.
+
+## Local validation receipt
+
+Validated on x86_64-linux; no other platform claim:
+
+- Original-derived projection matches the raw body and entire remaining bridge
+  byte-exact: FOUR lets/SIXTEEN cases/comment moved once, SIXTEEN required slots;
+  R/L/nine R uses, other cases, aliases and modules unchanged.
+- Native raw TWO-file construction exports 5298 bytes. The independent complete
+  SIXTEEN-case expansion supplies all118 scalar leaves/13 fixed-array inventories.
+  All missing leaves/cases/body stop before full composition; genuine missing
+  `cases.text.op` otherwise backfills `call`. No shape enters full composition.
+- Native Go-shape rejection is the existing exact
+  `Syntax("declaration separator")`, CLI exit2/EMPTY stdout, not a new schema class.
+  Go opcode/shape failures and Go-accepted129-byte/typed-compiler exit2 controls
+  remain distinct. Whole predicted tiny Rust covers baseline/constant/Node-helper
+  source effects; `different_node` is emitted-source evidence, not execution.
+- Exporter142 groups (old135+new7), research135 and BOTH compiler-boundary suites
+  pass FOUR profiles with strict Clippy; full executor/default debug+release and
+  strict all-target Clippy pass. Old assertions/expected data remain unchanged.
+- Full pinned preflight13/13 (seven skips), whole-tree whitespace1405 files and
+  628 relative links pass.27 checks+24 NONDEFAULT packages give51 named attrs/
+  50 unique captured derivations, actually built AND rebuilt using SAME explicit
+  drv roots in real sandboxes. FOUR separately rebuilt feature roots match fresh
+  discovery.21 refreshed recursive/full retained inventories/current exclusions
+  pass; scanner source-feature stays positively Go-backed verification ONLY.
+- All249 JSON,12 builders, old DATA/generated Rust, FOUR façade cuts/SIX origins
+  and ALL22 other old package IDs remain unchanged; only exports changes among
+  baseline23. FIVE complete policies/FIVE native compilers remain the boundary.
+- Missing-linker setup, interrupted runs and repaired rename/phase/context/wire
+  fixtures are retained separately, never counted as full passes or semantic
+  negatives. No guard/admission/ABI/production Rust change or fallback was added.
