@@ -157,6 +157,7 @@ fn generic_scalars_all_fields_names_orders_capture_and_repeated_independent_uses
         );
         for answer in [
             json!("renamed"),
+            json!("\r"),
             json!(false),
             json!(-9223372036854775808_i64),
         ] {
@@ -270,11 +271,20 @@ fn original_targets_and_whole_arena_exclusions_unknowns_cycles_and_cli_recovery(
             "#D\n.x",
             "#D.\nx",
             "let Local=#D\nLocal.x",
+            "#D\r.x",
+            "#D.\rx",
+            "#D \r .x",
+            "#D. \r x",
+            "#D\t\r\t.x",
+            "#D.\t\r\tx",
+            "#D\r\n.x",
+            "#D.\r\nx",
         ] {
             assert!(
                 matches!(export(&good, &source(selector)), Err(Error::Unsupported(_))),
                 "{selector}"
             );
+            failed(p.native(&good, &source(selector), reverse));
         }
         for selector in ["#D[\"x\"]", "#D(\"x\")"] {
             assert_eq!(
@@ -356,6 +366,9 @@ fn derived_preparation_evaluation_work_shared_hard_limit_and_no_selector_old_cos
     // No selectors: old literal3, direct Ref6, one-field ordinary object11.
     for (a, b, cost) in [
         (source(""), source("1"), 3),
+        (source(""), source("\r1\r"), 3),
+        (source(""), source("\r\n1\r\n"), 3),
+        (source(""), source("\"\\r\""), 3),
         (source("#D:1"), source("#D"), 6),
         (source(""), source("{a:1}"), 11),
     ] {
