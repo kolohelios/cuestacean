@@ -106,7 +106,10 @@ pub(crate) fn resolve(
                     },
                 };
             }
-            Expr::Ref(name) if !doc.definitions.contains_key(name) => {
+            Expr::Ref(name)
+            | Expr::Projection {
+                definition: name, ..
+            } if !doc.definitions.contains_key(name) => {
                 return Err(Error::Unknown(name.clone()));
             }
             _ => {}
@@ -128,7 +131,12 @@ fn reject_cycles(doc: &Document) -> Result<(), Error> {
         match node {
             Expr::Binding(body) | Expr::Marked(body) => edges[id].push(*body),
             Expr::Comprehension { source, .. } => edges[id].push(*source),
-            Expr::Ref(name) => edges[id].push(doc.definitions[name]),
+            Expr::Ref(name)
+            | Expr::Projection {
+                definition: name, ..
+            } => {
+                edges[id].push(doc.definitions[name]);
+            }
             Expr::And(a, b) | Expr::Or(a, b) => edges[id].extend([*a, *b]),
             Expr::Struct(fields) => edges[id].extend(fields.iter().map(|(_, id)| *id)),
             Expr::List(items, tail) => edges[id].extend(items.iter().chain(tail).copied()),

@@ -1547,6 +1547,7 @@
               ../../bootstrap/spec-export/src/eval.rs
               ../../bootstrap/spec-export/src/bindings.rs
               ../../bootstrap/spec-export/src/comprehension.rs
+              ../../bootstrap/spec-export/src/projection.rs
               ../../bootstrap/spec-export/Cargo.toml
               ../../bootstrap/spec-export/Cargo.lock
             ]
@@ -2216,7 +2217,7 @@
           done
           test "$(find ${prattLoweringPolicySources pkgs} -type f | wc -l)" -eq 3
           test "$(find ${prattTableSources pkgs} -type f | wc -l)" -eq 2
-          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 9
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 10
           mkdir -p "$out" "$PWD/probe/home"
           cd probe
           exporter=${specExporter pkgs}/bin/cuestacean-spec-export
@@ -2397,7 +2398,7 @@
             fi
           done
           test "$(find ${instructionBinarySources pkgs} -type f | wc -l)" -eq 2
-          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 9
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 10
           mkdir -p "$out" "$PWD/probe/home"
           cd probe
           exporter=${specExporter pkgs}/bin/cuestacean-spec-export
@@ -2674,7 +2675,7 @@
             fi
           done
           test "$(find ${instructionUnarySources pkgs} -type f | wc -l)" -eq 2
-          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 9
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 10
           mkdir -p "$out" "$PWD/probe/home"
           cd probe
           exporter=${specExporter pkgs}/bin/cuestacean-spec-export
@@ -2889,7 +2890,7 @@
             fi
           done
           test "$(find ${instructionModuleTextSources pkgs} -type f | wc -l)" -eq 2
-          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 9
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 10
           mkdir -p "$out" "$PWD/probe/home"
           cd probe
           exporter=${specExporter pkgs}/bin/cuestacean-spec-export
@@ -3096,7 +3097,7 @@
             fi
           done
           test "$(find ${instructionModuleControlSources pkgs} -type f | wc -l)" -eq 4
-          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 9
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 10
           mkdir -p "$out" "$PWD/probe/home"
           cd probe
           exporter=${specExporter pkgs}/bin/cuestacean-spec-export
@@ -3339,7 +3340,7 @@
             fi
           done
           test "$(find ${instructionCoreSources pkgs} -type f | wc -l)" -eq 2
-          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 9
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 10
           mkdir -p "$out" "$PWD/probe/home"
           cd probe
           exporter=${specExporter pkgs}/bin/cuestacean-spec-export
@@ -3647,7 +3648,7 @@
             fi
           done
           test "$(find ${instructionRightFieldSources pkgs} -type f | wc -l)" -eq 2
-          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 9
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 10
           mkdir -p "$out" "$PWD/probe/home"
           cd probe
           exporter=${specExporter pkgs}/bin/cuestacean-spec-export
@@ -4005,7 +4006,7 @@
             fi
           done
           test "$(find ${prattTableSources pkgs} -type f | wc -l)" -eq 2
-          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 9
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 10
           mkdir -p "$out" "$PWD/probe/home"
           cd probe
           exporter=${specExporter pkgs}/bin/cuestacean-spec-export

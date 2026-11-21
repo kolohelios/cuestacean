@@ -45,6 +45,10 @@ pub(crate) enum Expr {
     Struct(Vec<(String, Id)>),
     List(Vec<Id>, Option<Id>),
     Ref(String),
+    Projection {
+        definition: String,
+        field: String,
+    },
     // Parser-only lexical context; admission replaces every Name before evaluation.
     Name {
         scope: usize,
@@ -73,6 +77,7 @@ pub(crate) struct Document {
     // Preserve declarations even when resolution removes their names.
     pub lets: usize,
     pub comprehensions: usize,
+    pub projections: usize,
     pub syntax: usize,
     pub preparation_steps: usize,
     pub preparation_strings: usize,

@@ -575,6 +575,9 @@ impl Evaluator<'_> {
                     Expr::Name { .. } => {
                         return Err(Error::Unsupported("unresolved binding name"));
                     }
+                    Expr::Projection { .. } => {
+                        return Err(Error::Unsupported("unexpanded projection"));
+                    }
                     Expr::Comprehension { .. } => {
                         return Err(Error::Unsupported("unexpanded comprehension"));
                     }
@@ -875,6 +878,7 @@ mod tests {
             marked: false,
             lets: 0,
             comprehensions: 0,
+            projections: 0,
             syntax: 0,
             preparation_steps: 0,
             preparation_strings: 0,
