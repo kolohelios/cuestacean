@@ -139,3 +139,42 @@ those inspections are NOT described as fresh semantic runs. Coordinator GO permi
 ONLY owned paths above. All implementation/source/independent Rust/fail-stop/ledger/
 profile/graph/identity/final exact-tree/CI gates remain. No native reuse admission,
 reference-congruence claim, forced eager pair model or #175 completion follows.
+
+## Local implementation evidence
+
+Kernel9b611c5/testsaa1e88d/eed8218/d3469e7 integrate asaab2590; immutable fixture
+child581d8ca corrects a four-versus-five-element cursor context (no assertion change).
+Handwritten complete-Rust child05313b7 preserves four original module blank lines;
+no generated output supplies its method/operand/layout answer. Full sandbox caught
+two omitted Right inputs in the old Binary verifier's direct reverse/Binary-bypass
+calls. Childe7ec121 supplies raw Right AND its gate in both, deliberately bypassing
+ONLY Binary isolation for the existing select.op counterfactual. Child42b1737 adds
+the old Unary VERIFIER's regular-file setup check, not a constructor identity change.
+Failed/canceled earlier fixture/layout/direct-input runs are retained separately,
+NOT passes; final full matrices/preflight must use corrected sources.
+
+Independent original-derived projection byte-matches BOTH raw CUE files; the ENTIRE
+old bridge is byte-exact except its required string-only helper and ONE R.field
+replacement. All nine R uses/shell/L/V/concat/modules/cases remain exact. No Rust
+production/admission/API/guard/feature extension. All old test assertions retained.
+Fresh135 exporter tests (130 old+5new) EACHfour profiles/strict all-target Clippy4,
+full executor/default debug-release Clippy, research135four and both old boundary
+four groups EACHfour pass. Work112/T−1, native23-byte complete DATA, both-priority/
+order one-hot/all/alternating masks and whole-old-policy comparisons pass. Retained
+inspected preimplementation receipts are not substituted for these fresh tests.
+
+Corrected canonical exports/FOUR old verifier families/new Right verifier all real
+sandbox PASS, including final Unary setup-check rerun. Whole independently predicted
+Rust covers every R site AND all eleven Binary aliases; variants retain source/
+native DATA/raw-imported policy/context/expected+actual source individually only in
+verification. Isolated missing-owner/field phases, actual all-nine-left backfill
+bypass, real fail-stop wrappers under if/||, raw-gate-then-context, selected-native
+conflict, wrong type/extra, empty-field Go schema and129-byte real typed negatives
+pass. No verifier output feeds native construction.
+
+Fresh final49 named attributes/captured roots build+rebuild,20 recursive AND full
+retained inventories/current exclusions, stable21 other package IDs/exporter9/four
+façade source cuts/BOTH oracle package IDs/249JSON/12builders/oldDATA/generated Rust,
+four actual feature-root rebuild matches, final pinned preflight/whitespace/links,
+two immutable exact-tree reviews and protected CI/confirmed merge remain release
+gates. No pending attempt counts as pass; broader #175 obligations remain held.
