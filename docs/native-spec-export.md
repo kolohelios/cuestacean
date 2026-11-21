@@ -81,6 +81,11 @@ triple-double-quoted VALUES with exact margin stripping, no backslash syntax/raw
 BOM/CR or other controls beyond LF/TAB. Labels/inequality contexts remain excluded;
 these are the same literal string nodes/work/copy charges, not general strings,
 interpolation, concatenation or changed default admission.
+The [#261 scalar-definition projection](native-scalar-projections.md) separately
+admits one direct #Definition.field from an original flat, unique, literal scalar
+map. Whole-arena exclusions and charged in-place specialization preserve old
+no-projection costs; this is not field-value solving, container/default selection
+or production R construction. The R consumer integration remains held in #260.
 
 ## Readiness and recursive schema semantics
 
@@ -206,8 +211,8 @@ nix build --no-link ./infra/tooling#checks.x86_64-linux.native-spec-tests \
   ./infra/tooling#checks.x86_64-linux.native-spec-closure
 ```
 
-`specSources(false)` contains Cargo metadata and seven handwritten source files
-(nine total after #234 adds finite comprehension specialization)
+`specSources(false)` contains Cargo metadata and eight handwritten source files
+(ten total after #261 adds bounded scalar projection specialization)
 only. The test-source variant adds oracle fixtures/expected-answer tests, but is
 not an input of `specExporter` or `nativeAtom`. The artifact receives a separate
 source fileset containing exactly the two CUE files. `nativeBuildClosure` roots

@@ -225,6 +225,12 @@ ownership. A small legacy adapter retains existing root APIs and concrete error
 sources; same-source evidence requires no runtime/Error stubs. This source
 preparation does not construct a sixth binary or complete instruction-policy DATA;
 FIVE complete native policies/FIVE native compilers and held #175 remain unchanged.
+The [#261 scalar-projection prerequisite](native-scalar-projections.md) adds only
+concrete scalar #Definition.field specialization with a shared charged preparation
+ledger. All targets are original flat literal maps; marks/constraints/container
+projection and general field solving stay excluded. Exporter source grows9->10; existing
+production R/Go consumers remain unchanged. The combined #260 R integration was
+budget-paused and split without dropping proof; that follow-up remains held.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

@@ -4,6 +4,7 @@ mod comprehension;
 mod eval;
 mod model;
 mod parser;
+mod projection;
 pub use model::Error;
 use std::io::{self, Write};
 
@@ -28,6 +29,7 @@ pub fn export(schema: &str, program: &str) -> Result<String, Error> {
 /// Lower the cumulative evaluation allowance; the hard maximum stays unchanged.
 pub fn export_with_limit(schema: &str, program: &str, work: usize) -> Result<String, Error> {
     let mut document = parser::parse(schema, program)?;
+    projection::lower(&mut document, work)?;
     comprehension::lower(&mut document, work)?;
     let value = eval::evaluate(&document, work)?;
     let mut output = Output(Vec::new());

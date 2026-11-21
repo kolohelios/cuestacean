@@ -67,8 +67,10 @@ No mixed comprehension preparation can erase accounting: that class is excluded.
 Independently source-derived fixture families (no threshold searching): direct
 scalar root T=13+3n (n1:16); repeated fixed list T=8+n+12m+2nm (n1/m1:23);
 distinct-key object root T=7+n+18m+2nm (n1/m1:28). Extra refs/closure groups/nesting
-require separate derivation. Distinguish UTF-8 copied key/value bytes from escaped
-encoded bytes. Assert T-1/T, lowered allowance, repeats and fresh recovery. Preserve
+require separate derivation. Scalar/list-root cost fixtures exercise existing
+native API root demands; pinned Go FILE comparisons use object roots, not a claim
+that Go packages accept scalar embeddings. Distinguish UTF-8 copied key/value bytes
+from escaped encoded bytes. Assert T-1/T, lowered allowance, repeats and fresh recovery. Preserve
 source64KiB/tokens4096/syntax2048/depth32/items64/definitions64/bindings64/
 materialized2048/copied-string64KiB/encoded64KiB. Earlier dominating guards are
 reported, not raised to manufacture a boundary. No allocator/stack/time guarantee.

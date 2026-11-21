@@ -260,6 +260,13 @@ fn lex(source: &str, count: &mut usize) -> Result<Vec<Token>, Error> {
                 pos += 3;
                 Token::Ellipsis
             }
+            b'.' => {
+                if !matches!(tokens.last(), Some(Token::Word(name)) if name.starts_with('#')) {
+                    return Err(Error::Unsupported("direct scalar projection required"));
+                }
+                pos += 1;
+                Token::Symbol(b'.')
+            }
             b'&' | b'|' if bytes.get(pos + 1) == Some(&bytes[pos]) => {
                 return Err(Error::Unsupported("logical operation"));
             }
@@ -267,7 +274,7 @@ fn lex(source: &str, count: &mut usize) -> Result<Vec<Token>, Error> {
                 pos += 1;
                 Token::Symbol(bytes[start])
             }
-            b'?' | b'!' | b'+' | b'/' | b'<' | b'>' | b'.' | b'\'' => {
+            b'?' | b'!' | b'+' | b'/' | b'<' | b'>' | b'\'' => {
                 return Err(Error::Unsupported("syntax outside export profile"));
             }
             _ => return Err(Error::Unsupported("source character")),
@@ -380,7 +387,22 @@ impl Parser {
             Token::Word(word) => match word.as_str() {
                 _ if word.starts_with('#') => {
                     label(&word)?;
-                    self.node(Expr::Ref(word))?
+                    if self.symbol(b'.') {
+                        let Token::Word(field) = self.take() else {
+                            return Err(Error::Unsupported("regular scalar projection field"));
+                        };
+                        if field.starts_with(['#', '_']) {
+                            return Err(Error::Unsupported("regular scalar projection field"));
+                        }
+                        label(&field)?;
+                        self.document.projections += 1;
+                        self.node(Expr::Projection {
+                            definition: word,
+                            field,
+                        })?
+                    } else {
+                        self.node(Expr::Ref(word))?
+                    }
                 }
                 "true" => self.node(Expr::Literal(true.into()))?,
                 "false" => self.node(Expr::Literal(false.into()))?,
@@ -870,6 +892,7 @@ pub(crate) fn parse(schema: &str, program: &str) -> Result<Document, Error> {
             marked,
             lets: 0,
             comprehensions: 0,
+            projections: 0,
             syntax: 0,
             preparation_steps: 0,
             preparation_strings: 0,
