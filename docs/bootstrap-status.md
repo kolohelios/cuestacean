@@ -228,9 +228,15 @@ FIVE complete native policies/FIVE native compilers and held #175 remain unchang
 The [#261 scalar-projection prerequisite](native-scalar-projections.md) adds only
 concrete scalar #Definition.field specialization with a shared charged preparation
 ledger. All targets are original flat literal maps; marks/constraints/container
-projection and general field solving stay excluded. Exporter source grows9->10; existing
-production R/Go consumers remain unchanged. The combined #260 R integration was
-budget-paused and split without dropping proof; that follow-up remains held.
+projection and general field solving stay excluded. Exporter source grew9->10;
+#261 itself changed no production R/Go consumer. After the combined #260 budget
+pause and split, [the fresh producer/consumer contract](native-instruction-right-operand.md)
+received two focused reviews and a new GO. Native Right23 now feeds the original
+try/group/lower wrapper as native120-byte DATA through a build-only ordinary
+CUE-definition adapter. Canonical Go imports the whole result; raw contexts reload
+SAME unresolved Right/R owners after separate isolated Right-then-R gates. All9
+uses and independent Core118/Binary35 gates remain. No language/guard/compiler
+change or sixth complete policy/binary follows; broader #175 remains held.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

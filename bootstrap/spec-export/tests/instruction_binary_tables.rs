@@ -20,6 +20,7 @@ const TEXT: &str = include_str!("../../instruction-module-text.cue");
 const FIRST: &str = include_str!("../../instruction-module-first.cue");
 const STEP: &str = include_str!("../../instruction-module-step.cue");
 const RIGHT: &str = include_str!("../../instruction-right-field.cue");
+const OPERAND: &str = include_str!("../../instruction-right-operand.cue");
 const POLICY: &str = include_str!("../../lowering.cue");
 const TWICE: &str = include_str!("../../tests/valid/lowering-left-twice.cue");
 const REVERSE: &str = include_str!("../../tests/valid/lowering-reverse.cue");
@@ -200,6 +201,20 @@ impl Probe {
         if !right_gate.status.success() {
             return right_gate;
         }
+        let operand_gate = self.run(
+            &self.cue,
+            &["export", "-e", "#InstructionRightOperand"],
+            &[
+                ("schema.cue", SCHEMA),
+                ("bridge.cue", BRIDGE),
+                ("right.cue", RIGHT),
+                ("operand.cue", OPERAND),
+            ],
+            reverse,
+        );
+        if !operand_gate.status.success() {
+            return operand_gate;
+        }
         self.full_exports.set(self.full_exports.get() + 1);
         self.run(
             &self.cue,
@@ -214,6 +229,7 @@ impl Probe {
                 ("first.cue", FIRST),
                 ("step.cue", STEP),
                 ("right.cue", RIGHT),
+                ("operand.cue", OPERAND),
                 ("context.cue", context),
             ],
             reverse,

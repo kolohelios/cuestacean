@@ -2,11 +2,13 @@
 
 ## Fresh scope after merged #261 — reviewed producer/consumer GO
 
-The combined #260 slice paused at~1679 projected lines. Its complete immutable
+The combined #260 slice paused at approximately1679 projected lines. Its immutable
 kernel712ad48d/evidence185977ab/plan7cba2b2b remain held. #261 shipped ALL four generic
 projection groups with strengthened proof; do not copy/change that Rust capability
 or those tests here. Resume ONLY the original R wrapper's actual construction and
-Go consumption. FIVE complete policy DATA/FIVE native binaries remain; full policy,
+Go consumption. Read the [scalar prerequisite](native-scalar-projections.md),
+[Right input](native-instruction-right-field.md), [Core shape](native-instruction-core-cases.md)
+and [compiler boundary](instruction-compiler-boundary.md) contracts. FIVE complete policy DATA/FIVE native binaries remain; full policy,
 R's NINE per-use contexts, module/seed/PROGRAM/schema still need Go. #175 stays held.
 
 Fresh current-main assessment: original-derived relocation matches FULL old policy
@@ -132,7 +134,7 @@ both native Right and chained operand stage. Core/unifier/Pratt feature generati
 Go-free; scanner PROGRAM/source-feature positive Go-backed verification ONLY.
 Pinned full Shaka/preflight/whole whitespace/relative links; protected exact-head
 rebase auto-merge/required CI watched through confirmed MERGED/exact-tree comparison/
-clean fetched main. Linuxx86_64 only; no sixth complete policy/compiler, broader
+clean fetched main. x86_64-linux only; no sixth complete policy/compiler, broader
 native defaults/reuse/schema/field solving/self-hosting/performance claim.
 
 ## Fresh review authority

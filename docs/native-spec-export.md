@@ -85,7 +85,10 @@ The [#261 scalar-definition projection](native-scalar-projections.md) separately
 admits one direct #Definition.field from an original flat, unique, literal scalar
 map. Whole-arena exclusions and charged in-place specialization preserve old
 no-projection costs; this is not field-value solving, container/default selection
-or production R construction. The R consumer integration remains held in #260.
+or default/reuse admission. The separate [#260 producer/consumer slice](native-instruction-right-operand.md)
+uses that unchanged capability to construct the original R wrapper from whole
+independently native Right DATA. Its two-stage adapter and isolated consumer gates
+do not widen the projection class or claim native per-use contextual semantics.
 
 ## Readiness and recursive schema semantics
 

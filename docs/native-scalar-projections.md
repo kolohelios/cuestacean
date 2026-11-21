@@ -183,3 +183,8 @@ are byte-identical; BOTH oracle PACKAGE IDs remain stable. No R owner/bridge/
 provider/consumer or old-helper change enters this slice. #260 remains HELD with
 all specific proof preserved; FIVE complete policies/FIVE native binaries and
 held #175 unchanged. No actual production Go edge removal is claimed here.
+
+The subsequent [#260 producer/consumer-only slice](native-instruction-right-operand.md)
+received fresh reviews/GO and uses this unchanged prerequisite for native R DATA.
+The statements above describe #261's own scope; its production Rust and all477
+lines of generic evidence remain unchanged in the follow-up.
