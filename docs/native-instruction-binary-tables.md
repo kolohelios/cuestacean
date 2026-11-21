@@ -143,3 +143,37 @@ controls. Coordinator GO authorizes ONLY the owned paths above. Mandatory fail-s
 isolated helper validation in EVERY consumer, default-free table-only Go oracle,
 unchanged R/other preference ownership and ALL final source/profile/graph/actual
 captured-root/immutable review/CI gates remain. No semantic/resource/API extension.
+
+## Local evidence
+
+Kernel923a4e2/receipts9dea759, tests6984dc9/Cell126bcf2/fixture97e99cb integrate
+as0ac7874/d3e3eba. Cell import and a generic iterator/field collision were corrected
+in immutable test children, not native semantics or expected answers. Independent
+source projection recovers the original Binary map/TWO comprehensions exactly and
+ALL old bridge bytes outside the new35-type-only helper/three documented replacements,
+including EVERY L/R/V/preference/reuse/concat/module/case token. No Rust production,
+parser/evaluator/admission/Cargo/ABI/guard changes. All old test assertions retained.
+
+130 exporter tests (123 retained+7 new) EACHfour profiles/strict all-target Clippy4,
+full executor/default debug-release strict Clippy,135 research groups EACHfour,
+both old boundary4groups EACHfour pass. Real compiler verifies Go-accepted alias/
+selector-limit controls with exit2 EMPTY stdout; Go opcode/shape failures remain a
+separate phase. All35 missing slots eval-success/export-failure,35 wrong-types/five
+extra levels, bypass select.op backfill and all FOUR consumer fail-stop probes pass.
+Complete independent source-effect tiny Rust/each variant source/DATA/full-policy/
+raw-oracle pair and mixed cursor pairs retained verifier-only. Initial Cell/fixture
+failures and120/600-second interrupted runs excluded; completed explicit reruns pass.
+
+47 namedattrs=25checks+22NONDEFAULT packages/46 actual unique derivations captured
+ONCE, SAME explicit drv^* roots built AND rebuilt. Pinned preflight13/13(seven skips),
+1397-file whitespace/624 relative links pass.19 fresh recursive derivation AND full
+retained inventories/exclusions pass; native Binary1407derivations/3392full paths.
+Binary raw2 /nix/store/s8cbrxfapglibvhgzl2dyzgix266lqyh-source produces1429-byte DATA.
+ALL20 old package IDs other than exports unchanged, including exporter9 and BOTH Go
+oracle packages; exports/full legacy/verification IDs legitimately change. All249
+JSON/12builders/old DATA/generated Rust/four façade source cuts/six origins unchanged.
+Three native feature generators Go-free; scanner source-feature positively Go-backed
+VERIFICATION ONLY. Separately rebuilt feature roots, refreshed final identities/
+inventories/preflight, two immutable exact-tree reviews and protected CI through
+confirmed merge remain required gates, not pending passes. FIVE complete native
+policy DATA/FIVE native compilers and broader #175 obligations remain unchanged.
