@@ -1,6 +1,6 @@
 # Native instruction right-operand input (#260, producer/consumer scope)
 
-## Fresh scope after merged #261 — implementation NOT authorized yet
+## Fresh scope after merged #261 — reviewed producer/consumer GO
 
 The combined #260 slice paused at~1679 projected lines. Its complete immutable
 kernel712ad48d/evidence185977ab/plan7cba2b2b remain held. #261 shipped ALL four generic
@@ -134,3 +134,13 @@ Pinned full Shaka/preflight/whole whitespace/relative links; protected exact-hea
 rebase auto-merge/required CI watched through confirmed MERGED/exact-tree comparison/
 clean fetched main. Linuxx86_64 only; no sixth complete policy/compiler, broader
 native defaults/reuse/schema/field solving/self-hosting/performance claim.
+
+## Fresh review authority
+
+Both focused reviews approved immutable contract68bab91af2b660922e7e74193949383be088180b:
+source/producer/callers/closure and independent evidence/identity/errors/budget.
+Independent mapping retains553 new consumer/common lines +115 old-helper changes;
+revised full estimate1228–1350 (evidence review1248–1350). No repository implementation
+preceded these reviews. Coordinator GO ONLY for this producer/consumer scope,
+with ALL above proof and mandatory budget pause intact; combined GO stays suspended.
+Scratch review receipts are labelled263, but this is issue260, NOT a new issue.
