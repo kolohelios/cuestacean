@@ -76,9 +76,12 @@ reported, not raised to manufacture a boundary. No allocator/stack/time guarante
 ## Exact ownership / independent evidence
 
 Kernel ONLY spec-export/src/{model,parser,bindings,eval,lib}.rs and NEW projection.rs;
-flake.nix ONLY projection.rs in explicit specSources production allowlist (9->10).
-Use a NEW child from stable main, restoring ONLY these Rust paths from held draft;
-Nix starts from MAIN, not incomplete held consumer wiring. No CUE/bridge/provider/
+flake.nix ONLY projection.rs in the explicit specSources production allowlist AND
+EXACTLY EIGHT existing `specSources pkgs false` source-cardinality assertions9->10
+(main lines2219/2400/2677/2892/3099/3342/3650/4008). These mechanical attestation
+expectations remain exact, not weakened. No other Nix edits. Use a NEW child from
+stable main, restoring ONLY these Rust paths from held draft; Nix starts from MAIN,
+not incomplete held consumer wiring. No CUE/bridge/provider/
 constructor/check/package/composer/Cargo/executor/runtime/compiler/CLI edits.
 Coordinator ONLY this contract, native exporter contract/checkpoint/source/graph/
 artifact/release documentation. Evidence ONLY NEW tests/scalar_projections.rs.
