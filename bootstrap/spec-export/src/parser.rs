@@ -261,7 +261,12 @@ fn lex(source: &str, count: &mut usize) -> Result<Vec<Token>, Error> {
                 Token::Ellipsis
             }
             b'.' => {
-                if !matches!(tokens.last(), Some(Token::Word(name)) if name.starts_with('#')) {
+                if !matches!(tokens.last(), Some(Token::Word(name)) if name.starts_with('#'))
+                    || source[..pos].trim_end_matches([' ', '\t']).ends_with('\r')
+                    || source[pos + 1..]
+                        .trim_start_matches([' ', '\t'])
+                        .starts_with('\r')
+                {
                     return Err(Error::Unsupported("direct scalar projection required"));
                 }
                 pos += 1;
