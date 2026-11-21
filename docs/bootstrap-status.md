@@ -213,6 +213,12 @@ original scalar preference through the existing once-reference profile. R's shel
 and nine per-use contexts remain Go-owned; raw contexts reload the unresolved owner
 after isolated completeness validation, never selected defaults. Full policy still
 needs Go, and native reuse/closure/#175 obligations remain unchanged.
+The [#256 native ordinary core cases](native-instruction-core-cases.md) separately
+construct sixteen case bodies and their four lexical helpers with unchanged native
+let/data support. An isolated Go-only type shape requires all118 string leaves
+before full policy composition; that shape supplies no opcode/path answers and is
+not a native input. R-dependent cases/module/full policy remain Go-built; counts
+stay FIVE complete native policy DATA/FIVE native compilers, not bootstrap closure.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

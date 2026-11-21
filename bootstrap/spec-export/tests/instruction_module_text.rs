@@ -12,6 +12,8 @@ const OWNER: &str = include_str!("../../instruction-module-text.cue");
 const SELECTOR: &str = include_str!("../../instruction-module-text-export.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
+const CORE: &str = include_str!("../../instruction-core-cases.cue");
+const CORE_SHAPE: &str = include_str!("../../instruction-core-cases-schema.cue");
 const UNARY: &str = include_str!("../../instruction-unary-tables.cue");
 const BINARY: &str = include_str!("../../instruction-binary-tables.cue");
 const PACKAGE: &str = include_str!("../../native-policy-package.cue");
@@ -191,6 +193,15 @@ impl Probe {
         placed
     }
     fn policy(&self, provider: Option<&str>, context: usize, reverse: bool, op: &str) -> Output {
+        let core_gate = self.run(
+            &self.cue,
+            &["export"],
+            &[("core-shape.cue", CORE_SHAPE), ("core.cue", CORE)],
+            reverse,
+        );
+        if !core_gate.status.success() {
+            return core_gate;
+        }
         let binary = self.binary_provider(reverse);
         let gate = self.run(
             &self.cue,
@@ -208,6 +219,7 @@ impl Probe {
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
             ("bridge.cue", BRIDGE),
+            ("core.cue", CORE),
             ("unary.cue", UNARY),
             ("policy.cue", POLICY),
             ("first.cue", FIRST),
