@@ -24,13 +24,14 @@ package bootstrap
 })
 
 #InstructionRightField: close({field: string})
+#InstructionRightOperand: close({op: string, value: close({op: string, value: close({op: string, field: string})})})
 
 // Executable recursion/Result layout, not Rust's instruction enum dispatch.
 #InstructionLowering: #LoweringPolicy & {
 	let L = {op: "try", value: {op: "group", value: {op: "lower", field: "left"}}}
 
 	// The alternate policy overrides only sum's default right-child selection.
-	let R = {op: "try", value: {op: "group", value: {op: "lower", field: #InstructionRightField.field}}}
+	let R = #InstructionRightOperand
 	aliases: {
 		lowerExclusiveBound: _, upperExclusiveBound: _, lowerBound:   _, upperBound: _, negate:       _
 		logicalNot:          _, length:              _, stringLength: _, listLength: _, recordLength: _
