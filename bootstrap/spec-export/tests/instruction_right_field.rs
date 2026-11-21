@@ -11,6 +11,7 @@ use std::{
 
 const OWNER: &str = include_str!("../../instruction-right-field.cue");
 const ROOT: &str = include_str!("../../instruction-right-field-export.cue");
+const OPERAND: &str = include_str!("../../instruction-right-operand.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
 const CORE: &str = include_str!("../../instruction-core-cases.cue");
@@ -56,6 +57,11 @@ fn failed(out: &Output) {
     assert!(!out.status.success());
     assert!(out.stdout.is_empty(), "no partial output");
     assert!(!out.stderr.is_empty());
+}
+enum SourceMode {
+    Current,
+    Legacy,
+    BypassRightAndOperand,
 }
 struct Probe {
     dir: PathBuf,
@@ -145,7 +151,14 @@ impl Probe {
         // NO full selector/context or other helper can backfill this required field.
         self.run(&self.cue, &[op, "-e", HELPER], &inputs, reverse)
     }
-    fn full(&self, bridge: &str, provider: Option<&str>, context: &str, reverse: bool) -> Output {
+    fn full(
+        &self,
+        bridge: &str,
+        provider: Option<&str>,
+        context: &str,
+        reverse: bool,
+        mode: SourceMode,
+    ) -> Output {
         let core_gate = self.run(
             &self.cue,
             &["export"],
@@ -190,6 +203,10 @@ impl Probe {
         if let Some(provider) = provider {
             inputs.push(("right.cue", provider));
         }
+        // Legacy owns R; the explicit verification bypass skips BOTH dependent gates.
+        if !matches!(mode, SourceMode::Legacy) {
+            inputs.push(("operand.cue", OPERAND));
+        }
         inputs.push(("context.cue", context));
         self.full_exports.set(self.full_exports.get() + 1);
         self.run(&self.cue, &["export"], &inputs, reverse)
@@ -199,8 +216,22 @@ impl Probe {
         if !gate.status.success() {
             return gate;
         }
+        let operand_gate = self.run(
+            &self.cue,
+            &["export", "-e", "#InstructionRightOperand"],
+            &[
+                ("schema.cue", SCHEMA),
+                ("bridge.cue", BRIDGE),
+                ("right.cue", provider.expect("Right gate requires provider")),
+                ("operand.cue", OPERAND),
+            ],
+            reverse,
+        );
+        if !operand_gate.status.success() {
+            return operand_gate;
+        }
         // Discard gate stdout. Reuse the SAME unresolved source, never its selected JSON.
-        self.full(BRIDGE, provider, context, reverse)
+        self.full(BRIDGE, provider, context, reverse, SourceMode::Current)
     }
 }
 impl Drop for Probe {
@@ -212,9 +243,17 @@ fn source(body: &str) -> String {
     format!("package bootstrap\n{body}\n")
 }
 fn original_bridge() -> String {
-    // Verification-only inverse of the two reviewed source changes, not a seed.
-    assert_eq!(BRIDGE.matches("#InstructionRightField.field").count(), 1);
-    BRIDGE
+    // Verification-only inverse: restore the OLD R initializer before its SAME
+    // source assertions. This raw-body extraction never feeds construction.
+    let body = OPERAND
+        .trim()
+        .strip_prefix("package bootstrap\n\n#InstructionRightOperand: ")
+        .expect("raw R owner");
+    let bridge = BRIDGE
+        .replace("#InstructionRightOperand: close({op: string, value: close({op: string, value: close({op: string, field: string})})})\n", "")
+        .replace("\tlet R = #InstructionRightOperand\n", &format!("\tlet R = {body}\n"));
+    assert_eq!(bridge.matches("#InstructionRightField.field").count(), 1);
+    bridge
         .replace("#InstructionRightField: close({field: string})\n", "")
         .replace("#InstructionRightField.field", "*\"right\" | \"left\"")
 }
@@ -365,7 +404,7 @@ fn raw_scoped_nine_sites_both_priorities_orders_masks_and_complete_original_poli
             (OWNER, old.as_str(), "right", "left"),
             (reversed.as_str(), old_reversed.as_str(), "left", "right"),
         ] {
-            let baseline = decoded(p.full(bridge, None, SELECTOR, reverse));
+            let baseline = decoded(p.full(bridge, None, SELECTOR, reverse, SourceMode::Legacy));
             for site in SITES {
                 assert_eq!(baseline.pointer(site).expect("site"), default);
             }
@@ -384,13 +423,16 @@ fn raw_scoped_nine_sites_both_priorities_orders_masks_and_complete_original_poli
                         });
                 }
                 assert_eq!(decoded(p.policy(Some(owner), &ctx, reverse)), expected);
-                assert_eq!(decoded(p.full(bridge, None, &ctx, reverse)), expected);
+                assert_eq!(
+                    decoded(p.full(bridge, None, &ctx, reverse, SourceMode::Legacy)),
+                    expected
+                );
             }
         }
         for ctx in [SELECTOR, TWICE, REVERSE] {
             assert_eq!(
                 decoded(p.policy(Some(OWNER), ctx, reverse)),
-                decoded(p.full(&old, None, ctx, reverse))
+                decoded(p.full(&old, None, ctx, reverse, SourceMode::Legacy))
             );
         }
         for (first, step) in [("firstRule", "previousRule"), ("lastRule", "nextRule")] {
@@ -399,7 +441,7 @@ fn raw_scoped_nine_sites_both_priorities_orders_masks_and_complete_original_poli
             ));
             assert_eq!(
                 decoded(p.policy(Some(OWNER), &ctx, reverse)),
-                decoded(p.full(&old, None, &ctx, reverse))
+                decoded(p.full(&old, None, &ctx, reverse, SourceMode::Legacy))
             );
         }
     }
@@ -411,13 +453,25 @@ fn isolated_missing_owner_field_fail_stop_despite_actual_all_left_backfill() {
     let all_left = context(511, "left");
     let empty = source("#InstructionRightField: {}");
     for reverse in [false, true] {
-        let bypass = decoded(p.full(BRIDGE, None, &all_left, reverse));
+        let bypass = decoded(p.full(
+            BRIDGE,
+            None,
+            &all_left,
+            reverse,
+            SourceMode::BypassRightAndOperand,
+        ));
         for site in SITES {
             assert_eq!(bypass.pointer(site).expect("backfilled site"), "left");
         }
         assert_eq!(
             bypass,
-            decoded(p.full(&original_bridge(), None, &all_left, reverse))
+            decoded(p.full(
+                &original_bridge(),
+                None,
+                &all_left,
+                reverse,
+                SourceMode::Legacy
+            ))
         );
         for provider in [None, Some(empty.as_str())] {
             let eval = p.isolated(provider, "eval", reverse);

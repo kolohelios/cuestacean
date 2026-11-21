@@ -178,3 +178,10 @@ façade source cuts/BOTH oracle package IDs/249JSON/12builders/oldDATA/generated
 four actual feature-root rebuild matches, final pinned preflight/whitespace/links,
 two immutable exact-tree reviews and protected CI/confirmed merge remain release
 gates. No pending attempt counts as pass; broader #175 obligations remain held.
+
+The separate [#260 wrapper follow-up](native-instruction-right-operand.md) keeps
+this raw preference/native23-byte constructor unchanged. It supplies whole native
+Right DATA to a second native invocation for R, and makes EVERY accepted consumer
+validate isolated Right THEN R before loading contexts. The all-left counterfactual
+explicitly bypasses BOTH dependent gates, verification only. Per-use raw-context
+semantics remain Go-owned; no native reuse/default claim follows.

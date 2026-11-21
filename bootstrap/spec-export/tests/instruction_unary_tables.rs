@@ -22,6 +22,7 @@ const REVERSE: &str = include_str!("../../tests/valid/lowering-reverse.cue");
 const FIRST: &str = include_str!("../../instruction-module-first.cue");
 const STEP: &str = include_str!("../../instruction-module-step.cue");
 const RIGHT: &str = include_str!("../../instruction-right-field.cue");
+const OPERAND: &str = include_str!("../../instruction-right-operand.cue");
 // Independent instruction-policy contract, never parsed from the owner/export.
 const UNARY: [(&str, &str); 10] = [
     ("lowerExclusiveBound", "lower_exclusive_bound"),
@@ -210,6 +211,20 @@ impl Probe {
         if !gate.status.success() {
             return gate;
         }
+        let operand_gate = self.run(
+            &self.cue,
+            &["export", "-e", "#InstructionRightOperand"],
+            &[
+                ("schema.cue", SCHEMA),
+                ("bridge.cue", BRIDGE),
+                ("right.cue", RIGHT),
+                ("operand.cue", OPERAND),
+            ],
+            reverse,
+        );
+        if !operand_gate.status.success() {
+            return operand_gate;
+        }
         // Replacement bridge ONLY: old Unary owner cannot conceal missing slots.
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
@@ -220,6 +235,7 @@ impl Probe {
             ("first.cue", FIRST),
             ("step.cue", STEP),
             ("right.cue", RIGHT),
+            ("operand.cue", OPERAND),
             ("binary-placed.cue", &binary),
         ];
         if let Some(provider) = provider {
