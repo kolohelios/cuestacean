@@ -383,7 +383,7 @@ fn raw_scoped_nine_sites_both_priorities_orders_masks_and_complete_original_poli
         }
         for (first, step) in [("firstRule", "previousRule"), ("lastRule", "nextRule")] {
             let ctx = source(&format!(
-                "#InstructionLowering & {{module: [_, {{op: \"{first}\"}}, {{body: [_, _, _, {{op: \"{step}\"}}]}}, _]}}"
+                "#InstructionLowering & {{module: [_, {{op: \"{first}\"}}, {{body: [_, _, _, _, {{op: \"{step}\"}}]}}, _]}}"
             ));
             assert_eq!(
                 decoded(p.policy(Some(OWNER), &ctx, reverse)),
