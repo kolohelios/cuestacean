@@ -1,6 +1,6 @@
 # Instruction compiler/runtime source boundary
 
-## Selected dependency after #256 — PROPOSED, implementation not authorized
+## Selected dependency after #256 (#258)
 
 The remaining `bootstrap-codegen` compiler builds the full executor because its
 46-line compiler imports root-owned Rules/Rule/Instruction/parse_rules/Error.
@@ -138,3 +138,13 @@ Protected exact-head CI-gated rebase auto-merge; watch required cuestacean valid
 through confirmed MERGED, compare exact merged tree, retire workers and return to
 clean fetched main. Linuxx86_64 only; no sixth constructor, minimality, performance,
 full CUE/self-hosting or new default compatibility claim.
+
+**Implementation GO:** BOTH independent source/API/error/source-cut and semantics/
+evidence reviews approve immutable clarified contract b71ae10c, including genuine
+semantics-only root adapter/import gating, PRIVATE format_version and ONLY two
+crate-private fields, ALL45 variants/actual numeric domain, preserved overwritten
+map-value typing and API-versus-CLI precedence. Explicit coordinator GO authorizes
+ONLY the three kernel Rust paths and one new evidence test path above. No Nix/
+Cargo/CLI/CUE/runtime/kernel algorithm change follows. Source projection, actual
+four-profile evidence, all release gates and two final whole-tree reviews remain
+mandatory. Pause rather than widen scope, suppress failures or exceed the budget.
