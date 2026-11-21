@@ -12,6 +12,8 @@ use std::{
 const PACKAGE: &str = include_str!("../../native-policy-package.cue");
 const TABLE: &str = include_str!("../../instruction-binary-tables.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
+const CORE: &str = include_str!("../../instruction-core-cases.cue");
+const CORE_SHAPE: &str = include_str!("../../instruction-core-cases-schema.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const UNARY: &str = include_str!("../../instruction-unary-tables.cue");
 const TEXT: &str = include_str!("../../instruction-module-text.cue");
@@ -175,6 +177,15 @@ impl Probe {
         self.run(&self.cue, &[op, "-e", HELPER], &inputs, reverse)
     }
     fn full_unchecked(&self, provider: &str, context: &str, reverse: bool) -> Output {
+        let core_gate = self.run(
+            &self.cue,
+            &["export"],
+            &[("core-shape.cue", CORE_SHAPE), ("core.cue", CORE)],
+            reverse,
+        );
+        if !core_gate.status.success() {
+            return core_gate;
+        }
         // Binary's deliberate bypass controls must still validate the right owner.
         let right_gate = self.run(
             &self.cue,
@@ -196,6 +207,7 @@ impl Probe {
             &[
                 ("schema.cue", SCHEMA),
                 ("bridge.cue", BRIDGE),
+                ("core.cue", CORE),
                 ("placed.cue", provider),
                 ("unary.cue", UNARY),
                 ("text.cue", TEXT),
