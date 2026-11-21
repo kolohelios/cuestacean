@@ -148,3 +148,38 @@ retaining whole original assertions; no proof compression. All #260 R integratio
 remains HELD, not silently carried over. Full tests/source/graph/artifact/current
 inventories/final reviews/preflight/CI/confirmed merge still mandatory; no pending
 run is a pass and no budget exception is granted.
+
+## Completed local validation
+
+Immutable kernel773fabf5 + NEW lexer-fix child65e85488 and evidencea10b3ddc
+integrate ONLY their owned paths. All FOUR original generic groups/fixtures remain;
+real cycle, exact categories/list-work and CR/CRLF regressions ADD stronger proof.
+Both corrected cross-reviews approve source/class/graph/ledger/Nix17 and tests.
+
+Cross-review found CR incorrectly accepted in dot gaps. The narrow borrowed-slice
+fix rejects it ONLY around dots; old no-selector CR/CRLF/decoded CR values/costs
+remain. Fixed FOUR groups EACH FOUR profiles/strict all-target Clippy4 pass. Scalar/
+list-root work witnesses are native API forms; pinned Go FILE comparisons use
+object roots, not claimed scalar package embeddings. No encoder change.
+
+Fresh FIXED-head full executor/default debug+release/all-target strict Clippy,
+exporter146 (142 old+FOUR new) and research135 FOUR profiles, ALL THREE four-group
+boundary suites EACH FOUR profiles pass. Pinned preflight13/13 (seven skips),
+whole-tree whitespace1411 files/631 relative links pass. Pre-CR heavy runs/captures
+were canceled/superseded, never final passes. A temporary artifact-metadata race
+failed setup; complete sequential artifact checks were rerun successfully.
+
+Captured27 checks/24 NONDEFAULT packages ONCE:51 names/50 unique derivations,
+actually built AND rebuilt with SAME explicit drv roots in real sandboxes. FOUR
+separately rebuilt genuine façade feature roots match FRESH final discovery.
+21 refreshed recursive/full retained inventories/current construction exclusions
+pass; core/unifier/Pratt generation Go-free, scanner PROGRAM positive Go-backed
+verification ONLY. Source-scope projection matches ALL five modified original Rust
+files with only approved projection plumbing; Nix is EXACT one allowlist entry
+plus EIGHT cardinality9->10 updates. Exporter cut is TEN source files.
+
+All249 JSON/12 builders/old DATA/generated Rust/five façade cuts/six names-origins
+are byte-identical; BOTH oracle PACKAGE IDs remain stable. No R owner/bridge/
+provider/consumer or old-helper change enters this slice. #260 remains HELD with
+all specific proof preserved; FIVE complete policies/FIVE native binaries and
+held #175 unchanged. No actual production Go edge removal is claimed here.
