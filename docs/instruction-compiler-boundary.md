@@ -26,8 +26,9 @@ Preserve every variant/serde attribute, BTreeMap storage, original-text decoding
 format-version ordering, typed projection, selected Driver/Frame calls, embedded
 policy paths, cfg branches and error timing. No copied decoder or instruction
 match, generic JSON bypass, re-rendering algorithm, fallback or new budget.
-Rules/Rule/Instruction/parse_rules and fields needed by the real parent runtime
-are crate-private ONLY; do not expose public IR convenience APIs.
+Rules/Rule/Instruction/parse_rules are crate-private ONLY. Rules.format_version
+stays PRIVATE; ONLY Rules.rules and Rule.result become crate-private fields for
+the real runtime. Do not expose public IR convenience APIs.
 
 The new core owns a REAL three-variant compiler Error: Json(document, source),
 Version(document, version), Lowering(source), with original diagnostic spelling
@@ -44,9 +45,12 @@ CLI still return EXACT root Error. An exhaustive owned From<compiler::Error>
 conversion unwraps the three real sources into the corresponding ORIGINAL root
 variants, preserving document/version, concrete source and Display/source chain;
 no boxed wrapper or catch-all classification. Root parse_rules is a thin adapter
-for real runtime callers. Retain root Instruction/Rule/Rules paths as crate-private
-imports for existing execution. Remove/move now-unused imports genuinely; cfg a
-semantics-only BTreeMap import if needed, never suppress lints.
+for real runtime callers. Explicitly gate this runtime-only adapter AND its
+Instruction/Rule/Rules imports with cfg(feature = "semantics"), alongside the
+semantics-only BTreeMap import: after delegation their ONLY consumers are the
+existing semantics entry points. Core parse/typed compilation stay unconditional.
+This reflects actual consumers, not lint suppression or feature-meaning changes.
+Remove/move other now-unused imports genuinely; never suppress lints.
 
 Only documented imports/module declarations/visibility, the three real compiler
 error definitions and bijective adapter, and thin legacy API forwarding may differ
@@ -65,11 +69,13 @@ behavior changes, stop and revise the contract before implementation.
 
 Four focused groups, without compressing proof to meet a guessed line count:
 
-1. Complete independently authored typed-wire/projection inventory for EVERY
-   Instruction variant/field/tag, exact integers/booleans/escaped selectors and
-   BTreeMap ordering. Rules/Rule/Instruction remain the ONE shared authoritative
-   decoder. Preserve existing duplicate behavior rather than inventing stricter
-   rule-map rejection; distinguish duplicate struct fields from map-key behavior.
+1. Complete independently authored typed-wire/projection inventory for ALL45
+   Instruction variants/fields/tags, booleans/escaped selectors and BTreeMap order.
+   No integer-literal instruction exists: numeric checks concern formatVersion
+   u32 or wrong-typed fields, not runtime i64 validation. Keep ONE authoritative
+   decoder. Duplicate map keys retain LAST value, but an ill-typed overwritten
+   earlier value still fails; duplicate struct fields reject. Preserve this exact
+   behavior, never invent stricter rule-map rejection or erase original text.
 2. Eager typed rejection before invalid policy, including ignored/unused rules,
    unknown op/extra/duplicate struct fields, wrong scalar types/ranges, malformed
    documents and version precedence. Assert exact Json/Version/Lowering phases
@@ -82,7 +88,9 @@ Four focused groups, without compressing proof to meet a guessed line count:
 4. Real Cargo CLI default/custom input, usage/read/JSON/version/policy failures,
    exit2/EMPTY stdout, clear environment and fresh recovery. Mandatory tools must
    be absolute regular/readable/executable BEFORE env-clear, owned HOME/unusable
-   PATH. Setup failures are not semantic negatives; no substitute provider API.
+   PATH. CLI reads an explicit policy file BEFORE calling generate_with_policy;
+   a missing policy read beats malformed rules, unlike API validation precedence.
+   Setup failures are not semantic negatives; no substitute provider API.
 
 Run new FOUR groups EACH default/no-default debug/release with strict focused
 Clippy. Keep all existing assertions/expected outcomes unchanged. Lowering policy
