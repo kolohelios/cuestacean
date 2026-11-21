@@ -148,3 +148,36 @@ ONLY the three kernel Rust paths and one new evidence test path above. No Nix/
 Cargo/CLI/CUE/runtime/kernel algorithm change follows. Source projection, actual
 four-profile evidence, all release gates and two final whole-tree reviews remain
 mandatory. Pause rather than widen scope, suppress failures or exceed the budget.
+
+## Local validation receipt
+
+Kernel038b6900 (ONLY three Rust paths) and evidence451ac084 (ONLY one test path)
+stayed immutable; dependency overlays used new children, not handoff amendments.
+Independent cross-reviews approve both. No CLI/Cargo/Nix/CUE/runtime/kernel change.
+The four focused groups pass EACH default/no-default debug/release with strict
+focused Clippy: ALL45 variants/projections/real backend, preserved duplicate typing,
+API/CLI phase precedence, concrete serde/lowering source chains, complete handwritten
+default/reference/custom source and actual cleared-env CLI exit2/EMPTY/recovery.
+
+Independent ORIGINAL-source projection BYTE-MATCHES all three final files:
+old lib657/codegen46 rows accounted; retained root466/core263/façade21. Rules/Rule/
+Instruction/parse and compiler bodies move once; root Error/Program/runtime suffix
+stay exact. Only reviewed imports/modules/narrow visibility, real Error3/owned
+bijection, runtime-only cfg/forwarding and duplicated API docs differ. No algorithm
+or admission/guard/profile/provider change. Same-source tests use real modules,
+not runtime/Error stubs; full-library verification remains Go-backed.
+
+Full executor/default debug+release tests/strict all-target Clippy, exporter142 and
+research135 FOUR profiles, and ALL THREE four-group boundary suites EACH FOUR
+profiles pass. Pinned preflight13/13 (seven skips), whole-tree whitespace1408 files
+and629 relative links pass.27 checks+24 NONDEFAULT packages give51 named attrs/
+50 unique derivations captured ONCE, actually built AND rebuilt with SAME explicit
+drv roots in real sandboxes. All FOUR separately rebuilt feature roots MATCH fresh
+final discovery;21 refreshed recursive/full retained inventories/current exclusions
+pass. Core/unifier/Pratt feature generation stays Go-free; scanner source-feature
+is positively Go-backed VERIFICATION ONLY.
+
+ALL24 prior NONDEFAULT package IDs INCLUDING exports remain unchanged, together
+with all249 JSON/12 builders/old DATA/generated Rust/five façade source cuts and
+six compiler names/origins. FIVE complete native policies/FIVE native binaries
+remain; no sixth constructor, general default/schema or self-hosting claim follows.
