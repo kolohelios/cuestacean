@@ -20,8 +20,11 @@ FIVE complete native policies/FIVE native compiler binaries and held #175 remain
 Ordinary `#Definition.field`: ONE direct definition token, ONE dot, ONE regular
 unquoted ASCII field, horizontal whitespace only. Names generic and <=64 bytes;
 no filename/opcode privilege. No chains/quoted/hidden/definition selectors/index/
-call/parenthesized/computed/let/field base or field-value solver. Unsupported dot
-bases/suffixes stay Unsupported; numeric/ellipsis rejection precedence remains.
+call/parenthesized/computed/let/field base or field-value solver. Unsupported DOT
+bases/suffixes (chain/quoted/hidden/definition/parenthesized/newline cases) are
+Unsupported, not a broad Syntax-or-Unsupported alternative. No-dot index/call
+adjacency retains original Syntax("declaration separator"); numeric/ellipsis
+rejection precedence remains.
 
 Target ORIGINAL definition body must be a direct flat Struct with <=64 required,
 UNIQUE fields, EVERY value a direct string/bool/i64 literal. Validate ALL fields,
@@ -87,7 +90,12 @@ uses; (2) original-target/whole-arena exclusions, Unknown/cycles/CLI recovery;
 (3) derived total-work/hard-limit/no-selector old costs; (4) derived copy/encoding/
 source/label/depth/items/original-syntax guards. Shared harness is ONLY native API/
 Cargo CLI/pinned Go generic execution, not R full-policy setup. Do not replace
-whole assertions by agreement or hide invalid cases. Keep selected string/bool/
+whole assertions by agreement or hide invalid cases. Correct the held cycle
+fixture: use package-only first input, then ONE #D with `let Local=#D.x` and
+`#D:{x:Local}`/root Local; pin Unsupported("cyclic binding dependency"), not a
+false rejection caused by duplicated #D declarations. Pin selector categories
+case-by-case as above. These strengthen intended proof, not delete it.
+Keep selected string/bool/
 exact i64 expectations independent of producer/Go/goldens; counterexamples valid
 upstream but outside this class stay explicitly Unsupported. Raw default plus
 projection remains Unsupported; separate concretization is not new default scope.
