@@ -219,6 +219,12 @@ let/data support. An isolated Go-only type shape requires all118 string leaves
 before full policy composition; that shape supplies no opcode/path answers and is
 not a native input. R-dependent cases/module/full policy remain Go-built; counts
 stay FIVE complete native policy DATA/FIVE native compilers, not bootstrap closure.
+The [#258 instruction compiler boundary](instruction-compiler-boundary.md) separates
+its authoritative typed rules/decoder/projection/lowering from root runtime Error
+ownership. A small legacy adapter retains existing root APIs and concrete error
+sources; same-source evidence requires no runtime/Error stubs. This source
+preparation does not construct a sixth binary or complete instruction-policy DATA;
+FIVE complete native policies/FIVE native compilers and held #175 remain unchanged.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

@@ -1,14 +1,18 @@
 //! Disposable bootstrap machinery for interpreting exported rule instructions.
 //! Node kinds and field names come from data, not Rust expression variants.
 
+#[cfg(feature = "semantics")]
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value;
-use snafu::{ResultExt, Snafu};
+use snafu::Snafu;
+
+#[cfg(feature = "semantics")]
+use codegen::compiler::{Instruction, Rule, Rules};
 
 pub mod ast;
-mod codegen;
+pub mod codegen;
 pub mod lowering;
 pub mod module;
 #[cfg(feature = "source")]
@@ -228,194 +232,6 @@ struct Program {
     entry: Value,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct Rules {
-    format_version: u32,
-    rules: BTreeMap<String, Rule>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Rule {
-    result: Instruction,
-}
-
-#[derive(Deserialize, Serialize)]
-#[serde(tag = "op", rename_all = "lowercase", deny_unknown_fields)]
-enum Instruction {
-    Conjunction {
-        field: String,
-    },
-    Null {},
-    Top {},
-    Int {},
-    Bool {},
-    Text {
-        field: String,
-    },
-    List {
-        field: String,
-    },
-    Record {
-        field: String,
-    },
-    #[serde(rename = "recordExpression")]
-    RecordExpression {
-        field: String,
-    },
-    #[serde(rename = "recordIndex")]
-    RecordIndex {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    #[serde(rename = "recordLength")]
-    RecordLength {
-        value: Box<Instruction>,
-    },
-    #[serde(rename = "listExpression")]
-    ListExpression {
-        field: String,
-    },
-    #[serde(rename = "stringType")]
-    StringType {},
-    Boolean {
-        value: bool,
-    },
-    #[serde(rename = "lowerBound")]
-    LowerBound {
-        value: Box<Instruction>,
-    },
-    #[serde(rename = "lowerExclusiveBound")]
-    LowerExclusiveBound {
-        value: Box<Instruction>,
-    },
-    #[serde(rename = "upperExclusiveBound")]
-    UpperExclusiveBound {
-        value: Box<Instruction>,
-    },
-    #[serde(rename = "upperBound")]
-    UpperBound {
-        value: Box<Instruction>,
-    },
-    Field {
-        field: String,
-    },
-    Evaluate {
-        field: String,
-    },
-    Negate {
-        value: Box<Instruction>,
-    },
-    Index {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    Slice {
-        #[serde(rename = "operandField")]
-        operand_field: String,
-        #[serde(rename = "lowerField")]
-        lower_field: String,
-        #[serde(rename = "upperField")]
-        upper_field: String,
-    },
-    #[serde(rename = "listSlice")]
-    ListSlice {
-        value: Box<Instruction>,
-        lower: Box<Instruction>,
-        upper: Box<Instruction>,
-    },
-    #[serde(rename = "listIndex")]
-    ListIndex {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    Sum {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    Difference {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    Product {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    Divide {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    Modulo {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    Quotient {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    Remainder {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    Length {
-        value: Box<Instruction>,
-    },
-    #[serde(rename = "stringLength")]
-    StringLength {
-        value: Box<Instruction>,
-    },
-    #[serde(rename = "listLength")]
-    ListLength {
-        value: Box<Instruction>,
-    },
-    #[serde(rename = "logicalNot")]
-    LogicalNot {
-        value: Box<Instruction>,
-    },
-    #[serde(rename = "logicalAnd")]
-    LogicalAnd {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    #[serde(rename = "logicalOr")]
-    LogicalOr {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    Less {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    #[serde(rename = "lessEqual")]
-    LessEqual {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    Greater {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    #[serde(rename = "greaterEqual")]
-    GreaterEqual {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    Equal {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    #[serde(rename = "notEqual")]
-    NotEqual {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-    Unify {
-        left: Box<Instruction>,
-        right: Box<Instruction>,
-    },
-}
-
 /// Execute version-1 JSON documents using checked signed 64-bit arithmetic.
 /// This executes accessed fields; it does not validate the complete CUE AST.
 #[cfg(feature = "semantics")]
@@ -435,16 +251,9 @@ pub fn execute_json(program: &str, rules: &str) -> Result<Value, Error> {
     runtime::concrete_json(evaluate(&program, &rules.rules, &mut context)?)
 }
 
+#[cfg(feature = "semantics")]
 fn parse_rules(input: &str) -> Result<Rules, Error> {
-    let rules: Rules = serde_json::from_str(input).context(JsonSnafu { document: "rules" })?;
-    if rules.format_version != 1 {
-        return VersionSnafu {
-            document: "rules",
-            version: rules.format_version,
-        }
-        .fail();
-    }
-    Ok(rules)
+    codegen::compiler::parse_rules(input).map_err(Error::from)
 }
 
 #[cfg(feature = "semantics")]
