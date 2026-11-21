@@ -94,9 +94,9 @@ uses; (2) original-target/whole-arena exclusions, Unknown/cycles/CLI recovery;
 source/label/depth/items/original-syntax guards. Shared harness is ONLY native API/
 Cargo CLI/pinned Go generic execution, not R full-policy setup. Do not replace
 whole assertions by agreement or hide invalid cases. Correct the held cycle
-fixture: use package-only first input, then ONE #D with `let Local=#D.x` and
-`#D:{x:Local}`/root Local; pin Unsupported("cyclic binding dependency"), not a
-false rejection caused by duplicated #D declarations. Pin selector categories
+fixture by ADDING a package-only first input, then ONE #D with `let Local=#D.x`
+and `#D:{x:Local}`/root Local; pin Unsupported("cyclic binding dependency"). Retain
+the old duplicate-declaration rejection, but do not claim it proves graph cycles. Pin selector categories
 case-by-case as above. These strengthen intended proof, not delete it.
 Keep selected string/bool/
 exact i64 expectations independent of producer/Go/goldens; counterexamples valid
@@ -136,3 +136,13 @@ unchanged. Exporter-dependent drv IDs may change; BOTH oracle PACKAGE IDs stable
 Protected exact-head rebase auto-merge/required CI through confirmed MERGED/exact-
 tree comparison/clean fetched main. Only x86_64-linux; no actual R-consumer cut,
 new defaults/reuse/container selection/schema/general solver/self-hosting claim.
+
+**Revised-scope implementation GO:** TWO FRESH independent reviews approve concrete
+cedbbb2e, including exact eight source-count attestations, actual four-group/helper
+mapping, genuine no-duplicate cycle, precise dot/no-dot categories and derived
+ledgers. Coordinator GO authorizes ONLY the six Rust paths/minimal Nix17-line
+delta and one generic test above. Add precise negative/list-work checks while
+retaining whole original assertions; no proof compression. All #260 R integration
+remains HELD, not silently carried over. Full tests/source/graph/artifact/current
+inventories/final reviews/preflight/CI/confirmed merge still mandatory; no pending
+run is a pass and no budget exception is granted.
