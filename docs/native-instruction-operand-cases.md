@@ -1,6 +1,6 @@
 # Native instruction operand-case DATA (#266)
 
-## Fresh publication scope after #264 — no implementation GO yet
+## Fresh publication scope after #264 — reviewed implementation GO
 
 Read the [Go-owned boundary](instruction-operand-cases-boundary.md),
 [R staging](native-instruction-right-operand.md), [exporter](native-spec-export.md),
@@ -136,3 +136,13 @@ Pinned full Shaka/preflight/whole whitespace/links; protected exact-head rebase
 auto-merge/required CI watched through MERGED/exact merged-tree comparison/clean
 fetched main. Preserve separate failures/cancellations and COMPLETE fixed reruns;
 no pending/setup/failed/canceled attempt is pass. x86_64-linux ONLY; FIVE/FIVE held175.
+
+## Fresh implementation authority
+
+BOTH independent focused reviews approve immutable
+`7db947853ce56049fe8b823a49b67c6c855d2029`: source/caller/closure and independent
+native evidence/phases, each complete budget895–1245. Coordinator GO authorizes
+ONLY the two build paths/one new test and coordinator docs above. Preserve all153
+old groups/old eight test files/Group/bridge bytes. No prior exception transfers;
+track actual full formatted delta early, pause first credible overrun/scope gap.
+All cross/final reviews and real fixed-source release/CI/merge gates remain.
