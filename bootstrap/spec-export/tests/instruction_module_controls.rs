@@ -14,6 +14,7 @@ const STEP: &str = include_str!("../../instruction-module-step.cue");
 const STEP_ROOT: &str = include_str!("../../instruction-module-step-export.cue");
 const RIGHT: &str = include_str!("../../instruction-right-field.cue");
 const OPERAND: &str = include_str!("../../instruction-right-operand.cue");
+const GROUP: &str = include_str!("../../instruction-operand-cases.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
 const CORE: &str = include_str!("../../instruction-core-cases.cue");
@@ -209,6 +210,21 @@ impl Probe {
         if !operand_gate.status.success() {
             return operand_gate;
         }
+        let group_gate = self.run(
+            &self.cue,
+            &["export", "-e", "#InstructionOperandCases"],
+            &[
+                ("schema.cue", SCHEMA),
+                ("bridge.cue", BRIDGE),
+                ("right.cue", RIGHT),
+                ("operand.cue", OPERAND),
+                ("group.cue", GROUP),
+            ],
+            reverse,
+        );
+        if !group_gate.status.success() {
+            return group_gate;
+        }
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
             ("bridge.cue", BRIDGE),
@@ -218,6 +234,7 @@ impl Probe {
             ("binary-placed.cue", &binary),
             ("right.cue", RIGHT),
             ("operand.cue", OPERAND),
+            ("group.cue", GROUP),
         ];
         if let Some(first) = first {
             inputs.push(("first.cue", first));

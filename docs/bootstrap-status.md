@@ -237,6 +237,11 @@ CUE-definition adapter. Canonical Go imports the whole result; raw contexts relo
 SAME unresolved Right/R owners after separate isolated Right-then-R gates. All9
 uses and independent Core118/Binary35 gates remain. No language/guard/compiler
 change or sixth complete policy/binary follows; broader #175 remains held.
+The [#264 operand-case boundary](instruction-operand-cases-boundary.md) separately
+moves the original L/eight case bodies once into a Go-owned source module, with
+an isolated89-string completeness gate after Right/R. All raw owners reload before
+contexts; legacy inverses and explicit dependency bypasses preserve existing proof.
+This is source/consumer preparation, NOT native Group publication or a Go-edge cut.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

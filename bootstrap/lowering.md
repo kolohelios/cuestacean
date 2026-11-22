@@ -14,8 +14,12 @@ constraints and actual schema checks stay separate.
 The [native right-field input](../docs/native-instruction-right-field.md) separately
 supplies R's original scalar preference. Its isolated completeness check runs before
 any policy context: a context could otherwise fill all nine missing uses. Raw
-refinements reload the same unresolved owner after that check; R's reused shell and
-per-use context semantics remain Go-owned, not new native reuse/default support.
+refinements reload the same unresolved owner after that check. The
+[native R wrapper](../docs/native-instruction-right-operand.md) now consumes whole
+independently native Right DATA; per-use contexts remain Go-owned. The separate
+[operand-case source boundary](../docs/instruction-operand-cases-boundary.md) owns
+L/eight original bodies in raw Go CUE, gated after Right/R before full composition.
+It adds no native Group publication or native reuse/default support.
 The [native module-text input](../docs/native-instruction-module-text.md) separately
 constructs the original header/footer literals. The Go consumer imports that JSON
 under the required closed helper and retains header + newline. The separate

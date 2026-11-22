@@ -9,6 +9,7 @@ use std::{
 };
 
 const OWNER: &str = include_str!("../../instruction-right-operand.cue");
+const GROUP: &str = include_str!("../../instruction-operand-cases.cue");
 const ROOT: &str = include_str!("../../instruction-right-operand-export.cue");
 const RIGHT: &str = include_str!("../../instruction-right-field.cue");
 const RIGHT_ROOT: &str = include_str!("../../instruction-right-field-export.cue");
@@ -66,6 +67,12 @@ fn executable(path: &Path) {
     assert!(meta.is_file());
     fs::File::open(path).expect("readable tool");
     assert_ne!(meta.permissions().mode() & 0o111, 0);
+}
+enum SourceMode {
+    Current,
+    MissingRight,
+    MissingOperand,
+    Legacy,
 }
 struct Probe {
     dir: PathBuf,
@@ -196,8 +203,25 @@ impl Probe {
         operand: Option<&str>,
         context: &str,
         reverse: bool,
+        mode: SourceMode,
     ) -> Output {
-        // Even explicit operand/Right bypass controls retain independent Core118/Binary35.
+        // Missing R bypasses only R/Group; its SAME Right must still be complete.
+        if matches!(mode, SourceMode::MissingOperand) {
+            let gate = self.run(
+                &self.cue,
+                &["export", "-e", "#InstructionRightField"],
+                &[
+                    ("schema.cue", SCHEMA),
+                    ("bridge.cue", BRIDGE),
+                    ("right.cue", right.expect("missing-R mode retains Right")),
+                ],
+                reverse,
+            );
+            if !gate.status.success() {
+                return gate;
+            }
+        }
+        // Even explicit operand/Right/Group bypass controls retain independent Core118/Binary35.
         let core = self.run(
             &self.cue,
             &["export"],
@@ -232,6 +256,9 @@ impl Probe {
         if let Some(operand) = operand {
             inputs.push(("operand.cue", operand));
         }
+        if !matches!(mode, SourceMode::Legacy) {
+            inputs.push(("group.cue", GROUP));
+        }
         inputs.push(("context.cue", context));
         self.run(&self.cue, &["export"], &inputs, reverse)
     }
@@ -253,8 +280,30 @@ impl Probe {
         if !operand_gate.status.success() {
             return operand_gate;
         }
-        // Discard BOTH selected gate outputs; reload SAME unresolved owners.
-        self.full(BRIDGE, Some(right), operand, context, reverse)
+        let group_gate = self.run(
+            &self.cue,
+            &["export", "-e", "#InstructionOperandCases"],
+            &[
+                ("schema.cue", SCHEMA),
+                ("bridge.cue", BRIDGE),
+                ("right.cue", right),
+                ("operand.cue", operand.expect("R gate requires provider")),
+                ("group.cue", GROUP),
+            ],
+            reverse,
+        );
+        if !group_gate.status.success() {
+            return group_gate;
+        }
+        // Discard all selected gate outputs; reload SAME unresolved owners.
+        self.full(
+            BRIDGE,
+            Some(right),
+            operand,
+            context,
+            reverse,
+            SourceMode::Current,
+        )
     }
 }
 impl Drop for Probe {
@@ -269,7 +318,49 @@ fn original_bridge() -> String {
         .trim()
         .strip_prefix("package bootstrap\n\n#InstructionRightOperand: ")
         .expect("raw owner");
-    BRIDGE.replace("#InstructionRightOperand: close({op: string, value: close({op: string, value: close({op: string, field: string})})})\n", "")
+    let (before, shape) = BRIDGE
+        .split_once("#InstructionOperandCases: close({\n")
+        .expect("Group shape");
+    let (_, after) = shape
+        .split_once("// Executable recursion")
+        .expect("shape boundary");
+    let left = GROUP
+        .lines()
+        .find(|line| line.starts_with("\tlet L = "))
+        .expect("original L");
+    let mut restored = format!("{before}// Executable recursion{after}")
+        .replace("\t\t#InstructionOperandCases.cases\n", "")
+        .replace("\tlet L = #InstructionOperandCases.leftOperand", left);
+    let cases = GROUP
+        .split_once("\tcases: {\n")
+        .expect("original cases")
+        .1
+        .strip_suffix("\t}\n}\n")
+        .expect("owner end");
+    let names = [
+        "sum",
+        "less",
+        "lessEqual",
+        "greater",
+        "greaterEqual",
+        "notEqual",
+        "remainder",
+        "unify",
+    ];
+    for (index, name) in names.iter().enumerate() {
+        let prefix = format!("\t\t{name}:");
+        let start = cases.find(&prefix).expect("original body");
+        let end = names.get(index + 1).map_or(cases.len(), |next| {
+            cases.find(&format!("\t\t{next}:")).expect("next body")
+        });
+        let slot = restored
+            .lines()
+            .find(|line| line.starts_with(&prefix))
+            .expect("required slot")
+            .to_owned();
+        restored = restored.replace(&format!("{slot}\n"), &cases[start..end]);
+    }
+    restored.replace("#InstructionRightOperand: close({op: string, value: close({op: string, value: close({op: string, field: string})})})\n", "")
         .replace("\tlet R = #InstructionRightOperand\n", &format!("\tlet R = {body}\n"))
 }
 fn context(mask: usize, field: &str, complete: bool) -> String {
@@ -401,7 +492,14 @@ fn raw_nine_site_contexts_both_priorities_orders_old_policies_and_selected_confl
         ] {
             let default = if right == RIGHT { "right" } else { "left" };
             let forced = if default == "right" { "left" } else { "right" };
-            let baseline = decoded(p.full(&old, Some(&right), None, SELECTOR, reverse));
+            let baseline = decoded(p.full(
+                &old,
+                Some(&right),
+                None,
+                SELECTOR,
+                reverse,
+                SourceMode::Legacy,
+            ));
             for mask in (0..9).map(|i| 1 << i).chain([0, 511, 341, 170]) {
                 let ctx = context(mask, forced, false);
                 let mut want = baseline.clone();
@@ -415,7 +513,7 @@ fn raw_nine_site_contexts_both_priorities_orders_old_policies_and_selected_confl
                 }
                 assert_eq!(decoded(p.policy(&right, Some(OWNER), &ctx, reverse)), want);
                 assert_eq!(
-                    decoded(p.full(&old, Some(&right), None, &ctx, reverse)),
+                    decoded(p.full(&old, Some(&right), None, &ctx, reverse, SourceMode::Legacy)),
                     want
                 );
             }
@@ -423,7 +521,7 @@ fn raw_nine_site_contexts_both_priorities_orders_old_policies_and_selected_confl
         for ctx in [SELECTOR, TWICE, REVERSE] {
             assert_eq!(
                 decoded(p.policy(RIGHT, Some(OWNER), ctx, reverse)),
-                decoded(p.full(&old, Some(RIGHT), None, ctx, reverse))
+                decoded(p.full(&old, Some(RIGHT), None, ctx, reverse, SourceMode::Legacy))
             );
         }
         let selected = p.import(HELPER, &p.materialize(RIGHT, OWNER, reverse));
@@ -445,11 +543,40 @@ fn isolated_four_leaf_omissions_types_real_backfill_and_consumer_fail_stop() {
     for reverse in [false, true] {
         // Full Go really backfills the ENTIRE absent body from complete use contexts.
         // Explicitly bypass BOTH dependent gates, NEVER an accepted pipeline.
-        let bypass = decoded(p.full(BRIDGE, Some(RIGHT), None, &all, reverse));
+        let bypass = decoded(p.full(
+            BRIDGE,
+            Some(RIGHT),
+            None,
+            &all,
+            reverse,
+            SourceMode::MissingOperand,
+        ));
         assert_eq!(
             bypass,
-            decoded(p.full(BRIDGE, None, Some(OWNER), &all, reverse))
+            decoded(p.full(
+                BRIDGE,
+                None,
+                Some(OWNER),
+                &all,
+                reverse,
+                SourceMode::MissingRight
+            ))
         );
+        for invalid_right in [
+            source("#InstructionRightField:{}"),
+            source("#InstructionRightField:{field:42}"),
+        ] {
+            let out = p.full(
+                BRIDGE,
+                Some(&invalid_right),
+                None,
+                &all,
+                reverse,
+                SourceMode::MissingOperand,
+            );
+            assert_eq!(out.status.code(), Some(1));
+            assert!(out.stdout.is_empty() && !out.stderr.is_empty());
+        }
         for site in SITES {
             assert_eq!(
                 bypass.pointer(site).expect("backfilled whole tree"),
@@ -539,10 +666,11 @@ fn isolated_four_leaf_omissions_types_real_backfill_and_consumer_fail_stop() {
 consume() {{
   '{cue}' export schema.cue bridge.cue right.cue -e '#InstructionRightField' >/dev/null || return
   '{cue}' export schema.cue bridge.cue right.cue $2 -e '#InstructionRightOperand' >/dev/null || return
+  '{cue}' export schema.cue bridge.cue right.cue $2 group.cue -e '#InstructionOperandCases' >/dev/null || return
   '{cue}' export shape.cue core.cue >/dev/null || return
   '{cue}' export schema.cue bridge.cue binary-placed.cue -e '#InstructionBinaryTables' >/dev/null || return
   : > full-export-started
-  '{cue}' export schema.cue bridge.cue core.cue binary-placed.cue unary.cue text.cue first.cue step.cue right.cue $2 context.cue
+  '{cue}' export schema.cue bridge.cue core.cue binary-placed.cue unary.cue text.cue first.cue step.cue right.cue $2 group.cue context.cue
 }}
 case "$1" in
  normal) consume "$@" ;;
@@ -554,7 +682,7 @@ esac
     );
     fs::write(p.dir.join("consume.sh"), script).expect("actual fail-stop pipeline");
     for operand in ["", "operand.cue"] {
-        decoded(p.full(BRIDGE, Some(RIGHT), Some(OWNER), &all, false));
+        decoded(p.policy(RIGHT, Some(OWNER), &all, false));
         fs::write(
             p.dir.join("operand.cue"),
             source("#InstructionRightOperand:{}"),
