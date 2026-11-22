@@ -1,6 +1,6 @@
 # Instruction binary-runtime source/consumer boundary (#270)
 
-## Fresh resumed boundary-only contract after scoped~1800 approval
+## Reviewed contract / historical scoped~1800 approval
 
 Baseline merged main `a4ec2227ee8a86900c0ae8a42534b0b1679922be` (#269).
 Read [literal-container selection](native-literal-container-projections.md),
@@ -11,8 +11,8 @@ Read [literal-container selection](native-literal-container-projections.md),
 [compiler boundary](instruction-compiler-boundary.md). TWO independent read-only
 assessments and TWO callsite-by-callsite refinements found credible overrun at the
 ordinary approximately1500-line bound; immutable held plan `1b704e84` preserves it.
-No repository implementation preceded the pause. This is a NEW concrete contract;
-TWO fresh focused reviews and explicit coordinator GO are still required.
+No repository implementation preceded the FIRST pause. TWO fresh focused reviews
+and explicit coordinator GO preceded continuation; later results follow below.
 
 The combined source/consumer boundary plus native publication is HELD at complete
 forecasts1633–2158 and1660–2195 additions+deletions. A distinct Go-owned boundary
@@ -27,9 +27,9 @@ budget permission does not substitute for fresh reviews or implementation GO.
 
 ## Actual source frontier and observed feasibility
 
-The bridge's remaining L/R forwarders and original R comment now serve ONLY
+The baseline bridge's remaining L/R forwarders and original R comment served ONLY
 binaryRuntime. Its six-part concat is Binary.select, opening text, L, comma text,
-R, closing text. A future raw owner #InstructionBinaryRuntime would own ORIGINAL
+R, closing text. The new raw owner #InstructionBinaryRuntime owns ORIGINAL
 forwarders/comment/body ONCE; bridge replaces only that case with a required helper.
 All other bridge/source tokens must remain accounted exactly once. Preserve the
 historical comment wording unless separately authorized. No duplicate aliases/body,
@@ -151,8 +151,8 @@ FOUR new groups:164 total/32 integration files; production10/checker124/full1351
 source inventories are forecasts to verify. Docs beyond this contract and repair
 reserve count toward1800; no proof caps or unreviewed paths to manufacture a fit.
 
-## Preserved pause / resumed authority pending fresh reviews
-Historical GO `8b7ef33d` remains suspended; this NEW resumed contract is NOT GO.
+## Preserved pause / reviewed resumption history
+Historical GO `8b7ef33d` stayed suspended; NEW authority appears below.
 Source `2125f8ad`: naturally formatted51add32del=83, versus65 forecast upper (+18).
 Partial evidence `20418132`:81add3del=84/FOUR old setup files, UNFORMATTED/UNVALIDATED.
 Historical complete1765 upper triggered the~1750 pause; no Nix/Cargo/builds ran.
@@ -176,7 +176,7 @@ FIRST credible overrun/ambiguity/identity or inverse defect suspends continuatio
 
 ## Unpassed release gates / current disposition
 
-Boundary-only expected29 checks/26 packages/55 names/54 unique/23 native graphs;
+Boundary-only expected29 checks/26 packages/55 names/54 unique/23 constructor/control graphs;
 publication later would add package/check (30/27/57/56/24), not evaluated now.
 Boundary old26 package IDs: ONLY exports may change, other25/BOTH oracles stable;
 verifier/full-executor/legacy identities can change. All249JSON/12builders/old DATA/
@@ -194,6 +194,37 @@ debug/release/strict Clippy; research135 FOUR; THREE boundary suites4 EACH FOUR.
 Focused cross-reviews/TWO final immutable WHOLE-TREE GOs/pinned full preflight/WHOLE
 whitespace/links; retire workers BEFORE PR; protected exact-head required CI through
 confirmed MERGED/exact-tree comparison/clean fetched main. No pending/setup/canceled
-run is a pass. No release validation/PR/implementation is claimed by this plan.
+run is a pass. The following receipt supersedes the plan-stage validation status.
 FIVE complete native DATA/FIVE binaries, full instruction/module/PROGRAM/schema/
 joined seed and #175 remain held. No self-hosting/performance/conformance claim.
+
+## Implemented / local release validation (x86_64-linux)
+Kernel `eb9d65c0` and evidence `f95d7988` integrate as frozen `70d3f1ab`.
+The original six-part body/L/R/comment move ONCE; required helper supplies no answers.
+SAME providers feed Right->R->Group, Binary35->Runtime39 and independent Core118;
+unresolved raw composition follows. ALL nine old builders/eight Nix families retain proof.
+Four new groups cover WHOLE tree/56 omissions/types/closedness/arity,128 labelled
+whole-policy comparisons/all cursor states, explicit modes and real shell fail-stop.
+Full exporter164 EACH FOUR (656), strict all-target Clippy4; executor775 default
+DEBUG/RELEASE/Clippy2, research135 FOUR and ALL THREE boundary suites4 EACH FOUR pass.
+Focused TEN-file41 EACH FOUR/Clippy4/fmt passed independently; ALL old160 groups stay.
+Actual source10/checker124/32 integration files/full1351 AND metadata-derived legacy
+1351 match EVERY frozen byte/exact sets; no target/untracked/symlink/extra empty dirs.
+ONCE29 checks/26 packages/55 names/54 roots actually BUILD AND REBUILD SAME drv^*;
+independent audit matches ALL54 records/original four hashes, not live argv monitoring.
+ONLY exports changes among26 package IDs; other25 INCLUDE exporter/BOTH Go oracles.
+All249JSON/12builders/old DATA/generated Rust/five cuts/six binary origins identical.
+All23 fresh retained recursive/full inventories:22 native plus ONE Go-backed seed
+control; core/unifier/Pratt features Go-free, scanner27 PROGRAMs Go-backed VERIFY ONLY.
+FOUR genuine feature matrices/FOUR separate actual rebuilds match stored fresh metadata.
+CURRENT source/CLI/schema/producer/provider/answer exclusions passed corrected audit;
+actual CLI-linked upstream producer/ALL aliases/registered names stay banned from native cuts.
+Source-inverse alias spacing/R-body shadowing and invalid MissingR/raw-Core positives
+were repaired in NEW children; exact FOUR Runtime-first/THREE old inverses pass.
+Whole-R backfill/field-only Incomplete and raw-Core negative/counters retain OLD
+independent hand-JSON Core genuine backfill. Failed/canceled/setup/tool attempts stay
+separate; registered upstream .drv unavailability is not fabricated metadata or GC fact.
+Pinned preflight13/13 (seven skips) passed. Code1541; actual WHOLE delta1775
+includes documentation under USER's #270-only~1800 allowance; no future exception.
+Final exact-tree reviews/whole documentation checks/protected CI/confirmed merge
+remain mandatory. No native Runtime publication/package/check/companion is added.

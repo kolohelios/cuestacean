@@ -256,6 +256,10 @@ Selected containers retain fresh definition closedness through nested paths; ord
 outer output remains open. Whole-target validation/charged traversal precedes ANY
 rewrite. This is generic capability, not native Group/Binary composition or an actual
 Go-edge removal; selector grammar/default/solver admission and FIVE/FIVE stay fixed.
+The [#270 binary-runtime boundary](instruction-binary-runtime-boundary.md) isolates
+its original six-part expression behind a Go-only completeness gate; raw owners
+reload before contexts. No native publication or constructor is added; FIVE complete
+native policies/FIVE binaries and held #175/full instruction closure are unchanged.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
