@@ -593,6 +593,18 @@ impl Evaluator<'_> {
                             groups: term.groups,
                         }));
                     }
+                    Expr::SelectedContainer(id) => {
+                        self.step(1)?;
+                        if state.active.contains(id) {
+                            return Err(Error::Unsupported("selected container cycle"));
+                        }
+                        let mut groups = term.groups;
+                        groups.push(self.next_group);
+                        self.next_group += 1;
+                        state.active.push(*id);
+                        state.tasks.push(Task::Leave(*id));
+                        state.tasks.push(Task::Visit(Term { id: *id, groups }));
+                    }
                     Expr::Ref(name) => {
                         self.step(1)?;
                         let id = *self

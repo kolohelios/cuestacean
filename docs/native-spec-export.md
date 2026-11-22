@@ -94,6 +94,10 @@ uses whole independently native R120 to construct unchanged L/eight cases as who
 4549-byte DATA. A sole-root companion/ordinary adapter needs no new language/CLI
 admission. Canonical Go imports whole Group; raw contexts/gates keep SAME unresolved
 owners. This is another partial instruction input, not a sixth policy/compiler.
+The fresh [#268 literal-container projection](native-literal-container-projections.md)
+extends original target validation to finite pure-literal trees. Selected object/list
+subtrees inherit fresh recursive closedness; scalar flat-map costs/selector grammar
+stay unchanged. No aliases/constraints/default target solving or production edge cut.
 
 ## Readiness and recursive schema semantics
 
