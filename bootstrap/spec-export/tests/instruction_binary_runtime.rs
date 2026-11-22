@@ -343,10 +343,16 @@ fn old_bridge() -> String {
             "\t\tbinaryRuntime:    #InstructionBinaryRuntime",
             &format!("\t\tbinaryRuntime: {{op: {body}"),
         );
+    let mut in_cases = false;
     bridge
         .lines()
         .map(|line| {
-            if line.starts_with("\t\t") && line.ends_with('_') {
+            if line == "\tcases: {" {
+                in_cases = true;
+            } else if line == "\t}" {
+                in_cases = false;
+            }
+            if in_cases && line.starts_with("\t\t") && line.ends_with('_') {
                 format!("{} _", line[..line.len() - 1].trim_end())
             } else {
                 line.to_owned()
@@ -779,14 +785,38 @@ fn true_backfills_explicit_dependency_modes_and_actual_shell_fail_stop_recovery(
             );
         }
         let all = context(511, "left");
-        for (index, mode) in [(0, Mode::MissingRight), (1, Mode::MissingR)] {
+        let left = wrapped("left");
+        let whole_r = format!(
+            "package bootstrap\n#InstructionLowering & {{cases:{{
+                binaryRuntime:{{parts:[_,_,_,_,{left},_]}},
+                sum:{{args:[_,{left}]}},less:{{args:[_,{left}]}},
+                lessEqual:{{args:[_,{left}]}},greater:{{args:[_,{left}]}},
+                greaterEqual:{{args:[_,{left}]}},notEqual:{{args:[_,{left}]}},
+                remainder:{{args:[_,{left}]}},unify:{{parts:[_,{{args:[_,{left}]}},_]}}
+            }}}}\n"
+        );
+        for (index, mode, ctx) in [
+            (0, Mode::MissingRight, all.as_str()),
+            (1, Mode::MissingR, whole_r.as_str()),
+        ] {
             let mut owners = p.owners(Some(RUNTIME));
             owners[index] = None;
-            let full = decoded(p.full(BRIDGE, owners, Some(CORE), &all, reverse, mode));
-            for path in SITES {
-                assert_eq!(full.pointer(path).expect("backfill site"), "left");
+            if index == 1 {
+                let field_only = p.full(BRIDGE, owners, Some(CORE), &all, reverse, mode);
+                failed(&field_only);
+                assert!(String::from_utf8_lossy(&field_only.stderr).contains("incomplete value"));
             }
-            failed(&p.full(BRIDGE, owners, Some(CORE), &all, reverse, Mode::Accepted));
+            let full = decoded(p.full(BRIDGE, owners, Some(CORE), ctx, reverse, mode));
+            for path in SITES {
+                let operand = path
+                    .strip_suffix("/value/value/field")
+                    .expect("whole wrapper path");
+                assert_eq!(
+                    full.pointer(operand).expect("COMPLETE backfilled wrapper"),
+                    &left
+                );
+            }
+            failed(&p.full(BRIDGE, owners, Some(CORE), ctx, reverse, Mode::Accepted));
         }
         let group = json!({"leftOperand":wrapped("left"),"cases":{
             "sum":{"op":"call","path":"runtime::sum","args":[wrapped("left"),wrapped("right")]},

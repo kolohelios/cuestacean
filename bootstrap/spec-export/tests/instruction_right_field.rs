@@ -298,8 +298,8 @@ fn original_bridge() -> String {
         .expect("raw Runtime")
         .strip_suffix("}\n")
         .expect("Runtime end");
-    let (lets, body) = runtime.split_once("\top: ").expect("original concat");
-    let body = body
+    let (lets, concat_body) = runtime.split_once("\top: ").expect("original concat");
+    let concat_body = concat_body
         .trim_end()
         .replace("\n\t\t", "\n\t\t\t")
         .replace("\n\t]", "\n\t\t]}");
@@ -310,14 +310,20 @@ fn original_bridge() -> String {
         )
         .replace(
             "\t\tbinaryRuntime:    #InstructionBinaryRuntime",
-            &format!("\t\tbinaryRuntime: {{op: {body}"),
+            &format!("\t\tbinaryRuntime: {{op: {concat_body}"),
         );
+    let mut in_cases = false;
     let restored = restored
         .lines()
         .map(|line| {
-            if line.starts_with("\t\t") && line.ends_with(": _") {
+            if line == "\tcases: {" {
+                in_cases = true;
+            } else if line == "\t}" {
+                in_cases = false;
+            }
+            if in_cases && line.starts_with("\t\t") && line.ends_with(": _") {
                 format!("{} _", line.trim_end_matches('_').trim_end())
-            } else if line.starts_with("\t\t") && line.ends_with('_') {
+            } else if in_cases && line.starts_with("\t\t") && line.ends_with('_') {
                 format!("{} _", line[..line.len() - 1].trim_end())
             } else {
                 line.to_owned()
