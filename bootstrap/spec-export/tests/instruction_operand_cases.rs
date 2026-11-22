@@ -377,10 +377,16 @@ fn old_bridge() -> String {
             "\t\tbinaryRuntime:    #InstructionBinaryRuntime",
             &format!("\t\tbinaryRuntime: {{op: {body}"),
         );
+    let mut in_cases = false;
     let restored = restored
         .lines()
         .map(|line| {
-            if line.starts_with("\t\t") && line.ends_with('_') {
+            if line == "\tcases: {" {
+                in_cases = true;
+            } else if line == "\t}" {
+                in_cases = false;
+            }
+            if in_cases && line.starts_with("\t\t") && line.ends_with('_') {
                 format!("{} _", line[..line.len() - 1].trim_end())
             } else {
                 line.to_owned()
