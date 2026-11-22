@@ -5780,6 +5780,8 @@
             packages = [
               pkgs.cue
               pkgs.jq
+              pkgs.python3
+              pkgs.time
               pkgs.rustc
               pkgs.cargo
               pkgs.rustfmt
