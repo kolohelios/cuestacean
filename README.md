@@ -10,6 +10,8 @@ using CUE to configure a handwritten Rust compiler.
 **Start with the [architecture walkthrough](docs/architecture.md)** for one
 expression's path to `42`, the separate implementation-build path, and the
 current CUE/Rust boundary. Detailed component contracts remain below.
+The [first performance baseline](docs/performance-baseline.md) records narrow
+source-CLI and bootstrap-target measurements, not a full-CUE performance claim.
 
 There is no general CUE implementation yet. The [bootstrap fixtures](bootstrap/README.md)
 define scalar values and constraints, inclusive bounds, arithmetic and unification trees, plus evaluation
