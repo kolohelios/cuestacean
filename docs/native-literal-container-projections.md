@@ -175,3 +175,36 @@ Coordinator GO authorizes ONLY THREE kernel paths/new test/exact old move/docs a
 No assessment/old exception substitutes for authority. Measure formatted full delta
 EARLY; preserve all proof, pause first credible overrun/ambiguity/validation defect.
 All cross/final reviews and actual complete release/CI/confirmed merge remain gates.
+
+## Implementation and completed local proof
+
+Immutable kernel `f48f2dc3077a8e0aa57d4bb42203264bc334334d`: ONLY3 paths,99 changes.
+Evidence `d0e5ea1301ae17cf2166cf49525b5f049ebab693`: NEW803 lines plus exact old
+33add/2del move (old file now508),838 changes. BOTH focused cross-reviews GO.
+Frozen integrated `36bbd8cd43daf941faade9d1f396475780f2eb4c` matches BOTH handoffs;
+937 code changes, no new source module/Nix/CUE/consumer/parser/bindings/CLI change.
+Paired immutable validation bytes stayed identical throughout19 focused groups
+EACH FOUR/strict all-target Clippy4/owned formatting, all passed (76 executions).
+
+Initial tool-shell wrappers unexpectedly requested bundle construction and were
+canceled as setup-superseded. Cargo had ALREADY run in the evidence attempt: TWO
+actual failed assertions (ordered Unsupported detail and tokens-before-syntax
+fixture), NOT setup-only failure. Original failures preserved; NEW-child exact
+phase/denser syntax witnesses retain all proof, then COMPLETE fixed four-profile
+runs passed. No production defect/fix, suppression or raised guard was inferred.
+
+Full source160 EACH FOUR (640 executions)/strict all-target Clippy4; executor775
+EACH default debug/release/strict all-target Clippy2; research135 FOUR; ALL THREE
+boundary4-group suites EACH FOUR/strict scoped Clippy passed. Independent full-log
+parser verifies every suite/case/count and actual command-completion ordering.
+ONCE29checks/26packages/55names/54unique, SAME explicit roots actually built AND
+rebuilt; exact54 output-check records/original four capture hashes independently
+verified. Actual source10/checker122/full1349 tracked files matched EVERY byte,
+NO target/untracked inputs; exactly3 production inputs changed, other7 unchanged.
+ALL23 fresh recursive/full retained inventories/current exclusions passed; FOUR
+genuine façade matrices plus FOUR separate actual feature rebuilds/fresh stored
+metadata match. BOTH oracle PACKAGE IDs stable; exporter-dependent IDs legitimately
+changed. All249JSON/12builders/old DATA/generated Rust/five cuts/six origins exact.
+Pinned preflight13/13 (seven skips) passed; final documentation checks/TWO immutable
+whole-tree reviews/protected required CI/confirmed exact-tree merge remain gates.
+Only x86_64-linux validated. FIVE/FIVE/#175 held; NO production Go edge removed.
