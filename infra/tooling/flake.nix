@@ -511,7 +511,10 @@
               -o "$PWD/instruction-right-operand.cue" \
               ${nativeInstructionRightOperand pkgs}/right-operand.json
             operand="$PWD/instruction-right-operand.cue"
-            group=${../../bootstrap/instruction-operand-cases.cue}
+            cue import -p bootstrap -l '#InstructionOperandCases:' \
+              -o "$PWD/instruction-operand-cases.cue" \
+              ${nativeInstructionOperandCases pkgs}/operand-cases.json
+            group="$PWD/instruction-operand-cases.cue"
             ${instructionCoreConsumer}
             core=${nativeInstructionCoreCases pkgs}/instruction-core-cases.json
             export_policy() {
@@ -555,11 +558,14 @@
                 "$PWD/instruction-module-text.cue" ${cueSources}/instruction-module-first.cue \
                 ${cueSources}/instruction-module-step.cue right-backfill.cue
             }
+            selectedGroup=$group
             operand=${../../bootstrap/instruction-right-operand.cue}
+            group=${../../bootstrap/instruction-operand-cases.cue}
             ${rightFieldConsumerProbe}
             consume_operand() { consume_right; }
             ${instructionOperandConsumerProbe}
             operand="$PWD/instruction-right-operand.cue"
+            group=$selectedGroup
             consume_core() {
               rightProvider=$right
               export_policy ${cueSources}/schema.cue ${cueSources}/lowering-fragments.cue \
@@ -647,7 +653,10 @@
                   inputs+=("${nativeInstructionUnaryTables pkgs}/instruction-unary-tables.json"
                     "$PWD/instruction-module-text.cue" "$PWD/instruction-binary-tables.cue")
                   core=${nativeInstructionCoreCases pkgs}/instruction-core-cases.json
-                  case "$fixture" in lowering) ;; *) core="${cueSources}/instruction-core-cases.cue" ;; esac
+                  case "$fixture" in
+                    lowering) group="$PWD/instruction-operand-cases.cue" ;;
+                    *) core="${cueSources}/instruction-core-cases.cue"; group="${cueSources}/instruction-operand-cases.cue" ;;
+                  esac
                   inputs+=("$core" "$group") ;;
               esac
               case "$fixture" in
@@ -1659,6 +1668,7 @@
                 ../../bootstrap/instruction-right-operand.cue
                 ../../bootstrap/instruction-right-operand-export.cue
                 ../../bootstrap/instruction-operand-cases.cue
+                ../../bootstrap/instruction-operand-cases-export.cue
                 ../../bootstrap/instruction-unary-tables.cue
                 ../../bootstrap/instruction-binary-tables.cue
                 ../../bootstrap/instruction-module-text.cue
@@ -4350,6 +4360,280 @@
           cp ${nativeInstructionRightOperandBuildClosure pkgs}/registration "$out/native-build-registration"
           printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeInstructionRightOperand pkgs).drvPath} > "$out/native-build-roots"
         '';
+      instructionOperandCaseSources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/instruction-operand-cases.cue
+            ../../bootstrap/instruction-operand-cases-export.cue
+          ];
+        };
+      nativeInstructionOperandCases =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-instruction-operand-cases" { } ''
+          set -euo pipefail
+          mkdir -p "$PWD/home" "$out"
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          test -f "$exporter" && test -r "$exporter" && test -x "$exporter"
+          case "$exporter" in /*) ;; *) exit 1 ;; esac
+          owner=${instructionOperandCaseSources pkgs}/instruction-operand-cases.cue
+          root=${instructionOperandCaseSources pkgs}/instruction-operand-cases-export.cue
+          operand=${nativeInstructionRightOperand pkgs}/right-operand.json
+          for input in "$owner" "$root" "$operand"; do test "$(wc -c < "$input")" -le 65536; done
+          cp "$root" adapter.cue
+          chmod u+w adapter.cue
+          printf '\n#InstructionRightOperand: ' >> adapter.cue
+          cat "$operand" >> adapter.cue
+          test "$(wc -c < adapter.cue)" -le 65536
+          for order in forward reverse; do
+            for repeat in first second; do
+              inputs=("$owner" adapter.cue)
+              if test "$order" = reverse; then inputs=(adapter.cue "$owner"); fi
+              env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "''${inputs[@]}" > "$order-$repeat.json"
+              test "$(wc -c < "$order-$repeat.json")" -le 65536
+              cmp forward-first.json "$order-$repeat.json"
+            done
+          done
+          cp forward-first.json "$out/operand-cases.json"
+        '';
+      nativeInstructionOperandCasesBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativeInstructionOperandCases pkgs).drvPath
+          ];
+        };
+      nativeInstructionOperandCasesVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-instruction-operand-cases-verification" { } ''
+          set -euo pipefail
+          for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} ${pkgs.cue.src.drvPath} \
+            ${../../bootstrap/schema.cue} ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+            ${executor pkgs} ${(executor pkgs).drvPath} \
+            ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+            ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+            ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+            if grep -Fx "$forbidden" ${nativeInstructionOperandCasesBuildClosure pkgs}/store-paths; then
+              echo "forbidden Group construction dependency: $forbidden" >&2; exit 1
+            fi
+          done
+          test "$(find ${instructionOperandCaseSources pkgs} -type f | wc -l)" -eq 2
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 10
+          mkdir -p "$out" "$PWD/probe/home"
+          cd probe
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          oracle=${pkgs.cue}/bin/cue
+          compiler=${executor pkgs}/bin/bootstrap-codegen
+          driver=${nativeCodegenCore pkgs}/bin/bootstrap-lower-codegen
+          jq=${pkgs.jq}/bin/jq
+          rustfmt=${pkgs.rustfmt}/bin/rustfmt
+          for tool in "$exporter" "$oracle" "$compiler" "$driver" "$jq" "$rustfmt"; do
+            test -f "$tool" && test -r "$tool" && test -x "$tool"
+            case "$tool" in /*) ;; *) exit 1 ;; esac
+          done
+          native() { env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$@"; }
+          cue() { env -i HOME="$PWD/home" PATH=/nonexistent "$oracle" "$@"; }
+          query() { env -i HOME="$PWD/home" PATH=/nonexistent "$jq" "$@"; }
+          json() { query -S .; }
+          format() { env -i HOME="$PWD/home" PATH=/nonexistent "$rustfmt" --edition 2024; }
+          place() { cue import -f -p bootstrap -l "$1:" -o "$3" "$2"; }
+          bounded() { for input in "$@"; do test "$(wc -c < "$input")" -le 65536; done; }
+          schema=${../../bootstrap/schema.cue}
+          bridge=${../../bootstrap/lowering-fragments.cue}
+          groupRoot=${instructionOperandCaseSources pkgs}/instruction-operand-cases-export.cue
+          operandRoot=${instructionOperandSources pkgs}/instruction-right-operand-export.cue
+          rightRoot=${../../bootstrap/instruction-right-field-export.cue}
+          ${instructionCoreConsumer}
+          place '#InstructionBinaryTables' ${nativeInstructionBinaryTables pkgs}/instruction-binary-tables.json binary.cue
+          # Independent complete Group expansion, never read back from a producer.
+          expected_group() {
+            query -n --arg left "$1" --arg right "$2" '
+              def wrap($f): {op:"try",value:{op:"group",value:{op:"lower",field:$f}}};
+              def call($p): {op:"call",path:$p,args:[wrap($left),wrap($right)]};
+              {leftOperand:wrap($left),cases:{
+                sum:call("runtime::sum"),less:call("runtime::less"),
+                lessEqual:call("runtime::less_equal"),greater:call("runtime::greater"),
+                greaterEqual:call("runtime::greater_equal"),notEqual:call("runtime::not_equal"),
+                remainder:call("runtime::remainder"),unify:{op:"concat",parts:[
+                  {op:"text",value:"(|_context: &mut runtime::EvaluationContext| "},
+                  call("runtime::unify"),{op:"text",value:")(_context)"}]}}}' | json
+          }
+          materialize() {
+            native "$right" "$rightRoot" > "$variant/right.json"
+            printf '%s\n' '{"field":"right"}' | json > "$variant/expected-right.json"
+            json < "$variant/right.json" > "$variant/sorted-right.json"
+            cmp "$variant/expected-right.json" "$variant/sorted-right.json"
+            cp "$operandRoot" "$variant/operand-adapter.cue"
+            chmod u+w "$variant/operand-adapter.cue"
+            printf '\n#InstructionRightField: ' >> "$variant/operand-adapter.cue"
+            cat "$variant/right.json" >> "$variant/operand-adapter.cue"
+            bounded "$right" "$rightRoot" "$operand" "$operandRoot" "$variant/right.json" "$variant/operand-adapter.cue"
+            for order in forward reverse; do
+              for repeat in first second; do
+                inputs=("$operand" "$variant/operand-adapter.cue")
+                if test "$order" = reverse; then inputs=("$variant/operand-adapter.cue" "$operand"); fi
+                native "''${inputs[@]}" > "$variant/operand-$order-$repeat.json"
+                bounded "$variant/operand-$order-$repeat.json"
+                cmp "$variant/operand-forward-first.json" "$variant/operand-$order-$repeat.json"
+              done
+            done
+            cp "$variant/operand-forward-first.json" "$variant/operand.json"
+            printf '{"op":"try","value":{"op":"group","value":{"op":"lower","field":"%s"}}}\n' "$rightField" | json > "$variant/expected-operand.json"
+            json < "$variant/operand.json" > "$variant/sorted-operand.json"
+            cmp "$variant/expected-operand.json" "$variant/sorted-operand.json"
+            cp "$groupRoot" "$variant/group-adapter.cue"
+            chmod u+w "$variant/group-adapter.cue"
+            printf '\n#InstructionRightOperand: ' >> "$variant/group-adapter.cue"
+            cat "$variant/operand.json" >> "$variant/group-adapter.cue"
+            bounded "$group" "$groupRoot" "$variant/operand.json" "$variant/group-adapter.cue"
+            for order in forward reverse; do
+              for repeat in first second; do
+                inputs=("$group" "$variant/group-adapter.cue")
+                if test "$order" = reverse; then inputs=("$variant/group-adapter.cue" "$group"); fi
+                native "''${inputs[@]}" > "$variant/$order-$repeat.json"
+                bounded "$variant/$order-$repeat.json"
+                cmp "$variant/forward-first.json" "$variant/$order-$repeat.json"
+              done
+            done
+            expected_group "$leftField" "$rightField" > "$variant/expected-group.json"
+            json < "$variant/forward-first.json" > "$variant/sorted-group.json"
+            cmp "$variant/expected-group.json" "$variant/sorted-group.json"
+            cue export "$right" "$operand" "$group" "$groupRoot" > "$variant/go-group.json"
+            json < "$variant/go-group.json" > "$variant/sorted-go-group.json"
+            cmp "$variant/expected-group.json" "$variant/sorted-go-group.json"
+          }
+          policy() {
+            core_gate || return
+            cue export "$schema" "$bridge" binary.cue -e '#InstructionBinaryTables' > /dev/null || return
+            cue export "$schema" "$bridge" "$right" -e '#InstructionRightField' > /dev/null || return
+            cue export "$schema" "$bridge" "$right" "$operand" -e '#InstructionRightOperand' > /dev/null || return
+            cue export "$schema" "$bridge" "$right" "$operand" "$group" -e '#InstructionOperandCases' > /dev/null || return
+            touch full-export-started
+            inputs=("$schema" "$bridge" "$core" "$right" "$operand" "$group" binary.cue
+              ${../../bootstrap/instruction-unary-tables.cue} ${../../bootstrap/instruction-module-text.cue}
+              ${../../bootstrap/instruction-module-first.cue} ${../../bootstrap/instruction-module-step.cue} "$context")
+            if test "$1" = reverse; then
+              reversed=(); for input in "''${inputs[@]}"; do reversed=("$input" "''${reversed[@]}"); done
+              inputs=("''${reversed[@]}")
+            fi
+            cue export "''${inputs[@]}"
+          }
+          expected_rust() {
+            format <<RUST
+          // Generated by bootstrap-codegen. Do not edit by hand.
+          use bootstrap_executor::{Error, runtime};
+          use serde_json::Value;
+
+          pub fn execute(input: &str) -> Result<i64, Error> {
+              let mut _context = runtime::EvaluationContext::default();
+              runtime::concrete(evaluate(&runtime::program(input)?, &mut _context)?)
+          }
+
+          pub fn execute_json(input: &str) -> Result<Value, Error> {
+              let mut _context = runtime::EvaluationContext::default();
+              runtime::concrete_json(evaluate(&runtime::program(input)?, &mut _context)?)
+          }
+
+          fn evaluate(node: &Value, _context: &mut runtime::EvaluationContext) -> Result<runtime::Value, Error> {
+              _context.visit(|_context| evaluate_node(node, _context))
+          }
+
+          fn evaluate_node(node: &Value, _context: &mut runtime::EvaluationContext) -> Result<runtime::Value, Error> {
+              match runtime::kind(node)? {
+                  "sum" => runtime::sum((Ok::<_, Error>(runtime::Value::$leftValue))?, (Ok::<_, Error>(runtime::Value::$rightValue))?),
+                  kind => Err(Error::MissingRule { kind: kind.to_string() }),
+              }
+          }
+          RUST
+          }
+          printf '%s\n' '{"formatVersion":1,"rules":{"sum":{"result":{"op":"sum","left":{"op":"int"},"right":{"op":"bool"}}}}}' > tiny.json
+          for variant in canonical group-owner operand-owner; do
+            mkdir "$variant"
+            cp ${../../bootstrap/instruction-right-field.cue} "$variant/right.cue"
+            cp ${../../bootstrap/instruction-right-operand.cue} "$variant/operand.cue"
+            cp ${instructionOperandCaseSources pkgs}/instruction-operand-cases.cue "$variant/group.cue"
+            cp ${../../bootstrap/lowering.cue} "$variant/context.cue"
+            leftField=left; rightField=right; leftValue=Int; rightValue=Bool
+            case "$variant" in
+              group-owner)
+                substituteInPlace "$variant/group.cue" --replace-fail 'field: "left"' 'field: "right"'
+                leftField=right; leftValue=Bool ;;
+              operand-owner)
+                substituteInPlace "$variant/operand.cue" --replace-fail 'field: #InstructionRightField.field' 'field: "left"'
+                rightField=left; rightValue=Int ;;
+            esac
+            right="$variant/right.cue"; operand="$variant/operand.cue"; group="$variant/group.cue"; context="$variant/context.cue"
+            materialize
+            for order in forward reverse; do policy "$order" | json > "$variant/raw-$order.json"; done
+            place '#InstructionRightField' "$variant/right.json" "$variant/placed-right.cue"
+            place '#InstructionRightOperand' "$variant/operand.json" "$variant/placed-operand.cue"
+            place '#InstructionOperandCases' "$variant/forward-first.json" "$variant/placed-group.cue"
+            right="$variant/placed-right.cue"; operand="$variant/placed-operand.cue"; group="$variant/placed-group.cue"
+            for order in forward reverse; do
+              policy "$order" | json > "$variant/native-$order.json"
+              cmp "$variant/raw-forward.json" "$variant/raw-$order.json"
+              cmp "$variant/raw-forward.json" "$variant/native-$order.json"
+            done
+            # The unchanged remainder comes from the canonical control; ALL changed
+            # subtrees and the expected emitted module are independently specified.
+            query --slurpfile g "$variant/expected-group.json" --slurpfile r "$variant/expected-operand.json" \
+              '.cases += $g[0].cases | .cases.binaryRuntime.parts[2] = $g[0].leftOperand | .cases.binaryRuntime.parts[4] = $r[0]' \
+              canonical/raw-forward.json | json > "$variant/expected-policy.json"
+            cmp "$variant/expected-policy.json" "$variant/raw-forward.json"
+            expected_rust > "$variant/expected.rs"
+            for provider in raw native; do
+              env -i HOME="$PWD/home" PATH=/nonexistent "$compiler" tiny.json "$variant/$provider-forward.json" | format > "$variant/$provider-actual.rs"
+              cmp "$variant/expected.rs" "$variant/$provider-actual.rs"
+            done
+          done
+          cmp canonical/forward-first.json ${nativeInstructionOperandCases pkgs}/operand-cases.json
+          test "$(wc -c < canonical/forward-first.json)" -eq 4549
+          test "$(wc -c < canonical/go-group.json)" -eq 6821
+          json < ${jsonExports pkgs}/lowering.json > canonical/bundle.json
+          cmp canonical/bundle.json canonical/native-forward.json
+          right=canonical/placed-right.cue; operand=canonical/placed-operand.cue; group=canonical/placed-group.cue; context=canonical/context.cue
+          consume_operand() { policy forward; }
+          ${instructionGroupConsumerProbe}
+          for invalid in opcode type shape; do
+            case "$invalid" in
+              opcode) expression='.cases.sum.op = "notAnInstructionOpcode"' ;;
+              type) expression='.cases.sum.op = 7' ;;
+              shape) expression='.cases.sum.args = []' ;;
+            esac
+            query "$expression" canonical/expected-group.json > "$invalid.json"
+            place '#InstructionOperandCases' "$invalid.json" "$invalid.cue"
+            group="$invalid.cue"
+            rm -f full-export-started
+            status=0
+            policy forward > "$invalid-policy.json" 2> "$invalid.err" || status=$?
+            test "$status" -eq 1 && test ! -s "$invalid-policy.json" && test -s "$invalid.err"
+            if test "$invalid" = opcode; then test -e full-export-started; else test ! -e full-export-started; fi
+          done
+          # Raw Group must consume the SAME long R, not a selected right fixture.
+          query '.value.value.field = ([range(129)|"x"]|join(""))' canonical/expected-operand.json > long.json
+          place '#InstructionRightOperand' long.json long.cue
+          operand=long.cue; group=canonical/group.cue
+          policy forward > long-policy.json
+          status=0
+          env -i HOME="$PWD/home" PATH=/nonexistent "$driver" long-policy.json > long.rs 2> long.err || status=$?
+          test "$status" -eq 2 && test ! -s long.rs && test -s long.err
+          grep -F 'selector must contain 1..=128 bytes' long.err
+          operand=canonical/placed-operand.cue; group=canonical/placed-group.cue
+          policy reverse | json > recovered.json
+          cmp recovered.json canonical/native-forward.json
+          env -i HOME="$PWD/home" PATH=/nonexistent "$driver" recovered.json > recovered-driver.rs
+          test -s recovered-driver.rs
+          native canonical/group.cue canonical/group-adapter.cue > recovered-native.json
+          cmp recovered-native.json canonical/forward-first.json
+          cp -R . "$out/evidence"
+          rm -rf "$out/evidence/home"
+          cp ${nativeInstructionOperandCasesBuildClosure pkgs}/store-paths "$out/native-build-paths"
+          cp ${nativeInstructionOperandCasesBuildClosure pkgs}/registration "$out/native-build-registration"
+          printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeInstructionOperandCases pkgs).drvPath} > "$out/native-build-roots"
+        '';
       prattTableSources =
         pkgs:
         pkgs.lib.fileset.toSource {
@@ -5368,6 +5652,7 @@
           native-instruction-core-cases = nativeInstructionCoreCases pkgs;
           native-instruction-right-field = nativeInstructionRightField pkgs;
           native-instruction-right-operand = nativeInstructionRightOperand pkgs;
+          native-instruction-operand-cases = nativeInstructionOperandCases pkgs;
           native-instruction-binary-tables = nativeInstructionBinaryTables pkgs;
           native-instruction-unary-tables = nativeInstructionUnaryTables pkgs;
           native-instruction-module-text = nativeInstructionModuleText pkgs;
@@ -5445,6 +5730,7 @@
           native-instruction-core-cases = nativeInstructionCoreCasesVerification pkgs;
           native-instruction-right-field = nativeInstructionRightFieldVerification pkgs;
           native-instruction-right-operand = nativeInstructionRightOperandVerification pkgs;
+          native-instruction-operand-cases = nativeInstructionOperandCasesVerification pkgs;
           native-instruction-binary-tables = nativeInstructionBinaryTablesVerification pkgs;
           native-instruction-unary-tables = nativeInstructionUnaryTablesVerification pkgs;
           native-instruction-module-text = nativeInstructionModuleTextVerification pkgs;
