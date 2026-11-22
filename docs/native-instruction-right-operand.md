@@ -146,3 +146,36 @@ revised full estimate1228–1350 (evidence review1248–1350). No repository imp
 preceded these reviews. Coordinator GO ONLY for this producer/consumer scope,
 with ALL above proof and mandatory budget pause intact; combined GO stays suspended.
 Scratch review receipts are labelled263, but this is issue260, NOT a new issue.
+
+## Fixed-source release validation (x86_64-linux)
+
+Immutable kernel82f1f984 and evidence7950feaa passed independent cross-reviews;
+integrationee61d180 retains ONLY their owned paths plus reviewed docs. Independent
+original-derived projection byte-matches BOTH raw CUE files and ENTIRE bridge;
+ALL477 generic evidence lines and production Rust/Cargo/schema/composer unchanged.
+Actual production source is EXACT TEN files; actual sandbox checker117 files,
+including ALL7 test paths/raw2/bridge/28-test-file inventory, independently byte-
+matched to immutable sources. No injected/stale/captured construction answers.
+
+Focused30 groups EACH FOUR profiles/strict all-target Clippy4 passed. Complete
+exporter149=146old+3new EACH FOUR (596 executions), strict all-target Clippy4,
+research135/FOUR and ALL THREE compiler-boundary4-group suites EACH FOUR pass;
+full executor/default debug+release and strict all-target Clippy pass. Pinned full
+preflight13/13 (seven skips), whole whitespace1415 files/639 relative links pass.
+
+ONCE-captured28 checks/25 NONDEFAULT packages:53 names/52 unique explicit roots
+actually built AND rebuilt; independent execution audit matches ALL52 rebuild
+records to the unchanged capture. FOUR separately actual-rebuilt genuine feature
+roots match FRESH discovery.22 refreshed recursive/full retained inventories and
+CURRENT construction exclusions pass; core/unifier/Pratt generation Go-free,
+scanner PROGRAM/source-feature positively Go-backed verification ONLY.
+
+All249 JSON/12 builders/old DATA/generated Rust/five facade cuts/six origins byte-
+identical; ALL23 other old package IDs stable, INCLUDING exporter/BOTH Go oracles;
+ONLY exports changed among baseline24. Native Right23->R120 matches independently
+expected WHOLE wrapper at ALL9 canonical sites; Go150 encoder unchanged. Complete
+raw/native source-owner effects and handwritten tiny Rust/real typed129 proof pass.
+Readonly copied-file setup failures and invalid duplicate-package raw negative
+were preserved/superseded by NEW-child fixes and COMPLETE reruns, never counted
+as semantic negatives or passes. No pending/canceled attempt is release evidence.
+FIVE complete policies/FIVE native binaries; broader #175 remains OPEN/HELD.
