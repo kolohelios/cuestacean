@@ -124,7 +124,7 @@ main workers, distinct ownership, immutable handoffs/NEW-child fixes/overlays,
 owned-path integration/format only; no amend/rebase onto mutable coordinator.
 Cross-reviews then TWO final immutable WHOLE-TREE GOs; retire workers BEFORE PR.
 
-## Fixed-source release gates (all remain pending)
+## Fixed-source release gates
 
 Expected named counts UNCHANGED:28 checks/25 NONDEFAULT packages,53 names/52 unique;
 NO new native closure,22 refreshed recursive/full retained inventories. Confirm
@@ -170,7 +170,7 @@ Saved immutable owned-path handoffs (stable main3b2b5ec2, no peer overlays):
 - Kernel56da136b1a92241bcd2880c6c0b65dfa4a7182e5: THREE paths,131 additions+
   38 deletions=169 actual changed lines. Earlier sourcee51261f/full7e409756 remain
   immutable; the pause snapshot is a NEW child, not an amendment.
-- Evidencecc7980f3f2cf9217a1797c397eb4f65cb6ede7f0: EIGHT paths,1066 additions+
+- Evidence `cc7980f3f2cf9217a1797c397eb4f65cb6ede7f0`: EIGHT paths,1066 additions+
   13 deletions=1079 changed lines, including806 new/273 old. UNCOMPILED/UNVALIDATED.
 
 Corrected held CODE total169+1079=1248; with projected docs190, approximately1438
@@ -207,3 +207,35 @@ materially larger/different repairs require renewed scope discussion. All focuse
 full sandbox/source/artifact/graph/feature/preflight/two final reviews/CI/merge gates
 above remain mandatory and unpassed until actual completion. Held snapshots stay
 immutable; the earlier canceled job remains canceled, never a pass.
+
+## Completed fixed-source validation (x86_64-linux)
+
+Kernel6541654f owns ONLY3 paths/169 changes; evidence833847a0 owns ONLY8 tests/
+1113 changes, EXACT corrected d320 bytes. Both focused cross-reviews approve.
+Actual code1282 includes both sides of moves/edits; the94-line repair churn is NOT
+additive to the whole diff. All old assertions/expected values remain, generic477/
+production Rust/Cargo/CLI/schema/composer/generated sources unchanged. Original-
+derived Group/ENTIRE bridge and actual Nix/Rust legacy inverses match baseline.
+
+Focused34 EACH FOUR profiles (136 executions), strict all-target Clippy4/owned fmt
+pass. Complete153=149old+4new EACH FOUR (612 executions), strict all-target Clippy4,
+full executor/default debug+release/strict Clippy, research135/FOUR and ALL THREE
+boundary4-group suites EACH FOUR pass. Independent actual production10/checker119
+files, ALL29 test files/owned8/raw Group/bridge match immutable reviewed sources;
+no stale/injected/captured construction answers.89 leaves/9 arrays/64 objects,
+101 omission variants,32 contexts plus mixed cursors, actual backfill/phase/
+fail-stop/recovery and all old real compiler/source/golden controls remain.
+
+ONCE-captured28 checks/25 packages:53 names/52 unique roots actually built AND
+rebuilt; independent audit matches ALL52 rebuild records and unchanged capture
+hashes. FOUR separately actual-rebuilt feature roots match FRESH discovery;
+22 refreshed recursive/full retained inventories/CURRENT exclusions pass. All24
+other old package IDs stable (ONLY exports among25 changes), including exporter/
+BOTH oracles;249JSON/12builders/old DATA/generated Rust/five façade cuts/six origins
+byte-identical. No native Group package/check/constructor or Go-edge removal.
+
+Pinned preflight13/13 (seven skips), whole whitespace1418/648 relative links pass.
+Initial guard failure, pre-fix3ab identity, canceled pre-pause job and doc hash typo
+are retained separately, never passes; NEW-child correction/complete fixed runs
+supply evidence. User-specific same-boundary overrun permission did not delete
+proof or expand scope. FIVE/FIVE; native Group publication/full policy and #175 held.
