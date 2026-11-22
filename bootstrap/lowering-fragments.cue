@@ -26,9 +26,20 @@ package bootstrap
 #InstructionRightField: close({field: string})
 #InstructionRightOperand: close({op: string, value: close({op: string, value: close({op: string, field: string})})})
 
+#InstructionOperandCases: close({
+	let Wrapped = close({op: string, value: close({op: string, value: close({op: string, field: string})})})
+	let Call = close({op: string, path: string, args: [Wrapped, Wrapped]})
+	let Text = close({op: string, value: string})
+	leftOperand: Wrapped
+	cases: close({
+		sum: Call, less: Call, lessEqual: Call, greater: Call, greaterEqual: Call, notEqual: Call, remainder: Call
+		unify: close({op: string, parts: [Text, Call, Text]})
+	})
+})
+
 // Executable recursion/Result layout, not Rust's instruction enum dispatch.
 #InstructionLowering: #LoweringPolicy & {
-	let L = {op: "try", value: {op: "group", value: {op: "lower", field: "left"}}}
+	let L = #InstructionOperandCases.leftOperand
 
 	// The alternate policy overrides only sum's default right-child selection.
 	let R = #InstructionRightOperand
@@ -49,6 +60,7 @@ package bootstrap
 		value: #InstructionModuleText.footer
 	}]
 	cases: {
+		#InstructionOperandCases.cases
 		"null": _
 		top: _
 		int: _
@@ -67,18 +79,16 @@ package bootstrap
 			#InstructionBinaryTables.select,
 			{op: "text", value: "("}, L, {op: "text", value: ", "}, R, {op: "text", value: ")"},
 		]}
-		sum: {op: "call", path: "runtime::sum", args: [L, R]}
+		sum: _
 		conjunction: _
 		slice: _
-		less: {op: "call", path: "runtime::less", args: [L, R]}
-		lessEqual: {op: "call", path: "runtime::less_equal", args: [L, R]}
-		greater: {op: "call", path: "runtime::greater", args: [L, R]}
-		greaterEqual: {op: "call", path: "runtime::greater_equal", args: [L, R]}
-		notEqual: {op: "call", path: "runtime::not_equal", args: [L, R]}
-		remainder: {op: "call", path: "runtime::remainder", args: [L, R]}
-		unify: {op: "concat", parts: [{op: "text", value: "(|_context: &mut runtime::EvaluationContext| "},
-			{op: "call", path: "runtime::unify", args: [L, R]}, {op: "text", value: ")(_context)"},
-		]}
+		less: _
+		lessEqual: _
+		greater: _
+		greaterEqual: _
+		notEqual: _
+		remainder: _
+		unify: _
 		listSlice: _
 	}
 }
