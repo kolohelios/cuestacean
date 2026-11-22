@@ -1,6 +1,6 @@
 # Native literal-container definition projection
 
-## Fresh scope after #266 — no implementation GO yet
+## Fresh scope after #266 — reviewed implementation GO
 
 Read [scalar projection](native-scalar-projections.md), [exporter](native-spec-export.md),
 [lexical capture](native-let-bindings.md), [container readiness](native-container-readiness.md)
@@ -165,3 +165,13 @@ rebase auto-merge/required CI watched through MERGED/exact-tree comparison/clean
 fetched main. Preserve separate failures/cancellations; no pending/setup/failed
 attempt is pass. x86_64-linux ONLY; no production edge/native policy6/compiler6/
 general field solver/default reuse/full CUE/self-hosting/performance claim.
+
+## Fresh implementation authority
+
+BOTH independent focused reviews approve ENTIRE167-line immutable contract
+`3d05fd6da8913b9571050b7d93c34f32f817d37e`, including fresh closure identity,
+whole-original-target schedule, derived ledgers and deliberate two-fixture move.
+Coordinator GO authorizes ONLY THREE kernel paths/new test/exact old move/docs above.
+No assessment/old exception substitutes for authority. Measure formatted full delta
+EARLY; preserve all proof, pause first credible overrun/ambiguity/validation defect.
+All cross/final reviews and actual complete release/CI/confirmed merge remain gates.
