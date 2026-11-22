@@ -17,6 +17,7 @@ const OPERAND: &str = include_str!("../../instruction-right-operand.cue");
 const GROUP: &str = include_str!("../../instruction-operand-cases.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
+const RUNTIME: &str = include_str!("../../instruction-binary-runtime.cue");
 const CORE: &str = include_str!("../../instruction-core-cases.cue");
 const CORE_SHAPE: &str = include_str!("../../instruction-core-cases-schema.cue");
 const TEXT: &str = include_str!("../../instruction-module-text.cue");
@@ -225,6 +226,23 @@ impl Probe {
         if !group_gate.status.success() {
             return group_gate;
         }
+        let runtime = self.run(
+            &self.cue,
+            &["export", "-e", "#InstructionBinaryRuntime"],
+            &[
+                ("schema.cue", SCHEMA),
+                ("bridge.cue", BRIDGE),
+                ("right.cue", RIGHT),
+                ("operand.cue", OPERAND),
+                ("group.cue", GROUP),
+                ("binary-placed.cue", &binary),
+                ("runtime.cue", RUNTIME),
+            ],
+            reverse,
+        );
+        if !runtime.status.success() {
+            return runtime;
+        }
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
             ("bridge.cue", BRIDGE),
@@ -235,6 +253,7 @@ impl Probe {
             ("right.cue", RIGHT),
             ("operand.cue", OPERAND),
             ("group.cue", GROUP),
+            ("runtime.cue", RUNTIME),
         ];
         if let Some(first) = first {
             inputs.push(("first.cue", first));

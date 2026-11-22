@@ -10,6 +10,7 @@ use std::{
 
 const GROUP: &str = include_str!("../../instruction-operand-cases.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
+const RUNTIME: &str = include_str!("../../instruction-binary-runtime.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const RIGHT: &str = include_str!("../../instruction-right-field.cue");
 const OPERAND: &str = include_str!("../../instruction-right-operand.cue");
@@ -262,6 +263,25 @@ impl Probe {
             reverse,
         );
         assert!(binary.status.success(), "independent Binary35 setup");
+        if matches!(mode, Mode::Accepted) {
+            let gate = self.run(
+                &self.cue,
+                &["export", "-e", "#InstructionBinaryRuntime"],
+                &[
+                    ("schema.cue", SCHEMA),
+                    ("bridge.cue", bridge),
+                    ("right.cue", right.expect("accepted Right")),
+                    ("operand.cue", operand.expect("accepted R")),
+                    ("group.cue", group.expect("accepted Group")),
+                    ("binary-placed.cue", &self.binary),
+                    ("runtime.cue", RUNTIME),
+                ],
+                reverse,
+            );
+            if !gate.status.success() {
+                return gate;
+            }
+        }
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
             ("bridge.cue", bridge),
@@ -279,6 +299,9 @@ impl Probe {
             if let Some(owner) = owner {
                 inputs.push((name, owner));
             }
+        }
+        if !matches!(mode, Mode::Legacy) {
+            inputs.push(("runtime.cue", RUNTIME));
         }
         inputs.push(("context.cue", context));
         self.exports.set(self.exports.get() + 1);
@@ -329,7 +352,44 @@ fn remove(value: &mut Value, path: &str) {
 }
 fn old_bridge() -> String {
     // Source-only inverse BEFORE original-policy comparisons; never construction.
-    let (before, shape) = BRIDGE
+    let (prefix, shape) = BRIDGE
+        .split_once("#InstructionBinaryRuntimeShape:")
+        .expect("Runtime shape");
+    let (_, suffix) = shape
+        .split_once("// Executable recursion")
+        .expect("root boundary");
+    let runtime = RUNTIME
+        .strip_prefix("package bootstrap\n\n#InstructionBinaryRuntime: {\n")
+        .expect("raw Runtime")
+        .strip_suffix("}\n")
+        .expect("Runtime end");
+    let (lets, body) = runtime.split_once("\top: ").expect("original concat");
+    let body = body
+        .trim_end()
+        .replace("\n\t\t", "\n\t\t\t")
+        .replace("\n\t]", "\n\t\t]}");
+    let restored = format!("{prefix}// Executable recursion{suffix}")
+        .replace(
+            "#InstructionLowering: #LoweringPolicy & {\n",
+            &format!("#InstructionLowering: #LoweringPolicy & {{\n{lets}"),
+        )
+        .replace(
+            "\t\tbinaryRuntime:    #InstructionBinaryRuntime",
+            &format!("\t\tbinaryRuntime: {{op: {body}"),
+        );
+    let restored = restored
+        .lines()
+        .map(|line| {
+            if line.starts_with("\t\t") && line.ends_with('_') {
+                format!("{} _", line[..line.len() - 1].trim_end())
+            } else {
+                line.to_owned()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    let (before, shape) = restored
         .split_once("#InstructionOperandCases: close({\n")
         .expect("Group shape");
     let (_, after) = shape
@@ -766,8 +826,9 @@ consume() {{
   '{cue}' export schema.cue bridge.cue $1 $2 $3 -e '#InstructionOperandCases' >/dev/null || return
   '{cue}' export shape.cue core.cue >/dev/null || return
   '{cue}' export schema.cue bridge.cue binary-placed.cue -e '#InstructionBinaryTables' >/dev/null || return
+  '{cue}' export schema.cue bridge.cue $1 $2 $3 binary-placed.cue runtime.cue -e '#InstructionBinaryRuntime' >/dev/null || return
   : > full-export-started
-  '{cue}' export schema.cue bridge.cue core.cue binary-placed.cue unary.cue text.cue first.cue step.cue $1 $2 $3 context.cue
+  '{cue}' export schema.cue bridge.cue core.cue binary-placed.cue unary.cue text.cue first.cue step.cue $1 $2 $3 runtime.cue context.cue
 }}
 case "$4" in
   normal) consume "$@" ;;

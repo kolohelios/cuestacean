@@ -16,6 +16,7 @@ const OPERAND: &str = include_str!("../../instruction-right-operand.cue");
 const OPERAND_ROOT: &str = include_str!("../../instruction-right-operand-export.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
+const RUNTIME: &str = include_str!("../../instruction-binary-runtime.cue");
 const CORE: &str = include_str!("../../instruction-core-cases.cue");
 const SHAPE: &str = include_str!("../../instruction-core-cases-schema.cue");
 const BINARY: &str = include_str!("../../instruction-binary-tables.cue");
@@ -222,6 +223,21 @@ impl Probe {
             reverse,
         );
         assert!(gate.status.success(), "isolated Binary35");
+        let runtime = self.run(
+            &self.cue,
+            &["export", "-e", "#InstructionBinaryRuntime"],
+            &[
+                ("schema.cue", SCHEMA),
+                ("bridge.cue", BRIDGE),
+                ("right.cue", RIGHT),
+                ("r.cue", operand),
+                ("group.cue", group),
+                ("binary.cue", &binary),
+                ("runtime.cue", RUNTIME),
+            ],
+            reverse,
+        );
+        assert!(runtime.status.success(), "isolated SAME-provider Runtime");
         decoded(self.run(
             &self.cue,
             &["export"],
@@ -232,6 +248,7 @@ impl Probe {
                 ("right.cue", RIGHT),
                 ("r.cue", operand),
                 ("group.cue", group),
+                ("runtime.cue", RUNTIME),
                 ("binary.cue", &binary),
                 ("unary.cue", UNARY),
                 ("text.cue", TEXT),

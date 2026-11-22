@@ -14,6 +14,7 @@ const SHAPE: &str = include_str!("../../instruction-core-cases-schema.cue");
 const PACKAGE: &str = include_str!("../../native-policy-package.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
+const RUNTIME: &str = include_str!("../../instruction-binary-runtime.cue");
 const BINARY: &str = include_str!("../../instruction-binary-tables.cue");
 const UNARY: &str = include_str!("../../instruction-unary-tables.cue");
 const TEXT: &str = include_str!("../../instruction-module-text.cue");
@@ -254,6 +255,23 @@ impl Probe {
         if !group_gate.status.success() {
             return group_gate;
         }
+        let runtime = self.run(
+            &self.cue,
+            &["export", "-e", "#InstructionBinaryRuntime"],
+            &[
+                ("schema.cue", SCHEMA),
+                ("bridge.cue", BRIDGE),
+                ("right.cue", RIGHT),
+                ("operand.cue", OPERAND),
+                ("group.cue", GROUP),
+                ("binary-placed.cue", &self.binary),
+                ("runtime.cue", RUNTIME),
+            ],
+            reverse,
+        );
+        if !runtime.status.success() {
+            return runtime;
+        }
         self.full_exports.set(self.full_exports.get() + 1);
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
@@ -266,6 +284,7 @@ impl Probe {
             ("right.cue", RIGHT),
             ("operand.cue", OPERAND),
             ("group.cue", GROUP),
+            ("runtime.cue", RUNTIME),
             ("context.cue", context),
         ];
         if let Some(body) = body {
@@ -594,8 +613,9 @@ consume() {{
   '{cue}' export schema.cue bridge.cue right.cue operand.cue -e '#InstructionRightOperand' >/dev/null || return
   '{cue}' export schema.cue bridge.cue right.cue operand.cue group.cue -e '#InstructionOperandCases' >/dev/null || return
   '{cue}' export schema.cue bridge.cue binary-placed.cue -e '#InstructionBinaryTables' >/dev/null || return
+  '{cue}' export schema.cue bridge.cue right.cue operand.cue group.cue binary-placed.cue runtime.cue -e '#InstructionBinaryRuntime' >/dev/null || return
   : > full-export-started
-  '{cue}' export schema.cue bridge.cue missing.json binary-placed.cue unary.cue text.cue first.cue step.cue right.cue operand.cue group.cue context.cue
+  '{cue}' export schema.cue bridge.cue missing.json binary-placed.cue unary.cue text.cue first.cue step.cue right.cue operand.cue group.cue runtime.cue context.cue
 }}
 case "$1" in
   normal) consume ;;

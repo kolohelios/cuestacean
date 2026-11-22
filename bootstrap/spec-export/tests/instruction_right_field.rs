@@ -15,6 +15,7 @@ const OPERAND: &str = include_str!("../../instruction-right-operand.cue");
 const GROUP: &str = include_str!("../../instruction-operand-cases.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
+const RUNTIME: &str = include_str!("../../instruction-binary-runtime.cue");
 const CORE: &str = include_str!("../../instruction-core-cases.cue");
 const CORE_SHAPE: &str = include_str!("../../instruction-core-cases-schema.cue");
 const PACKAGE: &str = include_str!("../../native-policy-package.cue");
@@ -191,6 +192,25 @@ impl Probe {
             reverse,
         );
         assert!(gate.status.success(), "independent 35-slot Binary gate");
+        if matches!(mode, SourceMode::Current) {
+            let gate = self.run(
+                &self.cue,
+                &["export", "-e", "#InstructionBinaryRuntime"],
+                &[
+                    ("schema.cue", SCHEMA),
+                    ("bridge.cue", bridge),
+                    ("right.cue", provider.expect("accepted Right provider")),
+                    ("operand.cue", OPERAND),
+                    ("group.cue", GROUP),
+                    ("binary-placed.cue", &binary),
+                    ("runtime.cue", RUNTIME),
+                ],
+                reverse,
+            );
+            if !gate.status.success() {
+                return gate;
+            }
+        }
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
             ("bridge.cue", bridge),
@@ -208,6 +228,7 @@ impl Probe {
         if !matches!(mode, SourceMode::Legacy) {
             inputs.push(("operand.cue", OPERAND));
             inputs.push(("group.cue", GROUP));
+            inputs.push(("runtime.cue", RUNTIME));
         }
         inputs.push(("context.cue", context));
         self.full_exports.set(self.full_exports.get() + 1);
@@ -266,7 +287,46 @@ fn original_bridge() -> String {
         .trim()
         .strip_prefix("package bootstrap\n\n#InstructionRightOperand: ")
         .expect("raw R owner");
-    let (before, shape) = BRIDGE
+    let (prefix, shape) = BRIDGE
+        .split_once("#InstructionBinaryRuntimeShape:")
+        .expect("Runtime shape");
+    let (_, suffix) = shape
+        .split_once("// Executable recursion")
+        .expect("root boundary");
+    let runtime = RUNTIME
+        .strip_prefix("package bootstrap\n\n#InstructionBinaryRuntime: {\n")
+        .expect("raw Runtime")
+        .strip_suffix("}\n")
+        .expect("Runtime end");
+    let (lets, body) = runtime.split_once("\top: ").expect("original concat");
+    let body = body
+        .trim_end()
+        .replace("\n\t\t", "\n\t\t\t")
+        .replace("\n\t]", "\n\t\t]}");
+    let restored = format!("{prefix}// Executable recursion{suffix}")
+        .replace(
+            "#InstructionLowering: #LoweringPolicy & {\n",
+            &format!("#InstructionLowering: #LoweringPolicy & {{\n{lets}"),
+        )
+        .replace(
+            "\t\tbinaryRuntime:    #InstructionBinaryRuntime",
+            &format!("\t\tbinaryRuntime: {{op: {body}"),
+        );
+    let restored = restored
+        .lines()
+        .map(|line| {
+            if line.starts_with("\t\t") && line.ends_with(": _") {
+                format!("{} _", line.trim_end_matches('_').trim_end())
+            } else if line.starts_with("\t\t") && line.ends_with('_') {
+                format!("{} _", line[..line.len() - 1].trim_end())
+            } else {
+                line.to_owned()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    let (before, shape) = restored
         .split_once("#InstructionOperandCases: close({\n")
         .expect("Group shape");
     let (_, after) = shape
