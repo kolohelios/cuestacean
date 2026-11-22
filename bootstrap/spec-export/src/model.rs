@@ -57,6 +57,8 @@ pub(crate) enum Expr {
     },
     // Direct body arena ID, not an index into the parser's binding table.
     Binding(Id),
+    // Prepared original literal subtree; each demand introduces definition closure.
+    SelectedContainer(Id),
     Comprehension {
         source: Id,
         template: Template,

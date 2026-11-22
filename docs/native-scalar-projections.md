@@ -188,3 +188,9 @@ The subsequent [#260 producer/consumer-only slice](native-instruction-right-oper
 received fresh reviews/GO and uses this unchanged prerequisite for native R DATA.
 The statements above describe #261's own scope; its production Rust and all477
 lines of generic evidence remain unchanged in the follow-up.
+
+The fresh [#268 literal-container class](native-literal-container-projections.md)
+separately extends ORIGINAL targets to pure nested trees and preserves selected
+container closedness. It deliberately moves TWO now-valid nested-sibling negatives
+to stronger positive proof in the same old group; every other old fixture remains.
+The flat-target costs above stay exact; no general lookup/default solver follows.

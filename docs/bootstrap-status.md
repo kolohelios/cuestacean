@@ -250,6 +250,12 @@ Right->R->Group gates. Both source owners reach independently predicted full pol
 and complete handwritten Rust through the real compiler. This cuts one partial
 construction edge, not contextual reuse or the full instruction policy/compiler;
 FIVE complete native policy DATA/FIVE binaries and held #175 remain unchanged.
+The [#268 literal-container projection prerequisite](native-literal-container-projections.md)
+extends only original pure-literal definition targets to nested objects/fixed lists.
+Selected containers retain fresh definition closedness through nested paths; ordinary
+outer output remains open. Whole-target validation/charged traversal precedes ANY
+rewrite. This is generic capability, not native Group/Binary composition or an actual
+Go-edge removal; selector grammar/default/solver admission and FIVE/FIVE stay fixed.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
