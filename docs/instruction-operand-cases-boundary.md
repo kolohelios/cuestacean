@@ -239,3 +239,8 @@ Initial guard failure, pre-fix3ab identity, canceled pre-pause job and doc hash 
 are retained separately, never passes; NEW-child correction/complete fixed runs
 supply evidence. User-specific same-boundary overrun permission did not delete
 proof or expand scope. FIVE/FIVE; native Group publication/full policy and #175 held.
+
+The subsequent [#266 publication contract](native-instruction-operand-cases.md)
+obtained its OWN two reviews/GO and budget, preserving ALL boundary proof unchanged.
+It publishes native whole Group DATA without changing this original source/bridge;
+this milestone's one-off scope/budget authority did not transfer.

@@ -18,8 +18,11 @@ refinements reload the same unresolved owner after that check. The
 [native R wrapper](../docs/native-instruction-right-operand.md) now consumes whole
 independently native Right DATA; per-use contexts remain Go-owned. The separate
 [operand-case source boundary](../docs/instruction-operand-cases-boundary.md) owns
-L/eight original bodies in raw Go CUE, gated after Right/R before full composition.
-It adds no native Group publication or native reuse/default support.
+L/eight original bodies once, gated after Right/R before full composition. The
+[fresh native publication](../docs/native-instruction-operand-cases.md) constructs
+that unchanged whole Group from whole native R120 DATA and a sole-root companion;
+canonical Go imports whole4549-byte DATA. Raw contexts reload SAME unresolved
+Right/R/Group owners. No native reuse/default support or full-policy closure follows.
 The [native module-text input](../docs/native-instruction-module-text.md) separately
 constructs the original header/footer literals. The Go consumer imports that JSON
 under the required closed helper and retains header + newline. The separate

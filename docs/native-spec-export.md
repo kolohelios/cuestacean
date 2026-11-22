@@ -89,6 +89,11 @@ or default/reuse admission. The separate [#260 producer/consumer slice](native-i
 uses that unchanged capability to construct the original R wrapper from whole
 independently native Right DATA. Its two-stage adapter and isolated consumer gates
 do not widen the projection class or claim native per-use contextual semantics.
+The fresh [#266 operand-case publication](native-instruction-operand-cases.md)
+uses whole independently native R120 to construct unchanged L/eight cases as whole
+4549-byte DATA. A sole-root companion/ordinary adapter needs no new language/CLI
+admission. Canonical Go imports whole Group; raw contexts/gates keep SAME unresolved
+owners. This is another partial instruction input, not a sixth policy/compiler.
 
 ## Readiness and recursive schema semantics
 

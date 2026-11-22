@@ -241,7 +241,15 @@ The [#264 operand-case boundary](instruction-operand-cases-boundary.md) separate
 moves the original L/eight case bodies once into a Go-owned source module, with
 an isolated89-string completeness gate after Right/R. All raw owners reload before
 contexts; legacy inverses and explicit dependency bypasses preserve existing proof.
-This is source/consumer preparation, NOT native Group publication or a Go-edge cut.
+That milestone was source/consumer preparation, not native publication. The fresh
+[#266 publication slice](native-instruction-operand-cases.md) now constructs the
+unchanged L/eight cases as whole4549-byte native DATA from whole independently native
+R120 through a sole-root companion/ordinary adapter. Canonical Go imports the whole
+Group; raw refinements retain SAME unresolved Right/R/Group owners and isolated
+Right->R->Group gates. Both source owners reach independently predicted full policies
+and complete handwritten Rust through the real compiler. This cuts one partial
+construction edge, not contextual reuse or the full instruction policy/compiler;
+FIVE complete native policy DATA/FIVE binaries and held #175 remain unchanged.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
