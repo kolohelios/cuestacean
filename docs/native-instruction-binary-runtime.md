@@ -177,3 +177,12 @@ merged-tree equality/clean fetched main remain mandatory. Preserve failed/cancel
 setup/scratch attempts separately, complete corrected reruns; no pending/cached-only
 construction or setup failure is pass. Long jobs have independent nohup/PID/log/status
 receipts. Validation x86_64-linux ONLY. No implementation authority is asserted yet.
+
+## Fresh coordinator implementation GO
+
+BOTH independent ENTIRE-contract reviews approve immutable `b31d2e4a`; coordinator
+read and accepted BOTH. Explicit GO authorizes ONLY the owned publication/proof/docs
+above under the USER's #274-only~1650 allowance. Fresh complete upper estimates
+1649/1625 INCLUDE unspent repairs; measure the full formatted delta EARLY and pause
+FIRST credible excess/identity defect/ambiguity/unresolved failure. Old proof stays
+byte-exact; all cross/final/source/profile/closure/sandbox/CI/merge gates remain.
