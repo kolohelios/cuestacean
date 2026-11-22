@@ -12,6 +12,7 @@ use std::{
 const PACKAGE: &str = include_str!("../../native-policy-package.cue");
 const TABLE: &str = include_str!("../../instruction-binary-tables.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
+const RUNTIME: &str = include_str!("../../instruction-binary-runtime.cue");
 const CORE: &str = include_str!("../../instruction-core-cases.cue");
 const CORE_SHAPE: &str = include_str!("../../instruction-core-cases-schema.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
@@ -178,7 +179,13 @@ impl Probe {
         // Deliberately NO full-policy selector, context, or unrelated providers.
         self.run(&self.cue, &[op, "-e", HELPER], &inputs, reverse)
     }
-    fn full_unchecked(&self, provider: &str, context: &str, reverse: bool) -> Output {
+    fn full_unchecked(
+        &self,
+        provider: &str,
+        context: &str,
+        reverse: bool,
+        runtime_gate: bool,
+    ) -> Output {
         let core_gate = self.run(
             &self.cue,
             &["export"],
@@ -231,6 +238,25 @@ impl Probe {
         if !group_gate.status.success() {
             return group_gate;
         }
+        if runtime_gate {
+            let gate = self.run(
+                &self.cue,
+                &["export", "-e", "#InstructionBinaryRuntime"],
+                &[
+                    ("schema.cue", SCHEMA),
+                    ("bridge.cue", BRIDGE),
+                    ("right.cue", RIGHT),
+                    ("operand.cue", OPERAND),
+                    ("group.cue", GROUP),
+                    ("placed.cue", provider),
+                    ("runtime.cue", RUNTIME),
+                ],
+                reverse,
+            );
+            if !gate.status.success() {
+                return gate;
+            }
+        }
         self.full_exports.set(self.full_exports.get() + 1);
         self.run(
             &self.cue,
@@ -247,6 +273,7 @@ impl Probe {
                 ("right.cue", RIGHT),
                 ("operand.cue", OPERAND),
                 ("group.cue", GROUP),
+                ("runtime.cue", RUNTIME),
                 ("context.cue", context),
             ],
             reverse,
@@ -257,7 +284,12 @@ impl Probe {
         if !gate.status.success() {
             return gate;
         }
-        self.full_unchecked(provider.expect("gate requires provider"), context, reverse)
+        self.full_unchecked(
+            provider.expect("gate requires provider"),
+            context,
+            reverse,
+            true,
+        )
     }
 }
 impl Drop for Probe {
@@ -503,7 +535,7 @@ fn bypass_counterfactual_backfills_select_op_but_real_consumer_stops_first() {
     let placed = probe.import(&missing.to_string());
     failed(&probe.policy(Some(&placed), POLICY, false));
     assert_eq!(probe.full_exports.get(), 0);
-    let bypass = decoded(probe.full_unchecked(&placed, POLICY, false));
+    let bypass = decoded(probe.full_unchecked(&placed, POLICY, false, false));
     assert_eq!(bypass["cases"]["binaryRuntime"]["parts"][0]["op"], "select");
     assert_eq!(
         probe.full_exports.get(),

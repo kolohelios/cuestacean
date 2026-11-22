@@ -12,6 +12,7 @@ const OWNER: &str = include_str!("../../instruction-module-text.cue");
 const SELECTOR: &str = include_str!("../../instruction-module-text-export.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
+const RUNTIME: &str = include_str!("../../instruction-binary-runtime.cue");
 const CORE: &str = include_str!("../../instruction-core-cases.cue");
 const CORE_SHAPE: &str = include_str!("../../instruction-core-cases-schema.cue");
 const UNARY: &str = include_str!("../../instruction-unary-tables.cue");
@@ -247,6 +248,23 @@ impl Probe {
         if !group_gate.status.success() {
             return group_gate;
         }
+        let runtime = self.run(
+            &self.cue,
+            &["export", "-e", "#InstructionBinaryRuntime"],
+            &[
+                ("schema.cue", SCHEMA),
+                ("bridge.cue", BRIDGE),
+                ("right.cue", RIGHT),
+                ("operand.cue", OPERAND),
+                ("group.cue", GROUP),
+                ("binary-placed.cue", &binary),
+                ("runtime.cue", RUNTIME),
+            ],
+            reverse,
+        );
+        if !runtime.status.success() {
+            return runtime;
+        }
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
             ("bridge.cue", BRIDGE),
@@ -258,6 +276,7 @@ impl Probe {
             ("right.cue", RIGHT),
             ("operand.cue", OPERAND),
             ("group.cue", GROUP),
+            ("runtime.cue", RUNTIME),
             ("binary-placed.cue", &binary),
         ];
         if let Some(provider) = provider {

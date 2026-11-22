@@ -37,12 +37,22 @@ package bootstrap
 	})
 })
 
+#InstructionBinaryRuntimeShape: close({
+	let Text = close({op: string, value: string})
+	let Wrapped = close({op: string, value: close({op: string, value: close({op: string, field: string})})})
+	op: string
+	parts: [close({
+		op: string, field: string
+		cases: close({
+			index:       Text, difference: Text, product:    Text, divide:    Text, modulo: Text, quotient: Text
+			recordIndex: Text, listIndex:  Text, logicalAnd: Text, logicalOr: Text, equal:  Text
+		})
+	}), Text, Wrapped, Text, Wrapped, Text]
+})
+#InstructionBinaryRuntime: #InstructionBinaryRuntimeShape
+
 // Executable recursion/Result layout, not Rust's instruction enum dispatch.
 #InstructionLowering: #LoweringPolicy & {
-	let L = #InstructionOperandCases.leftOperand
-
-	// The alternate policy overrides only sum's default right-child selection.
-	let R = #InstructionRightOperand
 	aliases: {
 		lowerExclusiveBound: _, upperExclusiveBound: _, lowerBound:   _, upperBound: _, negate:       _
 		logicalNot:          _, length:              _, stringLength: _, listLength: _, recordLength: _
@@ -61,34 +71,31 @@ package bootstrap
 	}]
 	cases: {
 		#InstructionOperandCases.cases
-		"null": _
-		top: _
-		int: _
-		bool: _
-		stringType: _
-		text: _
-		list: _
-		record: _
+		"null":           _
+		top:              _
+		int:              _
+		bool:             _
+		stringType:       _
+		text:             _
+		list:             _
+		record:           _
 		recordExpression: _
-		listExpression: _
-		boolean: _
-		field: _
-		evaluate: _
-		unaryRuntime: _
-		binaryRuntime: {op: "concat", parts: [
-			#InstructionBinaryTables.select,
-			{op: "text", value: "("}, L, {op: "text", value: ", "}, R, {op: "text", value: ")"},
-		]}
-		sum: _
-		conjunction: _
-		slice: _
-		less: _
-		lessEqual: _
-		greater: _
-		greaterEqual: _
-		notEqual: _
-		remainder: _
-		unify: _
-		listSlice: _
+		listExpression:   _
+		boolean:          _
+		field:            _
+		evaluate:         _
+		unaryRuntime:     _
+		binaryRuntime:    #InstructionBinaryRuntime
+		sum:              _
+		conjunction:      _
+		slice:            _
+		less:             _
+		lessEqual:        _
+		greater:          _
+		greaterEqual:     _
+		notEqual:         _
+		remainder:        _
+		unify:            _
+		listSlice:        _
 	}
 }
