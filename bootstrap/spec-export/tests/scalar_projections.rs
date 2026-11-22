@@ -180,8 +180,6 @@ fn original_targets_and_whole_arena_exclusions_unknowns_cycles_and_cli_recovery(
             "{x:#Alias}",
             "{x:1,x:1}",
             "{x:1,unused:string}",
-            "{x:1,unused:{a:1}}",
-            "{x:1,unused:[1]}",
             "{x:1,unused:#Alias.x}",
             "{x:1,unused:1&1}",
             "{x:1,unused:1|1}",
@@ -194,6 +192,39 @@ fn original_targets_and_whole_arena_exclusions_unknowns_cycles_and_cli_recovery(
             );
             failed(p.native(&a, &root, reverse));
             assert_eq!(decoded(p.native(&good, &root, reverse)), json!(1));
+        }
+        // These exact former negatives now have wholly literal nested targets.
+        for (target, total) in [("{x:1,unused:{a:1}}", 24), ("{x:1,unused:[1]}", 23)] {
+            let a = source(&format!("#Alias:{{x:1}}\n#D:{target}"));
+            let object = source("{out:#D.x}");
+            for (b, work, want) in [
+                (&root, total, json!(1)),
+                (&object, total + 12, json!({"out":1})),
+            ] {
+                assert_eq!(
+                    export_with_limit(&a, b, work - 1),
+                    Err(Error::Limit("evaluation steps"))
+                );
+                assert_eq!(
+                    serde_json::from_str::<Value>(
+                        &export_with_limit(&a, b, work).expect("exact work")
+                    )
+                    .expect("JSON"),
+                    want
+                );
+                assert_eq!(decoded(p.native(&a, b, reverse)), want);
+            }
+            assert_eq!(
+                decoded(p.run(
+                    &p.cue,
+                    &["export"],
+                    &[("a.cue", &a), ("b.cue", &object)],
+                    reverse
+                )),
+                json!({"out":1})
+            );
+            failed(p.native(&source("#D:{x:1,unused:string}"), &root, reverse));
+            assert_eq!(decoded(p.native(&a, &root, reverse)), json!(1));
         }
         // The selected target is valid: exclusions in UNUSED arena still reject.
         for unused in [
