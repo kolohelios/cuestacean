@@ -146,3 +146,41 @@ ONLY the two build paths/one new test and coordinator docs above. Preserve all15
 old groups/old eight test files/Group/bridge bytes. No prior exception transfers;
 track actual full formatted delta early, pause first credible overrun/scope gap.
 All cross/final reviews and real fixed-source release/CI/merge gates remain.
+
+## Implementation and local release evidence
+
+Kernel `25219dca6637ee16d5368b2a396200a4c8812ab8` owns ONLY companion/flake:
+293 formatted changes. Evidence `f4286eca3598743e1dfa4ffc0a249c5ea2e907f1`
+owns ONLY new447-line test, stable-main parent. BOTH focused cross-reviews GO;
+frozen integrated source `47cdbce9fb596a35c517295b6d962549e47ee54f` byte-matches
+both handoffs. Code740, original Group/ENTIRE bridge/ALL153 old groups unchanged.
+Actual publication is sole operand-cases.json4549; Go6821 differs only in encoding.
+
+Initial focused strict Clippy rejected16 unwraps in NEW evidence. Failure preserved;
+NEW child contextual expects/owned formatting, NO suppression or assertion removal,
+then COMPLETE fixed10-group/four-profile/Clippy4/fmt rerun passed. Full fixed source:
+156=153old+3new EACH FOUR (624 executions), strict exporter all-target Clippy4;
+executor775 EACH default debug/release/strict Clippy; research135 FOUR; ALL THREE
+boundary suites FOUR groups EACH FOUR passed. Independent full-log audit agrees.
+
+A coordinator explicit-path flake attempt admitted ambient Cargo target directories
+into broad executor/legacy sources. It was canceled143/archived as SETUP-SUPERSEDED,
+not final evidence. BOTH independent setup reviews approved normal repository-filtered
+flake orchestration, with no tracked-source change. Corrected capture ONCE:29 checks/
+26 NONDEFAULT packages/55 names/54 unique; SAME explicit roots actually built AND
+rebuilt successfully. Corrected executor AND legacy source contain exactly1,348
+tracked bootstrap files, every byte matched frozen source, NO target/untracked input.
+Actual exporter10/checker121/30 integration files likewise matched EVERY byte;
+ALL29 old test files/generic477/Group19/bridge unchanged, new447 exact handoff bytes.
+
+ALL23 fresh recursive/full retained inventories and current exclusions passed;
+FOUR genuine façade matrices and FOUR separately actual-rebuilt feature roots match
+fresh stored-deriver discovery from captured verifiers (no second named capture).
+ALL24 other old package IDs stable, ONLY exports changes among baseline25;249JSON/
+12builders/old DATA/generated Rust/five façade cuts/six origins byte-identical.
+Whole Group independently authored artifact and canonical eight cases/binary L match.
+Capture-watcher scratch parser failures remain separate from actual execution/source
+proof; no pending/canceled/failed watcher is relabeled as a completed build/rebuild.
+Pinned local preflight13/13 (seven skips) passed; final immutable whole-tree reviews,
+final documentation checks and protected required CI/confirmed merge remain gates.
+Validation is x86_64-linux ONLY. FIVE/FIVE, full instruction/compiler/#175 held.
