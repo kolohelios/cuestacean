@@ -867,17 +867,44 @@ fn true_backfills_explicit_dependency_modes_and_actual_shell_fail_stop_recovery(
             "path: \"runtime::text\"",
         );
         assert_ne!(bad_core, CORE, "actual missing Core opcode fixture");
+        let before = p.exports.get();
+        let raw_missing = p.full(
+            BRIDGE,
+            p.owners(Some(RUNTIME)),
+            Some(&bad_core),
+            SELECTOR,
+            reverse,
+            Mode::MissingCore,
+        );
+        failed(&raw_missing);
+        assert!(String::from_utf8_lossy(&raw_missing.stderr).contains("incomplete value"));
+        assert_eq!(
+            p.exports.get(),
+            before + 1,
+            "Core gate deliberately bypassed"
+        );
         assert_eq!(
             decoded(p.full(
                 BRIDGE,
                 p.owners(Some(RUNTIME)),
-                Some(&bad_core),
+                Some(CORE),
                 SELECTOR,
                 reverse,
                 Mode::MissingCore
             )),
             baseline
         );
+        let before = p.exports.get();
+        failed(&p.full(
+            BRIDGE,
+            p.owners(None),
+            Some(CORE),
+            SELECTOR,
+            reverse,
+            Mode::MissingCore,
+        ));
+        assert_eq!(p.exports.get(), before, "Runtime gate remains enabled");
+        let before = p.exports.get();
         failed(&p.full(
             BRIDGE,
             p.owners(Some(RUNTIME)),
@@ -886,6 +913,7 @@ fn true_backfills_explicit_dependency_modes_and_actual_shell_fail_stop_recovery(
             reverse,
             Mode::Accepted,
         ));
+        assert_eq!(p.exports.get(), before, "ordinary Core gate stops first");
         let mut bad = want.clone();
         bad["op"] = json!("unknownRuntimeOpcode");
         let owner = placed(&bad);
