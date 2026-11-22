@@ -15,7 +15,8 @@ subset plus [bounded concrete source lists](../bootstrap/source-lists.md) ([owne
 not full CUE or bootstrap closure. Go CUE still exports specifications. Six
 bootstrap compilers still require native decoders, kernels and policy-compilation
 machinery; increasingly their executable lowering policies live in CUE. Performance
-advantages remain a hypothesis, not a measured result.
+advantages remain a general hypothesis; the [first narrow performance baseline](performance-baseline.md)
+measures supported source CLIs and existing bootstrap targets, not full-CUE performance.
 
 Architecture checkpoint [#161](https://github.com/kolohelios/cuestacean/issues/161)
 completed the solver spike, closure inventory, DSL/native audit and readable

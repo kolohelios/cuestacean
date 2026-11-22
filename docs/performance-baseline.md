@@ -1,5 +1,8 @@
 # First performance baseline
 
+Measured 2026-11-22; [raw series](../benchmarks/results/baseline.tsv).
+The contract below was reviewed before implementation; actual results follow it.
+
 ## Measurement contract (before implementation)
 
 Production baseline: `0148784521f1f1e5e51cfdcaa979dae6721c594d` (PR #271).
@@ -175,3 +178,154 @@ Two final independent exact immutable whole-tree GOs follow integration and actu
 validation. Retire workers/panes/workspaces before PR. Complete focused reviews and
 full local preflight, enable protected exact-head CI-gated rebase auto-merge, watch
 required CI through confirmed merge, verify the merged tree and fetch clean main.
+
+## Actual first run
+
+Source/fixture/tool hashes were frozen before sampling. Both focused functional
+reviews approved `618df21514567cb55c244fcd52beb92dea86ecdd`; that revision identifies
+the measured harness. Production source remains baseline `01487845` above, with
+no bootstrap-tree changes. Final report/results additions do not change the tools.
+The two independent contract GOs covered `c650aeea408293b2db4ccfe27cf538c6d4327d93`.
+
+Coordinator-only serial run: **2026-11-22 22:32:25–22:34:02 UTC**. Runtime completed
+at 22:32:28. All validation jobs had finished; workers were quiescent and a 30-second
+quiet interval preceded sampling. No exclusive-host or continuous-idleness claim:
+this was a shared NixOS machine with background desktop applications.
+
+Environment: x86_64 Linux 6.18.60; Intel Core i7-12800HX, 24 logical CPUs/affinity
+0–23; MemTotal 65,536,920 kB; CPU0 governor `powersave`. No CPU affinity, frequency,
+cache, root or sysfs changes. Runtime load averages before/after were
+`[0.2334,1.1118,3.3022]` / `[0.2949,1.1099,3.2896]`; bootstrap ended at
+`[1.5151,1.3179,3.1509]`. Nix 2.34.9, Python 3.13.17, GNU Time 1.10, CUE 0.16.1
+(built with Go 1.26.10); production Rust 1.95.0, release build/default features.
+Nix settings were cores=0 (autodetect), max-jobs=24, sandbox=true; the recipe also
+explicitly disabled substitution and used offline mode. Bootstrap inherited the
+ordinary coordinator Nix environment; runtime children used the controlled
+contract environment, not ambient Go/CUE tuning. No build-daemon memory was sampled.
+
+### Source CLI results
+
+ALL 24 initial expected-value checks and every warmup/measurement output passed.
+Five warmup rounds, 31 latency rounds and five separate RSS rounds, seed 1729:
+1,008 successful child executions (24 validation +120 warmup +744 latency +120 RSS).
+Round order is reconstructed by one Python `Random(1729)`, shuffling case-file
+order × `source-cli,go-cue` each round, continuing across all three stages.
+
+Latency columns are **median / IQR in milliseconds**; RSS column is **median KiB,
+Cuestacean / Go CUE**. Quartiles are inclusive. UTF-8 subprocess text decoding and
+Python launch/collection overhead are included; JSON parsing/comparison is outside.
+
+| Case | Cuestacean ms | Go CUE ms | Peak RSS KiB |
+|---|---:|---:|---:|
+| literal-zero | 0.826 / 0.071 | 3.995 / 1.674 | 2556 / 20856 |
+| arithmetic | 0.865 / 0.090 | 4.609 / 1.806 | 2556 / 20912 |
+| chain16 | 0.880 / 0.101 | 4.225 / 1.795 | 2748 / 20916 |
+| chain31 | 0.971 / 0.063 | 4.245 / 1.342 | 2748 / 22068 |
+| bounded-integer | 0.840 / 0.115 | 4.058 / 1.209 | 2556 / 20788 |
+| ascii-concat | 0.846 / 0.084 | 4.206 / 1.442 | 2620 / 20212 |
+| ascii-length | 0.823 / 0.075 | 4.509 / 1.520 | 2556 / 20724 |
+| list8 | 0.883 / 0.083 | 4.583 / 1.465 | 2556 / 21108 |
+| list63 | 0.951 / 0.129 | 4.008 / 1.620 | 2808 / 21036 |
+| nested8 | 0.873 / 0.085 | 4.823 / 1.417 | 2604 / 21556 |
+| slice16 | 0.916 / 0.116 | 4.226 / 1.718 | 2620 / 20464 |
+| record-selector | 0.856 / 0.123 | 4.364 / 1.617 | 2612 / 20404 |
+
+Encouraging for these tiny CLI workloads: lower observed median latency and RSS.
+This does NOT establish parser/evaluator throughput, large-input behavior, full-CUE
+performance, compiler speed, allocation efficiency or a language-wide advantage.
+Startup, grammar loading/validation, output formatting and Go runtime initialization
+are all included; neither their individual costs nor their causes were isolated.
+Wide Go CLI IQRs and a shared hybrid-core host limit extrapolation. No significance
+claim, combined weighted score, optimization or regression threshold is introduced.
+
+### Bootstrap results
+
+These exclude flake evaluation, dependency acquisition and readiness realization.
+All three targets already had available dependencies. Seven cached samples each;
+three separately forced sandbox target rebuilds each. Times are parent-observed
+Nix invocation wall time, not isolated constructor CPU time.
+
+| Existing output | Cached median ms | Forced rebuild seconds, in order |
+|---|---:|---|
+| exports: full 249-JSON bundle | 52.772 | 22.949, 23.278, 23.504 |
+| native-instruction-operand-cases: partial DATA | 53.913 | 0.122437, 0.120043, 0.120379 |
+| native-codegen-core: compiler construction | 52.956 | 7.604, 7.553, 7.521 |
+
+Nine actual forced-rebuild commands completed, three per root, plus 21 cached
+samples and six untimed readiness/identity builds. Complete output/deriver/NAR,
+derivation/capture/script/tool hashes were unchanged before/after. These different
+products cannot support a native-versus-Go construction speedup ratio. Approximately
+53 ms cached resolution is workflow/client overhead, not parser execution time.
+
+### Durable provenance and reproduction
+
+Exact derivations (prefix `/nix/store/`):
+
+- Production: `2nsqix06mckydld41yhsjdw05jjba0qx-bootstrap-executor-0.1.0.drv`.
+- Exports: `f1c19r2qs44rmarikii2rlkdp63h11av-cuestacean-bootstrap-json.drv`.
+- Operand DATA: `6xb8jkh3j2w5rbi806xxw0fsrcdqx7vc-cuestacean-native-instruction-operand-cases.drv`.
+- Core compiler: `w92pbwvnrxqln1g2k200wkcckrva20cs-cuestacean-native-codegen-core-0.1.0.drv`.
+
+Measured providers and SHA256 (all paths relative to `/nix/store/`):
+
+| Provider | Store path | SHA256 |
+|---|---|---|
+| source CLI | `q9qmv6llmw0y2s5rvh024dng0vfypjgj-bootstrap-executor-0.1.0/bin/bootstrap-source` | `b40f354b7f84a9cfe1b46a98ccad7dd0c1fac7bf2391e2c66f72fb683c9152bf` |
+| Go CUE | `nzipa1yaw7f0zbdzkvqmqii100bzf5m2-cue-0.16.1/bin/cue` | `e67cd476bb3e54cab81b60a3a041fdc969377d659001984368bfe28a77ec294a` |
+| GNU time | `3xrn42w74kwf5il7qgs7fmpqz3380zq1-time-1.10/bin/time` | `18b67e22f2611d5f77102756a39b80a6b4d5151ba5eaf0e48613707f029e6c9e` |
+| Python | `kp6p38x6zb21n7gdlnp9nsm2aagq7sg2-python3-3.13.17/bin/python3.13` | `dda1d953a0b486f62e83f9a23bc1de48940ea2d6dbd74ad20896a4d75d2c3089` |
+| Nix | `wh4dksj5jz315f46g5rrn65mfyhjm23h-nix-2.34.9/bin/nix` | `126360e93520157ba98fc010c51e14f812d0f3ac3e79be417cb142b5a87c9ee6` |
+
+Scripts SHA256: runtime `bda9915b33b45c8d821f5c34cfc72c9942284a83bc3cabb0937023390cbe9261`;
+bootstrap `e0a31e959304193de44312a22b48233c953e6ee14f256f102b4b444f44c9379f`;
+fixtures `8454b72e7ee37e1a83ec42dfb95159b8200435c1836c87d33e9a1d8226bc8298`.
+Raw durable TSV SHA256 `afa818ca3db1ad1347d88c277433dd120c368cb4ae323902fefbe21a40485cc7`.
+Original runtime TSV was copied, not modified, before appending six bootstrap rows.
+All 54 raw series retain every sample; summaries above are rounded displays only.
+
+Build-only local metadata receipts are `/tmp/cuestacean272-{runtime,bootstrap}-baseline/metadata.json`:
+runtime SHA256 `457fe0fc3d101b15b465aebbd4c4bee287de2879dadb932b1d618ae3a0f79489`;
+bootstrap `b1719d4c788e3e4d5634c660c9ad100d32f2f6a021e4c338fff3ab797bbe917f`.
+They contain actual schedules/argv/host/provider details; durable inputs, source
+identity, protocol and full raw samples are retained here and in version control,
+not solely in those disposable receipts. Lockfile pins were unchanged.
+
+For a new run, enter `nix develop ./infra/tooling`, run
+`python3 -B -m unittest discover -s benchmarks -p test_run.py -v`, capture package
+and check maps ONCE, to new absolute output files:
+
+```sh
+nix eval --json ./infra/tooling#checks.x86_64-linux \
+  --apply 's: builtins.mapAttrs (_: v: v.drvPath) s' > "$CHECKS"
+nix eval --json ./infra/tooling#packages.x86_64-linux \
+  --apply 's: builtins.mapAttrs (_: v: v.drvPath) (builtins.removeAttrs s ["default"])' > "$PACKAGES"
+```
+
+Realize explicit roots outside timers; obtain provider outputs from
+those captured derivations, verify their bytes/source, then use the runtime argument
+protocol above. Invoke `python3 -B benchmarks/bootstrap.py ABS_NIX ABS_PACKAGES_JSON
+NEW_ABS_DIR FULL_HARNESS_REV`. Use new output directories; do not resume, silently
+replace providers, recapture named roots during sampling or assume old store paths
+are locally available. Copy runtime TSV and append bootstrap TSV without its header.
+
+### Completed local validation and limitations
+
+Before timing: 11 focused Python tests and 24 real untimed CLI checks; both exact
+functional GOs; current 29-check/26-package identities equal baseline (55 names,
+54 roots). All 54 roots were realized, then separately forced rebuilt successfully.
+Fresh exact-set/directory/EVERY-byte audits covered production/legacy 1,351 files,
+four compiler cuts, 423 export CUE files and two raw operand files; no ambient
+targets, symlinks, untracked inputs or extra empty directories. All 249 JSON outputs,
+generated Rust, five native policies/binaries and six origins remain unchanged.
+Actual Rust matrix: executor 775 twice; exporter 164 FOUR profiles; research 135
+FOUR; three boundaries four groups EACH FOUR; 14 strict Clippy completions,
+2,794 named passes/400 complete blocks. Independent receipt audits passed.
+
+Correct flake-pinned Shaka preflight passed 13/13 (seven skips). An earlier attempt
+used a stale store helper and failed; it was retained separately, not waived.
+An initial receipt parser rejected the exact pre-Cargo dirty-tree setup warning;
+a separately reviewed corrected parser classified only that witnessed setup line,
+retaining all Rust warning/error/count/source checks. Neither issue changed repository code,
+checks, fixtures or results. Both measurement stages exited zero on their first
+attempt, without retry, discarded sample or partial-result promotion. Broader #175
+holds remain.
