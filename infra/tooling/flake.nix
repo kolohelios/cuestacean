@@ -318,11 +318,61 @@
       '';
       # The dependent operand must be complete before ANY policy/context is loaded.
       instructionOperandConsumer = ''
+        group=${../../bootstrap/instruction-operand-cases.cue}
+        group_gate() { cue export "$schema" "$bridge" "$right" "$operand" "$group" -e '#InstructionOperandCases' > /dev/null; }
         operand=${../../bootstrap/instruction-right-operand.cue}
         operand_gate() { cue export "$schema" "$bridge" "$right" "$operand" -e '#InstructionRightOperand' > /dev/null; }
         right_gate() {
           cue export "$schema" "$bridge" "$right" -e '#InstructionRightField' > /dev/null || return
-          operand_gate
+          operand_gate || return
+          group_gate
+        }
+      '';
+      instructionGroupConsumerProbe = ''
+        savedGroup=$group
+        printf '%s\n' 'package bootstrap' '#InstructionOperandCases:{}' > group-missing.cue
+        group=group-missing.cue
+        rm -f full-export-started
+        set +e
+        consume_operand > group-stopped-normal.json 2> group-stopped-normal.err
+        groupStatus=$?
+        set -e
+        test "$groupStatus" -ne 0
+        if consume_operand > group-stopped-if.json 2> group-stopped-if.err; then exit 1; fi
+        groupStatus=0
+        consume_operand > group-stopped-or.json 2> group-stopped-or.err || groupStatus=$?
+        test "$groupStatus" -ne 0
+        for mode in normal if or; do
+          test ! -s "group-stopped-$mode.json" && test -s "group-stopped-$mode.err"
+        done
+        test ! -e full-export-started
+        group=$savedGroup
+      '';
+      # Verification-only source inverse; never a constructor or answer provider.
+      instructionGroupInverse = ''
+        restore_group() {
+          awk -v owner=${../../bootstrap/instruction-operand-cases.cue} '
+            BEGIN {
+              while ((getline line < owner) > 0) {
+                if (line ~ /^\tlet L = /) left = line
+                if (line == "\tcases: {") { cases = 1; continue }
+                if (line == "\t}") cases = 0
+                if (cases) {
+                  if (line ~ /^\t\t[a-zA-Z]+:/) { key = line; sub(/:.*/, "", key); sub(/^\t\t/, "", key) }
+                  body[key] = body[key] line "\n"
+                }
+              }
+            }
+            /^#InstructionOperandCases: close\(\{/ { shape = 1; next }
+            shape && /^\/\/ Executable recursion/ { shape = 0 }
+            shape { next }
+            /^\tlet L = #InstructionOperandCases.leftOperand$/ { print left; next }
+            /^\t\t#InstructionOperandCases.cases$/ { next }
+            /^\t\t(sum|less|lessEqual|greater|greaterEqual|notEqual|remainder|unify):[[:space:]]*_$/ {
+              key = $0; sub(/:.*/, "", key); sub(/^\t\t/, "", key); printf "%s", body[key]; next
+            }
+            { print }
+          ' "$1" > "$2"
         }
       '';
       instructionOperandConsumerProbe = ''
@@ -344,6 +394,7 @@
         done
         test ! -e full-export-started
         operand=$savedOperand
+        ${instructionGroupConsumerProbe}
       '';
       # Consumer-only validation: no policy schema/context may complete core DATA.
       instructionCoreConsumer = ''
@@ -402,6 +453,7 @@
                 ../../bootstrap/bound-control-fragments.cue
                 ../../bootstrap/exclusive-bound-fragments.cue
                 ../../bootstrap/lowering-fragments.cue
+                ../../bootstrap/instruction-operand-cases.cue
                 ../../bootstrap/instruction-core-cases.cue
                 ../../bootstrap/instruction-core-cases-schema.cue
                 ../../bootstrap/instruction-right-field.cue
@@ -459,6 +511,7 @@
               -o "$PWD/instruction-right-operand.cue" \
               ${nativeInstructionRightOperand pkgs}/right-operand.json
             operand="$PWD/instruction-right-operand.cue"
+            group=${../../bootstrap/instruction-operand-cases.cue}
             ${instructionCoreConsumer}
             core=${nativeInstructionCoreCases pkgs}/instruction-core-cases.json
             export_policy() {
@@ -471,7 +524,9 @@
                   cue export ${cueSources}/schema.cue ${cueSources}/lowering-fragments.cue \
                     "$rightProvider" -e '#InstructionRightField' > /dev/null || return
                   cue export ${cueSources}/schema.cue ${cueSources}/lowering-fragments.cue \
-                    "$rightProvider" "$operand" -e '#InstructionRightOperand' > /dev/null || return ;;
+                    "$rightProvider" "$operand" -e '#InstructionRightOperand' > /dev/null || return
+                  cue export ${cueSources}/schema.cue ${cueSources}/lowering-fragments.cue \
+                    "$rightProvider" "$operand" "$group" -e '#InstructionOperandCases' > /dev/null || return ;;
               esac
               case "$fixture" in
                 lowering|tests/valid/lowering-left-twice|tests/valid/lowering-reverse)
@@ -479,6 +534,7 @@
                   cue export ${cueSources}/schema.cue ${cueSources}/lowering-fragments.cue \
                     "$PWD/instruction-binary-tables.cue" -e '#InstructionBinaryTables' > /dev/null || return ;;
               esac
+              touch full-export-started
               cue export "$@"
             }
             cue import -p bootstrap -l '#InstructionModuleText:' \
@@ -494,7 +550,7 @@
             consume_right() {
               rightProvider=$right
               export_policy ${cueSources}/schema.cue ${cueSources}/lowering-fragments.cue \
-                "$core" "$right" "$operand" "$PWD/instruction-binary-tables.cue" \
+                "$core" "$right" "$operand" "$group" "$PWD/instruction-binary-tables.cue" \
                 ${nativeInstructionUnaryTables pkgs}/instruction-unary-tables.json \
                 "$PWD/instruction-module-text.cue" ${cueSources}/instruction-module-first.cue \
                 ${cueSources}/instruction-module-step.cue right-backfill.cue
@@ -507,7 +563,7 @@
             consume_core() {
               rightProvider=$right
               export_policy ${cueSources}/schema.cue ${cueSources}/lowering-fragments.cue \
-                "$core" "$right" "$operand" "$PWD/instruction-binary-tables.cue" \
+                "$core" "$right" "$operand" "$group" "$PWD/instruction-binary-tables.cue" \
                 ${nativeInstructionUnaryTables pkgs}/instruction-unary-tables.json \
                 "$PWD/instruction-module-text.cue" "$PWD/instruction-module-first.cue" \
                 "$PWD/instruction-module-step.cue" ${cueSources}/lowering.cue
@@ -592,7 +648,7 @@
                     "$PWD/instruction-module-text.cue" "$PWD/instruction-binary-tables.cue")
                   core=${nativeInstructionCoreCases pkgs}/instruction-core-cases.json
                   case "$fixture" in lowering) ;; *) core="${cueSources}/instruction-core-cases.cue" ;; esac
-                  inputs+=("$core") ;;
+                  inputs+=("$core" "$group") ;;
               esac
               case "$fixture" in
                 lowering)
@@ -1602,6 +1658,7 @@
                 ../../bootstrap/instruction-right-field-export.cue
                 ../../bootstrap/instruction-right-operand.cue
                 ../../bootstrap/instruction-right-operand-export.cue
+                ../../bootstrap/instruction-operand-cases.cue
                 ../../bootstrap/instruction-unary-tables.cue
                 ../../bootstrap/instruction-binary-tables.cue
                 ../../bootstrap/instruction-module-text.cue
@@ -2479,7 +2536,8 @@
             core_gate || return
             right_gate || return
             gate "$provider" || return
-            cue export "$schema" "$bridge" "$core" "$right" "$operand" "$unary" "$text" "$first" "$step" "$provider" "$@"
+            touch full-export-started
+            cue export "$schema" "$bridge" "$core" "$right" "$operand" "$group" "$unary" "$text" "$first" "$step" "$provider" "$@"
           }
           # Every raw oracle exports the SAME original default-free table source
           # independently, then imports and gates it; no old inline owner assists.
@@ -2519,7 +2577,7 @@
             core_gate
             gate placed.cue
             right_gate
-            cue export "$source" placed.cue "$step" "$first" "$text" "$unary" "$operand" "$right" "$core" "$bridge" "$schema" | json > reversed.json
+            cue export "$source" placed.cue "$step" "$first" "$text" "$unary" "$group" "$operand" "$right" "$core" "$bridge" "$schema" | json > reversed.json
             cmp "$name.json" reversed.json
           done
           # The reused R occurrences remain independently right; only sum refines.
@@ -2576,7 +2634,7 @@
           # Right completeness remains independent; do not bypass its gate.
           core_gate
           right_gate
-          cue export "$schema" "$bridge" "$core" "$right" "$operand" "$unary" "$text" "$first" "$step" missing.cue "$selector" > bypass.json
+          cue export "$schema" "$bridge" "$core" "$right" "$operand" "$group" "$unary" "$text" "$first" "$step" missing.cue "$selector" > bypass.json
           query -e '.cases.binaryRuntime.parts[0].op=="select"' bypass.json > /dev/null
           no_policy missing.cue
           printf '%s\n' '{"formatVersion":1,"rules":{"a":{"result":{"op":"index","left":{"op":"field","field":"left"},"right":{"op":"field","field":"right"}}},"b":{"result":{"op":"difference","left":{"op":"field","field":"left"},"right":{"op":"field","field":"right"}}}}}' > tiny.json
@@ -2754,7 +2812,7 @@
           right=${../../bootstrap/instruction-right-field.cue}
           ${instructionOperandConsumer}
           ${instructionCoreConsumer}
-          binary_export() { core_gate || return; right_gate || return; binary_gate || return; cue export "$core" "$right" "$operand" "$@" binary-placed.cue; }
+          binary_export() { core_gate || return; right_gate || return; binary_gate || return; touch full-export-started; cue export "$core" "$right" "$operand" "$group" "$@" binary-placed.cue; }
           raw() { binary_export "$schema" "$bridge" "$moduleText" "$firstOwner" "$stepOwner" instruction-unary-tables.cue "$@"; }
           complete() { binary_export "$schema" "$bridge" "$moduleText" "$firstOwner" "$stepOwner" "$@"; }
           native instruction-unary-tables.cue > tables.json
@@ -2802,7 +2860,7 @@
             core_gate || return
             binary_gate
             right_gate
-            cue eval "$schema" "$bridge" "$core" "$right" "$operand" "$moduleText" "$firstOwner" "$stepOwner" binary-placed.cue "$@" > /dev/null
+            cue eval "$schema" "$bridge" "$core" "$right" "$operand" "$group" "$moduleText" "$firstOwner" "$stepOwner" binary-placed.cue "$@" > /dev/null
           }
           no_export "$selector"
           env -i HOME="$PWD/home" PATH=/nonexistent "$jq" -c \
@@ -2971,7 +3029,7 @@
           right=${../../bootstrap/instruction-right-field.cue}
           ${instructionOperandConsumer}
           ${instructionCoreConsumer}
-          binary_export() { core_gate || return; right_gate || return; binary_gate || return; cue export "$core" "$right" "$operand" "$@" binary-placed.cue; }
+          binary_export() { core_gate || return; right_gate || return; binary_gate || return; touch full-export-started; cue export "$core" "$right" "$operand" "$group" "$@" binary-placed.cue; }
           raw() { binary_export "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" "$helper" "$@"; }
           complete() { binary_export "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" placed.cue "$@"; }
           native "$helper" > text.json
@@ -3010,7 +3068,7 @@
             core_gate || return
             binary_gate
             right_gate
-            cue eval "$schema" "$bridge" "$core" "$right" "$operand" "$unary" "$firstOwner" "$stepOwner" binary-placed.cue "$@" > /dev/null
+            cue eval "$schema" "$bridge" "$core" "$right" "$operand" "$group" "$unary" "$firstOwner" "$stepOwner" binary-placed.cue "$@" > /dev/null
             if binary_export "$schema" "$bridge" "$unary" "$firstOwner" "$stepOwner" "$@" > failed.json 2> failed.err; then exit 1; fi
             test ! -s failed.json && test -s failed.err
             grep -E 'non-concrete value string in operand to \+|incomplete value string' failed.err
@@ -3029,7 +3087,7 @@
             core_gate
             binary_gate
             right_gate
-            if cue eval "$schema" "$bridge" "$core" "$right" "$operand" "$unary" "$firstOwner" "$stepOwner" binary-placed.cue placed.cue "$selector" > failed.eval 2> failed.err; then exit 1; fi
+            if cue eval "$schema" "$bridge" "$core" "$right" "$operand" "$group" "$unary" "$firstOwner" "$stepOwner" binary-placed.cue placed.cue "$selector" > failed.eval 2> failed.err; then exit 1; fi
             if complete "$selector" > failed.json 2> failed.err; then exit 1; fi
             test ! -s failed.json && test -s failed.err
             grep -E 'conflicting values|field not allowed' failed.err
@@ -3180,7 +3238,7 @@
           right=${../../bootstrap/instruction-right-field.cue}
           ${instructionOperandConsumer}
           ${instructionCoreConsumer}
-          binary_export() { core_gate || return; right_gate || return; binary_gate || return; cue export "$core" "$right" "$operand" "$@" binary-placed.cue; }
+          binary_export() { core_gate || return; right_gate || return; binary_gate || return; touch full-export-started; cue export "$core" "$right" "$operand" "$group" "$@" binary-placed.cue; }
           base() { binary_export "$schema" "$bridge" "$text" "$unary" "$@"; }
           raw() { base "$first" "$step" "$@"; }
           selected() { base first-placed.cue step-placed.cue "$@"; }
@@ -3238,7 +3296,7 @@
             core_gate
             binary_gate
             right_gate
-            cue eval "$schema" "$bridge" "$core" "$right" "$operand" "$text" "$unary" binary-placed.cue "''${providers[@]}" "$selector" > /dev/null
+            cue eval "$schema" "$bridge" "$core" "$right" "$operand" "$group" "$text" "$unary" binary-placed.cue "''${providers[@]}" "$selector" > /dev/null
             if base "''${providers[@]}" "$selector" > failed.json 2> failed.err; then exit 1; fi
             test ! -s failed.json && test -s failed.err
             grep -F 'incomplete value' failed.err
@@ -3432,9 +3490,9 @@
             binary_gate || return
             touch full-export-started
             if test "$2" = reverse; then
-              cue export "$1" "$step" "$first" "$text" "$unary" binary-placed.cue "$operand" "$right" "$core" "$bridge" "$schema"
+              cue export "$1" "$step" "$first" "$text" "$unary" binary-placed.cue "$group" "$operand" "$right" "$core" "$bridge" "$schema"
             else
-              cue export "$schema" "$bridge" "$core" "$right" "$operand" binary-placed.cue "$unary" "$text" "$first" "$step" "$1"
+              cue export "$schema" "$bridge" "$core" "$right" "$operand" "$group" binary-placed.cue "$unary" "$text" "$first" "$step" "$1"
             fi
           }
           native instruction-core-cases.cue > body.json
@@ -3542,7 +3600,7 @@
           no_shape missing-op.json
           right_gate
           binary_gate
-          cue export "$schema" "$bridge" missing-op.json "$right" "$operand" binary-placed.cue "$unary" "$text" "$first" "$step" "$selector" > bypass.json
+          cue export "$schema" "$bridge" missing-op.json "$right" "$operand" "$group" binary-placed.cue "$unary" "$text" "$first" "$step" "$selector" > bypass.json
           query -e '.cases.text.op=="call"' bypass.json > /dev/null
           core=missing-op.json; no_policy
           # Full policy comparisons preserve raw preferences and all cursor contexts.
@@ -3737,9 +3795,11 @@
           binary_gate() { cue export "$schema" "$bridge" binary-placed.cue -e '#InstructionBinaryTables' > /dev/null; }
           isolated() { cue "$1" "$schema" "$bridge" "''${@:2}" -e '#InstructionRightField'; }
           operand=${../../bootstrap/instruction-right-operand.cue}
+          group=${../../bootstrap/instruction-operand-cases.cue}
           right_gate() {
             isolated export "$@" > /dev/null || return
-            cue export "$schema" "$bridge" "$operand" "$@" -e '#InstructionRightOperand' > /dev/null
+            cue export "$schema" "$bridge" "$operand" "$@" -e '#InstructionRightOperand' > /dev/null || return
+            cue export "$schema" "$bridge" "$operand" "$group" "$@" -e '#InstructionOperandCases' > /dev/null
           }
           ${instructionCoreConsumer}
           # All checks are fail-stop even when the caller uses if or ||.
@@ -3752,9 +3812,9 @@
             right_gate "''${rightInputs[@]}" || return
             binary_gate || return
             touch full-export-started
-            inputs=("$schema" "$bridge" "$core" "$operand" "''${rightInputs[@]}" binary-placed.cue "$unary" "$text" "$first" "$step" "$context")
+            inputs=("$schema" "$bridge" "$core" "$operand" "$group" "''${rightInputs[@]}" binary-placed.cue "$unary" "$text" "$first" "$step" "$context")
             if test "$order" = reverse; then
-              cue export "$context" "$step" "$first" "$text" "$unary" binary-placed.cue "$operand" "''${rightInputs[@]}" "$core" "$bridge" "$schema"
+              cue export "$context" "$step" "$first" "$text" "$unary" binary-placed.cue "$group" "$operand" "''${rightInputs[@]}" "$core" "$bridge" "$schema"
             else
               cue export "''${inputs[@]}"
             fi
@@ -3946,7 +4006,7 @@
           # Explicit verification-only bypass: all nine contexts backfill R.
           core_gate
           binary_gate
-          cue export "$schema" "$bridge" "$core" "$operand" "$text" "$unary" "$first" "$step" binary-placed.cue canonical/all/context.cue | json > bypass-all-left.json
+          cue export "$schema" "$bridge" "$core" "$operand" "$group" "$text" "$unary" "$first" "$step" binary-placed.cue canonical/all/context.cue | json > bypass-all-left.json
           cmp bypass-all-left.json canonical/all/raw-forward.json
           # Exercise the ACTUAL policy wrapper under both if and ||, including
           # the context that could conceal a missing input without isolation.
@@ -4111,15 +4171,17 @@
           right_gate() { cue export "$schema" "$bridge" "$right" -e '#InstructionRightField' > /dev/null; }
           isolated() { cue "$1" "$schema" "$bridge" "$right" "''${@:2}" -e '#InstructionRightOperand'; }
           operand_gate() { isolated export "$operand" > /dev/null; }
+          group=${../../bootstrap/instruction-operand-cases.cue}
+          group_gate() { cue export "$schema" "$bridge" "$right" "$operand" "$group" -e '#InstructionOperandCases' > /dev/null; }
           policy() {
             mode=$1; context=$2; order=$3
             core_gate || return
             binary_gate || return
             providers=()
             case "$mode" in
-              accepted) right_gate || return; operand_gate || return; providers=("$right" "$operand") ;;
-              backfill) providers=("$right") ;;
-              missing-right) providers=("$operand") ;;
+              accepted) right_gate || return; operand_gate || return; group_gate || return; providers=("$right" "$operand" "$group") ;;
+              backfill) right_gate || return; providers=("$right" "$group") ;;
+              missing-right) providers=("$operand" "$group") ;;
               legacy) ;;
               *) return 1 ;;
             esac
@@ -4130,9 +4192,11 @@
               cue export "$schema" "$bridge" "$core" "''${providers[@]}" binary-placed.cue "$unary" "$text" "$first" "$step" "$context"
             fi
           }
-          # Verification-only inverse: recover the original initializer once.
+          # Restore ALL original cases/L before the existing R/Right inverse.
+          ${instructionGroupInverse}
+          restore_group "$bridge" group-original.cue
           body=$(tail -n 1 "$operand"); body="''${body#*: }"
-          substitute "$bridge" old-bridge.cue \
+          substitute group-original.cue old-bridge.cue \
             --replace-fail "let R = #InstructionRightOperand" "let R = $body" \
             --replace-fail $'#InstructionRightOperand: close({op: string, value: close({op: string, value: close({op: string, field: string})})})\n' "" \
             --replace-fail $'#InstructionRightField: close({field: string})\n' "" \
