@@ -568,7 +568,10 @@
               -o "$PWD/instruction-operand-cases.cue" \
               ${nativeInstructionOperandCases pkgs}/operand-cases.json
             group="$PWD/instruction-operand-cases.cue"
-            runtime=${../../bootstrap/instruction-binary-runtime.cue}
+            cue import -p bootstrap -l '#InstructionBinaryRuntime:' \
+              -o "$PWD/instruction-binary-runtime.cue" \
+              ${nativeInstructionBinaryRuntime pkgs}/binary-runtime.json
+            runtime="$PWD/instruction-binary-runtime.cue"
             ${instructionCoreConsumer}
             core=${nativeInstructionCoreCases pkgs}/instruction-core-cases.json
             export_policy() {
@@ -713,10 +716,14 @@
                     "$PWD/instruction-module-text.cue" "$PWD/instruction-binary-tables.cue")
                   core=${nativeInstructionCoreCases pkgs}/instruction-core-cases.json
                   case "$fixture" in
-                    lowering) group="$PWD/instruction-operand-cases.cue" ;;
-                    *) core="${cueSources}/instruction-core-cases.cue"; group="${cueSources}/instruction-operand-cases.cue" ;;
+                    lowering)
+                      group="$PWD/instruction-operand-cases.cue"
+                      runtime="$PWD/instruction-binary-runtime.cue" ;;
+                    *)
+                      core="${cueSources}/instruction-core-cases.cue"
+                      group="${cueSources}/instruction-operand-cases.cue"
+                      runtime="${cueSources}/instruction-binary-runtime.cue" ;;
                   esac
-                  runtime="${cueSources}/instruction-binary-runtime.cue"
                   inputs+=("$core" "$group" "$runtime") ;;
               esac
               case "$fixture" in
@@ -1729,6 +1736,7 @@
                 ../../bootstrap/instruction-right-operand-export.cue
                 ../../bootstrap/instruction-operand-cases.cue
                 ../../bootstrap/instruction-operand-cases-export.cue
+                ../../bootstrap/instruction-binary-runtime-export.cue
                 ../../bootstrap/instruction-binary-runtime.cue
                 ../../bootstrap/instruction-unary-tables.cue
                 ../../bootstrap/instruction-binary-tables.cue
@@ -4719,6 +4727,332 @@
           cp ${nativeInstructionOperandCasesBuildClosure pkgs}/registration "$out/native-build-registration"
           printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeInstructionOperandCases pkgs).drvPath} > "$out/native-build-roots"
         '';
+      instructionBinaryRuntimeSources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/instruction-binary-runtime.cue
+            ../../bootstrap/instruction-binary-runtime-export.cue
+          ];
+        };
+      nativeInstructionBinaryRuntime =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-instruction-binary-runtime" { } ''
+          set -euo pipefail
+          mkdir -p "$PWD/home" "$out"
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          test -f "$exporter" && test -r "$exporter" && test -x "$exporter"
+          case "$exporter" in /*) ;; *) exit 1 ;; esac
+          owner=${instructionBinaryRuntimeSources pkgs}/instruction-binary-runtime.cue
+          root=${instructionBinaryRuntimeSources pkgs}/instruction-binary-runtime-export.cue
+          binary=${nativeInstructionBinaryTables pkgs}/instruction-binary-tables.json
+          group=${nativeInstructionOperandCases pkgs}/operand-cases.json
+          operand=${nativeInstructionRightOperand pkgs}/right-operand.json
+          for input in "$owner" "$root" "$binary" "$group" "$operand"; do
+            test "$(wc -c < "$input")" -le 65536
+          done
+          cp "$root" adapter.cue
+          chmod u+w adapter.cue
+          for provider in BinaryTables OperandCases RightOperand; do
+            case "$provider" in
+              BinaryTables) input=$binary ;;
+              OperandCases) input=$group ;;
+              RightOperand) input=$operand ;;
+            esac
+            printf '\n#Instruction%s: ' "$provider" >> adapter.cue
+            cat "$input" >> adapter.cue
+          done
+          test "$(wc -c < adapter.cue)" -le 65536
+          test "$(($(wc -c < "$owner") + $(wc -c < adapter.cue)))" -le 65536
+          for order in forward reverse; do
+            for repeat in first second; do
+              inputs=("$owner" adapter.cue)
+              if test "$order" = reverse; then inputs=(adapter.cue "$owner"); fi
+              env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "''${inputs[@]}" > "$order-$repeat.json"
+              test "$(wc -c < "$order-$repeat.json")" -le 65536
+              cmp forward-first.json "$order-$repeat.json"
+            done
+          done
+          cp forward-first.json "$out/binary-runtime.json"
+        '';
+      nativeInstructionBinaryRuntimeBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativeInstructionBinaryRuntime pkgs).drvPath
+          ];
+        };
+      nativeInstructionBinaryRuntimeVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-instruction-binary-runtime-verification" { } ''
+          set -euo pipefail
+          for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} ${pkgs.cue.src.drvPath} \
+            ${../../bootstrap/schema.cue} ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+            ${executor pkgs} ${(executor pkgs).drvPath} \
+            ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+            ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+            ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
+            if grep -Fx "$forbidden" ${nativeInstructionBinaryRuntimeBuildClosure pkgs}/store-paths; then
+              echo "forbidden Runtime construction dependency: $forbidden" >&2; exit 1
+            fi
+          done
+          test "$(find ${instructionBinaryRuntimeSources pkgs} -type f | wc -l)" -eq 2
+          test "$(find ${specSources pkgs false} -type f | wc -l)" -eq 10
+          mkdir -p "$out" "$PWD/probe/home"
+          cd probe
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          oracle=${pkgs.cue}/bin/cue
+          compiler=${executor pkgs}/bin/bootstrap-codegen
+          driver=${nativeCodegenCore pkgs}/bin/bootstrap-lower-codegen
+          jq=${pkgs.jq}/bin/jq
+          rustfmt=${pkgs.rustfmt}/bin/rustfmt
+          for tool in "$exporter" "$oracle" "$compiler" "$driver" "$jq" "$rustfmt"; do
+            test -f "$tool" && test -r "$tool" && test -x "$tool"
+            case "$tool" in /*) ;; *) exit 1 ;; esac
+          done
+          native() { env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$@"; }
+          cue() { env -i HOME="$PWD/home" PATH=/nonexistent "$oracle" "$@"; }
+          query() { env -i HOME="$PWD/home" PATH=/nonexistent "$jq" "$@"; }
+          json() { query -S .; }
+          place() { cue import -f -p bootstrap -l "$1:" -o "$3" "$2"; }
+          bounded() { for input in "$@"; do test "$(wc -c < "$input")" -le 65536; done; }
+          pair() {
+            bounded "$1" "$2"
+            test "$(($(wc -c < "$1") + $(wc -c < "$2")))" -le 65536
+            for order in forward reverse; do
+              for repeat in first second; do
+                inputs=("$1" "$2")
+                if test "$order" = reverse; then inputs=("$2" "$1"); fi
+                native "''${inputs[@]}" > "$3-$order-$repeat.json"
+                bounded "$3-$order-$repeat.json"
+                cmp "$3-forward-first.json" "$3-$order-$repeat.json"
+              done
+            done
+          }
+          adapter() {
+            local target=$2
+            cp "$1" "$target"
+            chmod u+w "$target"
+            shift 2
+            for provider in "$@"; do
+              printf '\n#Instruction%s: ' "''${provider%%=*}" >> "$target"
+              cat "''${provider#*=}" >> "$target"
+            done
+          }
+          schema=${../../bootstrap/schema.cue}
+          bridge=${../../bootstrap/lowering-fragments.cue}
+          root=${instructionBinaryRuntimeSources pkgs}/instruction-binary-runtime-export.cue
+          groupRoot=${instructionOperandCaseSources pkgs}/instruction-operand-cases-export.cue
+          operandRoot=${instructionOperandSources pkgs}/instruction-right-operand-export.cue
+          rightRoot=${../../bootstrap/instruction-right-field-export.cue}
+          ${instructionCoreConsumer}
+          # Every answer below is independently specified; none seeds native input.
+          expected_runtime() {
+            query -n --arg left "$runtimeLeft" --arg right "$rightField" --arg opening "$opening" \
+              --arg difference "$differenceMethod" --arg index "$indexMethod" '
+              def wrap($f): {op:"try",value:{op:"group",value:{op:"lower",field:$f}}};
+              def text($s): {op:"text",value:$s};
+              {op:"concat",parts:[{op:"select",field:"op",cases:{
+                index:text("runtime::"+$index),difference:text("runtime::"+$difference),
+                product:text("runtime::product"),divide:text("runtime::divide"),
+                modulo:text("runtime::modulo"),quotient:text("runtime::quotient"),
+                recordIndex:text("runtime::record_index"),listIndex:text("runtime::list_index"),
+                logicalAnd:text("runtime::logical_and"),logicalOr:text("runtime::logical_or"),
+                equal:text("runtime::equal")}},text($opening),wrap($left),text(", "),wrap($right),text(")")]}' | json
+          }
+          policy() {
+            core_gate || return
+            cue export "$schema" "$bridge" "$right" -e '#InstructionRightField' > /dev/null || return
+            cue export "$schema" "$bridge" "$right" "$operand" -e '#InstructionRightOperand' > /dev/null || return
+            cue export "$schema" "$bridge" "$right" "$operand" "$group" -e '#InstructionOperandCases' > /dev/null || return
+            cue export "$schema" "$bridge" "$binary" -e '#InstructionBinaryTables' > /dev/null || return
+            cue export "$schema" "$bridge" "$right" "$operand" "$group" "$binary" "$runtime" \
+              -e '#InstructionBinaryRuntime' > /dev/null || return
+            touch full-export-started
+            inputs=("$schema" "$bridge" "$core" "$right" "$operand" "$group" "$binary" "$runtime"
+              ${../../bootstrap/instruction-unary-tables.cue} ${../../bootstrap/instruction-module-text.cue}
+              ${../../bootstrap/instruction-module-first.cue} ${../../bootstrap/instruction-module-step.cue}
+              ${../../bootstrap/lowering.cue})
+            if test "$1" = reverse; then
+              reversed=(); for input in "''${inputs[@]}"; do reversed=("$input" "''${reversed[@]}"); done
+              inputs=("''${reversed[@]}")
+            fi
+            cue export "''${inputs[@]}"
+          }
+          materialize() {
+            pair "$right" "$rightRoot" "$variant/right"
+            adapterPath="$variant/operand-adapter.cue"
+            adapter "$operandRoot" "$adapterPath" "RightField=$variant/right-forward-first.json"
+            pair "$operand" "$adapterPath" "$variant/operand"
+            adapterPath="$variant/group-adapter.cue"
+            adapter "$groupRoot" "$adapterPath" "RightOperand=$variant/operand-forward-first.json"
+            pair "$group" "$adapterPath" "$variant/group"
+            pair ${../../bootstrap/native-policy-package.cue} "$variant/binary-owner.cue" "$variant/binary"
+            place '#InstructionBinaryTables' "$variant/binary-forward-first.json" "$variant/binary.cue"
+            binary="$variant/binary.cue"
+            adapterPath="$variant/runtime-adapter.cue"
+            adapter "$root" "$adapterPath" "BinaryTables=$variant/binary-forward-first.json" \
+              "OperandCases=$variant/group-forward-first.json" "RightOperand=$variant/operand-forward-first.json"
+            pair "$runtime" "$adapterPath" "$variant/runtime"
+            expected_runtime > "$variant/expected-runtime.json"
+            json < "$variant/runtime-forward-first.json" > "$variant/sorted-runtime.json"
+            cmp "$variant/expected-runtime.json" "$variant/sorted-runtime.json"
+            for order in forward reverse; do
+              inputs=("$runtime" "$adapterPath")
+              if test "$order" = reverse; then inputs=("$adapterPath" "$runtime"); fi
+              cue export "''${inputs[@]}" > "$variant/go-$order.json"
+              json < "$variant/go-$order.json" > "$variant/go-sorted.json"
+              cmp "$variant/expected-runtime.json" "$variant/go-sorted.json"
+            done
+          }
+          # The unformatted module follows the ORIGINAL header/footer and statement
+          # program, including all four blank lines; rustfmt cannot erase the proof.
+          expected_rust() {
+            cat <<RUST
+          // Generated by bootstrap-codegen. Do not edit by hand.
+          use bootstrap_executor::{Error, runtime};
+          use serde_json::Value;
+
+          pub fn execute(input: &str) -> Result<i64, Error> {
+          let mut _context = runtime::EvaluationContext::default();
+          runtime::concrete(evaluate(&runtime::program(input)?, &mut _context)?)
+          }
+
+          pub fn execute_json(input: &str) -> Result<Value, Error> {
+          let mut _context = runtime::EvaluationContext::default();
+          runtime::concrete_json(evaluate(&runtime::program(input)?, &mut _context)?)
+          }
+
+          fn evaluate(node: &Value, _context: &mut runtime::EvaluationContext) -> Result<runtime::Value, Error> {
+          _context.visit(|_context| evaluate_node(node, _context))
+          }
+
+          fn evaluate_node(node: &Value, _context: &mut runtime::EvaluationContext) -> Result<runtime::Value, Error> {
+          match runtime::kind(node)? {
+          "binary" => runtime::$differenceMethod$opening(Ok::<_, Error>(runtime::Value::$binaryLeftValue))?, (Ok::<_, Error>(runtime::Value::$rightValue))?),
+          "sum" => runtime::sum((Ok::<_, Error>(runtime::Value::$groupLeftValue))?, (Ok::<_, Error>(runtime::Value::$rightValue))?),
+          kind => Err(Error::MissingRule { kind: kind.to_string() }),
+          }
+          }
+          RUST
+          }
+          printf '%s\n' '{"formatVersion":1,"rules":{"binary":{"result":{"op":"difference","left":{"op":"int"},"right":{"op":"bool"}}},"sum":{"result":{"op":"sum","left":{"op":"int"},"right":{"op":"bool"}}}}}' > tiny.json
+          for variant in canonical runtime-punctuation runtime-left binary-method binary-keyswap group-left r-selector; do
+            mkdir "$variant"
+            cp ${../../bootstrap/instruction-right-field.cue} "$variant/right.cue"
+            cp ${../../bootstrap/instruction-right-operand.cue} "$variant/operand.cue"
+            cp ${../../bootstrap/instruction-operand-cases.cue} "$variant/group.cue"
+            cp ${../../bootstrap/instruction-binary-tables.cue} "$variant/binary-owner.cue"
+            cp ${instructionBinaryRuntimeSources pkgs}/instruction-binary-runtime.cue "$variant/runtime.cue"
+            runtimeLeft=left; groupLeft=left; rightField=right; opening='('
+            binaryLeftValue=Int; groupLeftValue=Int; rightValue=Bool
+            differenceMethod=difference; indexMethod=index
+            case "$variant" in
+              runtime-punctuation)
+                substituteInPlace "$variant/runtime.cue" --replace-fail 'value: "("' 'value: "( "'
+                opening='( ' ;;
+              runtime-left)
+                substituteInPlace "$variant/runtime.cue" --replace-fail '#InstructionOperandCases.leftOperand' '#InstructionRightOperand'
+                runtimeLeft=right; binaryLeftValue=Bool ;;
+              binary-method)
+                substituteInPlace "$variant/binary-owner.cue" --replace-fail 'difference:       "difference"' 'difference:       "sum"'
+                differenceMethod=sum ;;
+              binary-keyswap)
+                substituteInPlace "$variant/binary-owner.cue" --replace-fail 'index:       "index"' 'difference:       "index"' \
+                  --replace-fail 'difference:       "difference"' 'index:       "difference"'
+                differenceMethod=index; indexMethod=difference ;;
+              group-left)
+                substituteInPlace "$variant/group.cue" --replace-fail 'field: "left"' 'field: "right"'
+                runtimeLeft=right; groupLeft=right; binaryLeftValue=Bool; groupLeftValue=Bool ;;
+              r-selector)
+                substituteInPlace "$variant/operand.cue" --replace-fail '#InstructionRightField.field' '"left"'
+                rightField=left; rightValue=Int ;;
+            esac
+            right="$variant/right.cue"; operand="$variant/operand.cue"; group="$variant/group.cue"; runtime="$variant/runtime.cue"
+            materialize
+            for order in forward reverse; do policy "$order" | json > "$variant/raw-$order.json"; done
+            place '#InstructionRightField' "$variant/right-forward-first.json" "$variant/placed-right.cue"
+            place '#InstructionRightOperand' "$variant/operand-forward-first.json" "$variant/placed-operand.cue"
+            place '#InstructionOperandCases' "$variant/group-forward-first.json" "$variant/placed-group.cue"
+            place '#InstructionBinaryRuntime' "$variant/runtime-forward-first.json" "$variant/placed-runtime.cue"
+            right="$variant/placed-right.cue"; operand="$variant/placed-operand.cue"
+            group="$variant/placed-group.cue"; runtime="$variant/placed-runtime.cue"
+            # Preserve every unaffected sibling from the full canonical control;
+            # predict ALL changed subtrees independently, never from variant output.
+            query --slurpfile rt "$variant/expected-runtime.json" --arg l "$groupLeft" --arg r "$rightField" '
+              def wrap($f): {op:"try",value:{op:"group",value:{op:"lower",field:$f}}};
+              .cases.binaryRuntime=$rt[0] |
+              (.cases.sum,.cases.less,.cases.lessEqual,.cases.greater,.cases.greaterEqual,
+                .cases.notEqual,.cases.remainder,.cases.unify.parts[1]).args=[wrap($l),wrap($r)]' \
+              canonical/raw-forward.json | json > "$variant/expected-policy.json"
+            for order in forward reverse; do
+              policy "$order" | json > "$variant/native-$order.json"
+              cmp "$variant/expected-policy.json" "$variant/raw-$order.json"
+              cmp "$variant/expected-policy.json" "$variant/native-$order.json"
+            done
+            expected_rust > "$variant/expected-unformatted.rs"
+            if test "$variant" != canonical; then
+              if cmp -s canonical/expected-unformatted.rs "$variant/expected-unformatted.rs"; then
+                echo "unobservable Runtime source effect: $variant" >&2; exit 1
+              fi
+            fi
+            for provider in raw native; do
+              env -i HOME="$PWD/home" PATH=/nonexistent "$compiler" tiny.json "$variant/$provider-forward.json" > "$variant/$provider-unformatted.rs"
+              cmp "$variant/expected-unformatted.rs" "$variant/$provider-unformatted.rs"
+              env -i HOME="$PWD/home" PATH=/nonexistent "$rustfmt" --edition 2024 \
+                < "$variant/$provider-unformatted.rs" > "$variant/$provider-formatted.rs"
+            done
+          done
+          cmp canonical/runtime-forward-first.json ${nativeInstructionBinaryRuntime pkgs}/binary-runtime.json
+          test "$(wc -c < canonical/runtime-forward-first.json)" -eq 1652
+          test "$(wc -c < canonical/go-forward.json)" -eq 2286
+          json < ${jsonExports pkgs}/lowering.json > canonical/bundle.json
+          cmp canonical/bundle.json canonical/native-forward.json
+          right=canonical/placed-right.cue; operand=canonical/placed-operand.cue
+          group=canonical/placed-group.cue; binary=canonical/binary.cue; runtime=canonical/placed-runtime.cue
+          consume_core() { policy forward; }
+          ${instructionRuntimeConsumerProbe}
+          for invalid in opcode type shape; do
+            case "$invalid" in
+              opcode) expression='.op = "notAnInstructionOpcode"' ;;
+              type) expression='.op = 7' ;;
+              shape) expression='.parts = []' ;;
+            esac
+            query "$expression" canonical/expected-runtime.json > "$invalid.json"
+            place '#InstructionBinaryRuntime' "$invalid.json" "$invalid.cue"
+            runtime="$invalid.cue"
+            rm -f full-export-started
+            status=0
+            policy forward > "$invalid-policy.json" 2> "$invalid.err" || status=$?
+            test "$status" -eq 1 && test ! -s "$invalid-policy.json" && test -s "$invalid.err"
+            if test "$invalid" = opcode; then test -e full-export-started; else test ! -e full-export-started; fi
+          done
+          # A new long R must reach BOTH Group and Runtime: selected old DATA would
+          # conceal the dependency. Go accepts this; the REAL typed driver rejects.
+          query '.value.value.field = ([range(129)|"x"]|join(""))' canonical/operand-forward-first.json > long.json
+          place '#InstructionRightOperand' long.json long.cue
+          operand=long.cue; group=canonical/group.cue; runtime=canonical/runtime.cue
+          policy forward > long-policy.json
+          status=0
+          env -i HOME="$PWD/home" PATH=/nonexistent "$driver" long-policy.json > long.rs 2> long.err || status=$?
+          test "$status" -eq 2 && test ! -s long.rs && test -s long.err
+          grep -F 'selector must contain 1..=128 bytes' long.err
+          operand=canonical/placed-operand.cue; group=canonical/placed-group.cue; runtime=canonical/placed-runtime.cue
+          policy reverse | json > recovered.json
+          cmp recovered.json canonical/native-forward.json
+          env -i HOME="$PWD/home" PATH=/nonexistent "$driver" recovered.json > recovered-driver.rs
+          test -s recovered-driver.rs
+          native canonical/runtime.cue canonical/runtime-adapter.cue > recovered-native.json
+          cmp recovered-native.json canonical/runtime-forward-first.json
+          cp -R . "$out/evidence"
+          rm -rf "$out/evidence/home"
+          cp ${nativeInstructionBinaryRuntimeBuildClosure pkgs}/store-paths "$out/native-build-paths"
+          cp ${nativeInstructionBinaryRuntimeBuildClosure pkgs}/registration "$out/native-build-registration"
+          printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeInstructionBinaryRuntime pkgs).drvPath} > "$out/native-build-roots"
+        '';
       prattTableSources =
         pkgs:
         pkgs.lib.fileset.toSource {
@@ -5738,6 +6072,7 @@
           native-instruction-right-field = nativeInstructionRightField pkgs;
           native-instruction-right-operand = nativeInstructionRightOperand pkgs;
           native-instruction-operand-cases = nativeInstructionOperandCases pkgs;
+          native-instruction-binary-runtime = nativeInstructionBinaryRuntime pkgs;
           native-instruction-binary-tables = nativeInstructionBinaryTables pkgs;
           native-instruction-unary-tables = nativeInstructionUnaryTables pkgs;
           native-instruction-module-text = nativeInstructionModuleText pkgs;
@@ -5818,6 +6153,7 @@
           native-instruction-right-field = nativeInstructionRightFieldVerification pkgs;
           native-instruction-right-operand = nativeInstructionRightOperandVerification pkgs;
           native-instruction-operand-cases = nativeInstructionOperandCasesVerification pkgs;
+          native-instruction-binary-runtime = nativeInstructionBinaryRuntimeVerification pkgs;
           native-instruction-binary-tables = nativeInstructionBinaryTablesVerification pkgs;
           native-instruction-unary-tables = nativeInstructionUnaryTablesVerification pkgs;
           native-instruction-module-text = nativeInstructionModuleTextVerification pkgs;
