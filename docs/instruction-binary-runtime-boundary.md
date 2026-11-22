@@ -167,6 +167,13 @@ Whole-provider omission must prove actual eval0/export1 EMPTY; Legacy removes BO
 new helper definitions before old inverses. EARLY complete formatting/measurement
 before expensive validation remains mandatory; FIRST credible>~1800 suspends work.
 
+## Fresh coordinator implementation GO
+BOTH independent ENTIRE-contract reviews approve `0755772d`; coordinator read BOTH.
+NEW GO resumes ONLY owned boundary/proof from immutable `2125f8ad`/`20418132` children.
+USER~1800 applies ONLY #270, ALL changes counted; native publication remains HELD.
+EARLY complete naturally formatted diff +remaining docs/unspent repairs is mandatory;
+FIRST credible overrun/ambiguity/identity or inverse defect suspends continuation.
+
 ## Unpassed release gates / current disposition
 
 Boundary-only expected29 checks/26 packages/55 names/54 unique/23 native graphs;
