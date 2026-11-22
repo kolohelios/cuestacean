@@ -12,6 +12,7 @@ use std::{
 const OWNER: &str = include_str!("../../instruction-right-field.cue");
 const ROOT: &str = include_str!("../../instruction-right-field-export.cue");
 const OPERAND: &str = include_str!("../../instruction-right-operand.cue");
+const GROUP: &str = include_str!("../../instruction-operand-cases.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
 const CORE: &str = include_str!("../../instruction-core-cases.cue");
@@ -206,6 +207,7 @@ impl Probe {
         // Legacy owns R; the explicit verification bypass skips BOTH dependent gates.
         if !matches!(mode, SourceMode::Legacy) {
             inputs.push(("operand.cue", OPERAND));
+            inputs.push(("group.cue", GROUP));
         }
         inputs.push(("context.cue", context));
         self.full_exports.set(self.full_exports.get() + 1);
@@ -230,6 +232,21 @@ impl Probe {
         if !operand_gate.status.success() {
             return operand_gate;
         }
+        let group_gate = self.run(
+            &self.cue,
+            &["export", "-e", "#InstructionOperandCases"],
+            &[
+                ("schema.cue", SCHEMA),
+                ("bridge.cue", BRIDGE),
+                ("right.cue", provider.expect("Right gate requires provider")),
+                ("operand.cue", OPERAND),
+                ("group.cue", GROUP),
+            ],
+            reverse,
+        );
+        if !group_gate.status.success() {
+            return group_gate;
+        }
         // Discard gate stdout. Reuse the SAME unresolved source, never its selected JSON.
         self.full(BRIDGE, provider, context, reverse, SourceMode::Current)
     }
@@ -249,7 +266,49 @@ fn original_bridge() -> String {
         .trim()
         .strip_prefix("package bootstrap\n\n#InstructionRightOperand: ")
         .expect("raw R owner");
-    let bridge = BRIDGE
+    let (before, shape) = BRIDGE
+        .split_once("#InstructionOperandCases: close({\n")
+        .expect("Group shape");
+    let (_, after) = shape
+        .split_once("// Executable recursion")
+        .expect("shape boundary");
+    let left = GROUP
+        .lines()
+        .find(|line| line.starts_with("\tlet L = "))
+        .expect("original L");
+    let mut restored = format!("{before}// Executable recursion{after}")
+        .replace("\t\t#InstructionOperandCases.cases\n", "")
+        .replace("\tlet L = #InstructionOperandCases.leftOperand", left);
+    let cases = GROUP
+        .split_once("\tcases: {\n")
+        .expect("original cases")
+        .1
+        .strip_suffix("\t}\n}\n")
+        .expect("owner end");
+    let names = [
+        "sum",
+        "less",
+        "lessEqual",
+        "greater",
+        "greaterEqual",
+        "notEqual",
+        "remainder",
+        "unify",
+    ];
+    for (index, name) in names.iter().enumerate() {
+        let prefix = format!("\t\t{name}:");
+        let start = cases.find(&prefix).expect("original body");
+        let end = names.get(index + 1).map_or(cases.len(), |next| {
+            cases.find(&format!("\t\t{next}:")).expect("next body")
+        });
+        let slot = restored
+            .lines()
+            .find(|line| line.starts_with(&prefix))
+            .expect("required slot")
+            .to_owned();
+        restored = restored.replace(&format!("{slot}\n"), &cases[start..end]);
+    }
+    let bridge = restored
         .replace("#InstructionRightOperand: close({op: string, value: close({op: string, value: close({op: string, field: string})})})\n", "")
         .replace("\tlet R = #InstructionRightOperand\n", &format!("\tlet R = {body}\n"));
     assert_eq!(bridge.matches("#InstructionRightField.field").count(), 1);

@@ -21,6 +21,7 @@ const FIRST: &str = include_str!("../../instruction-module-first.cue");
 const STEP: &str = include_str!("../../instruction-module-step.cue");
 const RIGHT: &str = include_str!("../../instruction-right-field.cue");
 const OPERAND: &str = include_str!("../../instruction-right-operand.cue");
+const GROUP: &str = include_str!("../../instruction-operand-cases.cue");
 const SELECTOR: &str = include_str!("../../lowering.cue");
 const TWICE: &str = include_str!("../../tests/valid/lowering-left-twice.cue");
 const REVERSE: &str = include_str!("../../tests/valid/lowering-reverse.cue");
@@ -238,6 +239,21 @@ impl Probe {
         if !operand_gate.status.success() {
             return operand_gate;
         }
+        let group_gate = self.run(
+            &self.cue,
+            &["export", "-e", "#InstructionOperandCases"],
+            &[
+                ("schema.cue", SCHEMA),
+                ("bridge.cue", BRIDGE),
+                ("right.cue", RIGHT),
+                ("operand.cue", OPERAND),
+                ("group.cue", GROUP),
+            ],
+            reverse,
+        );
+        if !group_gate.status.success() {
+            return group_gate;
+        }
         self.full_exports.set(self.full_exports.get() + 1);
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
@@ -249,6 +265,7 @@ impl Probe {
             ("step.cue", STEP),
             ("right.cue", RIGHT),
             ("operand.cue", OPERAND),
+            ("group.cue", GROUP),
             ("context.cue", context),
         ];
         if let Some(body) = body {
@@ -575,9 +592,10 @@ consume() {{
   '{cue}' export shape.cue missing.json >/dev/null || return
   '{cue}' export schema.cue bridge.cue right.cue -e '#InstructionRightField' >/dev/null || return
   '{cue}' export schema.cue bridge.cue right.cue operand.cue -e '#InstructionRightOperand' >/dev/null || return
+  '{cue}' export schema.cue bridge.cue right.cue operand.cue group.cue -e '#InstructionOperandCases' >/dev/null || return
   '{cue}' export schema.cue bridge.cue binary-placed.cue -e '#InstructionBinaryTables' >/dev/null || return
   : > full-export-started
-  '{cue}' export schema.cue bridge.cue missing.json binary-placed.cue unary.cue text.cue first.cue step.cue right.cue operand.cue context.cue
+  '{cue}' export schema.cue bridge.cue missing.json binary-placed.cue unary.cue text.cue first.cue step.cue right.cue operand.cue group.cue context.cue
 }}
 case "$1" in
   normal) consume ;;
