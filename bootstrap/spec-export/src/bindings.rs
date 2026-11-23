@@ -137,7 +137,9 @@ fn reject_cycles(doc: &Document) -> Result<(), Error> {
             } => {
                 edges[id].push(doc.definitions[name]);
             }
-            Expr::And(a, b) | Expr::Or(a, b) => edges[id].extend([*a, *b]),
+            Expr::And(a, b) | Expr::Or(a, b) | Expr::Concat(a, b) => {
+                edges[id].extend([*a, *b]);
+            }
             Expr::Struct(fields) => edges[id].extend(fields.iter().map(|(_, id)| *id)),
             Expr::List(items, tail) => edges[id].extend(items.iter().chain(tail).copied()),
             _ => {}

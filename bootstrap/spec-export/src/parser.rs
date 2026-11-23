@@ -275,11 +275,12 @@ fn lex(source: &str, count: &mut usize) -> Result<Vec<Token>, Error> {
             b'&' | b'|' if bytes.get(pos + 1) == Some(&bytes[pos]) => {
                 return Err(Error::Unsupported("logical operation"));
             }
-            b'{' | b'}' | b'[' | b']' | b'(' | b')' | b':' | b',' | b'&' | b'|' | b'=' | b'*' => {
+            b'{' | b'}' | b'[' | b']' | b'(' | b')' | b':' | b',' | b'&' | b'|' | b'=' | b'*'
+            | b'+' => {
                 pos += 1;
                 Token::Symbol(bytes[start])
             }
-            b'?' | b'!' | b'+' | b'/' | b'<' | b'>' | b'\'' => {
+            b'?' | b'!' | b'/' | b'<' | b'>' | b'\'' => {
                 return Err(Error::Unsupported("syntax outside export profile"));
             }
             _ => return Err(Error::Unsupported("source character")),
@@ -353,7 +354,9 @@ impl Parser {
     fn node(&mut self, expr: Expr) -> Result<Id, Error> {
         self.syntax()?;
         let height = 1 + match &expr {
-            Expr::And(a, b) | Expr::Or(a, b) => self.heights[*a].max(self.heights[*b]),
+            Expr::And(a, b) | Expr::Or(a, b) | Expr::Concat(a, b) => {
+                self.heights[*a].max(self.heights[*b])
+            }
             Expr::Marked(id) => self.heights[*id],
             Expr::Comprehension { template, .. } => template.height(),
             Expr::Struct(fields) => fields
@@ -464,6 +467,7 @@ impl Parser {
         };
         loop {
             let precedence = match self.peek() {
+                Token::Symbol(b'+') => 3,
                 Token::Symbol(b'&') => 2,
                 Token::Symbol(b'|') => 1,
                 _ => break,
@@ -474,10 +478,13 @@ impl Parser {
             self.take();
             self.newlines();
             let right = self.expression(depth + 1, precedence + 1)?;
-            left = self.node(if precedence == 2 {
-                Expr::And(left, right)
-            } else {
-                Expr::Or(left, right)
+            left = self.node(match precedence {
+                3 => {
+                    self.document.concatenations += 1;
+                    Expr::Concat(left, right)
+                }
+                2 => Expr::And(left, right),
+                _ => Expr::Or(left, right),
             })?;
         }
         if self.heights[left] > 33 - depth {
@@ -898,6 +905,7 @@ pub(crate) fn parse(schema: &str, program: &str) -> Result<Document, Error> {
             lets: 0,
             comprehensions: 0,
             projections: 0,
+            concatenations: 0,
             syntax: 0,
             preparation_steps: 0,
             preparation_strings: 0,

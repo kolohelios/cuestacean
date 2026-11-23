@@ -68,6 +68,7 @@ pub(crate) enum Expr {
     },
     And(Id, Id),
     Or(Id, Id),
+    Concat(Id, Id),
 }
 #[derive(Clone, Debug)]
 pub(crate) struct Document {
@@ -80,6 +81,7 @@ pub(crate) struct Document {
     pub lets: usize,
     pub comprehensions: usize,
     pub projections: usize,
+    pub concatenations: usize,
     pub syntax: usize,
     pub preparation_steps: usize,
     pub preparation_strings: usize,

@@ -578,6 +578,9 @@ impl Evaluator<'_> {
                     Expr::Projection { .. } => {
                         return Err(Error::Unsupported("unexpanded projection"));
                     }
+                    Expr::Concat(_, _) => {
+                        return Err(Error::Unsupported("unexpanded concatenation"));
+                    }
                     Expr::Comprehension { .. } => {
                         return Err(Error::Unsupported("unexpanded comprehension"));
                     }
@@ -891,6 +894,7 @@ mod tests {
             lets: 0,
             comprehensions: 0,
             projections: 0,
+            concatenations: 0,
             syntax: 0,
             preparation_steps: 0,
             preparation_strings: 0,
@@ -910,6 +914,10 @@ mod tests {
                 Err(Error::Unsupported("unadmitted preference syntax"))
             );
         }
+        assert_eq!(
+            evaluate(&document(vec![Expr::Concat(0, 0)]), 4096),
+            Err(Error::Unsupported("unexpanded concatenation"))
+        );
         let cyclic = document(vec![Expr::Binding(0)]);
         assert_eq!(
             evaluate(&cyclic, 4096),
