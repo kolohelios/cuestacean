@@ -272,6 +272,14 @@ adds bounded static string-only `+` with original-target validation and cumulati
 preparation/work/copy accounting. It changes no CUE owner/consumer or Go construction
 edge; native module publication/full policy/compiler/schema/PROGRAM/joined-seed
 closure and broader #175 remain held. FIVE complete policies/FIVE binaries remain.
+The [#278 module-program input](native-instruction-module.md) now constructs the
+original four-statement/five-body module from whole native Text/First/Step DATA,
+including the original header plus newline. Canonical Go consumes a closed native
+cohort; all open contexts select raw Module before arrays. Four isolated type-only
+gates prevent missing-provider backfill but do not prove valid-value coherence;
+actual constructor identities/bytes and fixed selection supply that proof. This
+cuts one partial construction edge, not full instruction policy/compiler/schema/
+PROGRAM/joined-seed closure. FIVE/FIVE/SIX origins and broader #175 remain held.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
@@ -309,7 +317,7 @@ covered by the test-only arithmetic-cycle spike.
 | Checked identifier styles | [identifier rendering](../bootstrap/identifier-rendering.md), shared kernel/meta policy | CUE-selected snake/initial-capital rendering; unification backend under unchanged 512-value guard |
 | Unification compiler lowering | `bootstrap/unify-lowering{,-fragments}.cue`, [backend contract](../bootstrap/unify-lowering.md) | Shared select/concat kernel and compiled driver; native typed/scope validation |
 | Pratt/primary compiler lowering | `bootstrap/pratt-lowering{,-fragments}.cue`, [backend contract](../bootstrap/pratt-lowering.md) | Shared lowering compiler/kernel; compiled driver; native typed bridge |
-| Evaluator module assembly | `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
+| Evaluator module assembly | `bootstrap/instruction-module.cue`, Go consumer `bootstrap/lowering-fragments.cue`, [module contract](../bootstrap/module.md) | `src/module.rs` checked cursor/output kernel; compiled/reference control |
 | Instruction-to-Rust lowering | `bootstrap/lowering{,-fragments}.cue`, [lowering contract](../bootstrap/lowering.md) | `src/lowering.rs` compiler/reference engine/shared kernel; generated Rust driver; native checked primitives |
 | Closed-record source construction | `bootstrap/record-primary{,-fragments}.cue`, [contract](../bootstrap/source-records.md) | Same parser-target compiler; CUE field loop/scanners/builders, native checked stages and selected third driver |
 | Source conjunction | `bootstrap/conjunction-primary{,-fragments}.cue`, [source contract](../bootstrap/source-conjunction.md) | Existing parser target; CUE bracketed-operand loop/build, selected fourth engine and paired checked list-stage families |

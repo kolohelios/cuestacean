@@ -15,6 +15,8 @@ const OPERAND: &str = include_str!("../../instruction-right-operand.cue");
 const GROUP: &str = include_str!("../../instruction-operand-cases.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
+const MODULE: &str = include_str!("../../instruction-module.cue");
+const MODULE_SHAPE: &str = include_str!("../../instruction-module-schema.cue");
 const RUNTIME: &str = include_str!("../../instruction-binary-runtime.cue");
 const CORE: &str = include_str!("../../instruction-core-cases.cue");
 const CORE_SHAPE: &str = include_str!("../../instruction-core-cases-schema.cue");
@@ -211,6 +213,28 @@ impl Probe {
                 return gate;
             }
         }
+        for helper in [
+            "#InstructionModuleText",
+            "#InstructionModuleFirst",
+            "#InstructionModuleStep",
+            "#InstructionModule",
+        ] {
+            let checked = self.run(
+                &self.cue,
+                &["export", "-e", helper],
+                &[
+                    ("module-shape.cue", MODULE_SHAPE),
+                    ("module.cue", MODULE),
+                    ("text.cue", TEXT),
+                    ("first.cue", FIRST),
+                    ("step.cue", STEP),
+                ],
+                reverse,
+            );
+            if !checked.status.success() {
+                return checked;
+            }
+        }
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
             ("bridge.cue", bridge),
@@ -226,6 +250,7 @@ impl Probe {
         }
         // Legacy owns R; the explicit verification bypass skips BOTH dependent gates.
         if !matches!(mode, SourceMode::Legacy) {
+            inputs.push(("module.cue", MODULE));
             inputs.push(("operand.cue", OPERAND));
             inputs.push(("group.cue", GROUP));
             inputs.push(("runtime.cue", RUNTIME));
@@ -281,13 +306,21 @@ fn source(body: &str) -> String {
     format!("package bootstrap\n{body}\n")
 }
 fn original_bridge() -> String {
+    let module = MODULE
+        .strip_prefix("package bootstrap\n\n#InstructionModule: {\n")
+        .expect("original Module owner")
+        .strip_suffix("}\n")
+        .expect("owner end");
+    let bridge = BRIDGE
+        .replace("#InstructionModule: close({module: _})\n\n", "")
+        .replace("\tmodule: #InstructionModule.module\n", module);
     // Verification-only inverse: restore the OLD R initializer before its SAME
     // source assertions. This raw-body extraction never feeds construction.
     let body = OPERAND
         .trim()
         .strip_prefix("package bootstrap\n\n#InstructionRightOperand: ")
         .expect("raw R owner");
-    let (prefix, shape) = BRIDGE
+    let (prefix, shape) = bridge
         .split_once("#InstructionBinaryRuntimeShape:")
         .expect("Runtime shape");
     let (_, suffix) = shape

@@ -20,6 +20,8 @@ const BINARY: &str = include_str!("../../instruction-binary-tables.cue");
 const PACKAGE: &str = include_str!("../../native-policy-package.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
+const MODULE: &str = include_str!("../../instruction-module.cue");
+const MODULE_SHAPE: &str = include_str!("../../instruction-module-schema.cue");
 const CORE: &str = include_str!("../../instruction-core-cases.cue");
 const SHAPE: &str = include_str!("../../instruction-core-cases-schema.cue");
 const UNARY: &str = include_str!("../../instruction-unary-tables.cue");
@@ -238,6 +240,29 @@ impl Probe {
             reverse,
         );
         assert!(gate.status.success(), "independent Core118");
+        for helper in [
+            "#InstructionModuleText",
+            "#InstructionModuleFirst",
+            "#InstructionModuleStep",
+            "#InstructionModule",
+        ] {
+            let checked = self.run(
+                &self.cue,
+                &["export", "-e", helper],
+                &[
+                    ("module-shape.cue", MODULE_SHAPE),
+                    ("module.cue", MODULE),
+                    ("text.cue", TEXT),
+                    ("first.cue", FIRST),
+                    ("step.cue", STEP),
+                ],
+                reverse,
+            );
+            assert!(
+                checked.status.success(),
+                "isolated Module completeness: {checked:?}"
+            );
+        }
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
             ("bridge.cue", BRIDGE),
@@ -247,6 +272,7 @@ impl Probe {
         inputs.extend([
             ("unary.cue", UNARY),
             ("text.cue", TEXT),
+            ("module.cue", MODULE),
             ("first.cue", FIRST),
             ("step.cue", STEP),
             ("context.cue", SELECTOR),
