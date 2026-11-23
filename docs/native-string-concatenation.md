@@ -61,8 +61,10 @@ label/inequality/template-expression syntax, arithmetic or default admission.
 Missing definitions/fields retain Unknown(actual name/path); lexical collisions,
 unused declarations and binding cycles retain their old admission/errors. Pure
 recursive references retain old demand guards. Invalid operands use a precise
-Unsupported string-concatenation category, not Conflict/Incomplete or a broad
-error union. Existing selector grammar, LF separators/CR handling, escapes and
+Unsupported("string concatenation operand"), not Conflict/Incomplete or a broad
+error union. Mark/comprehension exclusion uses
+Unsupported("string concatenation document profile"); historical projection
+categories remain unchanged when reached. Existing selector grammar, LF separators/CR handling, escapes and
 ordinary no-addition behavior remain unchanged except recognizing the + token.
 
 ## Original-arena preparation and unchanged ledgers

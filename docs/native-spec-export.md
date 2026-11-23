@@ -98,6 +98,11 @@ The fresh [#268 literal-container projection](native-literal-container-projectio
 extends original target validation to finite pure-literal trees. Selected object/list
 subtrees inherit fresh recursive closedness; scalar flat-map costs/selector grammar
 stay unchanged. No aliases/constraints/default target solving or production edge cut.
+The separately reviewed [#276 string concatenation](native-string-concatenation.md)
+adds static string-only `+` over original literals/direct eligible projections and
+chains, preserving original-target validation and shared work/copy bounds. No
+numeric/reference operands, defaults or comprehensions are admitted. This generic
+prerequisite changes no production consumer or complete-policy/compiler count.
 
 ## Readiness and recursive schema semantics
 

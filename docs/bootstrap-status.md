@@ -267,6 +267,11 @@ existing literal-container projection. Canonical Go imports the result; raw cont
 still reload SAME unresolved owners before refinement. This removes one partial
 construction edge, not full instruction-policy/module/schema/joined-seed closure;
 FIVE complete native policies/FIVE binaries and held #175 remain unchanged.
+The separately reviewed [#276 string-concatenation prerequisite](native-string-concatenation.md)
+adds bounded static string-only `+` with original-target validation and cumulative
+preparation/work/copy accounting. It changes no CUE owner/consumer or Go construction
+edge; native module publication/full policy/compiler/schema/PROGRAM/joined-seed
+closure and broader #175 remain held. FIVE complete policies/FIVE binaries remain.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
