@@ -200,3 +200,13 @@ byte-identical; the existing defensive unit permits ONLY the already-authorized
 counter/rejection assertion extension, not literal byte identity of that unit.
 The user subsequently approved approximately1900 for THIS SAME prerequisite only.
 Renewed ENTIRE-contract reviews and coordinator GO remain required before code.
+
+## Fresh coordinator implementation GO
+
+BOTH independent ENTIRE-contract reviews approve immutablefd88cf31 (202 lines),
+including selected seven-step charges, original-arena validation, precise source
+identity and full proof/release obligations. Complete upper forecasts1872/1885
+include UNSPENT repairs under the user's1900 allowance. Coordinator GO authorizes
+ONLY the five kernel paths/new generic test/docs above. Measure naturally formatted
+full delta early; stop FIRST credible excess/ambiguity/identity defect/unresolved
+validation failure. Cross/final/source/profile/sandbox/CI/exact-merge gates remain.
