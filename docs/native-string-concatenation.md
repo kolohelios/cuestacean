@@ -131,8 +131,10 @@ Different associations can copy different intermediate lengths despite equal val
 
 Kernel ONLY spec-export/src/{model,parser,bindings,projection,eval}.rs; eval ONLY
 counter initializer/defensive rejection+its assertion. No public Error variant/API.
-Evidence ONLY NEW tests/string_concatenation.rs; all168 old groups/fixtures stay
-byte-identical. Old export.rs1+1 remains rejected; ADD exact operand-category proof
+Evidence ONLY NEW tests/string_concatenation.rs; ALL33 old integration files stay
+byte-identical, all168 old groups retained. The existing defensive UNIT changes
+only for the authorized counter initializer/new rejection assertion above.
+Old export.rs1+1 remains rejected; ADD exact operand-category proof
 in new file, do not delete old assertion. Interpolation v+v stays excluded. No old
 positive/negative reclassification is necessary. Coordinator owns this contract,
 checkpoint/exporter docs/integration/source/artifact/closure/release/CI proof.
@@ -180,3 +182,19 @@ CI-gated auto-merge watched through MERGED, exact merged-tree equality/clean mai
 Preserve failed/canceled/setup attempts and corrected NEW receipts independently.
 Long jobs have independent nohup/PID/log/status receipts. Linuxx86_64 only.
 No implementation GO is asserted by this contract yet.
+
+## Contract review: held before implementation
+
+Both independent ENTIRE-contract reviews examined immutable96bf3092 (182 lines)
+and reconciled the selected seven-step ledger, five total-work formulas and
+copy/encoding witnesses. Neither found a fundamental semantic-interface blocker.
+Both issued budget NO-GO: complete naturally formatted forecasts1492–1852 and
+1535–1865 count five production paths, independent evidence, all documentation and
+UNSPENT repairs. The earlier1750 ceiling is not treated as authority for1865.
+The larger forecasts reflect full evidence/release-document accounting, not a
+new feature or reduced proof. No production code, Cargo tests or builds ran.
+Implementation remains paused pending explicit budget/scope resolution, renewed
+ENTIRE-contract approvals and coordinator GO. No old proof was compressed/deleted.
+The held child also clarifies source identity: ALL33 old integration files remain
+byte-identical; the existing defensive unit permits ONLY the already-authorized
+counter/rejection assertion extension, not literal byte identity of that unit.
