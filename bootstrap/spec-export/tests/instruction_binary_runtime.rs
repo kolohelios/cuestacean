@@ -8,6 +8,8 @@ use std::process::{Command, Output};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
+const MODULE: &str = include_str!("../../instruction-module.cue");
+const MODULE_SHAPE: &str = include_str!("../../instruction-module-schema.cue");
 const RUNTIME: &str = include_str!("../../instruction-binary-runtime.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const RIGHT: &str = include_str!("../../instruction-right-field.cue");
@@ -275,6 +277,28 @@ impl Probe {
                 return out;
             }
         }
+        for helper in [
+            "#InstructionModuleText",
+            "#InstructionModuleFirst",
+            "#InstructionModuleStep",
+            "#InstructionModule",
+        ] {
+            let checked = self.run(
+                &self.cue,
+                &["export", "-e", helper],
+                &[
+                    ("module-shape.cue", MODULE_SHAPE),
+                    ("module.cue", MODULE),
+                    ("text.cue", TEXT),
+                    ("first.cue", FIRST),
+                    ("step.cue", STEP),
+                ],
+                reverse,
+            );
+            if !checked.status.success() {
+                return checked;
+            }
+        }
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
             ("bridge.cue", bridge),
@@ -298,6 +322,9 @@ impl Probe {
                 inputs.push((name, source));
             }
         }
+        if !matches!(mode, Mode::Legacy) {
+            inputs.push(("module.cue", MODULE));
+        }
         inputs.push(("context.cue", context));
         self.exports.set(self.exports.get() + 1);
         self.run(&self.cue, &["export"], &inputs, reverse)
@@ -320,7 +347,15 @@ impl Drop for Probe {
 }
 // Verification-only inverse. No selected output or copied full bridge is a source seed.
 fn old_bridge() -> String {
-    let (before, shape) = BRIDGE
+    let module = MODULE
+        .strip_prefix("package bootstrap\n\n#InstructionModule: {\n")
+        .expect("original Module owner")
+        .strip_suffix("}\n")
+        .expect("owner end");
+    let restored_module = BRIDGE
+        .replace("#InstructionModule: close({module: _})\n\n", "")
+        .replace("\tmodule: #InstructionModule.module\n", module);
+    let (before, shape) = restored_module
         .split_once("#InstructionBinaryRuntimeShape:")
         .expect("shape");
     let (_, after) = shape.split_once("// Executable recursion").expect("root");
@@ -944,8 +979,11 @@ consume() {{
   '{cue}' export schema.cue bridge.cue binary.cue -e '#InstructionBinaryTables' >/dev/null || return
   '{cue}' export schema.cue bridge.cue right.cue r.cue group.cue binary.cue runtime.cue -e '#InstructionBinaryRuntime' >/dev/null || return
   '{cue}' export shape.cue core.cue >/dev/null || return
+  for helper in '#InstructionModuleText' '#InstructionModuleFirst' '#InstructionModuleStep' '#InstructionModule'; do
+    '{cue}' export module-shape.cue module.cue text.cue first.cue step.cue -e "$helper" >/dev/null || return
+  done
   : > full-export-started
-  '{cue}' export schema.cue bridge.cue right.cue r.cue group.cue binary.cue runtime.cue core.cue unary.cue text.cue first.cue step.cue context.cue
+  '{cue}' export schema.cue bridge.cue right.cue r.cue group.cue binary.cue runtime.cue core.cue unary.cue module.cue text.cue first.cue step.cue context.cue
 }}
 case "$1" in
  normal) consume ;;

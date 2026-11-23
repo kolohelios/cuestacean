@@ -5,6 +5,8 @@ package bootstrap
 #InstructionModuleFirst: close({op: string})
 #InstructionModuleStep: close({op: string})
 
+#InstructionModule: close({module: _})
+
 #InstructionBinaryTables: close({
 	aliases: close({
 		index:       string, difference: string, product:    string, divide:    string, modulo: string, quotient: string
@@ -58,17 +60,7 @@ package bootstrap
 		logicalNot:          _, length:              _, stringLength: _, listLength: _, recordLength: _
 		#InstructionBinaryTables.aliases
 	}
-	module: [{
-		op:    "text"
-		value: #InstructionModuleText.header + "\n"
-	}, #InstructionModuleFirst, {
-		op: "whileRules"
-		body: [{op: "kind"}, {op: "text", value: " => "}, {op: "expression"},
-			{op: "text", value: ",\n"}, #InstructionModuleStep]
-	}, {
-		op:    "text"
-		value: #InstructionModuleText.footer
-	}]
+	module: #InstructionModule.module
 	cases: {
 		#InstructionOperandCases.cases
 		"null":           _

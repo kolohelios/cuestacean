@@ -16,6 +16,8 @@ const OPERAND: &str = include_str!("../../instruction-right-operand.cue");
 const OPERAND_ROOT: &str = include_str!("../../instruction-right-operand-export.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
+const MODULE: &str = include_str!("../../instruction-module.cue");
+const MODULE_SHAPE: &str = include_str!("../../instruction-module-schema.cue");
 const RUNTIME: &str = include_str!("../../instruction-binary-runtime.cue");
 const CORE: &str = include_str!("../../instruction-core-cases.cue");
 const SHAPE: &str = include_str!("../../instruction-core-cases-schema.cue");
@@ -238,6 +240,29 @@ impl Probe {
             reverse,
         );
         assert!(runtime.status.success(), "isolated SAME-provider Runtime");
+        for helper in [
+            "#InstructionModuleText",
+            "#InstructionModuleFirst",
+            "#InstructionModuleStep",
+            "#InstructionModule",
+        ] {
+            let checked = self.run(
+                &self.cue,
+                &["export", "-e", helper],
+                &[
+                    ("module-shape.cue", MODULE_SHAPE),
+                    ("module.cue", MODULE),
+                    ("text.cue", TEXT),
+                    ("first.cue", FIRST),
+                    ("step.cue", STEP),
+                ],
+                reverse,
+            );
+            assert!(
+                checked.status.success(),
+                "isolated Module completeness: {checked:?}"
+            );
+        }
         decoded(self.run(
             &self.cue,
             &["export"],
@@ -252,6 +277,7 @@ impl Probe {
                 ("binary.cue", &binary),
                 ("unary.cue", UNARY),
                 ("text.cue", TEXT),
+                ("module.cue", MODULE),
                 ("first.cue", FIRST),
                 ("step.cue", STEP),
                 ("context.cue", SELECTOR),

@@ -10,6 +10,8 @@ use std::{
 
 const GROUP: &str = include_str!("../../instruction-operand-cases.cue");
 const BRIDGE: &str = include_str!("../../lowering-fragments.cue");
+const MODULE: &str = include_str!("../../instruction-module.cue");
+const MODULE_SHAPE: &str = include_str!("../../instruction-module-schema.cue");
 const RUNTIME: &str = include_str!("../../instruction-binary-runtime.cue");
 const SCHEMA: &str = include_str!("../../schema.cue");
 const RIGHT: &str = include_str!("../../instruction-right-field.cue");
@@ -282,6 +284,28 @@ impl Probe {
                 return gate;
             }
         }
+        for helper in [
+            "#InstructionModuleText",
+            "#InstructionModuleFirst",
+            "#InstructionModuleStep",
+            "#InstructionModule",
+        ] {
+            let checked = self.run(
+                &self.cue,
+                &["export", "-e", helper],
+                &[
+                    ("module-shape.cue", MODULE_SHAPE),
+                    ("module.cue", MODULE),
+                    ("text.cue", TEXT),
+                    ("first.cue", FIRST),
+                    ("step.cue", STEP),
+                ],
+                reverse,
+            );
+            if !checked.status.success() {
+                return checked;
+            }
+        }
         let mut inputs = vec![
             ("schema.cue", SCHEMA),
             ("bridge.cue", bridge),
@@ -301,6 +325,7 @@ impl Probe {
             }
         }
         if !matches!(mode, Mode::Legacy) {
+            inputs.push(("module.cue", MODULE));
             inputs.push(("runtime.cue", RUNTIME));
         }
         inputs.push(("context.cue", context));
@@ -351,8 +376,16 @@ fn remove(value: &mut Value, path: &str) {
         .expect("required member");
 }
 fn old_bridge() -> String {
+    let module = MODULE
+        .strip_prefix("package bootstrap\n\n#InstructionModule: {\n")
+        .expect("original Module owner")
+        .strip_suffix("}\n")
+        .expect("owner end");
+    let bridge = BRIDGE
+        .replace("#InstructionModule: close({module: _})\n\n", "")
+        .replace("\tmodule: #InstructionModule.module\n", module);
     // Source-only inverse BEFORE original-policy comparisons; never construction.
-    let (prefix, shape) = BRIDGE
+    let (prefix, shape) = bridge
         .split_once("#InstructionBinaryRuntimeShape:")
         .expect("Runtime shape");
     let (_, suffix) = shape
@@ -833,8 +866,11 @@ consume() {{
   '{cue}' export shape.cue core.cue >/dev/null || return
   '{cue}' export schema.cue bridge.cue binary-placed.cue -e '#InstructionBinaryTables' >/dev/null || return
   '{cue}' export schema.cue bridge.cue $1 $2 $3 binary-placed.cue runtime.cue -e '#InstructionBinaryRuntime' >/dev/null || return
+  for helper in '#InstructionModuleText' '#InstructionModuleFirst' '#InstructionModuleStep' '#InstructionModule'; do
+    '{cue}' export module-shape.cue module.cue text.cue first.cue step.cue -e "$helper" >/dev/null || return
+  done
   : > full-export-started
-  '{cue}' export schema.cue bridge.cue core.cue binary-placed.cue unary.cue text.cue first.cue step.cue $1 $2 $3 runtime.cue context.cue
+  '{cue}' export schema.cue bridge.cue core.cue binary-placed.cue unary.cue module.cue text.cue first.cue step.cue $1 $2 $3 runtime.cue context.cue
 }}
 case "$4" in
   normal) consume "$@" ;;

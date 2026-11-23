@@ -103,6 +103,13 @@ adds static string-only `+` over original literals/direct eligible projections a
 chains, preserving original-target validation and shared work/copy bounds. No
 numeric/reference operands, defaults or comprehensions are admitted. This generic
 prerequisite changes no production consumer or complete-policy/compiler count.
+The [#278 module-program input](native-instruction-module.md) uses it to construct
+whole module DATA from independently native Text/First/Step. Canonical Go consumes
+a fixed native cohort through a zero-argument boundary; open contexts select raw
+owners before argument assembly. Four isolated answer-free shape exports establish
+completeness/types, not value coherence: actual constructor paths/bytes and closed
+selection establish identity. No native language/schema/guard expansion or sixth
+complete policy/compiler follows; full instruction closure and #175 remain held.
 
 ## Readiness and recursive schema semantics
 
