@@ -121,7 +121,8 @@ Independent source-derived families, no extra Ref/let wrappers:
 
 Assert T−1/T/recovery, both source orders. Hard4096 witnesses: n23/m63 list4063
 succeeds, m64 mathematical4127 fails; or literal C30/m14 list3857 succeeds,
-m15 mathematical4132 fails. Never request API allowance above4096.
+m15 mathematical4132 fails. Never use an allowance above4096 to admit a witness;
+a separate4097 rejection control verifies the unchanged hard maximum.
 For m independently demanded concat results each L ASCII bytes, copied2mL;
 pretty list encoded3+m(L+6). With64 #D.x+"" expressions, L512 copies EXACT65536
 and succeeds, L513 copied-string Limit. With L decoded LF bytes, encoded3+64(2L+6):
@@ -212,3 +213,58 @@ include UNSPENT repairs under the user's1900 allowance. Coordinator GO authorize
 ONLY the five kernel paths/new generic test/docs above. Measure naturally formatted
 full delta early; stop FIRST credible excess/ambiguity/identity defect/unresolved
 validation failure. Cross/final/source/profile/sandbox/CI/exact-merge gates remain.
+
+## Implemented / focused evidence (x86_64-linux)
+
+Immutable kernel57012e9b (199 changed lines) and new evidenceeb51f2c4 (969 lines,
+FOUR groups) passed both focused static cross-reviews. First actual compilation
+failed101 on a Rust receiver-borrow ordering conflict; no tests ran in that attempt.
+Reviewed NEW-child repair261b761b moves the existing parser match into a local
+before node allocation, preserving semantics/charges and immutable original bytes.
+Corrected integratedba74a299 passes all13 focused cases EACH FOUR profiles (52
+executions, including16 new), strict all-target Clippy4, owned formatting and
+before/after source hashes. Original101 is retained separately, not relabeled pass.
+No old integration file or assertion changed. Full release gates remain pending.
+
+A missing required auditor-prefix argument was caught while orchestration wrappers
+were still waiting; neither the auditor nor Shaka had run. Those wrappers were
+canceled and preserved. Their EXIT traps recorded the preceding successful sleep
+as0 on SIGTERM: those zeros are explicitly NOT passing receipts. Reviewed NEW v2
+wrappers supply the exact prefix/current capture, require real completed jobs,
+use separate output/status paths and explicit TERM143/INT130 handling. Full Rust
+and sandbox jobs were not canceled; the reviewed auditor itself was unchanged.
+
+Full frozen-source Rust validation completes0: exporter172 EACH FOUR, executor775
+EACH default debug/release, research135 FOUR, THREE boundary suites4 EACH FOUR and
+14 strict Clippy completions. Independently audited source/script-derived totals:
+2826 named successes/408 complete blocks/28 Cargo completions. All18 raw progress
+notifications require later actual success in the SAME block, never count as
+successes themselves. The known active semantics-cfg witness is retained twice.
+
+Actual ONCE30checks/27nondefault packages/57labels/56roots BUILD AND separately
+REBUILD using SAME explicit drv^* targets in real sandboxes. Independent execution
+audit verifies all56 checking-output records once and original four capture hashes.
+Exporter10/checker127 with34 integration files/full1354 AND legacy1354 match exact
+FILE/DIRECTORY sets/EVERY byte against frozen source. All33 old integration files,
+all CUE owners, flake and four façade cuts remain byte-identical; only FIVE allowed
+production paths and ONE new test change inside bootstrap.
+
+All20 old artifact trees remain byte-identical, including249JSON/12builders/oldDATA;
+generated Rust and six actual binary origins are retained. Exporter-dependent
+package IDs legitimately change25; BOTH oracle PACKAGE IDs remain stable.
+All24 refreshed recursive/full retained inventories pass:23 native constructors
+plus ONE Go-backed seed control. CURRENT actual CLI-linked Go-source producer,
+valid aliases/registered-name-only witness, DB/SRI/version correspondence,
+provider/answer exclusions and68 exact source witnesses are independently checked.
+Manifest recomputation covers167 entries/168 total files/69 metadata files.
+FOUR separate actual feature rebuilds match fresh stored metadata; core/unifier/
+Pratt generation stays native, scanner27 source-feature Go-backed VERIFY ONLY.
+Independent completed façade log audit verifies936 named executions/80 blocks/
+24 strict Clippy completions, exact source-derived case/feature/profile sets and
+fresh generated modules outside constructor source cuts. Earlier read-only
+metadata-field inspection failed before that auditor ran; its receipt remains
+separate, not a test/auditor pass. The reviewed auditor's first execution passed.
+Actual pinned d07 Shaka full preflight13/13 (seven skips) and whole-tree whitespace
+1437 files pass. Final documentation checks/TWO immutable ENTIRE-tree GOs/protected
+CI through confirmed merge/tree equality remain release gates. FIVE/FIVE and
+broader #175 stay held. No other platform or performance/closure claim follows.
