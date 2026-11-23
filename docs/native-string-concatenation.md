@@ -265,6 +265,7 @@ fresh generated modules outside constructor source cuts. Earlier read-only
 metadata-field inspection failed before that auditor ran; its receipt remains
 separate, not a test/auditor pass. The reviewed auditor's first execution passed.
 Actual pinned d07 Shaka full preflight13/13 (seven skips) and whole-tree whitespace
-1437 files pass. Final documentation checks/TWO immutable ENTIRE-tree GOs/protected
-CI through confirmed merge/tree equality remain release gates. FIVE/FIVE and
+1437 files pass;697 relative inline Markdown targets have0 missing. Final immutable
+ENTIRE-tree GOs/protected CI through confirmed merge/tree equality remain release
+gates. FIVE/FIVE and
 broader #175 stay held. No other platform or performance/closure claim follows.
