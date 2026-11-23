@@ -261,6 +261,12 @@ The [#270 binary-runtime boundary](instruction-binary-runtime-boundary.md) isola
 its original six-part expression behind a Go-only completeness gate; raw owners
 reload before contexts. No native publication or constructor is added; FIVE complete
 native policies/FIVE binaries and held #175/full instruction closure are unchanged.
+The [#274 native binary-runtime input](native-instruction-binary-runtime.md) constructs
+its unchanged whole1652-byte DATA from whole native Binary/Group/R inputs using
+existing literal-container projection. Canonical Go imports the result; raw contexts
+still reload SAME unresolved owners before refinement. This removes one partial
+construction edge, not full instruction-policy/module/schema/joined-seed closure;
+FIVE complete native policies/FIVE binaries and held #175 remain unchanged.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
