@@ -478,14 +478,15 @@ impl Parser {
             self.take();
             self.newlines();
             let right = self.expression(depth + 1, precedence + 1)?;
-            left = self.node(match precedence {
+            let expression = match precedence {
                 3 => {
                     self.document.concatenations += 1;
                     Expr::Concat(left, right)
                 }
                 2 => Expr::And(left, right),
                 _ => Expr::Or(left, right),
-            })?;
+            };
+            left = self.node(expression)?;
         }
         if self.heights[left] > 33 - depth {
             return Err(Error::Limit("syntax depth"));
