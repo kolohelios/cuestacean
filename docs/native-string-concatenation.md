@@ -9,9 +9,9 @@ Read the [exporter](native-spec-export.md), [lexical bindings](native-let-bindin
 [multiline values](native-instruction-module-text.md) and
 [module](../bootstrap/module.md) contracts before changes.
 
-The user approved generic concatenation ONLY, first approximately1600 then a
-fresh one-off **approximately1750 changed lines**, after complete independent
-forecasts1315–1650 and1450–1750 exceeded the first allowance. Count ALL additions
+The user approved generic concatenation ONLY: approximately1600, then1750 after
+forecasts1315–1650/1450–1750, then a fresh one-off **approximately1900 changed
+lines** after ENTIRE-contract forecasts1492–1852/1535–1865. Count ALL additions
 AND deletions, natural formatting, docs, evidence and UNSPENT repair reserve.
 No old exception transfers. Budget permission is NOT implementation GO: TWO fresh
 ENTIRE-contract focused reviews and explicit coordinator GO precede code changes.
@@ -158,7 +158,7 @@ owned paths; validation overlays stay live through Cargo but outside owned snaps
 Format only owned files. Focused cross-reviews then TWO final immutable ENTIRE-tree
 GOs; retire workers/panes/workspaces BEFORE PR or user-decision pause.
 Measure full naturally formatted delta EARLY plus outstanding docs/UNSPENT repairs
-BEFORE expensive validation. Approved1750 includes everything, not proof caps.
+BEFORE expensive validation. Approved1900 includes everything, not proof caps.
 
 Expected unchanged30checks/27nondefault packages/57labels/56unique roots: verify
 actual, capture ONCE from filtered ./infra/tooling, BUILD AND separately REBUILD
@@ -198,3 +198,5 @@ ENTIRE-contract approvals and coordinator GO. No old proof was compressed/delete
 The held child also clarifies source identity: ALL33 old integration files remain
 byte-identical; the existing defensive unit permits ONLY the already-authorized
 counter/rejection assertion extension, not literal byte identity of that unit.
+The user subsequently approved approximately1900 for THIS SAME prerequisite only.
+Renewed ENTIRE-contract reviews and coordinator GO remain required before code.
