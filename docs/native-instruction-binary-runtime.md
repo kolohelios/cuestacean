@@ -186,3 +186,57 @@ above under the USER's #274-only~1650 allowance. Fresh complete upper estimates
 1649/1625 INCLUDE unspent repairs; measure the full formatted delta EARLY and pause
 FIRST credible excess/identity defect/ambiguity/unresolved failure. Old proof stays
 byte-exact; all cross/final/source/profile/closure/sandbox/CI/merge gates remain.
+
+## Implemented / local validation (x86_64-linux)
+
+Immutable build `c30a4f8d` (347 changed lines) and corrected evidence `3a919588`
+(696 lines/FOUR groups) integrate as frozen `f929f773`. BOTH independent focused
+cross-reviews approve. Native1652/Go2286 complete trees match; all SIX source effects
+reach WHOLE raw/native policies AND independently predicted COMPLETE unformatted
+Rust through the REAL compiler, before formatting. Fresh Go-accepted129-byte selector
+reaches REAL typed exit2/EMPTY/selector diagnostic; valid recovery passes. Canonical
+Go now imports WHOLE native Runtime; raw contexts/probes retain unresolved owners.
+
+FOUR new groups pass EACH FOUR profiles/strict all-target Clippy4/owned formatting;
+source hashes before/after match. Full exporter168=164old+4new EACH FOUR (672),
+executor775 default debug/release, research135 FOUR, THREE boundary suites4 EACH
+FOUR and14 strict Clippy completions pass. Independent full-log audit verifies
+2810 named successes/404 complete blocks/28 Cargo completions, exact source-case
+sets and the known ACTIVE semantics cfg witness in BOTH full default executions.
+
+Actual ONCE30 checks/27 NONDEFAULT packages/57 labels/56 roots are built AND
+separately rebuilt with SAME explicit drv^* targets; independent audit verifies
+ALL56 checking-output records EACH ONCE and original four capture hashes unchanged.
+Actual source10/checker126/33 integration files/full1353 AND metadata-derived legacy
+1353 match exact FILE/DIRECTORY sets/EVERY byte against frozen source. No targets,
+untracked inputs, symlinks or extra empty dirs. ALL1351 old bootstrap files and
+ALL EIGHT old Nix families/raw gates/probes/inverses remain BYTE-IDENTICAL.
+
+All249 JSON/12 builders/old native DATA/generated Rust/five façade cuts/six origins
+are identical. ALL25 old non-exports package IDs stay stable, INCLUDING exporter
+and BOTH oracles; only exports changes among baseline26, plus ONE new Runtime.
+The raw cut is357-byte original owner plus45-byte companion (not the44 incorrectly
+stated in early scratch handoffs); the SAME companion SHA was correct throughout.
+Published1652-byte DATA SHA256:
+`549e6563a6b6563b4d5a26f8b9810f1d83a8ab4a4f583f9b5282095b99b8daf3`.
+
+ALL24 refreshed recursive/full retained inventories pass:23 native constructors
+plus ONE Go-backed seed control, with CURRENT actual CLI-linked Go-source producer,
+valid aliases/registered identity/schema/bundle/executor/legacy+joined/BOTH oracles/
+provider environments/answer exclusions. FOUR genuine façade feature matrices and
+FOUR separate actual feature rebuilds match fresh stored metadata. Core/unifier/
+Pratt generation stays native; scanner27 PROGRAM/source-feature is Go-backed VERIFY.
+
+A new source fixture initially swapped Binary VALUES instead of actual KEYS.
+The NEW-child repair adds explicit source token/key uniqueness/WHOLE inverse-byte
+assertions, preserving expected results; no tests ran on the original fixture.
+Two working replacements preceded the repair pause and were disclosed; immutable
+snapshots were never amended. Full corrected focused validation passed afterward.
+An initial receipt parser rejected Cargo's twelve60-second progress notifications;
+reviewed NEW v2 retains each exact source/profile/suite record and requires LATER
+actual ok in the SAME block, without changing counts/strict warning checks.
+Exclusion orchestration first failed127 on a missing Python-path receipt BEFORE
+the auditor ran; NEW absolute verified-Python execution passed the UNCHANGED auditor.
+Original setup/parser failures remain separate, not relabeled successful checks.
+Final full preflight/whole docs/TWO exact-tree GOs/protected required CI through
+confirmed merge/tree equality/clean main remain release gates. FIVE/FIVE/#175 held.
