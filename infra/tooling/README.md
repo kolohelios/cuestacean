@@ -29,6 +29,11 @@ whitespace, and the [bootstrap export](../../bootstrap/README.md). The flake's
 specifications come from the independent `native-ast-builders` producer, which
 exports each raw program with `ast-schema.cue` twice in separate native processes.
 The bundle copies those checked artifacts and never retries them through Go CUE.
+All SIX canonical compiler-policy DATA inputs are independently native, including
+[instruction lowering](../../docs/native-instruction-lowering-policy.md). Its old
+canonical Go probes now run in the policy verifier; raw overrides remain Go-backed.
+FIVE compiler binaries construct independently, not the remaining compiler or
+schema/PROGRAM/joined-seed closure.
 Scanner fixtures export twice through Go CUE using `scanner-schema.cue` and
 only their required fragments; other positive fixtures keep `schema.cue` and
 their existing fragment closure. See the [scanner extraction](../../docs/scanner-schema-closure.md). Malformed expression trees and evaluation rules

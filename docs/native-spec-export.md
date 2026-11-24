@@ -110,6 +110,12 @@ owners before argument assembly. Four isolated answer-free shape exports establi
 completeness/types, not value coherence: actual constructor paths/bytes and closed
 selection establish identity. No native language/schema/guard expansion or sixth
 complete policy/compiler follows; full instruction closure and #175 remain held.
+The [#280 complete instruction-policy DATA cut](native-instruction-lowering-policy.md)
+uses unchanged literal projection/ordinary references for two placement programs,
+then disjointly assembles five materialized components. Canonical Go construction
+is skipped; conserved raw/schema/closed-cohort probes run in a separate verifier.
+SIX complete policy DATA inputs/FIVE native compiler binaries remain, not schema,
+PROGRAM/joined-seed closure or broader #175 admission. No language/guard expansion.
 
 ## Readiness and recursive schema semantics
 

@@ -1,10 +1,14 @@
 # CUE-owned evaluator module assembly
 
-The `module` statement program in [`lowering-fragments.cue`](lowering-fragments.cue)
+The `module` statement program in [`instruction-module.cue`](instruction-module.cue)
 owns evaluator boilerplate, rule traversal and match-arm sequencing. It is part
 of the [lowering policy](lowering.md), interpreted for seeds/custom policies and
 compiled into the production driver by the same sixth compiler. There is no
 native header/footer or rule-emission loop in `codegen.rs` anymore.
+Whole native Module DATA now feeds the [complete native instruction policy](../docs/native-instruction-lowering-policy.md).
+The unchanged Go bridge retains raw cursor overrides and independent validation;
+selected complete DATA is not a late-refinement interface. This is not sixth
+compiler isolation or native schema/PROGRAM/joined-seed closure.
 
 Native code still validates typed instructions/policies, projects canonical data,
 quotes data and guards cursors, output and fuel. The
