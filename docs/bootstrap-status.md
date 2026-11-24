@@ -280,6 +280,14 @@ gates prevent missing-provider backfill but do not prove valid-value coherence;
 actual constructor identities/bytes and fixed selection supply that proof. This
 cuts one partial construction edge, not full instruction policy/compiler/schema/
 PROGRAM/joined-seed closure. FIVE/FIVE/SIX origins and broader #175 remain held.
+The [#280 complete instruction-policy DATA cut](native-instruction-lowering-policy.md)
+adds two bounded ordinary placement programs and disjoint materialized assembly
+of all26 cases/21 aliases/module/version. Canonical publication copies native DATA;
+its former Go canonical probes/recovery remain in independent verification, not
+production setup. Raw overrides and all original gates/phase distinctions remain.
+This makes SIX complete native policy inputs, still FIVE independently native
+compiler binaries/SIX origins. The remaining compiler, schemas/PROGRAM exports,
+joined-seed closure and broader #175 remain Go-dependent/held.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON

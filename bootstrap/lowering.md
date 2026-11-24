@@ -1,10 +1,16 @@
 # CUE-owned IR-to-Rust lowering
 
+Canonical `lowering.json` is now [complete native policy DATA](../docs/native-instruction-lowering-policy.md):
+Core/Unary/Group/Runtime/Module and explicit version wiring assemble disjointly.
+All SIX canonical compiler-policy inputs are native DATA; FIVE compiler binaries
+construct independently. Go still handles raw overrides/schema/PROGRAM exports;
+the remaining compiler and joined seed still depend on its full bundle.
+
 [`lowering-fragments.cue`](lowering-fragments.cue) defines executable expression
 lowering for the evaluation instructions, including scalar equality/inequality.
 The [native unary module](../docs/native-instruction-unary-tables.md) retains the
 original Unary map/two CUE comprehensions, including `runtime::\(method)` string
-substitution. It supplies ten aliases/one case to the still-Go-built full policy.
+substitution. It supplies ten aliases/one case to the complete native policy DATA.
 The [native Binary tables](../docs/native-instruction-binary-tables.md) likewise
 supply eleven aliases and the select expression, without changing the operand/
 concat shell or reused-R preference. Its isolated Go helper must export completely
@@ -28,7 +34,8 @@ constructs the original header/footer literals. The Go consumer imports that JSO
 under the required closed helper and retains header + newline. The separate
 [native cursor-control inputs](../docs/native-instruction-module-controls.md) supply
 canonical first/step preferences; raw overrides load BOTH unresolved default owners
-before context, not selected constants. Full instruction policy remains Go-built. This admits only LF multiline
+before context, not selected constants. Raw context composition remains Go-backed.
+The Text-only milestone admits LF multiline
 literal VALUES without backslash syntax, not native concat/default/module solving. [`lowering.cue`](lowering.cue)
 selects the normal program. CUE chooses runtime calls, constructor layout,
 recursive instruction-field selection, grouping and Result propagation.
@@ -47,7 +54,7 @@ uses that same kernel for seeds and explicit custom policies. This is not full
 generator self-hosting: [complete driver source emission is CUE-owned](meta-lowering.md),
 but typed decoding, canonical metadata projection, reference execution, checked
 rendering and safety guards remain Rust. The policy's [module statement program](module.md) now owns
-outer boilerplate and rule traversal as well. Go CUE still exports policies;
+outer boilerplate and rule traversal as well. Go CUE still checks raw policies;
 the original compiler migration preserved source-language/evaluator behavior.
 The subsequent [shared AST evaluation budget](evaluation-budget.md) deliberately
 adds runtime visit/depth limits: CUE owns entry-wrapper/context propagation source,
@@ -155,8 +162,8 @@ charge each dispatch/expression, delimiter and intermediate copy identically.
 
 Six native compiler seeds build with `--no-default-features`, excluding generated
 lowering, semantics and frontend. The seed rule generator interprets fresh
-**upstream-built policy JSON**; it does not contain a handwritten instruction
-policy. Seeds generate normal/alternate lowering and assembly drivers and all evaluator/frontend
+**native policy DATA from the Go-backed bundle**; it does not contain a
+handwritten instruction policy. Seeds generate normal/alternate lowering and assembly drivers and all evaluator/frontend
 Rust before the final default-feature build uses compiled lowering. The final
 compiled generator regenerates the same evaluator bytes in drift checks.
 
