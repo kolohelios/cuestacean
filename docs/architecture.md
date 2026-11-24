@@ -4,7 +4,37 @@ Cuestacean aims to express a CUE implementation in a CUE-hosted executable DSL
 and compile it to Rust. Today it is a bounded bootstrap, not full CUE. Distinguish
 **building the implementation** from **evaluating input with the built executable**.
 
+## Compiler layers
+
+```mermaid
+flowchart LR
+    Programs["CUE-authored DSL programs"] --> Seeds["Rust generators with checked rendering kernels"]
+    Policies["CUE-authored lowering policies"] --> Seeds
+    Seeds --> Code["Generated Rust implementation"]
+    Policies --> Meta["Lowering-driver compiler, guided by meta policy"]
+    Meta --> Drivers["Generated Rust policy drivers"]
+    Drivers --> Later["Compiled-policy generators used for regeneration"]
+    Programs --> Later
+    Later --> Code
+```
+
+The programs specify scanning, parser control, AST construction, evaluation and
+unification. Lowering policies tell the generators how to turn those programs
+into Rust. The meta policy guides a compiler that emits the Rust lowering
+*drivers* themselves, including its own driver. These arrows show roles and
+consumers, not a chain of CUE-to-CUE translations. The generators consume exported
+representations; typed decoding, rendering, frames and guards remain Rust.
+
 ## Follow one expression
+
+```mermaid
+flowchart LR
+    Input["20 + (10 + 12)"] --> Parser["Generated scanner, parser control and AST builders"]
+    Parser --> AST["Runtime input: version-1 JSON AST"]
+    AST --> Eval["Generated evaluator with checked native value kernels"]
+    Eval --> Output["Output admission and native JSON encoding"]
+    Output --> Result["42"]
+```
 
 The existing [`nested.cue`](../bootstrap/source/valid/nested.cue) contains
 `20 + (10 + 12)`. [`bootstrap-source.rs`](../bootstrap/executor/src/bin/bootstrap-source.rs)
@@ -21,27 +51,31 @@ not invoke Go CUE at runtime.
 
 ## Two paths, two kinds of JSON
 
-```text
-BUILD THE IMPLEMENTATION
-CUE specifications: schemas + grammar + executable DSL programs/policies
-    | native exporter evaluates builder and bounded AST/meta/scanner/unification policies
-    | pinned Go CUE evaluates other closures (including defaults/comprehensions)
-    v
-build-only JSON: validated grammar data and represented DSL programs/policies
-    | six artifact-free native Rust compiler seeds interpret lowering policies
-    | CUE-authored lowering DSL selects Rust calls, layout and control flow
-    v
-fresh generated Rust: evaluators, scanners, builders and compiler/control drivers
-    | Rust compiler + native checked kernels/frames/glue
-    v
-built executable (including embedded grammar and generated evaluator)
-
-RUN AN INPUT USING THAT EXECUTABLE
-source expression -> parser -> version-1 JSON AST -> generated evaluator
-                                   ^                       |
-                          JSON AST API input               v
-                                          output admission -> native JSON -> 42
+```mermaid
+flowchart TD
+    Specs["CUE specifications"] --> Native["Bounded native export and policy assembly"]
+    Specs --> Go["Pinned Go CUE: remaining exports"]
+    Native --> Data["Build-only JSON: programs, policies and grammar"]
+    Go --> Data
+    Data -->|"Policies embedded at build time"| Seed["Fresh Rust seed binaries"]
+    Data -->|"Programs to lower"| Generate["Seed binaries interpret lowering policies"]
+    Seed --> Generate
+    Generate --> Fresh["Fresh Rust drivers and runtime implementation"]
+    Fresh --> Build["rustc with native kernels, frames and storage"]
+    Data -->|"Embedded grammar and other runtime inputs"| Build
+    Build --> Executable["Built executable"]
+    Build --> Compiled["Built generators use compiled policy drivers"]
+    Compiled --> Check["Regeneration and byte comparisons"]
+    Goldens["Committed generated Rust: drift baseline only"] --> Check
+    Fresh --> Check
 ```
+
+At build time, native and Go export paths supply the programs, policies and
+grammar. Compiler constructors embed policy data; the joined binaries then
+lower the exported programs into Rust. After compilation, the built generators
+regenerate code with compiled policy drivers, and the checks compare the
+results with fresh seed output and committed goldens. Neither kind of comparison
+feeds those goldens into seed construction.
 
 Specification JSON describes how the implementation behaves; input AST JSON
 represents the expression being evaluated. Neither is a request to compile each
@@ -75,8 +109,8 @@ AST evaluator, not Rust specialized to the numbers in `nested.cue`.
 `runtime::sum` delegates to code generated from [`sum.cue`](../bootstrap/sum.cue):
 concrete integers select checked native addition, concrete texts select
 concatenation, and incompatible/abstract operands fail. Thus the rule traversal,
-compiler lowering and value-domain policy are distinct executable layers. Go CUE
-exports their programs; Rust executes their meaning. See the [lowering](../bootstrap/lowering.md)
+compiler lowering and value-domain policy are distinct executable layers. The build
+exports their programs as JSON; Rust executes their meaning. See the [lowering](../bootstrap/lowering.md)
 and [addition](../bootstrap/sum.md) contracts for the exact interfaces.
 
 ## What still lives where?
@@ -95,15 +129,13 @@ and [addition](../bootstrap/sum.md) contracts for the exact interfaces.
   sequencing; native glue is substantial, not an OS shim or full self-hosting.
 - **Generated artifacts** are rebuilt by the graph in
   [`infra/tooling/flake.nix`](../infra/tooling/flake.nix). `clearArtifacts` removes
-  staged JSON/Rust; `codegenSeed` joins six artifact-free compilers. The
-  [native core](native-codegen-core.md) builds AST/meta compiler binaries from eight
-  selected source files and two native policies. The separate
-  [scanner façade](native-scan-codegen.md) uses seven files and native scanner/meta
-  policies; legacy construction builds the other three with the full Go-dependent
-  bundle. Scanner source-feature test generation still uses Go-exported PROGRAM data,
-  explicitly outside native constructor closure. `executor` regenerates Rust before
-  compiling/testing the final package. JSON stays build-only; committed Rust is a
-  drift/review baseline, not a seed input. The joined six-seed path still needs Go CUE.
+  staged JSON/Rust before regeneration. `codegenSeed` joins compiler binaries that
+  do not use committed generated artifacts as inputs. Standalone constructors use
+  narrower policy inputs; see the [checkpoint](bootstrap-status.md) for the current
+  split between standalone and bundle-backed construction. In particular, scanner
+  source-feature verification still uses Go-exported PROGRAM data; that is separate
+  from constructing the scanner compiler. `executor` regenerates Rust before
+  compiling and testing the final package.
 
 ## Current boundary and where to read next
 
@@ -113,7 +145,8 @@ and closed collections. Arithmetic is eager and requires concrete operands;
 output must be concrete. General references, open-struct constraints, defaults
 and cycle solving are **not production capabilities**. The [solver spike](solver-spike.md)
 is an isolated test-only graph experiment, not a hidden production fallback.
-Full bootstrap closure and any performance advantage remain unproven.
+Full bootstrap closure remains unproven. The [performance baseline](performance-baseline.md)
+measures only supported CLI cases and selected build targets.
 
 A future graph solver could resolve dependencies and suspended constraints, then
 hand ready computations to the eager evaluator. That interface is not established
