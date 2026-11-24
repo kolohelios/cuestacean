@@ -1294,6 +1294,7 @@
               ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
               ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
               ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+              ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
               ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
               if grep -Fx "$forbidden" ${closure}/store-paths; then
                 echo "forbidden native scanner compiler dependency: $forbidden" >&2; exit 1
@@ -1435,6 +1436,7 @@
                 ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
                 ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
                 ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+                ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
                 ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
                 if grep -Fx "$forbidden" "$paths"; then
                   echo "forbidden native unifier construction dependency: $forbidden" >&2; exit 1
@@ -1610,6 +1612,7 @@
                 ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
                 ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
                 ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+                ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
                 ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
                 if grep -Fx "$forbidden" "$paths"; then
                   echo "forbidden native Pratt construction dependency: $forbidden" >&2; exit 1
@@ -1669,6 +1672,221 @@
             cp ${featureClosure}/registration "$out/feature-build-registration"
             printf '%s\n' ${tests.drvPath} > "$out/feature-build-roots"
           '';
+      nativeInstructionSources =
+        pkgs: includeTests:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions (
+            [
+              ../../bootstrap/native-instruction-codegen/Cargo.toml
+              ../../bootstrap/native-instruction-codegen/Cargo.lock
+              ../../bootstrap/native-instruction-codegen/src/lib.rs
+              ../../bootstrap/executor/src/codegen/compiler.rs
+              ../../bootstrap/executor/src/lowering.rs
+              ../../bootstrap/executor/src/module.rs
+              ../../bootstrap/executor/src/bin/bootstrap-codegen.rs
+            ]
+            ++ pkgs.lib.optionals includeTests [ ../../bootstrap/native-instruction-codegen/tests/compiler.rs ]
+          );
+        };
+      nativeInstructionPolicies =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-instruction-policies" { } ''
+          mkdir -p "$out"
+          cp ${nativeInstructionLoweringPolicy pkgs}/lowering.json "$out/lowering.json"
+          cp ${nativeMetaLoweringPolicy pkgs}/meta-lowering.json "$out/meta-lowering.json"
+        '';
+      nativeInstructionCodegen =
+        pkgs:
+        pkgs.rustPlatform.buildRustPackage {
+          pname = "cuestacean-native-instruction-codegen";
+          version = "0.1.0";
+          src = nativeInstructionSources pkgs false;
+          postUnpack = ''
+            sourceRoot="$sourceRoot/native-instruction-codegen"
+          '';
+          cargoLock.lockFile = ../../bootstrap/native-instruction-codegen/Cargo.lock;
+          CUESTACEAN_BOOTSTRAP_JSON = nativeInstructionPolicies pkgs;
+          cargoBuildFlags = [ "--no-default-features" ];
+          # Expected source and feature execution belong only to verification.
+          doCheck = false;
+          meta.license = pkgs.lib.licenses.asl20;
+        };
+      nativeInstructionTests =
+        pkgs:
+        (nativeInstructionCodegen pkgs).overrideAttrs (_: {
+          pname = "cuestacean-native-instruction-codegen-tests";
+          src = nativeInstructionSources pkgs true;
+          nativeCheckInputs = [ pkgs.clippy ];
+          doCheck = true;
+          postPatch = ''
+            (
+              set -euo pipefail
+              mkdir -p ../generated "$TMPDIR/instruction-home"
+              tool=${nativeCodegenCore pkgs}/bin/bootstrap-lower-codegen
+              case "$tool" in /*) ;; *) echo "nonabsolute compiler provider: $tool" >&2; exit 1 ;; esac
+              test -f "$tool"; test -r "$tool"; test -x "$tool"
+              for name in lowering meta-lowering; do
+                env -i PATH=/nonexistent HOME="$TMPDIR/instruction-home" \
+                  "$tool" ${nativeInstructionPolicies pkgs}/"$name.json" > "../generated/$name.rs"
+              done
+            )
+          '';
+          checkPhase = ''
+            (
+              set -euo pipefail
+              runHook preCheck
+              for profile in debug release; do
+                releaseFlag=
+                if [ "$profile" = release ]; then releaseFlag=--release; fi
+                for features in "" compiled-lowering; do
+                  cargo test --offline --locked --all-targets --no-default-features \
+                    $releaseFlag --features "$features"
+                  cargo clippy --offline --locked --all-targets --no-default-features \
+                    $releaseFlag --features "$features" -- -D warnings
+                done
+              done
+              runHook postCheck
+            )
+          '';
+        });
+      nativeInstructionVerification =
+        pkgs:
+        let
+          compiler = nativeInstructionCodegen pkgs;
+          tests = nativeInstructionTests pkgs;
+          closure = pkgs.closureInfo { rootPaths = [ compiler.drvPath ]; };
+          featureClosure = pkgs.closureInfo { rootPaths = [ tests.drvPath ]; };
+        in
+        pkgs.runCommand "cuestacean-native-instruction-codegen-verification"
+          {
+            nativeBuildInputs = [ pkgs.rustfmt ];
+            featureTests = tests;
+            policyVerification = nativeInstructionLoweringPolicyVerification pkgs;
+          }
+          ''
+            set -euo pipefail
+            mkdir -p "$out" "$TMPDIR/instruction-home"
+            native=${compiler}/bin/bootstrap-codegen
+            legacy=${legacyCodegenSeed pkgs}/bin/bootstrap-codegen
+            formatter=${pkgs.rustfmt}/bin/rustfmt
+            for tool in "$native" "$legacy" "$formatter"; do
+              case "$tool" in /*) ;; *) echo "nonabsolute verifier tool: $tool" >&2; exit 1 ;; esac
+              test -f "$tool"; test -r "$tool"; test -x "$tool"
+            done
+            test -d "$featureTests"
+            test -d "$policyVerification"
+            printf '%s\n' executor/src/bin/bootstrap-codegen.rs executor/src/codegen/compiler.rs \
+              executor/src/lowering.rs executor/src/module.rs native-instruction-codegen/Cargo.lock \
+              native-instruction-codegen/Cargo.toml native-instruction-codegen/src/lib.rs > expected-sources
+            printf '%s\n' executor executor/src executor/src/bin executor/src/codegen \
+              native-instruction-codegen native-instruction-codegen/src > expected-directories
+            for variant in constructor test; do
+              sources=${nativeInstructionSources pkgs false}
+              if [ "$variant" = test ]; then
+                sources=${nativeInstructionSources pkgs true}
+                printf '%s\n' native-instruction-codegen/tests/compiler.rs >> expected-sources
+                printf '%s\n' native-instruction-codegen/tests >> expected-directories
+                cmp "$sources/native-instruction-codegen/tests/compiler.rs" ${../../bootstrap/native-instruction-codegen/tests/compiler.rs}
+              fi
+              (cd "$sources"; find . -type f -printf '%P\n' | sort) > "$out/$variant-source-paths"
+              (cd "$sources"; find . -mindepth 1 -type d -printf '%P\n' | sort) > "$out/$variant-directories"
+              cmp expected-sources "$out/$variant-source-paths"
+              cmp expected-directories "$out/$variant-directories"
+              test -z "$(find "$sources" ! -type f ! -type d -print)"
+              for shared in bin/bootstrap-codegen.rs codegen/compiler.rs lowering.rs module.rs; do
+                cmp "$sources/executor/src/$shared" ${../../bootstrap/executor/src}/"$shared"
+              done
+              for facade in Cargo.toml Cargo.lock src/lib.rs; do
+                cmp "$sources/native-instruction-codegen/$facade" ${../../bootstrap/native-instruction-codegen}/"$facade"
+              done
+            done
+            substitute ${../../bootstrap/native-pratt-codegen/Cargo.lock} expected-lock \
+              --replace-fail cuestacean-native-pratt-codegen cuestacean-native-instruction-codegen
+            cmp expected-lock ${../../bootstrap/native-instruction-codegen/Cargo.lock}
+            printf '%s\n' lowering.json meta-lowering.json > expected-policies
+            find ${nativeInstructionPolicies pkgs} -type f -printf '%P\n' | sort > "$out/policy-files"
+            cmp expected-policies "$out/policy-files"
+            test -z "$(find ${nativeInstructionPolicies pkgs} -mindepth 1 ! -type f -print)"
+            cmp ${nativeInstructionPolicies pkgs}/lowering.json ${nativeInstructionLoweringPolicy pkgs}/lowering.json
+            cmp ${nativeInstructionPolicies pkgs}/meta-lowering.json ${nativeMetaLoweringPolicy pkgs}/meta-lowering.json
+            for paths in ${closure}/store-paths ${featureClosure}/store-paths; do
+              for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} ${pkgs.cue.src.drvPath} \
+                ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+                ${executor pkgs} ${(executor pkgs).drvPath} \
+                ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+                ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+                ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+                ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath} \
+                ${nativeScanCodegen pkgs} ${(nativeScanCodegen pkgs).drvPath} \
+                ${nativeUnifyCodegen pkgs} ${(nativeUnifyCodegen pkgs).drvPath} \
+                ${nativePrattCodegen pkgs} ${(nativePrattCodegen pkgs).drvPath}; do
+                if grep -Fx "$forbidden" "$paths"; then
+                  echo "forbidden native instruction construction dependency: $forbidden" >&2; exit 1
+                fi
+              done
+            done
+            # Only feature generation may use the native core lower compiler.
+            for forbidden in ${nativeCodegenCore pkgs} ${(nativeCodegenCore pkgs).drvPath} \
+              ${tests} ${tests.drvPath}; do
+              if grep -Fx "$forbidden" ${closure}/store-paths; then
+                echo "feature or sibling compiler in instruction constructor: $forbidden" >&2; exit 1
+              fi
+            done
+            invoke() { env -i PATH=/nonexistent HOME="$TMPDIR/instruction-home" "$@"; }
+            for mode in default left-twice reverse; do
+              args=(${jsonExports pkgs}/evaluation.json)
+              golden=evaluation
+              case "$mode" in
+                left-twice) args+=(${jsonExports pkgs}/tests/valid/lowering-left-twice.json); golden=evaluation-left-twice ;;
+                reverse) args+=(${jsonExports pkgs}/tests/valid/lowering-reverse.json); golden=evaluation-reverse ;;
+              esac
+              invoke "$native" "''${args[@]}" > "$mode.rs"
+              invoke "$native" "''${args[@]}" > repeat.rs
+              invoke "$legacy" "''${args[@]}" > legacy.rs
+              cmp "$mode.rs" repeat.rs
+              cmp "$mode.rs" legacy.rs
+              invoke "$formatter" --edition 2024 < "$mode.rs" > formatted.rs
+              cmp formatted.rs ${../../bootstrap/generated}/"$golden.rs"
+              cp "$mode.rs" "$out/$mode.rs"
+            done
+            for variant in canonical core unary binary-method binary-keys right r group runtime text footer-source first step module separator body-order reverse; do
+              fixture="$policyVerification/source-$variant"
+              for route in native raw; do
+                invoke "$native" "$fixture/tiny.json" "$fixture/$route-policy.json" > actual.rs
+                cmp actual.rs "$fixture/expected.rs"
+                cp actual.rs "$out/$variant-$route.rs"
+              done
+              if [ "$variant" = canonical ]; then
+                invoke "$native" "$fixture/tiny.json" > actual.rs
+                cmp actual.rs "$fixture/expected.rs"
+                cp actual.rs "$out/canonical-default.rs"
+              fi
+            done
+            fixture="$policyVerification/source-canonical"
+            for negative in oversize-module cursor-protocol; do
+              status=0
+              invoke "$native" "$fixture/tiny.json" "$policyVerification/$negative.json" > invalid.rs 2> invalid.err || status=$?
+              test "$status" -eq 2
+              test ! -s invalid.rs
+              case "$negative" in
+                oversize-module) printf '%s\n' 'lowering: module text exceeds 64 KiB' > expected.err ;;
+                cursor-protocol) printf '%s\n' 'lowering: no current rule' > expected.err ;;
+              esac
+              cmp expected.err invalid.err
+              cp invalid.err "$out/$negative.err"
+              invoke "$native" "$fixture/tiny.json" "$fixture/native-policy.json" > recovery.rs
+              cmp recovery.rs "$fixture/expected.rs"
+              cp recovery.rs "$out/$negative-recovery.rs"
+            done
+            test "$(readlink -f ${codegenSeed pkgs}/bin/bootstrap-codegen)" = "$(readlink -f "$native")"
+            cp ${closure}/store-paths "$out/native-build-paths"
+            cp ${closure}/registration "$out/native-build-registration"
+            printf '%s\n' ${compiler.drvPath} > "$out/native-build-roots"
+            cp ${featureClosure}/store-paths "$out/feature-build-paths"
+            cp ${featureClosure}/registration "$out/feature-build-registration"
+            printf '%s\n' ${tests.drvPath} > "$out/feature-build-roots"
+          '';
       legacyCodegenSeed =
         pkgs:
         (rustPackage pkgs).overrideAttrs (old: {
@@ -1698,7 +1916,7 @@
             (nativeScanCodegen pkgs)
             (nativeUnifyCodegen pkgs)
             (nativePrattCodegen pkgs)
-            (legacyCodegenSeed pkgs)
+            (nativeInstructionCodegen pkgs)
           ];
           postBuild = ''
             # Assert both membership and actual compiler provenance, not PATH order.
@@ -1712,7 +1930,7 @@
             test "$(readlink -f "$out/bin/bootstrap-scan-codegen")" = "$(readlink -f ${nativeScanCodegen pkgs}/bin/bootstrap-scan-codegen)"
             test "$(readlink -f "$out/bin/bootstrap-unify-codegen")" = "$(readlink -f ${nativeUnifyCodegen pkgs}/bin/bootstrap-unify-codegen)"
             test "$(readlink -f "$out/bin/bootstrap-pratt-codegen")" = "$(readlink -f ${nativePrattCodegen pkgs}/bin/bootstrap-pratt-codegen)"
-            test "$(readlink -f "$out/bin/bootstrap-codegen")" = "$(readlink -f ${legacyCodegenSeed pkgs}/bin/bootstrap-codegen)"
+            test "$(readlink -f "$out/bin/bootstrap-codegen")" = "$(readlink -f ${nativeInstructionCodegen pkgs}/bin/bootstrap-codegen)"
           '';
         };
       nativeCoreVerification =
@@ -1746,6 +1964,7 @@
               ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
               ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
               ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+              ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
               ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
               if grep -Fx "$forbidden" ${closure}/store-paths; then
                 echo "forbidden native compiler dependency: $forbidden" >&2; exit 1
@@ -2314,6 +2533,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativeUnifyLoweringPolicyBuildClosure pkgs}/store-paths; then
               echo "forbidden unification construction dependency: $forbidden" >&2; exit 1
@@ -2544,6 +2764,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativePrattLoweringPolicyBuildClosure pkgs}/store-paths; then
               echo "forbidden Pratt policy construction dependency: $forbidden" >&2; exit 1
@@ -2726,6 +2947,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativeInstructionBinaryTablesBuildClosure pkgs}/store-paths; then
               echo "forbidden binary table construction dependency: $forbidden" >&2; exit 1
@@ -3012,6 +3234,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativeInstructionUnaryTablesBuildClosure pkgs}/store-paths; then
               echo "forbidden unary table construction dependency: $forbidden" >&2; exit 1
@@ -3314,6 +3537,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativeInstructionLoweringPolicyBuildClosure pkgs}/store-paths; then
               echo "forbidden instruction policy construction dependency: $forbidden" >&2; exit 1
@@ -3870,6 +4094,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativeInstructionModuleBuildClosure pkgs}/store-paths; then
               echo "forbidden Module construction dependency: $forbidden" >&2; exit 1
@@ -4291,6 +4516,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativeInstructionModuleTextBuildClosure pkgs}/store-paths; then
               echo "forbidden module text construction dependency: $forbidden" >&2; exit 1
@@ -4506,6 +4732,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativeInstructionModuleControlsBuildClosure pkgs}/store-paths; then
               echo "forbidden module controls construction dependency: $forbidden" >&2; exit 1
@@ -4760,6 +4987,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativeInstructionCoreCasesBuildClosure pkgs}/store-paths; then
               echo "forbidden core-case construction dependency: $forbidden" >&2; exit 1
@@ -5075,6 +5303,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativeInstructionRightFieldBuildClosure pkgs}/store-paths; then
               echo "forbidden right-field construction dependency: $forbidden" >&2; exit 1
@@ -5454,6 +5683,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativeInstructionRightOperandBuildClosure pkgs}/store-paths; then
               echo "forbidden operand construction dependency: $forbidden" >&2; exit 1
@@ -5739,6 +5969,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativeInstructionOperandCasesBuildClosure pkgs}/store-paths; then
               echo "forbidden Group construction dependency: $forbidden" >&2; exit 1
@@ -6030,6 +6261,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativeInstructionBinaryRuntimeBuildClosure pkgs}/store-paths; then
               echo "forbidden Runtime construction dependency: $forbidden" >&2; exit 1
@@ -6336,6 +6568,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativePrattTablesBuildClosure pkgs}/store-paths; then
               echo "forbidden Pratt table construction dependency: $forbidden" >&2; exit 1
@@ -6537,6 +6770,7 @@
             ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
             ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
             ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
             ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath}; do
             if grep -Fx "$forbidden" ${nativeScanLoweringPolicyBuildClosure pkgs}/store-paths; then
               echo "forbidden scanner construction dependency: $forbidden" >&2; exit 1
@@ -7323,6 +7557,7 @@
           native-scan-codegen = nativeScanCodegen pkgs;
           native-unify-codegen = nativeUnifyCodegen pkgs;
           native-pratt-codegen = nativePrattCodegen pkgs;
+          native-instruction-codegen = nativeInstructionCodegen pkgs;
           default-observer = defaultObserver pkgs;
           default-trace = defaultTrace pkgs;
         }
@@ -7406,6 +7641,7 @@
           native-scan-codegen = nativeScannerVerification pkgs;
           native-unify-codegen = nativeUnifierVerification pkgs;
           native-pratt-codegen = nativePrattVerification pkgs;
+          native-instruction-codegen = nativeInstructionVerification pkgs;
           bootstrap-codegen =
             pkgs.runCommand "cuestacean-bootstrap-codegen"
               {

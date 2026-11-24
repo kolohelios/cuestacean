@@ -288,6 +288,9 @@ production setup. Raw overrides and all original gates/phase distinctions remain
 This makes SIX complete native policy inputs, still FIVE independently native
 compiler binaries/SIX origins. The remaining compiler, schemas/PROGRAM exports,
 joined-seed closure and broader #175 remain Go-dependent/held.
+The [#282 instruction compiler candidate](native-instruction-codegen.md) isolates
+that final constructor and switches its production seed origin. Local focused
+validation has passed; sandbox and release validation are still pending.
 
 The [#194 scanner-schema closure](scanner-schema-closure.md) isolates unchanged
 scanner definitions and narrows their Go-CUE construction inputs; complete JSON
