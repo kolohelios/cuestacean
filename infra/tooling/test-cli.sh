@@ -36,6 +36,8 @@ success() {
 success exact '40 + 2' '42' export input.cue
 success exact 'true' 'true' export - --out json
 success exact 'null' 'null' export --out=json -o - input.cue
+success exact '9223372036854775807' '9223372036854775807' export -
+success exact '"cuestacean"' '"cuestacean"' export input.cue
 success normalized '[1, 2 + 3]' '[1,5]' export --outfile - -
 success normalized 'close({"answer": 40 + 2})' '{"answer":42}' export input.cue --outfile=-
 printf '42\n' > ./-input.cue

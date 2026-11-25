@@ -7665,7 +7665,9 @@
           bootstrap-executor = executor pkgs;
           cuestacean-cli = pkgs.runCommand "cuestacean-cli-verification" { } ''
             ${pkgs.bash}/bin/bash ${./test-cli.sh} ${cli pkgs}/bin/cuestacean ${pkgs.cue}/bin/cue ${pkgs.jq}/bin/jq
-            test -z "$(grep -Fx ${pkgs.cue} ${pkgs.closureInfo { rootPaths = [ (cli pkgs) ]; }}/store-paths)"
+            status=0
+            grep -Fx ${pkgs.cue} ${pkgs.closureInfo { rootPaths = [ (cli pkgs) ]; }}/store-paths || status=$?
+            test "$status" -eq 1
             touch "$out"
           '';
           native-spec-tests = specTests pkgs;
