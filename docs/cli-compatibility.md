@@ -31,7 +31,7 @@ printf '40 + 2\n' | cuestacean export --out json -
 | `export` with one explicit UTF-8 `.cue` file (case-sensitive suffix) or `-` for stdin | Supported for the existing bounded single-expression frontend. |
 | JSON on stdout | Default, or `--out json` / `--out=json`. `-o -`, `--outfile -`, and `--outfile=-` explicitly select stdout. |
 | Argument order | Supported options may precede or follow the input. Use `--` to end option parsing. Duplicate options and multiple inputs are rejected. |
-| Expression selection (`-e`, `--expression`) | Deferred: selection applies to a loaded CUE value, not an independent argument expression. |
+| Field selection | `-e name`, `--expression name`, or `--expression=name` selects one field from a fully concrete record. |
 | Other `export` options | Unsupported, including `--escape`, `--force`, injection, `--list`, `--merge`, `--name`, package/path/schema flags, protobuf options, `--with-context`, and global error/ignore/simplify flags. Non-JSON formats and output files are unsupported. |
 | Other commands | Unsupported: `cmd`, `completion`, `def`, `eval`, `fix`, `fmt`, `get`, `help`, `import`, `login`, `mod`, `trim`, `version`, `vet`. |
 
@@ -41,6 +41,20 @@ not by this slice. See the [source frontend](../bootstrap/source/README.md)
 for language and resource limits. The existing expression evaluator has
 known semantic boundaries, including checked 64-bit integers; accepting the
 same invocation does not establish general language parity.
+
+For example, both commands select `42`:
+
+```sh
+printf 'close({"answer": 42, "other": 99})\n' | cue export -e answer -
+printf 'close({"answer": 42, "other": 99})\n' | cuestacean export -e answer -
+```
+
+Use a single ASCII field name starting with a letter and containing only letters,
+digits, and underscores. `true`, `false`, and `null` are literals, not selectors.
+Repeated selections, paths, quoted labels, hidden fields, definitions, and general
+expressions are unsupported. A missing field or a non-record result is an error.
+Unlike Go CUE, Cuestacean must evaluate the entire record first: even an unrelated
+incomplete or conflicting field prevents selection.
 
 Successful exports terminate with a newline. The check compares representative
 scalars byte-for-byte and compares lists and records as JSON values, not by
