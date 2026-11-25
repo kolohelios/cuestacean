@@ -169,6 +169,16 @@ fn select<'a>(
     }
 }
 
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            let _ = writeln!(io::stderr().lock(), "cuestacean: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,12 +194,16 @@ mod tests {
             vec!["export", "--out", "json", "-e", "answer", "data.json"],
             vec!["export", "-e", "answer", "--", "json:", "-"],
         ] {
-            let parsed = arguments(&args).unwrap();
+            let parsed = arguments(&args).expect("supported explicit input and options");
             assert!(parsed.json);
             assert_eq!(parsed.field.as_deref(), Some("answer"));
         }
         for input in ["-", "file.cue"] {
-            assert!(!arguments(&["export", input]).unwrap().json);
+            assert!(
+                !arguments(&["export", input])
+                    .expect("existing CUE route")
+                    .json
+            );
         }
         for args in [
             vec!["export", "json:"],
@@ -200,28 +214,19 @@ mod tests {
         ] {
             assert!(arguments(&args).is_err());
         }
-        let value = json::read(&br#"{"answer":42,"other":false}"#[..]).unwrap();
+        let value =
+            json::read(&br#"{"answer":42,"other":false}"#[..]).expect("valid selection data");
         assert_eq!(
-            select(&value, Some("answer")).unwrap(),
+            select(&value, Some("answer")).expect("existing answer field"),
             &serde_json::json!(42)
         );
         assert_eq!(
-            select(&value, Some("missing")).unwrap_err(),
+            select(&value, Some("missing")).expect_err("absent field"),
             "record has no field named missing"
         );
         assert_eq!(
-            select(&serde_json::Value::Null, Some("answer")).unwrap_err(),
+            select(&serde_json::Value::Null, Some("answer")).expect_err("non-record"),
             "--expression requires a concrete record"
         );
-    }
-}
-
-fn main() -> ExitCode {
-    match run() {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(error) => {
-            let _ = writeln!(io::stderr().lock(), "cuestacean: {error}");
-            ExitCode::FAILURE
-        }
     }
 }
