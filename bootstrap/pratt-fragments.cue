@@ -5,9 +5,9 @@ package bootstrap
 	_postfix:       *true | false
 	_selectors:     *true | false
 	_slices:        *true | false
-	_sliceMinimum:  *0 | 100
+	_sliceMinimum:  #PrattSliceMinimumInput.v
 	_associativity: *true | false
-	_indexMinimum:  *0 | 100
+	_indexMinimum:  #PrattIndexMinimumInput.v
 	let Index = [{op: "advanceIndex"}, {op: "parseIndex", minimum: {op: "integer", value: _indexMinimum}},
 		if _slices {op: "scanSlice"}, if _slices {
 			op: "if", condition: {op: "hasSlice"}
