@@ -3,7 +3,7 @@ use std::io::{self, Read, Write};
 use std::path::Path;
 use std::process::ExitCode;
 
-const USAGE: &str = "usage: cuestacean export [-e name] [--out json] [-o -] <expression.cue|->";
+const USAGE: &str = "usage: cuestacean export [-e name] [--out json] [-o -] <input.cue|->";
 
 struct ExportArgs {
     input: OsString,
@@ -106,7 +106,7 @@ fn run() -> Result<(), String> {
         std::fs::read_to_string(path)
             .map_err(|error| format!("cannot read {}: {error}", path.display()))?
     };
-    let program = bootstrap_executor::parser::parse(
+    let program = bootstrap_executor::parser::parse_file(
         &source,
         include_str!(concat!(env!("CUESTACEAN_BOOTSTRAP_JSON"), "/grammar.json")),
     )

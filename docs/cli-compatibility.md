@@ -28,7 +28,7 @@ printf '40 + 2\n' | cuestacean export --out json -
 
 | Surface | Status |
 | --- | --- |
-| `export` with one explicit UTF-8 `.cue` file (case-sensitive suffix) or `-` for stdin | Supported for the existing bounded single-expression frontend. |
+| `export` with one explicit UTF-8 `.cue` file (case-sensitive suffix) or `-` for stdin | One supported expression or [ordinary fields with expression values](ordinary-file-fields.md). |
 | JSON on stdout | Default, or `--out json` / `--out=json`. `-o -`, `--outfile -`, and `--outfile=-` explicitly select stdout. |
 | Argument order | Supported options may precede or follow the input. Use `--` to end option parsing. Duplicate options and multiple inputs are rejected. |
 | Field selection | `-e name`, `--expression name`, or `--expression=name` selects one field from a fully concrete record. |
@@ -36,8 +36,9 @@ printf '40 + 2\n' | cuestacean export --out json -
 | Other commands | Unsupported: `cmd`, `completion`, `def`, `eval`, `fix`, `fmt`, `get`, `help`, `import`, `login`, `mod`, `trim`, `version`, `vet`. |
 
 There is no implicit current-directory, package, module, import, glob, or
-multi-file loading. A file containing `value: 42` is accepted upstream but
-not by this slice. See the [source frontend](../bootstrap/source/README.md)
+multi-file loading. `value: 42` exports `{"value":42}`, but references between
+fields and duplicate-field unification are unsupported. See the
+[source frontend](../bootstrap/source/README.md)
 for language and resource limits. The existing expression evaluator has
 known semantic boundaries, including checked 64-bit integers; accepting the
 same invocation does not establish general language parity.
