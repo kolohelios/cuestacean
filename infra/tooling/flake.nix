@@ -7695,6 +7695,8 @@
           bootstrap-executor = executor pkgs;
           cuestacean-cli = pkgs.runCommand "cuestacean-cli-verification" { } ''
             ${pkgs.bash}/bin/bash ${./test-cli.sh} ${cli pkgs}/bin/cuestacean ${pkgs.cue}/bin/cue ${pkgs.jq}/bin/jq
+            mkdir cli-parity
+            (cd cli-parity; ${pkgs.python3}/bin/python3 -I -B ${./cli-parity}/check.py ${cli pkgs}/bin/cuestacean ${pkgs.cue}/bin/cue)
             status=0
             grep -Fx ${pkgs.cue} ${pkgs.closureInfo { rootPaths = [ (cli pkgs) ]; }}/store-paths || status=$?
             test "$status" -eq 1
