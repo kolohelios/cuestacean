@@ -2,9 +2,9 @@ package bootstrap
 
 // Ordered guarded clauses return only after a complete primary.
 #PrimaryControl: #PrattProgram & {
-	_boundMinimum: *0 | 100
-	_callMinimum:  *0 | 100
-	_listMinimum:  *0 | 100
+	_boundMinimum: #PrimaryBoundMinimumInput.v
+	_callMinimum:  #PrimaryCallMinimumInput.v
+	_listMinimum:  #PrimaryListMinimumInput.v
 	_lists:        *true | false
 	_records:      *true | false
 	_conjunctions: *true | false

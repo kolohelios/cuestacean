@@ -706,6 +706,9 @@
                 ../../bootstrap/file-scanner-fragments.cue
                 ../../bootstrap/decimal-fragments.cue
                 ../../bootstrap/primary-fragments.cue
+                ../../bootstrap/primary-bound-minimum-input.cue
+                ../../bootstrap/primary-call-minimum-input.cue
+                ../../bootstrap/primary-list-minimum-input.cue
                 ../../bootstrap/pratt-fragments.cue
                 ../../bootstrap/list-control-fragments.cue
                 ../../bootstrap/record-control-fragments.cue
@@ -796,6 +799,7 @@
             jq() { ${pkgs.jq}/bin/jq "$@"; }
             source ${./slice-lower-provider.sh}
             source ${./primary-minimum-provider.sh}
+            source ${./primary-control-minima-provider.sh}
             for fixture in ${fixtureNames}; do
               echo "exporting $fixture"
               case "$fixture" in
@@ -889,7 +893,14 @@
                 ${nativePrimaryMinimum pkgs "record"}/record-minimum.json \
                 ${nativePrimaryMinimum pkgs "conjunction"}/conjunction-minimum.json \
                 ${cueSources}/record-minimum-input.cue ${cueSources}/conjunction-minimum-input.cue
-              inputs=("${cueSources}/$schema.cue")
+              primary_control_minima_provider "$fixture" \
+                ${nativePrimaryMinimum pkgs "primary-bound"}/primary-bound-minimum.json \
+                ${nativePrimaryMinimum pkgs "primary-call"}/primary-call-minimum.json \
+                ${nativePrimaryMinimum pkgs "primary-list"}/primary-list-minimum.json \
+                ${cueSources}/primary-bound-minimum-input.cue \
+                ${cueSources}/primary-call-minimum-input.cue \
+                ${cueSources}/primary-list-minimum-input.cue
+              inputs=("${cueSources}/$schema.cue" "''${primary_control_providers[@]}")
               if [ -n "$slice_provider" ]; then inputs+=("$slice_provider"); fi
               if [ -n "$min_provider" ]; then inputs+=("$min_provider"); fi
               for fragment in "''${fragments[@]}"; do inputs+=("${cueSources}/$fragment.cue"); done
@@ -5028,6 +5039,157 @@
             cargo test --offline --test primary_minima_runtime
           '';
         });
+      primaryControlMinimaSources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/schema.cue
+            ../../bootstrap/primary-fragments.cue
+            ../../bootstrap/primary-bound-minimum-input.cue
+            ../../bootstrap/primary-bound-minimum-input-root.cue
+            ../../bootstrap/primary-call-minimum-input.cue
+            ../../bootstrap/primary-call-minimum-input-root.cue
+            ../../bootstrap/primary-list-minimum-input.cue
+            ../../bootstrap/primary-list-minimum-input-root.cue
+            ../../bootstrap/primary.cue
+            ../../bootstrap/tests/valid/primary-no-conjunction.cue
+            ../../bootstrap/tests/valid/primary-bound-high-minimum.cue
+            ../../bootstrap/tests/valid/primary-call-high-minimum.cue
+            ../../bootstrap/tests/valid/primary-no-lists.cue
+            ../../bootstrap/tests/valid/primary-no-records.cue
+            ../../bootstrap/generated/primary.rs
+            ../../bootstrap/generated/primary-no-conjunction.rs
+            ../../bootstrap/generated/primary-bound-high-minimum.rs
+            ../../bootstrap/generated/primary-call-high-minimum.rs
+            ../../bootstrap/generated/primary-no-lists.rs
+            ../../bootstrap/generated/primary-no-records.rs
+          ];
+        };
+      # Independent all-sibling audit; the #298 two-way audits stay unchanged.
+      primaryControlMinimumProvenance = pkgs: kind: ''
+        (
+          set -euo pipefail
+          closure=${primaryMinimumBuildClosure pkgs kind}
+          sources=${primaryMinimumSources pkgs kind}
+          exporterSources=${specSources pkgs false}
+          producer=${nativePrimaryMinimum pkgs kind}
+          mkdir -p "$out/provenance/${kind}"
+          cd "$out/provenance/${kind}"
+          for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} ${pkgs.cue.src.drvPath} \
+            ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+            ${executor pkgs} ${(executor pkgs).drvPath} \
+            ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+            ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+            ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath} \
+            ${nativeCodegenCore pkgs} ${(nativeCodegenCore pkgs).drvPath} \
+            ${nativeScanCodegen pkgs} ${(nativeScanCodegen pkgs).drvPath} \
+            ${nativeUnifyCodegen pkgs} ${(nativeUnifyCodegen pkgs).drvPath} \
+            ${nativePrattCodegen pkgs} ${(nativePrattCodegen pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
+            ${nativeSliceLower pkgs} ${(nativeSliceLower pkgs).drvPath} ${sliceLowerSources pkgs} \
+            ${./primary-control-minima-provider.sh} ${./test-primary-control-minima.sh} \
+            ${./primary-control-minima-runtime.rs} ${primaryControlMinimaSources pkgs} \
+            ${./primary-minimum-provider.sh} ${./test-primary-minima.sh} \
+            ${./primary-minima-runtime.rs} ${primaryMinimaVerificationSources pkgs} \
+            ${../../bootstrap/generated/primary.rs} \
+            ${../../bootstrap/generated/primary-no-conjunction.rs} \
+            ${../../bootstrap/generated/primary-bound-high-minimum.rs} \
+            ${../../bootstrap/generated/primary-call-high-minimum.rs} \
+            ${../../bootstrap/generated/primary-no-lists.rs} \
+            ${../../bootstrap/generated/primary-no-records.rs} \
+            ${
+              builtins.concatStringsSep " " (
+                map
+                  (
+                    sibling:
+                    "${primaryMinimumSources pkgs sibling} ${nativePrimaryMinimum pkgs sibling} ${(nativePrimaryMinimum pkgs sibling).drvPath}"
+                  )
+                  (
+                    builtins.filter (sibling: sibling != kind) [
+                      "primary-bound"
+                      "primary-call"
+                      "primary-list"
+                      "record"
+                      "conjunction"
+                    ]
+                  )
+              )
+            }; do
+            if grep -Fx "$forbidden" "$closure/store-paths"; then
+              echo "forbidden ${kind} minimum construction dependency: $forbidden" >&2
+              exit 1
+            fi
+          done
+          for required in ${(specExporter pkgs).drvPath} ${(nativePrimaryMinimum pkgs kind).drvPath} \
+            "$sources" "$exporterSources"; do
+            grep -Fx "$required" "$closure/store-paths"
+          done
+          grep -F "$sources" ${(nativePrimaryMinimum pkgs kind).drvPath}
+          grep -F '${specExporter pkgs}/bin/cuestacean-spec-export' ${(nativePrimaryMinimum pkgs kind).drvPath}
+          (cd "$sources"; find . -type f | LC_ALL=C sort) > source-inventory
+          printf '%s\n' ./${kind}-minimum-input-root.cue ./${kind}-minimum-input.cue > expected-inventory
+          cmp source-inventory expected-inventory
+          cmp "$sources/${kind}-minimum-input.cue" ${../../bootstrap + "/${kind}-minimum-input.cue"}
+          cmp "$sources/${kind}-minimum-input-root.cue" ${
+            ../../bootstrap + "/${kind}-minimum-input-root.cue"
+          }
+          (cd "$exporterSources"; find . -type f | LC_ALL=C sort) > exporter-inventory
+          printf '%s\n' ./spec-export/Cargo.lock ./spec-export/Cargo.toml \
+            ./spec-export/src/bindings.rs ./spec-export/src/comprehension.rs \
+            ./spec-export/src/eval.rs ./spec-export/src/lib.rs ./spec-export/src/main.rs \
+            ./spec-export/src/model.rs ./spec-export/src/parser.rs ./spec-export/src/projection.rs \
+            > expected-exporter-inventory
+          cmp exporter-inventory expected-exporter-inventory
+          (cd "$producer"; find . -type f | LC_ALL=C sort) > output-inventory
+          printf '%s\n' ./${kind}-minimum.json > expected-output-inventory
+          cmp output-inventory expected-output-inventory
+          cp "$closure/store-paths" native-build-paths
+          cp "$closure/registration" native-build-registration
+          cp -R "$sources" native-sources
+          cp -R "$exporterSources" exporter-sources
+          cp ${(nativePrimaryMinimum pkgs kind).drvPath} native-producer.drv
+          cp ${(specExporter pkgs).drvPath} native-exporter.drv
+          printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativePrimaryMinimum pkgs kind).drvPath} > native-build-roots
+        )
+      '';
+      nativePrimaryControlMinimaVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-primary-control-minima-verification" { } ''
+          set -euo pipefail
+          mkdir -p "$out"
+          ${primaryControlMinimumProvenance pkgs "primary-bound"}
+          ${primaryControlMinimumProvenance pkgs "primary-call"}
+          ${primaryControlMinimumProvenance pkgs "primary-list"}
+          ${pkgs.bash}/bin/bash ${./test-primary-control-minima.sh} \
+            ${pkgs.cue}/bin/cue ${pkgs.jq}/bin/jq \
+            ${specExporter pkgs}/bin/cuestacean-spec-export \
+            ${nativePrattCodegen pkgs}/bin/bootstrap-pratt-codegen \
+            ${pkgs.rustfmt}/bin/rustfmt ${jsonExports pkgs} \
+            ${primaryControlMinimaSources pkgs} ${./primary-control-minima-provider.sh} \
+            ${nativePrimaryMinimum pkgs "primary-bound"}/primary-bound-minimum.json \
+            ${nativePrimaryMinimum pkgs "primary-call"}/primary-call-minimum.json \
+            ${nativePrimaryMinimum pkgs "primary-list"}/primary-list-minimum.json "$out"
+        '';
+      primaryControlMinimaRuntime =
+        pkgs:
+        (executor pkgs).overrideAttrs (old: {
+          pname = "cuestacean-primary-control-minima-runtime";
+          doCheck = true;
+          postPatch = old.postPatch + ''
+            cp ${./primary-control-minima-runtime.rs} tests/primary_control_minima_runtime.rs
+            for kind in base bound call list; do
+              for extension in rs json; do
+                cp ${nativePrimaryControlMinimaVerification pkgs}/runtime/"$kind.$extension" tests/
+              done
+            done
+          '';
+          preCheck = "";
+          checkPhase = ''
+            cargo test --offline --test primary_control_minima_runtime
+          '';
+        });
       instructionModuleControlSources =
         pkgs:
         pkgs.lib.fileset.toSource {
@@ -7920,6 +8082,9 @@
           native-slice-lower = nativeSliceLower pkgs;
           native-record-minimum = nativePrimaryMinimum pkgs "record";
           native-conjunction-minimum = nativePrimaryMinimum pkgs "conjunction";
+          native-primary-bound-minimum = nativePrimaryMinimum pkgs "primary-bound";
+          native-primary-call-minimum = nativePrimaryMinimum pkgs "primary-call";
+          native-primary-list-minimum = nativePrimaryMinimum pkgs "primary-list";
           native-pratt-tables = nativePrattTables pkgs;
           native-pratt-lowering-policy = nativePrattLoweringPolicy pkgs;
           native-codegen-core = nativeCodegenCore pkgs;
@@ -8021,6 +8186,8 @@
           native-slice-lower = nativeSliceLowerVerification pkgs;
           native-primary-minima = nativePrimaryMinimaVerification pkgs;
           primary-minima-runtime = primaryMinimaRuntime pkgs;
+          native-primary-control-minima = nativePrimaryControlMinimaVerification pkgs;
+          primary-control-minima-runtime = primaryControlMinimaRuntime pkgs;
           native-pratt-tables = nativePrattTablesVerification pkgs;
           native-pratt-lowering-policy = nativePrattLoweringPolicyVerification pkgs;
           native-codegen-core = nativeCoreVerification pkgs;
