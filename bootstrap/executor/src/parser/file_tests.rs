@@ -54,7 +54,7 @@ fn checked_file_stages_and_completion() -> Result<(), Error> {
     }
     run(stages)?;
     assert!(matches!(
-        run(Frame::probe_file),
+        run(|frame| frame.probe_file()),
         Err(Error::ControlState { .. })
     ));
     fn budget(frame: &mut Frame<'_, '_>) -> Result<(), Error> {

@@ -115,12 +115,11 @@ enum Scanner {
     Boundary,
     Tail,
 }
+type ScanDriver = fn(&str, usize) -> Result<crate::scanner::Scan, crate::scanner::Error>;
+
 impl Frame<'_, '_> {
     fn file_scan(&self, scanner: Scanner, offset: usize) -> Result<crate::scanner::Scan, Error> {
-        let (driver, program): (
-            fn(&str, usize) -> Result<crate::scanner::Scan, crate::scanner::Error>,
-            &str,
-        ) = match scanner {
+        let (driver, program): (ScanDriver, &str) = match scanner {
             Scanner::Label => (label::scan, program!("file-label")),
             Scanner::Colon => (colon::scan, program!("file-colon")),
             Scanner::Boundary => (boundary::scan, program!("file-boundary")),
