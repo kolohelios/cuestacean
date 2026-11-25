@@ -1,6 +1,7 @@
 package bootstrap
 
 #PrattControl: #PrattProgram & {
+	_file:          *false | true
 	_postfix:       *true | false
 	_selectors:     *true | false
 	_slices:        *true | false
@@ -18,13 +19,16 @@ package bootstrap
 	let Selector = [{op: "advanceSelector"}, {op: "selectorWhitespace"}, {op: "scanSelectorString"}, {
 		op: "if", condition: {op: "hasSelectorString"}, then: [{op: "parseSelectorString"}], else: [{op: "parseSelectorIdentifier"}]
 	}, {op: "buildSelector"}]
-	body: [{op: "primary"}, {op: "afterOperand"},
+	let After = [if !_file {op: "afterOperand"}, if _file {op: "fileAfterOperand"}, if _file {
+		op: "if", condition: {op: "fileBoundary"}, then: [{op: "return"}]
+	}]
+	body: [{op: "primary"}, for action in After {action},
 		if _postfix {op: "scanIndex"}, if _postfix && _selectors {ProbeSelector}, if _postfix {
 			op: "while", condition: {if _selectors {op: "hasPostfix"}, if !_selectors {op: "hasIndex"}}
 			body: [
 				if _selectors {op: "if", condition: {op: "hasIndex"}, then: Index, else: Selector},
 				if !_selectors for action in Index {action},
-				{op: "afterOperand"}, {op: "scanIndex"}, if _selectors {ProbeSelector},
+				for action in After {action}, {op: "scanIndex"}, if _selectors {ProbeSelector},
 			]
 		}, {op: "lookupOperator"}, {
 			op: "while"
@@ -47,6 +51,6 @@ package bootstrap
 				condition: {op: "atLeast", left: {op: "tokenLength"}, right: {op: "integer", value: 3}}
 				then: [{op: "afterWordOperator"}]
 			}, {op: "parseRight"}, {op: "buildBinary"},
-				{op: "afterOperand"}, {op: "lookupOperator"}]
+				for action in After {action}, {op: "lookupOperator"}]
 		}]
 }

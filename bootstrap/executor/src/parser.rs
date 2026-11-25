@@ -7,6 +7,8 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 mod conjunction;
+mod file;
+pub use file::{parse_file, parse_file_interpreted};
 #[cfg(test)]
 mod conjunction_tests;
 #[path = "../../generated/pratt.rs"]
@@ -639,11 +641,24 @@ impl Parser<'_> {
     }
 
     fn expression(&mut self, minimum: u8, depth: usize) -> Result<Value, Error> {
+        self.expression_control(minimum, depth, false, self.engine.clone())
+    }
+
+    fn expression_control(
+        &mut self,
+        minimum: u8,
+        depth: usize,
+        scope: bool,
+        engine: Engine,
+    ) -> Result<Value, Error> {
         if depth > 32 {
             return self.error("expression exceeds 32 parsing levels");
         }
-        let engine = self.engine.clone();
         let mut frame = Frame {
+            file: file::Context {
+                scope,
+                ..Default::default()
+            },
             parser: self,
             minimum,
             depth,
@@ -665,6 +680,11 @@ impl Parser<'_> {
         match engine {
             Engine::Compiled(driver) => driver(&mut frame)?,
             Engine::Interpreted(program) => crate::pratt::interpret(&program, &mut frame)?,
+        }
+        if frame.file.state.is_some() {
+            return Err(Error::ControlState {
+                reason: "unfinished file at frame return",
+            });
         }
         if frame.slice_upper.is_some()
             || !matches!(frame.index_state, None | Some(IndexState::Scanned(None)))
@@ -800,6 +820,7 @@ enum PrimaryState {
 /// Native intrinsics for generated/interpreted control programs, not a Pratt loop.
 /// Fields are private: control code can only use checked state transitions.
 pub struct Frame<'p, 's> {
+    file: file::Context,
     parser: &'p mut Parser<'s>,
     minimum: u8,
     depth: usize,
@@ -1159,7 +1180,12 @@ impl Frame<'_, '_> {
         if !matches!(self.primary_state, Some(PrimaryState::NotAdvanced)) {
             return self.primary_state_error();
         }
-        self.left = Some(self.parser.expression(minimum, self.depth + 1)?);
+        self.left = Some(self.parser.expression_control(
+            minimum,
+            self.depth + 1,
+            self.file.scope,
+            self.parser.engine.clone(),
+        )?);
         self.primary_state = Some(PrimaryState::NotParsed);
         Ok(())
     }
@@ -1218,7 +1244,12 @@ impl Frame<'_, '_> {
         if !matches!(self.primary_state, Some(PrimaryState::NegationAdvanced)) {
             return self.primary_state_error();
         }
-        self.left = Some(self.parser.expression(minimum, self.depth + 1)?);
+        self.left = Some(self.parser.expression_control(
+            minimum,
+            self.depth + 1,
+            self.file.scope,
+            self.parser.engine.clone(),
+        )?);
         self.primary_state = Some(PrimaryState::NegationParsed);
         Ok(())
     }
@@ -1588,7 +1619,12 @@ impl Frame<'_, '_> {
         let minimum = self.binding.ok_or(Error::ControlState {
             reason: "binding power not set",
         })?;
-        self.right = Some(self.parser.expression(minimum, self.depth + 1)?);
+        self.right = Some(self.parser.expression_control(
+            minimum,
+            self.depth + 1,
+            self.file.scope,
+            self.parser.engine.clone(),
+        )?);
         Ok(())
     }
     pub fn build_binary(&mut self) -> Result<(), Error> {
@@ -1714,6 +1750,7 @@ mod bound_group_state_tests {
             index_state: None,
             selector_state: None,
             slice_upper: None,
+            file: Default::default(),
         };
         frame.scan_group()?;
         assert!(frame.group_open()?);
@@ -1785,6 +1822,7 @@ mod bound_group_state_tests {
             index_state: None,
             selector_state: None,
             slice_upper: None,
+            file: Default::default(),
         };
         assert!(frame.has_call().is_err());
         assert!(frame.advance_call().is_err());
@@ -1927,6 +1965,7 @@ mod list_state_tests {
             index_state: None,
             selector_state: None,
             slice_upper: None,
+            file: Default::default(),
         };
         assert!(frame.scan_list().is_err());
         assert!(frame.has_list().is_err());
@@ -2262,6 +2301,7 @@ mod string_state_tests {
             index_state: None,
             selector_state: None,
             slice_upper: None,
+            file: Default::default(),
         };
         assert!(matches!(frame.has_not(), Err(Error::ControlState { .. })));
         assert!(matches!(frame.scan_not(), Err(Error::ControlState { .. })));
@@ -2337,6 +2377,7 @@ mod string_state_tests {
             index_state: None,
             selector_state: None,
             slice_upper: None,
+            file: Default::default(),
         };
         assert!(matches!(
             frame.has_string(),
