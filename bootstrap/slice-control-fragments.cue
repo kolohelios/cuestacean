@@ -2,7 +2,7 @@ package bootstrap
 
 #SliceControl: #PrattProgram & {
 	target:        "slice"
-	_lowerDefault: *0 | 1
+	_lowerDefault: #SliceLowerInput.v
 	body: [{op: "evaluateSliceOperand"}, {
 		op: "if", condition: {op: "hasLower"}, then: [{op: "evaluateSliceLower"}], else: [{op: "defaultSliceLower", value: _lowerDefault}]
 	}, {
