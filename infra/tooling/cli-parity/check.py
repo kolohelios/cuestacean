@@ -62,12 +62,14 @@ def expect_failure(result, diagnostic, label):
 
 def json_inputs(data):
     Path("input.json").write_bytes(data)
-    return (["input.json"], ["json:", "-"])
+    # A valid, unrelated stdin value makes wrong-channel reads observable for
+    # both successful file exports and malformed/profile-excluded file cases.
+    return ((["input.json"], b'{"stdin_only":true}'), (["json:", "-"], data))
 
 
 def json_success(tool, data, expected, label, options=()):
-    for args in json_inputs(data):
-        export(tool, [*options, *args], canonical(expected), f"{label} {args}", data=data)
+    for args, stdin in json_inputs(data):
+        export(tool, [*options, *args], canonical(expected), f"{label} {args}", data=stdin)
 
 
 def json_values():
@@ -126,12 +128,12 @@ def json_oracle_gaps(cue):
         (b'{"a":1,"\\u0061":1}', b'{"a":1}'),
     ):
         json_success(cue, data, expected, "Go-only excluded JSON")
-    for args in json_inputs(b'1.5'):
-        result = run(cue, ["export", *args], data=b'1.5')
+    for args, stdin in json_inputs(b'1.5'):
+        result = run(cue, ["export", *args], data=stdin)
         require(result.returncode == 0 and not result.stderr and result.stdout == b'1.5\n',
                 f"Go-only float control: {result!r}")
-    for args in json_inputs(b'{"a":1,"a":2}'):
-        expect_failure(run(cue, ["export", *args], data=b'{"a":1,"a":2}'),
+    for args, stdin in json_inputs(b'{"a":1,"a":2}'):
+        expect_failure(run(cue, ["export", *args], data=stdin),
                        b'conflicting values', "Go unequal duplicate gap")
 
 
@@ -143,8 +145,8 @@ def json_profile(rust, cue):
     # distinct keys: keep this upstream discrepancy outside parity passes.
     distinct_keys = '{"é":1,"é":2}'.encode()
     json_success(rust, distinct_keys, '{"é":2,"é":1}'.encode(), "distinct decoded keys")
-    for args in json_inputs(distinct_keys):
-        expect_failure(run(cue, ["export", *args], data=distinct_keys),
+    for args, stdin in json_inputs(distinct_keys):
+        expect_failure(run(cue, ["export", *args], data=stdin),
                        b'conflicting values', "Go normalized-key gap")
     selected = b'{"answer":9223372036854775807,"items":[null,true,"1"],"int":false}'
     for option, expected in ((["-e", "answer"], b'9223372036854775807'),
@@ -158,6 +160,8 @@ def json_profile(rust, cue):
         b'1 2', b'null\n{}', b'{}{}', b'01', b'-01', b'+1', b'0x10',
         b'NaN', b'Infinity', b'undefined', b'//comment\n0', b'/*x*/0',
         b'"raw\nline"', b'"\\x41"', b'"\\u00xz"', b'1e', b'1.',
+        b'x' + b'[' * 65,
+        b'0 ' + b'[' * 65 + b'0' + b']' * 65,
     ]
     invalid_unicode = [
         b'"\xff"', b'"\xc0\xaf"', b'"\xe2\x82"', b'"\xed\xa0\x80"',
@@ -178,32 +182,44 @@ def json_profile(rust, cue):
     for category, values in ((b'invalid JSON:', malformed + invalid_unicode),
                              (b'unsupported JSON:', excluded)):
         for index, data in enumerate(values):
-            for args in json_inputs(data):
-                result = run(rust, ["export", *args], data=data)
+            for args, stdin in json_inputs(data):
+                result = run(rust, ["export", *args], data=stdin)
                 expect_failure(result, category, f"JSON {category!r} {index} {args}")
                 require(result.stderr.startswith(b'cuestacean: ' + category),
                         f"wrong JSON diagnostic prefix: {result.stderr!r}")
     # Syntax errors observable upstream; Unicode repair behavior is not parity.
     for data in malformed:
-        for args in json_inputs(data):
-            expect_failure(run(cue, ["export", *args], data=data), b'invalid JSON',
+        for args, stdin in json_inputs(data):
+            expect_failure(run(cue, ["export", *args], data=stdin), b'invalid JSON',
                            f"Go malformed explicit JSON {args}")
     json_oracle_gaps(cue)
 
     for data, diagnostic in ((b'{}', b'record has no field named answer'),
                              (b'42', b'--expression requires a concrete record'),
                              (b'[]', b'--expression requires a concrete record')):
-        for args in json_inputs(data):
-            expect_failure(run(rust, ["export", "-e", "answer", *args], data=data),
+        for args, stdin in json_inputs(data):
+            expect_failure(run(rust, ["export", "-e", "answer", *args], data=stdin),
                            diagnostic, "JSON selector failure")
+    # Selection must not hide malformed or excluded unselected siblings.
+    for data, category in (
+        (b'{"answer":42,"other":}', b'invalid JSON:'),
+        (b'{"answer":42,"other":1.0}', b'unsupported JSON:'),
+        (b'{"answer":42,"other":{"x":0,"x":0}}', b'unsupported JSON:'),
+    ):
+        for args, stdin in json_inputs(data):
+            expect_failure(run(rust, ["export", "-e", "answer", *args], data=stdin),
+                           category, "whole JSON document before selector")
+    require(not Path("missing.json").exists(), "missing-file fixture unexpectedly exists")
+    expect_failure(run(rust, ["export", "missing.json"], data=b'{"answer":42}'),
+                   b'cannot read missing.json', "missing JSON file cannot retry valid stdin")
     for selector in ('', 'true', 'false', 'null', 'a.b', '"a"', '_a', '#A', 'é', '1a'):
         expect_failure(run(rust, ["export", f"--expression={selector}", "json:", "-"],
                            data=b'{}'), b'--expression requires a single ASCII field name',
                        "unchanged JSON selector grammar")
     # Explicit JSON never retries as CUE. Conversely .cue/bare stdin never sniff JSON.
     for data in (b'40 + 2', b'answer:42', b'close({"a":1})'):
-        for args in json_inputs(data):
-            expect_failure(run(rust, ["export", *args], data=data), b'invalid JSON:',
+        for args, stdin in json_inputs(data):
+            expect_failure(run(rust, ["export", *args], data=stdin), b'invalid JSON:',
                            "no JSON-to-CUE fallback")
     for args in (["json:"], ["json:", "-", "input.json"],
                  ["input.json", "input.cue"], ["yaml:", "-"], ["JSON:", "-"],
@@ -211,8 +227,8 @@ def json_profile(rust, cue):
         expect_failure(run(rust, ["export", *args], data=b'0'),
                        b'cuestacean:', "only one explicit .json or literal json: -")
     Path("input.cue").write_bytes(b'{"answer":42}')
-    for args in (["input.cue"], ["-"]):
-        expect_failure(run(rust, ["export", *args], data=b'{"answer":42}'),
+    for args, stdin in ((["input.cue"], b'42'), (["-"], b'{"answer":42}')):
+        expect_failure(run(rust, ["export", *args], data=stdin),
                        b'expected signed decimal integer', "no CUE-to-JSON sniff/retry")
 
 
