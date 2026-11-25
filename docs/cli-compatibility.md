@@ -69,6 +69,12 @@ Numbers must be decimal integers in the signed 64-bit range, without a fraction,
 exponent, or negative-zero spelling. Repeated keys are rejected instead of
 being overwritten or unified.
 
+Malformed input reports `invalid JSON:`; inputs outside the supported profile
+report `unsupported JSON:`. The byte limit is checked before UTF-8 validation.
+Within that limit, invalid UTF-8 is rejected before parsing. Parsing stops at
+container level 65 without inspecting its contents, so malformed syntax or
+Unicode escapes past that point need not be diagnosed.
+
 Go CUE accepts some inputs outside this profile, including floats, larger
 integers, negative zero, and some repeated keys. Cuestacean does not try another
 format when explicit JSON is invalid or unsupported. Bare `-` continues to
