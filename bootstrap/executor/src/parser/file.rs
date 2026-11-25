@@ -78,6 +78,14 @@ pub(super) struct Context {
     boundary: Option<bool>,
     pub state: Option<State>,
 }
+impl Context {
+    pub(super) fn new(scope: bool) -> Self {
+        Self {
+            scope,
+            ..Self::default()
+        }
+    }
+}
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Stage {
     Probed,

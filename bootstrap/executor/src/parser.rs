@@ -655,10 +655,7 @@ impl Parser<'_> {
             return self.error("expression exceeds 32 parsing levels");
         }
         let mut frame = Frame {
-            file: file::Context {
-                scope,
-                ..Default::default()
-            },
+            file: file::Context::new(scope),
             parser: self,
             minimum,
             depth,
