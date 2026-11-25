@@ -94,7 +94,7 @@ failure 'only the export command' eval input.cue
 failure 'only the export command'
 failure 'exactly one input' export
 failure 'exactly one input' export input.cue input.cue
-failure 'explicit .cue file' export input.json
+failure 'explicit .cue' export input.txt
 for selector in '' true false null outer.answer '"quoted"' _hidden '#Definition' 'len(items)' 'café' 1name; do
   failure '--expression requires a single ASCII field name' export "--expression=$selector" missing.cue
 done
