@@ -53,11 +53,18 @@ fail() {
   local label=$1 diagnostic=$2 status=0
   shift 2
   "$@" > "$label.out" 2> "$label.err" || status=$?
-  test "$status" -eq 1 && test ! -s "$label.out" && test -s "$label.err"
-  grep -E "$diagnostic" "$label.err" > /dev/null
+  { test "$status" -eq 1 && test ! -s "$label.out" && test -s "$label.err"; } || return 1
+  grep -E "$diagnostic" "$label.err" > /dev/null || return 1
   printf '%s\t%s\t%s\n' "$label" "$status" "$diagnostic" >> "$OUT/receipts/categories"
 }
-eval_ok() { cue eval "$@" > eval.out 2> eval.err; test -s eval.out && test ! -s eval.err; }
+eval_ok() { cue eval "$@" > eval.out 2> eval.err && test -s eval.out && test ! -s eval.err; }
+wrong_status() { echo 'expected diagnostic' >&2; return 2; }
+leaked_output() { echo 'partial output'; echo 'expected diagnostic' >&2; return 1; }
+if fail false-status 'expected diagnostic' wrong_status ||
+   fail false-output 'expected diagnostic' leaked_output; then
+  echo 'negative runner accepted a bad witness' >&2
+  exit 1
+fi
 # Exact c1d47b7b89ba55c59b20e21c87747e8a22f9f5eb identities, not derived answers.
 while read -r hash relative; do printf '%s  %s\n' "$hash" "$SOURCE/$relative"; done > unchanged.sha256 <<'HASHES'
 f2f414bd2b4a8ceee39365c10ea7254dcc51ca6a2d2f3745edec1d0de66b2b9e schema.cue
@@ -294,13 +301,18 @@ gate_failure() {
   shift 2
   rm -f composition-entered; start=$(wc -l < "$TRACE")
   compose "$key" "$SOURCE/pratt.cue" forward "$@" > "$label.out" 2> "$label.err" || status=$?
-  test "$status" -ne 0 && test ! -s "$label.out" && test -s "$label.err"
-  test ! -e composition-entered && test "${#pratt_minimum_providers[@]}" = 0
+  { test "$status" -ne 0 && test ! -s "$label.out" && test -s "$label.err"; } || return 1
+  { test ! -e composition-entered && test "${#pratt_minimum_providers[@]}" = 0; } || return 1
   tail -n "+$((start + 1))" "$TRACE" > "$OUT/receipts/$label-argv"
   for forbidden in "$schema" "$fragment" "$SOURCE/pratt.cue"; do
     if grep -F "$forbidden" "$OUT/receipts/$label-argv"; then return 1; fi
   done
 }
+if (compose() { pratt_minimum_providers=(); leaked_output; }; gate_failure false-gate-output pratt) ||
+   (compose() { pratt_minimum_providers=(); touch composition-entered; echo 'expected diagnostic' >&2; return 1; }; gate_failure false-gate-marker pratt); then
+  echo 'gate runner accepted output or premature composition' >&2
+  exit 1
+fi
 for i in 0 1; do
   slot=${slots[i]}; helper=${helpers[i]}
   for defect in missing incomplete string bool null array fraction decimal exponent extra outside negative absent top-array top-number multiple malformed; do
