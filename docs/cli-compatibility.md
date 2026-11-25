@@ -29,6 +29,7 @@ printf '40 + 2\n' | cuestacean export --out json -
 | Surface | Status |
 | --- | --- |
 | `export` with one explicit UTF-8 `.cue` file (case-sensitive suffix) or `-` for stdin | One supported expression or [ordinary fields with expression values](ordinary-file-fields.md). |
+| `export` with one explicit `.json` file or `json: -` for stdin | One [bounded JSON value](#explicit-json-input). Bare `-` still selects CUE. |
 | JSON on stdout | Default, or `--out json` / `--out=json`. `-o -`, `--outfile -`, and `--outfile=-` explicitly select stdout. |
 | Argument order | Supported options may precede or follow the input. Use `--` to end option parsing. Duplicate options and multiple inputs are rejected. |
 | Field selection | `-e name`, `--expression name`, or `--expression=name` selects one field from a fully concrete record. |
@@ -56,6 +57,25 @@ Repeated selections, paths, quoted labels, hidden fields, definitions, and gener
 expressions are unsupported. A missing field or a non-record result is an error.
 Unlike Go CUE, Cuestacean must evaluate the entire record first: even an unrelated
 incomplete or conflicting field prevents selection.
+
+## Explicit JSON input
+
+Use `cuestacean export data.json` or pipe an export directly into
+`cuestacean export json: -`, without converting it to CUE. Input must be one
+UTF-8 JSON value, at most 1 MiB including whitespace, with at most 64 nested
+arrays and objects (the outermost container counts as one). Strings, booleans,
+null, arrays, and objects with unique decoded member names are supported.
+Numbers must be decimal integers in the signed 64-bit range, without a fraction,
+exponent, or negative-zero spelling. Repeated keys are rejected instead of
+being overwritten or unified.
+
+Go CUE accepts some inputs outside this profile, including floats, larger
+integers, negative zero, and some repeated keys. Cuestacean does not try another
+format when explicit JSON is invalid or unsupported. Bare `-` continues to
+parse CUE and is not a portable way to feed JSON into Cuestacean. Use `-e name`
+to select a field after the entire JSON input has been decoded and validated.
+
+## Output and failures
 
 Successful exports terminate with a newline. The check compares representative
 scalars byte-for-byte and compares lists and records as JSON values, not by
