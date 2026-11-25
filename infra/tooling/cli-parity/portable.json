@@ -1,0 +1,1 @@
+{"site":"eu-west","policy":{"retries":3,"quota":42,"active":true,"note":null},"services":[{"name":"api","ports":[8000,8001]},{"name":"worker","ports":[9001]}],"selected":"β","max":9223372036854775807,"unicode":"café 🦀"}
