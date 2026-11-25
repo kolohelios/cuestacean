@@ -7540,11 +7540,17 @@
       legacyCodegenSeed = pkgs: (sharedFor pkgs).legacyCodegenSeed;
       codegenSeed = pkgs: (sharedFor pkgs).codegenSeed;
       executor = pkgs: (sharedFor pkgs).executor;
+      cli =
+        pkgs:
+        pkgs.runCommand "cuestacean" { meta.mainProgram = "cuestacean"; } ''
+          install -Dm755 ${executor pkgs}/bin/cuestacean "$out/bin/cuestacean"
+        '';
     in
     {
       packages = kolohelios-nix.lib.forEachSupportedSystem (
         { pkgs, ... }: {
           default = executor pkgs;
+          cuestacean = cli pkgs;
           exports = jsonExports pkgs;
           spec-export = specExporter pkgs;
           native-ast-atom = nativeAtom pkgs;
@@ -7581,6 +7587,11 @@
       apps = kolohelios-nix.lib.forEachSupportedSystem (
         { pkgs, ... }:
         {
+          cuestacean = {
+            type = "app";
+            program = "${cli pkgs}/bin/cuestacean";
+            meta.description = "Export a bounded CUE expression as JSON";
+          };
           generated = {
             type = "app";
             program = "${executor pkgs}/bin/bootstrap-generated";
@@ -7629,6 +7640,11 @@
         { pkgs, ... }:
         {
           bootstrap-executor = executor pkgs;
+          cuestacean-cli = pkgs.runCommand "cuestacean-cli-verification" { } ''
+            ${pkgs.bash}/bin/bash ${./test-cli.sh} ${cli pkgs}/bin/cuestacean ${pkgs.cue}/bin/cue ${pkgs.jq}/bin/jq
+            test -z "$(grep -Fx ${pkgs.cue} ${pkgs.closureInfo { rootPaths = [ (cli pkgs) ]; }}/store-paths)"
+            touch "$out"
+          '';
           native-spec-tests = specTests pkgs;
           default-observer = defaultObserverVerification pkgs;
           native-spec-closure = nativeVerification pkgs;

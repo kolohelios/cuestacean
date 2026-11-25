@@ -120,6 +120,9 @@ files; those files need not themselves be compiled to Rust.
 4. Replace upstream CUE in the build with Cuestacean, then verify that successive
    self-builds produce identical canonical generated output under pinned inputs.
 
+See the [Cuestacean CLI compatibility matrix](docs/cli-compatibility.md) for the
+supported single-input `export` profile and Nix installation instructions.
+
 Bootstrap closure and CUE compatibility are separate milestones. Rebuilding
 ourselves does not establish compatibility with the whole language. Differential
 tests against pinned upstream CUE versions will guide compatibility work.
