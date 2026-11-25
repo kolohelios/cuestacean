@@ -28,6 +28,8 @@ impl Condition {
             | Self::HasLower {}
             | Self::HasUpper {}
             | Self::SliceKindIs { .. } => unreachable!("validated parser target"),
+            Self::FileBoundary {} => frame.file_boundary()?,
+            Self::HasFileField {} => frame.has_file_field()?,
             Self::HasOperator {} => frame.has_operator(),
             Self::HasIndex {} => frame.has_index()?,
             Self::HasSlice {} => frame.has_slice()?,
@@ -66,6 +68,16 @@ fn extended_action(
     frame: &mut crate::parser::Frame<'_, '_>,
 ) -> Result<(), crate::parser::Error> {
     match statement {
+        Statement::ProbeFile {} => frame.probe_file(),
+        Statement::StartFile {} => frame.start_file(),
+        Statement::ParseFileLabel {} => frame.parse_file_label(),
+        Statement::ParseFileColon {} => frame.parse_file_colon(),
+        Statement::ParseFileValue {} => frame.parse_file_value(),
+        Statement::AppendFileField {} => frame.append_file_field(),
+        Statement::AdvanceFileTail {} => frame.advance_file_tail(),
+        Statement::BuildFile {} => frame.build_file(),
+        Statement::ParseFileExpression {} => frame.parse_file_expression(),
+        Statement::FileAfterOperand {} => frame.file_after_operand(),
         Statement::Conjunction {} => frame.conjunction(),
         Statement::AdvanceConjunction {} => frame.advance_conjunction(),
         Statement::OpenConjunctionCall {} => frame.open_conjunction_call(),
@@ -115,7 +127,17 @@ fn execute(
                     Statement::AdvanceOperator {} => frame.advance_operator()?,
                     Statement::ParseRight {} => frame.parse_right()?,
                     Statement::BuildBinary {} => frame.build_binary()?,
-                    Statement::Conjunction {}
+                    Statement::ProbeFile {}
+                    | Statement::StartFile {}
+                    | Statement::ParseFileLabel {}
+                    | Statement::ParseFileColon {}
+                    | Statement::ParseFileValue {}
+                    | Statement::AppendFileField {}
+                    | Statement::AdvanceFileTail {}
+                    | Statement::BuildFile {}
+                    | Statement::ParseFileExpression {}
+                    | Statement::FileAfterOperand {}
+                    | Statement::Conjunction {}
                     | Statement::AdvanceConjunction {}
                     | Statement::OpenConjunctionCall {}
                     | Statement::OpenConjunctionList {}

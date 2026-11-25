@@ -47,6 +47,8 @@ pub(super) enum Number {
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 pub(super) enum Condition {
+    FileBoundary {},
+    HasFileField {},
     HasItem {},
     HasLower {},
     HasUpper {},
@@ -89,6 +91,16 @@ pub(super) enum Condition {
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "op", rename_all = "camelCase", deny_unknown_fields)]
 pub(super) enum Statement {
+    ProbeFile {},
+    StartFile {},
+    ParseFileLabel {},
+    ParseFileColon {},
+    ParseFileValue {},
+    AppendFileField {},
+    AdvanceFileTail {},
+    BuildFile {},
+    ParseFileExpression {},
+    FileAfterOperand {},
     FirstItem {},
     LastItem {},
     EvaluateItem {},
