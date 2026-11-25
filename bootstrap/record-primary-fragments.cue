@@ -1,7 +1,7 @@
 package bootstrap
 
 #RecordPrimaryControl: #PrattProgram & {
-	_minimum: *0 | 100
+	_minimum: #RecordMinimumInput.v
 	body: [{op: "advanceRecord"}, {op: "openRecordCall"}, {op: "recordWhitespace"}, {op: "openRecordBody"},
 		{op: "recordWhitespace"}, {op: "probeRecordEnd"}, {
 			op: "while", condition: {op: "hasRecordField"}, body: [

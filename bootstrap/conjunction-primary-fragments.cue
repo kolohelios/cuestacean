@@ -1,7 +1,7 @@
 package bootstrap
 
 #ConjunctionPrimary: #PrattProgram & {
-	_operandMinimum: *0 | 100
+	_operandMinimum: #ConjunctionMinimumInput.v
 	body: [{op: "advanceConjunction"}, {op: "openConjunctionCall"}, {op: "whitespace"}, {op: "openConjunctionList"},
 		{op: "whitespace"}, {op: "probeListEnd"}, {
 			op: "while", condition: {op: "hasListElement"}
