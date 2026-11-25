@@ -711,6 +711,7 @@
                 ../../bootstrap/record-control-fragments.cue
                 ../../bootstrap/conjunction-control-fragments.cue
                 ../../bootstrap/slice-control-fragments.cue
+                ../../bootstrap/slice-lower-default.cue
                 ../../bootstrap/record-primary-fragments.cue
                 ../../bootstrap/conjunction-primary-fragments.cue
                 ../../bootstrap/string-literal-fragments.cue
@@ -789,6 +790,9 @@
             cue import -p bootstrap -l '#InstructionModuleText:' \
               -o "$PWD/instruction-module-text.cue" \
               ${nativeInstructionModuleText pkgs}/instruction-module-text.json
+            cue() { ${pkgs.cue}/bin/cue "$@"; }
+            jq() { ${pkgs.jq}/bin/jq "$@"; }
+            source ${./slice-lower-provider.sh}
             for fixture in ${fixtureNames}; do
               echo "exporting $fixture"
               case "$fixture" in
@@ -876,7 +880,10 @@
               # tuple BEFORE constructing any array, never by patching it afterwards.
               module=${cueSources}/instruction-module.cue
               moduleProviders=("$PWD/instruction-module-text.cue" ${cueSources}/instruction-module-first.cue ${cueSources}/instruction-module-step.cue)
+              slice_lower_provider "$fixture" ${nativeSliceLower pkgs}/slice-lower.json \
+                ${cueSources}/slice-lower-default.cue
               inputs=("${cueSources}/$schema.cue")
+              if [ -n "$slice_provider" ]; then inputs+=("$slice_provider"); fi
               for fragment in "''${fragments[@]}"; do inputs+=("${cueSources}/$fragment.cue"); done
               case "$fixture" in
                 lowering|tests/valid/lowering-left-twice|tests/valid/lowering-reverse)
@@ -4736,6 +4743,123 @@
           cp ${nativeInstructionModuleTextBuildClosure pkgs}/registration "$out/native-build-registration"
           printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeInstructionModuleText pkgs).drvPath} > "$out/native-build-roots"
         '';
+      sliceLowerSources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/slice-lower-default.cue
+            ../../bootstrap/slice-lower-default-root.cue
+          ];
+        };
+      nativeSliceLower =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-slice-lower" { } ''
+          set -euo pipefail
+          mkdir -p "$PWD/home" "$out"
+          exporter=${specExporter pkgs}/bin/cuestacean-spec-export
+          test -f "$exporter" && test -r "$exporter" && test -x "$exporter"
+          case "$exporter" in /*) ;; *) exit 1 ;; esac
+          owner=${sliceLowerSources pkgs}/slice-lower-default.cue
+          root=${sliceLowerSources pkgs}/slice-lower-default-root.cue
+          env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$owner" "$root" > first.json
+          env -i HOME="$PWD/home" PATH=/nonexistent "$exporter" "$root" "$owner" > second.json
+          test "$(wc -c < first.json)" -le 65536
+          test "$(wc -c < second.json)" -le 65536
+          cmp first.json second.json
+          cp first.json "$out/slice-lower.json"
+        '';
+      nativeSliceLowerBuildClosure =
+        pkgs:
+        pkgs.closureInfo {
+          rootPaths = [
+            (specExporter pkgs).drvPath
+            (nativeSliceLower pkgs).drvPath
+          ];
+        };
+      sliceLowerVerificationSources =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/schema.cue
+            ../../bootstrap/slice-control-fragments.cue
+            ../../bootstrap/slice-lower-default.cue
+            ../../bootstrap/slice-lower-default-root.cue
+            ../../bootstrap/slice-control.cue
+            ../../bootstrap/tests/valid/slice-control-lower-one.cue
+            ../../bootstrap/tests/valid/slice-control-tail.cue
+            ../../bootstrap/generated/slice-control.rs
+            ../../bootstrap/generated/slice-control-lower-one.rs
+            ../../bootstrap/generated/slice-control-tail.rs
+          ];
+        };
+      nativeSliceLowerVerification =
+        pkgs:
+        pkgs.runCommand "cuestacean-native-slice-lower-verification" { } ''
+          set -euo pipefail
+          closure=${nativeSliceLowerBuildClosure pkgs}
+          sources=${sliceLowerSources pkgs}
+          exporterSources=${specSources pkgs false}
+          for forbidden in ${pkgs.cue} ${pkgs.cue.drvPath} ${pkgs.cue.src} ${pkgs.cue.src.drvPath} \
+            ${jsonExports pkgs} ${(jsonExports pkgs).drvPath} \
+            ${executor pkgs} ${(executor pkgs).drvPath} \
+            ${legacyCodegenSeed pkgs} ${(legacyCodegenSeed pkgs).drvPath} \
+            ${codegenSeed pkgs} ${(codegenSeed pkgs).drvPath} \
+            ${defaultObserver pkgs} ${(defaultObserver pkgs).drvPath} \
+            ${defaultTrace pkgs} ${(defaultTrace pkgs).drvPath} \
+            ${nativeCodegenCore pkgs} ${(nativeCodegenCore pkgs).drvPath} \
+            ${nativeScanCodegen pkgs} ${(nativeScanCodegen pkgs).drvPath} \
+            ${nativeUnifyCodegen pkgs} ${(nativeUnifyCodegen pkgs).drvPath} \
+            ${nativePrattCodegen pkgs} ${(nativePrattCodegen pkgs).drvPath} \
+            ${nativeInstructionCodegen pkgs} ${(nativeInstructionCodegen pkgs).drvPath} \
+            ${../../bootstrap/generated/slice-control.rs} \
+            ${../../bootstrap/generated/slice-control-lower-one.rs} \
+            ${../../bootstrap/generated/slice-control-tail.rs} \
+            ${./slice-lower-provider.sh} ${./test-slice-lower.sh} \
+            ${sliceLowerVerificationSources pkgs}; do
+            if grep -Fx "$forbidden" "$closure/store-paths"; then
+              echo "forbidden slice lower construction dependency: $forbidden" >&2
+              exit 1
+            fi
+          done
+          for required in ${(specExporter pkgs).drvPath} ${(nativeSliceLower pkgs).drvPath} \
+            "$sources" "$exporterSources"; do
+            grep -Fx "$required" "$closure/store-paths"
+          done
+          grep -F "$sources" ${(nativeSliceLower pkgs).drvPath}
+          grep -F '${specExporter pkgs}/bin/cuestacean-spec-export' ${(nativeSliceLower pkgs).drvPath}
+          (cd "$sources"; find . -type f | LC_ALL=C sort) > source-inventory
+          printf '%s\n' ./slice-lower-default-root.cue ./slice-lower-default.cue > expected-inventory
+          cmp source-inventory expected-inventory
+          cmp "$sources/slice-lower-default.cue" ${../../bootstrap/slice-lower-default.cue}
+          cmp "$sources/slice-lower-default-root.cue" ${../../bootstrap/slice-lower-default-root.cue}
+          (cd "$exporterSources"; find . -type f | LC_ALL=C sort) > exporter-inventory
+          printf '%s\n' ./spec-export/Cargo.lock ./spec-export/Cargo.toml \
+            ./spec-export/src/bindings.rs ./spec-export/src/comprehension.rs \
+            ./spec-export/src/eval.rs ./spec-export/src/lib.rs ./spec-export/src/main.rs \
+            ./spec-export/src/model.rs ./spec-export/src/parser.rs ./spec-export/src/projection.rs \
+            > expected-exporter-inventory
+          cmp exporter-inventory expected-exporter-inventory
+          test "$(find ${nativeSliceLower pkgs} -type f | wc -l)" -eq 1
+          mkdir -p "$out"
+          ${pkgs.bash}/bin/bash ${./test-slice-lower.sh} \
+            ${pkgs.cue}/bin/cue ${pkgs.jq}/bin/jq \
+            ${specExporter pkgs}/bin/cuestacean-spec-export \
+            ${nativePrattCodegen pkgs}/bin/bootstrap-pratt-codegen \
+            ${pkgs.rustfmt}/bin/rustfmt ${nativeSliceLower pkgs}/slice-lower.json \
+            ${jsonExports pkgs} ${sliceLowerVerificationSources pkgs} \
+            ${./slice-lower-provider.sh} "$out"
+          cp "$closure/store-paths" "$out/native-build-paths"
+          cp "$closure/registration" "$out/native-build-registration"
+          cp source-inventory exporter-inventory "$out/"
+          cp -R "$sources" "$out/native-sources"
+          cp -R "$exporterSources" "$out/exporter-sources"
+          cp ${(nativeSliceLower pkgs).drvPath} "$out/native-producer.drv"
+          cp ${(specExporter pkgs).drvPath} "$out/native-exporter.drv"
+          printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeSliceLower pkgs).drvPath} \
+            > "$out/native-build-roots"
+        '';
       instructionModuleControlSources =
         pkgs:
         pkgs.lib.fileset.toSource {
@@ -7625,6 +7749,7 @@
           native-instruction-lowering-policy = nativeInstructionLoweringPolicy pkgs;
           native-instruction-module-text = nativeInstructionModuleText pkgs;
           native-instruction-module-controls = nativeInstructionModuleControls pkgs;
+          native-slice-lower = nativeSliceLower pkgs;
           native-pratt-tables = nativePrattTables pkgs;
           native-pratt-lowering-policy = nativePrattLoweringPolicy pkgs;
           native-codegen-core = nativeCodegenCore pkgs;
@@ -7723,6 +7848,7 @@
           native-instruction-lowering-policy = nativeInstructionLoweringPolicyVerification pkgs;
           native-instruction-module-text = nativeInstructionModuleTextVerification pkgs;
           native-instruction-module-controls = nativeInstructionModuleControlsVerification pkgs;
+          native-slice-lower = nativeSliceLowerVerification pkgs;
           native-pratt-tables = nativePrattTablesVerification pkgs;
           native-pratt-lowering-policy = nativePrattLoweringPolicyVerification pkgs;
           native-codegen-core = nativeCoreVerification pkgs;
