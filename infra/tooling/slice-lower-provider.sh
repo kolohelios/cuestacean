@@ -6,7 +6,7 @@ slice_lower_provider() {
         printf '%s\n' 'slice lower provider: expected fixture, native JSON, raw owner' >&2
         return 1
     fi
-    local fixture=$1 native_json=$2 raw_owner=$3 directory candidate provider
+    local fixture=$1 native_json=$2 raw_owner=$3 directory candidate provider value
     case "$fixture" in
         slice-control|tests/valid/slice-control-lower-one|tests/valid/slice-control-tail) ;;
         *) return 0 ;;
@@ -38,5 +38,12 @@ slice_lower_provider() {
             ;;
         *) provider=$raw_owner ;;
     esac
+    # JSON numeric comparison cannot distinguish a CUE int from e.g. 1e0.
+    # Observe the value without adding a constraint that could refine it.
+    if ! value=$(cue eval "$provider" -e '#SliceLowerInput.v' --concrete) ||
+        [[ $value != 0 && $value != 1 ]]; then
+        printf '%s\n' 'slice lower provider: expected a concrete CUE int' >&2
+        return 1
+    fi
     slice_provider=$provider
 }
