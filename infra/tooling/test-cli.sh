@@ -45,6 +45,15 @@ rust export -- -input.cue > actual.json 2> actual.err
 cmp ./-input.cue actual.json
 test ! -s actual.err
 
+success exact 'close({"answer": 40 + 2, "spare": 99})' '42' export -e answer input.cue
+success exact 'close({"n": 9223372036854775807})' '9223372036854775807' export - --expression n
+success exact 'close({"a_1": null})' 'null' export --expression=a_1 -- input.cue
+success exact 'close({"int": true})' 'true' export -e int input.cue
+success exact 'close({"if": "yes"})' '"yes"' export -e if input.cue
+success normalized 'close({"items": [1, 2], "spare": 3})' '[1,2]' export -e items input.cue
+success normalized 'close({"item": close({"b": [1], "a": false}), "spare": 3})' \
+  '{"a":false,"b":[1]}' export -e item input.cue
+
 failure() {
   local diagnostic=$1 rc=0
   shift
@@ -77,7 +86,36 @@ failure 'only the export command'
 failure 'exactly one input' export
 failure 'exactly one input' export input.cue input.cue
 failure 'explicit .cue file' export input.json
-failure 'unsupported export option: -e' export -e value input.cue
+for selector in '' true false null outer.answer '"quoted"' _hidden '#Definition' 'len(items)' 'café' 1name; do
+  failure '--expression requires a single ASCII field name' export "--expression=$selector" missing.cue
+done
+failure '--expression requires a single ASCII field name' export missing.cue -e
+failure '--expression requires a single ASCII field name' export missing.cue --expression
+failure '--expression may only be specified once' export -e answer --expression=spare missing.cue
+failure 'exactly one input' export input.cue -- -e answer
+
+for expression in 'close({"spare": null})' 'close({})' '42' '[1]'; do
+  printf '%s\n' "$expression" > input.cue
+  case $expression in
+    close*) failure 'record has no field named answer' export -e answer input.cue ;;
+    *) failure '--expression requires a concrete record' export -e answer input.cue ;;
+  esac
+  rc=0
+  upstream export -e answer input.cue > upstream.json 2> upstream.err || rc=$?
+  test "$rc" -eq 1
+  test ! -s upstream.json
+  test -s upstream.err
+done
+
+# These are deliberate limits, not upstream-compatible failures.
+printf '42\n' > expected.json
+for sibling in int '1 & 2'; do
+  printf 'close({"answer": 42, "sibling": %s})\n' "$sibling" > input.cue
+  failure 'cuestacean:' export -e answer input.cue
+  upstream export -e answer input.cue > upstream.json 2> upstream.err
+  cmp expected.json upstream.json
+  test ! -s upstream.err
+done
 failure 'unsupported export option: --bogus' export --bogus input.cue
 failure '--out requires json' export input.cue --out
 failure '--out requires json' export --out yaml input.cue
