@@ -38,6 +38,10 @@ upstream-success cases from differential passes.
   defaulting to old behavior, handles the boundary. No source splitting or
   synthetic `close(...)` input. Use the existing field/record builders and one
   program, not per-field evaluation or a native JSON output assembler.
+- Select a build-only Pratt lowering overlay only for the new file drivers.
+  Keep the canonical Pratt policy, existing generated Rust bytes, standalone
+  compiler construction inputs, and closure checks unchanged. The overlay is
+  not an input to the standalone compiler and is never an old-mode fallback.
 - An LF boundary before more input preserves the original trivia offset until
   the file driver consumes it, so a recursive RHS returning cannot accidentally
   expose `div`, `mod`, `quo` or `rem` as an operator in its parent frame. Propagate
