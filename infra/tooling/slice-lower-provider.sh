@@ -1,5 +1,8 @@
 # Sourced by pinned Bash; callers supply cue() and jq() wrappers.
 # A selected DATA provider is never a late-refinement/raw-context interface.
+# Callers run serially in a build-owned TMPDIR. Stable names keep argv receipts
+# reproducible; mkdir fails closed if a path is already present.
+slice_lower_serial=0
 slice_lower_provider() {
     slice_provider=
     if [ "$#" -ne 3 ]; then
@@ -11,7 +14,9 @@ slice_lower_provider() {
         slice-control|tests/valid/slice-control-lower-one|tests/valid/slice-control-tail) ;;
         *) return 0 ;;
     esac
-    directory=$(mktemp -d "${TMPDIR:?}/slice-lower.XXXXXXXX") || return 1
+    slice_lower_serial=$((slice_lower_serial + 1))
+    directory=${TMPDIR:?}/slice-lower.$slice_lower_serial
+    mkdir -m 700 "$directory" || return 1
     candidate=$directory/candidate.json
     case "$fixture" in
         slice-control)
