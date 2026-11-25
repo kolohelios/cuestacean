@@ -681,7 +681,7 @@
           cp expected-arguments canonical-actual-arguments canonical-recovery.json "$out/"
         )
       '';
-      jsonExports =
+      makeJsonExports =
         pkgs:
         let
           cueSources = pkgs.lib.fileset.toSource {
@@ -1887,7 +1887,7 @@
             cp ${featureClosure}/registration "$out/feature-build-registration"
             printf '%s\n' ${tests.drvPath} > "$out/feature-build-roots"
           '';
-      legacyCodegenSeed =
+      makeLegacyCodegenSeed =
         pkgs:
         (rustPackage pkgs).overrideAttrs (old: {
           pname = "bootstrap-legacy-codegen-seed";
@@ -1907,7 +1907,7 @@
           doCheck = false;
         });
 
-      codegenSeed =
+      makeCodegenSeed =
         pkgs:
         pkgs.symlinkJoin {
           name = "bootstrap-codegen-seed";
@@ -2014,7 +2014,7 @@
             cp ${closure}/registration "$out/native-build-registration"
             printf '%s\n' ${core.drvPath} > "$out/native-build-roots"
           '';
-      executor =
+      makeExecutor =
         pkgs:
         (rustPackage pkgs).overrideAttrs (old: {
           nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
@@ -7525,6 +7525,21 @@
             printf '%s\n' ${(specExporter pkgs).drvPath} ${(nativeAtom pkgs).drvPath} > "$out/native-build-roots"
             cp actual.rs "$out/ast-atom.rs"
           '';
+      # These constructors are referenced by many verifiers and outputs.
+      # Share their lazy values across those references within each system.
+      shared = kolohelios-nix.lib.forEachSupportedSystem (
+        { pkgs, ... }: {
+          jsonExports = makeJsonExports pkgs;
+          legacyCodegenSeed = makeLegacyCodegenSeed pkgs;
+          codegenSeed = makeCodegenSeed pkgs;
+          executor = makeExecutor pkgs;
+        }
+      );
+      sharedFor = pkgs: shared.${pkgs.stdenv.hostPlatform.system};
+      jsonExports = pkgs: (sharedFor pkgs).jsonExports;
+      legacyCodegenSeed = pkgs: (sharedFor pkgs).legacyCodegenSeed;
+      codegenSeed = pkgs: (sharedFor pkgs).codegenSeed;
+      executor = pkgs: (sharedFor pkgs).executor;
     in
     {
       packages = kolohelios-nix.lib.forEachSupportedSystem (
