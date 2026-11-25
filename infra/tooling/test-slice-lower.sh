@@ -255,7 +255,7 @@ gate_failure() {
   cp "$TRACE" "$OUT/receipts/$label-argv"
   printf '%s\t%s\tgate-before-composition\n' "$label" "$status" >> "$OUT/receipts/categories"
 }
-for defect in missing incomplete string bool null fraction extra outside negative; do
+for defect in missing incomplete string bool null fraction decimal exponent extra outside negative; do
   case "$defect" in
     missing) json='{}'; body='{}' ;;
     incomplete) json='{}'; body='{v:int}' ;;
@@ -263,6 +263,8 @@ for defect in missing incomplete string bool null fraction extra outside negativ
     bool) json='{"v":false}'; body='{v:false}' ;;
     null) json='{"v":null}'; body='{v:null}' ;;
     fraction) json='{"v":0.5}'; body='{v:0.5}' ;;
+    decimal) json='{"v":1.0}'; body='{v:1.0}' ;;
+    exponent) json='{"v":1e0}'; body='{v:1e0}' ;;
     extra) json='{"v":0,"extra":true}'; body='{v:0,extra:true}' ;;
     outside) json='{"v":2}'; body='{v:2}' ;;
     negative) json='{"v":-1}'; body='{v:-1}' ;;
