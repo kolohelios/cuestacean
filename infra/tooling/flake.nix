@@ -928,7 +928,11 @@
           pname = "bootstrap-executor";
           meta.mainProgram = "bootstrap-executor";
           version = "0.1.0";
-          src = ../../bootstrap;
+          # Documentation is not an input to either Rust package build.
+          src = pkgs.lib.fileset.toSource {
+            root = ../../bootstrap;
+            fileset = pkgs.lib.fileset.fileFilter (file: !file.hasExt "md") ../../bootstrap;
+          };
           postUnpack = ''
             sourceRoot="$sourceRoot/executor"
           '';
@@ -2523,6 +2527,16 @@
             (nativeUnifyLoweringPolicy pkgs).drvPath
           ];
         };
+      unifyOverrideFixtures =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap/tests/valid;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/tests/valid/unify-lowering-permissive.cue
+            ../../bootstrap/tests/valid/integer-kernel-alternate.cue
+            ../../bootstrap/tests/valid/division-kernel-alternate.cue
+          ];
+        };
       nativeUnifyLoweringPolicyVerification =
         pkgs:
         pkgs.runCommand "cuestacean-native-unify-lowering-policy-verification" { } ''
@@ -2576,7 +2590,7 @@
             'integer-kernel-alternate difference-control difference-as-product' \
             'division-kernel-alternate divide-control divide-as-quotient'; do
             read -r policy control golden <<< "$pair"
-            raw ${../../bootstrap}/tests/valid/"$policy.cue" | json > override.json
+            raw ${unifyOverrideFixtures pkgs}/"$policy.cue" | json > override.json
             cmp override.json ${jsonExports pkgs}/tests/valid/"$policy.json"
             if test "$control" = unify-equality-probe; then control=tests/valid/$control; fi
             generate ${jsonExports pkgs}/"$control.json" override.json > override.rs
@@ -2612,7 +2626,7 @@
             cue eval "$schema" "$bridge" "$selector" missing.json > /dev/null
           done < slots
           for policy in unify-lowering-permissive integer-kernel-alternate division-kernel-alternate; do
-            no_export "$schema" "$bridge" "$selector" raw.json ${../../bootstrap}/tests/valid/"$policy.cue"
+            no_export "$schema" "$bridge" "$selector" raw.json ${unifyOverrideFixtures pkgs}/"$policy.cue"
           done
           materialize() {
             native "''${owners[0]}" "''${owners[1]}" > values.json
@@ -2937,6 +2951,15 @@
             (nativeInstructionBinaryTables pkgs).drvPath
           ];
         };
+      instructionOverrideFixtures =
+        pkgs:
+        pkgs.lib.fileset.toSource {
+          root = ../../bootstrap/tests/valid;
+          fileset = pkgs.lib.fileset.unions [
+            ../../bootstrap/tests/valid/lowering-left-twice.cue
+            ../../bootstrap/tests/valid/lowering-reverse.cue
+          ];
+        };
       nativeInstructionBinaryTablesVerification =
         pkgs:
         pkgs.runCommand "cuestacean-native-instruction-binary-tables-verification" { } ''
@@ -3026,7 +3049,7 @@
           ${instructionCoreConsumerProbe pkgs}
           ${instructionRuntimeConsumerProbe}
           for context in lowering tests/valid/lowering-left-twice tests/valid/lowering-reverse; do
-            case "$context" in lowering) source="$selector" ;; *) source=${../../bootstrap}/"$context.cue" ;; esac
+            case "$context" in lowering) source="$selector" ;; *) source=${instructionOverrideFixtures pkgs}/"$(basename "$context").cue" ;; esac
             name=$(basename "$context")
             policy placed.cue "$source" | json > "$name.json"
             raw instruction-binary-tables.cue "$source" | json > "$name-raw.json"
@@ -4575,7 +4598,7 @@
             echo 'instruction module text collides with the existing schema' >&2; exit 1
           fi
           for context in lowering tests/valid/lowering-left-twice tests/valid/lowering-reverse; do
-            case "$context" in lowering) source="$selector" ;; *) source=${../../bootstrap}/"$context.cue" ;; esac
+            case "$context" in lowering) source="$selector" ;; *) source=${instructionOverrideFixtures pkgs}/"$(basename "$context").cue" ;; esac
             name=$(basename "$context")
             raw "$source" | json > "$name-raw.json"
             complete "$source" | json > "$name.json"
@@ -5154,7 +5177,7 @@
           core=missing-op.json; no_policy
           # Full policy comparisons preserve raw preferences and all cursor contexts.
           for context in lowering tests/valid/lowering-left-twice tests/valid/lowering-reverse; do
-            case "$context" in lowering) source="$selector" ;; *) source=${../../bootstrap}/"$context.cue" ;; esac
+            case "$context" in lowering) source="$selector" ;; *) source=${instructionOverrideFixtures pkgs}/"$(basename "$context").cue" ;; esac
             name=$(basename "$context")
             for order in forward reverse; do
               core=instruction-core-cases.cue
