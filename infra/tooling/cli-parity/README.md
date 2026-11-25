@@ -11,7 +11,11 @@ be unique after JSON escape decoding. Numbers are canonical signed-i64 decimal
 integers: no negative zero, fractions or exponents. File and typed-stdin cases
 cover values, unchanged selectors, limits, malformed input (`invalid JSON:`),
 profile exclusions (`unsupported JSON:`) and no CUE fallback/sniffing. Failures
-must return status 1 with empty stdout.
+must return status 1 with empty stdout. File cases receive a distinct valid JSON
+stdin sentinel, while typed-stdin cases receive the fixture bytes. A missing
+JSON file with valid stdin must fail without retrying that stdin. Selection must
+not hide malformed or excluded unselected members; invalid prefixes and extra
+documents remain malformed even when followed by over-depth containers.
 
 Go-only acceptance of fractions, larger integers, negative zero and equal
 member duplicates is exclusion evidence, not successful parity. Unequal duplicate
