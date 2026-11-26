@@ -172,8 +172,8 @@ fn admit(node: &Value, nodes: &mut usize) -> Result<Terms, Error> {
 
 fn schema(source: &str) -> Result<Vec<Field>, Error> {
     let program = parser::parse_fields_file(source, GRAMMAR).map_err(|error| match error {
-        parser::Error::ControlBudget => Error::Setup(error.to_string()),
-        _ => Error::InvalidSchema(error),
+        parser::Error::Source { .. } | parser::Error::Integer { .. } => Error::InvalidSchema(error),
+        _ => Error::Setup(error.to_string()),
     })?;
     let fields = program
         .get("entry")
