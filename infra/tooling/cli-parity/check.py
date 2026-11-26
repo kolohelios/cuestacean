@@ -363,7 +363,7 @@ def vet_profile(rust, cue):
         schema.write_bytes(source.encode() if isinstance(source, str) else source)
         data.write_bytes(document.encode() if isinstance(document, str) else document)
 
-    def native(category, label, args=None):
+    def native(category, label, args=None, *, reason=None):
         result = run(rust, argv if args is None else args, data=sentinel)
         if category is None:
             require(result.returncode == 0 and not result.stdout and not result.stderr,
@@ -372,6 +372,8 @@ def vet_profile(rust, cue):
             expect_failure(result, category, f"vet Rust {label}")
             diagnostic = result.stderr.removeprefix(b"cuestacean: ")
             require(diagnostic.startswith(category), f"vet wrong category {label}: {result!r}")
+        if reason is not None:
+            require(reason in result.stderr, f"vet wrong reason {label}: {result!r}")
         return result
 
     def oracle(outcome, label):
@@ -580,14 +582,16 @@ def vet_profile(rust, cue):
     for count in (62, 63, 64):
         # Record root + one literal per field; missing literals supply values.
         files('\n'.join(f'f{i}:0' for i in range(count)), '{}')
-        native(None if count <= 63 else b"expression exceeds 64 nodes", f"schema AST nodes {count + 1}")
+        native(None if count <= 63 else b"invalid vet schema:", f"schema AST nodes {count + 1}",
+               reason=None if count <= 63 else b"expression exceeds 64 nodes")
     for length in (64, 65):
         files('a' * length + ':0', '{}')
         native(None if length == 64 else b"unsupported vet schema:", f"label bytes {length}")
     for groups in (31, 32):
         # Field RHS starts at parser depth 1; each group adds one level.
         files('age:' + '(' * groups + '0' + ')' * groups, '{}')
-        native(None if groups == 31 else b"expression exceeds 32 parsing levels", f"schema parse depth {groups + 1}")
+        native(None if groups == 31 else b"invalid vet schema:", f"schema parse depth {groups + 1}",
+               reason=None if groups == 31 else b"expression exceeds 32 parsing levels")
     # Large UTF-8 scalar and wide/deep extras bypass evaluator collection caps.
     files('age:string', '{"age":"' + 'é' * 10000 + '","extra":[' + ','.join('0' for _ in range(65)) + ']}')
     native(None, "UTF-8 scalar and extra width beyond evaluator cap")
