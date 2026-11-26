@@ -353,6 +353,266 @@ def indexed_selection(rust, cue):
                            diagnostic, "whole JSON input before index")
 
 
+def vet_profile(rust, cue):
+    """Real files, independent answers, and separate native/oracle categories."""
+    schema, data = Path("vet-schema.cue"), Path("vet-data.json")
+    argv = ["vet", "-c", str(schema), str(data)]
+    sentinel = b'{"stdin_only":true}'
+
+    def files(source, document):
+        schema.write_bytes(source.encode() if isinstance(source, str) else source)
+        data.write_bytes(document.encode() if isinstance(document, str) else document)
+
+    def native(category, label, args=None):
+        result = run(rust, argv if args is None else args, data=sentinel)
+        if category is None:
+            require(result.returncode == 0 and not result.stdout and not result.stderr,
+                    f"vet Rust {label}: {result!r}")
+        else:
+            expect_failure(result, category, f"vet Rust {label}")
+            diagnostic = result.stderr.removeprefix(b"cuestacean: ")
+            require(diagnostic.startswith(category), f"vet wrong category {label}: {result!r}")
+        return result
+
+    def oracle(outcome, label):
+        result = run(cue, argv, data=sentinel)
+        if outcome == "ok":
+            require(result.returncode == 0 and not result.stdout and not result.stderr,
+                    f"vet Go {label}: {result!r}")
+        else:
+            require(result.returncode == 1 and not result.stdout and result.stderr,
+                    f"vet Go {label}: {result!r}")
+            # Oracle categories are asserted separately, never used as Rust answers.
+            tokens = {"incomplete": (b"incomplete value",),
+                      "conflict": (b"conflicting values", b"out of bound",
+                                   b"incompatible number bounds", b"incompatible integer bounds")}
+            require(any(token in result.stderr for token in tokens[outcome]),
+                    f"vet Go wrong category {label}: {result!r}")
+
+    categories = {"ok": None, "conflict": b"vet conflict:",
+                  "incomplete": b"vet incomplete:"}
+
+    def parity(source, document, outcome):
+        files(source, document)
+        label = f"{source!r} {document!r} => {outcome}"
+        native(categories[outcome], label)
+        oracle(outcome, label)
+
+    # Both literal term orders are independent source inputs, not exported DATA.
+    rows = [
+        ("int", ">=0", [("0", "ok"), ("-1", "conflict"), ('"0"', "conflict"),
+                         ("null", "conflict"), ("true", "conflict"), (None, "incomplete")]),
+        (">=0", "<=10", [("-1", "conflict"), ("0", "ok"), ("10", "ok"),
+                           ("11", "conflict"), (None, "incomplete")]),
+        (">0", "<10", [("0", "conflict"), ("1", "ok"), ("9", "ok"),
+                         ("10", "conflict"), (None, "incomplete")]),
+        (">=42", "<=42", [(None, "incomplete"), ("42", "ok"), ("41", "conflict")]),
+        (">=1", "<=0", [(None, "conflict"), ("0", "conflict")]),
+        ("int", "42", [(None, "ok"), ("42", "ok"), ("41", "conflict")]),
+        ("bool", "true", [(None, "ok"), ("true", "ok"), ("false", "conflict"),
+                           ("1", "conflict")]),
+        ("string", '"A"', [(None, "ok"), ('"A"', "ok"), ('"B"', "conflict")]),
+        ("int", "string", [(None, "conflict"), ("0", "conflict")]),
+        ("1", "2", [(None, "conflict"), ("1", "conflict")]),
+    ]
+    for left, right, candidates in rows:
+        for a, b in ((left, right), (right, left)):
+            for value, outcome in candidates:
+                term = f"{a} & {b}"
+                if ("<" in term or ">" in term) and "int" not in (a, b):
+                    term = f"int & ({term})"
+                parity(f"age: {term}\n", "{}" if value is None else '{"age":' + value + '}',
+                       outcome)
+    for term in ("null", "true", "false", "0", '""', "42", "null & null"):
+        parity(f"age: {term}", "{}", "ok")
+    for term in ("int", "bool", "string", "int & >=0", "int & <=0", "int & >0", "int & <0"):
+        parity(f"age: {term}", "{}", "incomplete")
+    for term in ("int & ((>=0 & <=10) & 5)", "(5 & (<=10 & >=0)) & int"):
+        parity(f"age: {term}", "{}", "ok")
+        parity(f"age: {term}", '{"age":6}', "conflict")
+    for term in ('int & >=42 & <=42', '<=42 & >=42 & int'):
+        parity(f'age:{term}', '{}', 'incomplete')
+        parity(f'age:{term}', '{"age":42}', 'ok')
+    for bound, value in (('>=-9223372036854775808', '-9223372036854775808'),
+                         ('<=9223372036854775807', '9223372036854775807')):
+        for term in (f'int & {bound}', f'{bound} & int'):
+            parity(f'age:{term}', '{"age":' + value + '}', 'ok')
+            parity(f'age:{term}', '{}', 'incomplete')
+    for value in ("-9223372036854775808", "9223372036854775807", "9007199254740993"):
+        parity(f"age: int & {value}", '{"age":' + value + '}', "ok")
+        parity(f"age: {value} & int", "{}", "ok")
+    for term in ("int & >=-3 & <=-1", "<=-1 & >=-3 & int"):
+        parity(f"age: {term}", '{"age":-2}', "ok")
+        parity(f"age: {term}", '{"age":0}', "conflict")
+    parity('name: string & "a🦀"', '{"name":"a\\uD83E\\uDD80"}', "ok")
+    for source in ('age:int & >=0\nname:string\nprovided:42\n',
+                   'provided:42\nname:string\nage:>=0 & int\n'):
+        for document in ('{"age":0,"name":"A","extra":[null,{"x":true}]}',
+                         '{"extra":{"nested":[null]},"name":"A","age":0}'):
+            parity(source, document, "ok")
+        parity(source, '{"age":0}', "incomplete")
+        parity(source, '{"name":"A","age":-1}', "conflict")
+    parity('true:bool\nfalse:null\nnull:string', '{"true":true,"null":"x"}', "ok")
+
+    # Shape checks on ALL known members precede any semantic evaluation.
+    for source in ('age:int\nlater:string', 'age:1 & 2\nlater:string'):
+        for document in ('{"later":[]}', '{"age":0,"later":{}}'):
+            files(source, document)
+            native(b"unsupported vet data:", "known container before semantics")
+    for document in ("[]", "42", "null", '"object"', "true"):
+        files("age:int", document)
+        native(b"unsupported vet data:", "object root required")
+
+    # CUE may accept these; they are explicit compatibility gaps, NOT parity.
+    gaps = [
+        ('age:_', '{"age":0}'), ('age:1+1', '{"age":2}'),
+        ('age:>=(0)', '{"age":0}'), ('age:and([int,>=0])', '{"age":0}'),
+        ('age:close({"x":1})', '{"age":{"x":1}}'), ('age:[1]', '{"age":[1]}'),
+        ('age:*1 | 2', '{}'), ('age:int & >9223372036854775807', '{"age":9223372036854775808}'),
+    ]
+    for source, document in gaps:
+        files(source, document)
+        native(b"unsupported vet schema:" if "*" not in source else b"invalid vet schema:",
+               "excluded source, Go accepts")
+        oracle("ok", "excluded source, Go-only success")
+    files('age:>9223372036854775807 & int', '{"age":9223372036854775808}')
+    native(b"unsupported vet schema:", "bounded exclusive maximum, reversed terms")
+    oracle("ok", "unbounded Go maximum, reversed terms")
+    for term in ('int & < -9223372036854775808', '< -9223372036854775808 & int'):
+        files(f'age:{term}', '{}')
+        native(b"unsupported vet schema:", "bounded exclusive minimum")
+        oracle("incomplete", "unbounded Go minimum remains incomplete")
+    for term in ('>0 & <1', '<1 & >0'):
+        for document, outcome in (('{}', 'incomplete'), ('{"age":0}', 'conflict'),
+                                  ('{"age":1}', 'conflict')):
+            files(f'age:{term}', document)
+            native(b"unsupported vet schema:", "untyped interval excluded even with integer data")
+            oracle(outcome, "untyped interval: Go-only domain observation")
+        for typed in (f'int & ({term})', f'({term}) & int'):
+            parity(f'age:{typed}', '{}', 'conflict')
+            parity(f'age:{typed}', '{"age":0}', 'conflict')
+    for term in ('>=0', '<=42 & >=42', '42 & >=0'):
+        files(f'age:{term}', '{"age":42}')
+        native(b"unsupported vet schema:", "bound needs explicit schema int, not integer candidate")
+        oracle('ok', "Go-only untyped matching integer")
+
+    # Same AST root must not turn an explicit closed schema into an open one.
+    files('close({"age":int})', '{"age":0,"extra":true}')
+    expect_failure(run(cue, argv, data=sentinel), b"field not allowed", "Go explicit closed root")
+    for source in ('close({"age":int})', '(close({"age":int}))',
+                   '// leading trivia\nclose({"age":int})', '42', '(42)', ''):
+        files(source, '{"age":0,"extra":true}')
+        native(b"invalid vet schema:", "no expression fallback or closed-root reinterpretation")
+    for source in ('age?:int', 'age!:int', '"age":int', '_age:int', '#Age:int',
+                   'package p\nage:int', 'import "strings"\nage:int',
+                   'age:int\nage:int', 'age:int, name:string', 'age:ref'):
+        files(source, '{}')
+        native(b"invalid vet schema:", "excluded declarations")
+
+    # Unsupported later nodes cannot hide behind early conflict/incompleteness.
+    excluded = ('1+1', '>= (0)', 'close({"x":1})', '[1]', 'and([int])', '_', '!(true)')
+    for first in ('int', '1 & 2'):
+        for term in excluded:
+            files(f"age:{first}\nlater:{term}", '{}')
+            native(b"unsupported vet schema:", "whole schema before semantics")
+        files(f"age:{first}\nlater:", '{}')
+        native(b"invalid vet schema:", "later malformed schema")
+    # Schema admission precedes JSON decoding, even with invalid JSON on disk.
+    files('age:1+1', b'{')
+    native(b"unsupported vet schema:", "schema phase before JSON phase")
+    files('age:int', b'age:0')
+    native(b"invalid JSON:", "explicit JSON cannot retry as CUE")
+    files(b'{"age":0}', '{"age":0}')
+    native(b"invalid vet schema:", "schema cannot retry as JSON")
+
+    malformed = (b'{"other":}', b'{"other":"\\uD800"}', b'{"other":"\xff"}', b'{}{}')
+    excluded_json = (b'{"other":1.0}', b'{"other":1e0}', b'{"other":-0}',
+                     b'{"other":9223372036854775808}', b'{"other":{"x":0,"\\u0078":0}}')
+    for first in ('int', '1 & 2'):
+        for category, values in ((b"invalid JSON:", malformed),
+                                 (b"unsupported JSON:", excluded_json)):
+            for document in values:
+                files(f"age:{first}", document)
+                native(category, "whole JSON before semantics")
+        for member in (b'"other":1.0', b'"other":{"x":0,"x":0}', b'"other":}'):
+            for document in (b'{"age":0,' + member + b'}', b'{' + member + b',"age":0}'):
+                files(f"age:{first}", document)
+                native(b"invalid JSON:" if member.endswith(b':}') else b"unsupported JSON:",
+                       "bad extra before/after known key")
+
+    # Boundary fixtures calculate byte/container/node counts independently.
+    limit = 1024 * 1024
+    for size in (limit - 1, limit):
+        source = b'age:int' + b' ' * (size - len(b'age:int'))
+        files(source, '{"age":0}')
+        native(None, f"schema bytes {size}")
+        document = b'{"age":0}' + b' ' * (size - len(b'{"age":0}'))
+        files('age:int', document)
+        native(None, f"JSON bytes {size}")
+    source = b'age:0\n//' + 'é'.encode() * ((limit - 8) // 2)
+    require(len(source) == limit, "incorrect multibyte schema boundary")
+    files(source, '{}')
+    native(None, "multibyte schema at byte limit")
+    files(source + b' ', '{}')
+    native(b"vet setup:", "multibyte schema above byte limit")
+    document = b'{"age":"' + 'é'.encode() * ((limit - 10) // 2) + b'"}'
+    require(len(document) == limit, "incorrect multibyte JSON boundary")
+    files('age:string', document)
+    native(None, "multibyte JSON at byte limit")
+    files('age:string', document + b' ')
+    native(b"unsupported JSON:", "multibyte JSON above byte limit")
+    files(b'age:int' + b' ' * (limit - 7) + b'\xff', '{"age":0}')
+    native(b"vet setup:", "schema byte limit before UTF-8")
+    files('age:int', b'{"age":0}' + b' ' * (limit - 8) + b'\xff')
+    native(b"unsupported JSON:", "JSON byte limit before UTF-8")
+    for depth in (63, 64, 65):
+        # Outer object plus depth-1 nested arrays, in an ignored extra.
+        document = b'{"age":0,"extra":' + b'[' * (depth - 1) + b'0' + b']' * (depth - 1) + b'}'
+        files('age:int', document)
+        native(None if depth <= 64 else b"unsupported JSON:", f"JSON containers {depth}")
+    for first in ('int', '1 & 2'):
+        files(f'age:{first}', b'{"extra":' + b'[' * 64 + b'0' + b']' * 64 + b'}')
+        native(b"unsupported JSON:", "extra depth limit before semantics")
+    for count in (62, 63, 64):
+        # Record root + one literal per field; missing literals supply values.
+        files('\n'.join(f'f{i}:0' for i in range(count)), '{}')
+        native(None if count <= 63 else b"vet setup:", f"schema AST nodes {count + 1}")
+    for length in (64, 65):
+        files('a' * length + ':0', '{}')
+        native(None if length == 64 else b"unsupported vet schema:", f"label bytes {length}")
+    for groups in (31, 32):
+        # Field RHS starts at parser depth 1; each group adds one level.
+        files('age:' + '(' * groups + '0' + ')' * groups, '{}')
+        native(None if groups == 31 else b"vet setup:", f"schema parse depth {groups + 1}")
+    # Large UTF-8 scalar and wide/deep extras bypass evaluator collection caps.
+    files('age:string', '{"age":"' + 'é' * 10000 + '","extra":[' + ','.join('0' for _ in range(65)) + ']}')
+    native(None, "UTF-8 scalar and extra width beyond evaluator cap")
+
+    files('age:int', '{"age":0}')
+    for args in (["vet"], ["vet", str(schema), str(data)],
+                 ["vet", "-c=false", str(schema), str(data)],
+                 ["vet", "-c=true", str(schema), str(data)],
+                 ["vet", str(schema), "-c", str(data)],
+                 ["vet", "-c", "-c", str(schema), str(data)],
+                 ["vet", "-c", str(data), str(schema)],
+                 ["vet", "-c", "missing.cue", "-"],
+                 ["vet", "-c", "missing.CUE", "missing.JSON"],
+                 ["vet", "-c", "schema.cue", "data.yaml"],
+                 ["vet", "-c", "-", str(data)],
+                 ["vet", "-c", str(schema), "json:", "-"],
+                 ["vet", "-c", ".", str(data)]):
+        native(b"usage: cuestacean vet", "exact argv only", args)
+    for option in ('-d', '-e', '--out=json', '--', '-c'):
+        native(b"usage: cuestacean vet", "no additional flags", [*argv, option])
+    for name in ('vet-missing.cue', 'vet-missing.json'):
+        require(not Path(name).exists(), "missing-file fixture unexpectedly exists")
+    native(b"vet setup:", "missing schema cannot retry stdin",
+           ["vet", "-c", "vet-missing.cue", str(data)])
+    native(b"vet setup:", "missing data cannot retry stdin",
+           ["vet", "-c", str(schema), "vet-missing.json"])
+    print("Packaged vet parity, categories, phase/limit controls and explicit gaps verified")
+
+
 def main():
     rust, cue = map(Path, sys.argv[1:])
     for tool in rust, cue:
@@ -379,6 +639,7 @@ def main():
     json_profile(rust, cue)
     nested_selection(rust, cue)
     indexed_selection(rust, cue)
+    vet_profile(rust, cue)
 
     forward = str(fixtures / "defaults-forward.cue")
     reverse = str(fixtures / "defaults-reverse.cue")
