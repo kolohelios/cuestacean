@@ -33,14 +33,30 @@ fn interpreted(program: &str) -> Result<Engine, Error> {
 
 /// Parse an explicit file, probing declarations without committing expression input.
 pub fn parse_file(source: &str, grammar: &str) -> Result<Value, Error> {
-    parse_entry(source, grammar, false)
+    parse_entry(source, grammar, false, false)
+}
+
+/// Parse ordinary file declarations only, rejecting standalone expressions.
+/// Uses the same generated positive declaration probe as `parse_file`.
+pub fn parse_fields_file(source: &str, grammar: &str) -> Result<Value, Error> {
+    parse_entry(source, grammar, false, true)
+}
+
+fn fields_primary(frame: &mut Frame<'_, '_>) -> Result<(), Error> {
+    frame.file.require_fields = true;
+    primary::execute(frame)
 }
 
 /// Independent control/scanner VM entry for the same file profile.
 pub fn parse_file_interpreted(source: &str, grammar: &str) -> Result<Value, Error> {
-    parse_entry(source, grammar, true)
+    parse_entry(source, grammar, true, false)
 }
-fn parse_entry(source: &str, grammar: &str, reference: bool) -> Result<Value, Error> {
+fn parse_entry(
+    source: &str,
+    grammar: &str,
+    reference: bool,
+    fields_only: bool,
+) -> Result<Value, Error> {
     let grammar: Grammar = serde_json::from_str(grammar).context(JsonSnafu)?;
     grammar.validate()?;
     let engine = |driver, program| {
@@ -50,7 +66,12 @@ fn parse_entry(source: &str, grammar: &str, reference: bool) -> Result<Value, Er
             Ok(Engine::Compiled(driver))
         }
     };
-    let entry_engine = engine(primary::execute as Driver, program!("file-primary"))?;
+    let entry_driver: Driver = if fields_only {
+        fields_primary
+    } else {
+        primary::execute
+    };
+    let entry_engine = engine(entry_driver, program!("file-primary"))?;
     let mut parser = Parser {
         source,
         grammar: &grammar,
@@ -75,6 +96,7 @@ fn parse_entry(source: &str, grammar: &str, reference: bool) -> Result<Value, Er
 #[derive(Default)]
 pub(super) struct Context {
     pub scope: bool,
+    require_fields: bool,
     boundary: Option<bool>,
     pub state: Option<State>,
 }
@@ -328,6 +350,9 @@ impl Frame<'_, '_> {
             return Err(Error::ControlState {
                 reason: "cannot retry recognized file",
             });
+        }
+        if self.file.require_fields {
+            return self.parser.error("ordinary file fields required");
         }
         self.file.state = None;
         let old = match self.parser.engine {

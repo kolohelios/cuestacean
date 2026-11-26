@@ -5,6 +5,8 @@ use std::process::ExitCode;
 
 #[path = "cuestacean/json.rs"]
 mod json;
+#[path = "cuestacean/vet.rs"]
+mod vet;
 
 const USAGE: &str =
     "usage: cuestacean export [-e path] [--out json] [-o -] <input.cue|input.json|json: -|->";
@@ -166,7 +168,11 @@ fn export_arguments(mut args: impl Iterator<Item = OsString>) -> Result<ExportAr
 }
 
 fn run() -> Result<(), String> {
-    let ExportArgs { input, field, json } = export_arguments(std::env::args_os().skip(1))?;
+    let mut args = std::env::args_os().skip(1).peekable();
+    if args.peek().map(OsString::as_os_str) == Some(OsStr::new("vet")) {
+        return vet::run(args).map_err(|error| error.to_string());
+    }
+    let ExportArgs { input, field, json } = export_arguments(args)?;
     let value = if json {
         if input == "-" {
             json::read(io::stdin().lock())?

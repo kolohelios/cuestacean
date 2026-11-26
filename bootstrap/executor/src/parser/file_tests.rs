@@ -66,6 +66,70 @@ fn checked_file_stages_and_completion() -> Result<(), Error> {
 }
 
 #[test]
+fn fields_only_preserves_origin_and_existing_entries() -> Result<(), Error> {
+    let source = "// heading\r\n age: int & >=0\r\ntrue: null\n";
+    let expected = serde_json::json!({"formatVersion":1,"entry":{
+    "kind":"recordExpression","fields":[
+        {"name":"age","value":{"kind":"unify","left":{"kind":"intType"},
+            "right":{"kind":"lowerBound","value":0}}},
+        {"name":"true","value":{"kind":"null"}}
+    ]}});
+    assert_eq!(parse_fields_file(source, GRAMMAR)?, expected);
+    assert_eq!(parse_file(source, GRAMMAR)?, expected);
+    assert_eq!(parse_file_interpreted(source, GRAMMAR)?, expected);
+    // These intentionally share an AST with ordinary declarations in old mode.
+    // Reject before expression parsing in fields-only mode, even when grouped.
+    for source in [
+        "close({\"x\":int})",
+        "(close({\"x\":int}))",
+        "// comment\n42",
+        "1+2",
+    ] {
+        assert!(parse_file(source, GRAMMAR).is_ok(), "{source}");
+        assert!(parse_file_interpreted(source, GRAMMAR).is_ok(), "{source}");
+        assert!(
+            matches!(
+                parse_fields_file(source, GRAMMAR),
+                Err(Error::Source { .. })
+            ),
+            "{source}"
+        );
+    }
+    for source in [
+        "",
+        "// only\n",
+        "x:1\nx:2",
+        "x!: int",
+        "x?: int",
+        "x:1, y:2",
+        "x: unknown",
+    ] {
+        assert!(parse_fields_file(source, GRAMMAR).is_err(), "{source}");
+    }
+    // Shared node count includes the file record. No budget is reset per field.
+    let wide = (0..63).map(|i| format!("x{i}:1\n")).collect::<String>();
+    assert!(parse_fields_file(&wide, GRAMMAR).is_ok());
+    assert!(parse_fields_file(&format!("{wide}last:1\n"), GRAMMAR).is_err());
+    Ok(())
+}
+
+#[test]
+fn fields_only_positive_probe_never_enters_expression_fallback() -> Result<(), Error> {
+    fn guarded(frame: &mut Frame<'_, '_>) -> Result<(), Error> {
+        frame.file.require_fields = true;
+        frame.probe_file()?;
+        assert!(frame.has_file_field()?);
+        assert!(frame.parse_file_expression().is_err());
+        assert_eq!(frame.parser.offset, 0);
+        Err(Error::ControlState {
+            reason: "test stops after probe",
+        })
+    }
+    assert!(matches!(run(guarded), Err(Error::ControlState { .. })));
+    Ok(())
+}
+
+#[test]
 fn file_overlay_is_explicit_and_parser_family_only() -> Result<(), Box<dyn std::error::Error>> {
     let input = r#"{"formatVersion":1,"body":[{"op":"if","condition":{"op":"fileBoundary"},"then":[{"op":"return"}]}]}"#;
     assert!(crate::pratt::generate(input).is_err());
