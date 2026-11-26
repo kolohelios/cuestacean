@@ -32,7 +32,7 @@ printf '40 + 2\n' | cuestacean export --out json -
 | `export` with one explicit `.json` file or `json: -` for stdin | One [bounded JSON value](#explicit-json-input). Bare `-` still selects CUE. |
 | JSON on stdout | Default, or `--out json` / `--out=json`. `-o -`, `--outfile -`, and `--outfile=-` explicitly select stdout. |
 | Argument order | Supported options may precede or follow the input. Use `--` to end option parsing. Duplicate options and multiple inputs are rejected. |
-| Field selection | `-e name`, `--expression name`, or `--expression=name` selects one field from a fully concrete record. |
+| Field selection | `-e path`, `--expression path`, or `--expression=path` selects one field by a dotted path through fully concrete records. |
 | Other `export` options | Unsupported, including `--escape`, `--force`, injection, `--list`, `--merge`, `--name`, package/path/schema flags, protobuf options, `--with-context`, and global error/ignore/simplify flags. Non-JSON formats and output files are unsupported. |
 | Other commands | Unsupported: `cmd`, `completion`, `def`, `eval`, `fix`, `fmt`, `get`, `help`, `import`, `login`, `mod`, `trim`, `version`, `vet`. |
 
@@ -51,10 +51,14 @@ printf 'close({"answer": 42, "other": 99})\n' | cue export -e answer -
 printf 'close({"answer": 42, "other": 99})\n' | cuestacean export -e answer -
 ```
 
-Use a single ASCII field name starting with a letter and containing only letters,
-digits, and underscores. `true`, `false`, and `null` are literals, not selectors.
-Repeated selections, paths, quoted labels, hidden fields, definitions, and general
-expressions are unsupported. A missing field or a non-record result is an error.
+Use a field name or a dotted path such as `-e scope.answer`. Each segment starts
+with an ASCII letter and contains only ASCII letters, digits, and underscores.
+`true`, `false`, and `null` cannot start a path, but can be field names after a
+dot. Repeated selections, whitespace in paths, quoted labels, list indexing,
+hidden fields, definitions, and general expressions are unsupported. Every
+segment is an exact field lookup, never a lookup of the full dotted string.
+A missing field or a non-record intermediate value is an error; a terminal
+`null` is a successful selection.
 Unlike Go CUE, Cuestacean must evaluate the entire record first: even an unrelated
 incomplete or conflicting field prevents selection.
 

@@ -7,7 +7,7 @@ use std::process::ExitCode;
 mod json;
 
 const USAGE: &str =
-    "usage: cuestacean export [-e name] [--out json] [-o -] <input.cue|input.json|json: -|->";
+    "usage: cuestacean export [-e path] [--out json] [-o -] <input.cue|input.json|json: -|->";
 
 struct ExportArgs {
     input: OsString,
@@ -19,12 +19,16 @@ fn field_argument(field: Option<OsString>) -> Result<String, String> {
     field
         .and_then(|field| field.into_string().ok())
         .filter(|field| {
-            let mut bytes = field.bytes();
-            matches!(bytes.next(), Some(first) if first.is_ascii_alphabetic())
-                && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
-                && !matches!(field.as_str(), "true" | "false" | "null")
+            field.split('.').enumerate().all(|(index, segment)| {
+                let mut bytes = segment.bytes();
+                matches!(bytes.next(), Some(first) if first.is_ascii_alphabetic())
+                    && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+                    && (index != 0 || !matches!(segment, "true" | "false" | "null"))
+            })
         })
-        .ok_or_else(|| "--expression requires a single ASCII field name (not a literal)".into())
+        .ok_or_else(|| {
+            "--expression requires a dot-separated ASCII field path (not a literal)".into()
+        })
 }
 
 fn export_arguments(mut args: impl Iterator<Item = OsString>) -> Result<ExportArgs, String> {
@@ -159,14 +163,30 @@ fn select<'a>(
     value: &'a serde_json::Value,
     field: Option<&str>,
 ) -> Result<&'a serde_json::Value, String> {
-    match field {
-        Some(name) => value
-            .as_object()
-            .ok_or("--expression requires a concrete record")?
-            .get(name)
-            .ok_or_else(|| format!("record has no field named {name}")),
-        None => Ok(value),
+    let Some(path) = field else { return Ok(value) };
+    let mut current = value;
+    let mut prefix_len = 0;
+    for name in path.split('.') {
+        let record = current.as_object().ok_or_else(|| {
+            if prefix_len == 0 {
+                "--expression requires a concrete record".into()
+            } else {
+                format!("field {} is not a record", &path[..prefix_len - 1])
+            }
+        })?;
+        current = record.get(name).ok_or_else(|| {
+            if prefix_len == 0 {
+                format!("record has no field named {name}")
+            } else {
+                format!(
+                    "record {} has no field named {name}",
+                    &path[..prefix_len - 1]
+                )
+            }
+        })?;
+        prefix_len += name.len() + 1;
     }
+    Ok(current)
 }
 
 fn main() -> ExitCode {
