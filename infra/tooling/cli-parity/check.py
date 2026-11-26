@@ -212,9 +212,9 @@ def json_profile(rust, cue):
     require(not Path("missing.json").exists(), "missing-file fixture unexpectedly exists")
     expect_failure(run(rust, ["export", "missing.json"], data=b'{"answer":42}'),
                    b'cannot read missing.json', "missing JSON file cannot retry valid stdin")
-    for selector in ('', 'true', 'false', 'null', 'a.b', '"a"', '_a', '#A', 'é', '1a'):
+    for selector in ('', 'true', 'false', 'null', 'a..b', '"a"', '_a', '#A', 'é', '1a'):
         expect_failure(run(rust, ["export", f"--expression={selector}", "json:", "-"],
-                           data=b'{}'), b'--expression requires a single ASCII field name',
+                           data=b'{}'), b'--expression requires a dot-separated ASCII field path',
                        "unchanged JSON selector grammar")
     # Explicit JSON never retries as CUE. Conversely .cue/bare stdin never sniff JSON.
     for data in (b'40 + 2', b'answer:42', b'close({"a":1})'):
@@ -230,6 +230,38 @@ def json_profile(rust, cue):
     for args, stdin in ((["input.cue"], b'42'), (["-"], b'{"answer":42}')):
         expect_failure(run(rust, ["export", *args], data=stdin),
                        b'expected signed decimal integer', "no CUE-to-JSON sniff/retry")
+
+
+def nested_selection(rust, cue):
+    source = b'scope: {"x":42,"end":null,"items":[1],"answer":{"case":7},"true":8}\nother: 0\n'
+    data = b'{"scope":{"x":42,"end":null,"items":[1],"answer":{"case":7},"true":8},"scope.x":99}'
+    Path("nested.cue").write_bytes(source)
+    routes = [(["nested.cue"], b"42"), (["-"], source), *json_inputs(data)]
+    for args, stdin in routes:
+        for options, expected in (
+            (["-e", "scope.x"], b'42'),
+            (["--expression", "scope.end"], b'null'),
+            (["--expression=scope.answer.case"], b'7'),
+            (["-e", "scope.true"], b'8'),
+            (["-e", "scope.items"], b'[1]'),
+        ):
+            for tool in rust, cue:
+                export(tool, [*options, *args], canonical(expected), f"nested {options} {args}", data=stdin)
+        for path, rust_message, cue_message in (
+            ("scope.missing", b"record scope has no field named missing", b"undefined field: missing"),
+            ("scope.end.x", b"field scope.end is not a record", b"invalid operand scope.end"),
+        ):
+            for tool, diagnostic in ((rust, rust_message), (cue, cue_message)):
+                expect_failure(run(tool, ["export", *args, "-e", path], data=stdin),
+                               diagnostic, f"nested {path} {args}")
+        expect_failure(run(rust, ["export", *args, "-e", "scope.items.x"], data=stdin),
+                       b"field scope.items is not a record", "a list is not a record")
+    # A literal dotted key is never a fallback for missing traversal segments.
+    for args, stdin in json_inputs(b'{"scope":{},"scope.x":99}'):
+        for tool, diagnostic in ((rust, b"record scope has no field named x"),
+                                 (cue, b"undefined field: x")):
+            expect_failure(run(tool, ["export", *args, "-e", "scope.x"], data=stdin),
+                           diagnostic, "no literal dotted-key fallback")
 
 
 def main():
@@ -256,6 +288,7 @@ def main():
                        f"{producer} -> Rust bare stdin (retained gap)")
 
     json_profile(rust, cue)
+    nested_selection(rust, cue)
 
     forward = str(fixtures / "defaults-forward.cue")
     reverse = str(fixtures / "defaults-reverse.cue")

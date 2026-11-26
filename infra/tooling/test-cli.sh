@@ -95,11 +95,11 @@ failure 'only the export command'
 failure 'exactly one input' export
 failure 'exactly one input' export input.cue input.cue
 failure 'explicit .cue' export input.txt
-for selector in '' true false null outer.answer '"quoted"' _hidden '#Definition' 'len(items)' 'café' 1name; do
-  failure '--expression requires a single ASCII field name' export "--expression=$selector" missing.cue
+for selector in '' true false null outer..answer .answer outer. 'outer. answer' 'outer._hidden' 'outer[0]' '"quoted"' _hidden '#Definition' 'len(items)' 'café' 1name; do
+  failure '--expression requires a dot-separated ASCII field path' export "--expression=$selector" missing.cue
 done
-failure '--expression requires a single ASCII field name' export missing.cue -e
-failure '--expression requires a single ASCII field name' export missing.cue --expression
+failure '--expression requires a dot-separated ASCII field path' export missing.cue -e
+failure '--expression requires a dot-separated ASCII field path' export missing.cue --expression
 failure '--expression may only be specified once' export -e answer --expression=spare missing.cue
 failure 'exactly one input' export input.cue -- -e answer
 
