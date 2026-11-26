@@ -32,7 +32,7 @@ printf '40 + 2\n' | cuestacean export --out json -
 | `export` with one explicit `.json` file or `json: -` for stdin | One [bounded JSON value](#explicit-json-input). Bare `-` still selects CUE. |
 | JSON on stdout | Default, or `--out json` / `--out=json`. `-o -`, `--outfile -`, and `--outfile=-` explicitly select stdout. |
 | Argument order | Supported options may precede or follow the input. Use `--` to end option parsing. Duplicate options and multiple inputs are rejected. |
-| Field selection | `-e path`, `--expression path`, or `--expression=path` selects one field by a dotted path through fully concrete records. |
+| Field selection | `-e path`, `--expression path`, or `--expression=path` selects a value along a field and list-index path through fully concrete data. |
 | Other `export` options | Unsupported, including `--escape`, `--force`, injection, `--list`, `--merge`, `--name`, package/path/schema flags, protobuf options, `--with-context`, and global error/ignore/simplify flags. Non-JSON formats and output files are unsupported. |
 | Other commands | Unsupported: `cmd`, `completion`, `def`, `eval`, `fix`, `fmt`, `get`, `help`, `import`, `login`, `mod`, `trim`, `version`, `vet`. |
 
@@ -51,14 +51,18 @@ printf 'close({"answer": 42, "other": 99})\n' | cue export -e answer -
 printf 'close({"answer": 42, "other": 99})\n' | cuestacean export -e answer -
 ```
 
-Use a field name or a dotted path such as `-e scope.answer`. Each segment starts
-with an ASCII letter and contains only ASCII letters, digits, and underscores.
-`true`, `false`, and `null` cannot start a path, but can be field names after a
-dot. Repeated selections, whitespace in paths, quoted labels, list indexing,
-hidden fields, definitions, and general expressions are unsupported. Every
-segment is an exact field lookup, never a lookup of the full dotted string.
-A missing field or a non-record intermediate value is an error; a terminal
-`null` is a successful selection.
+Start with a field name, then use dotted field names or list indices, as in
+`-e scope.items[0].answer`. Field names start with an ASCII letter and contain
+only ASCII letters, digits, and underscores. `true`, `false`, and `null` cannot
+start a path but can be field names after a dot. A list index is a nonnegative
+decimal integer up to 268435454, without a leading zero unless it is `0`.
+Bracket steps apply only to lists. Quote paths containing brackets in the shell.
+
+Repeated selections, whitespace in paths, quoted labels, slices, computed
+indices, hidden fields, definitions, and general expressions are unsupported.
+Field lookups are exact: the full path is never looked up as a literal key.
+Missing fields, out-of-range indices, and intermediate values of the wrong
+container type are errors; a terminal `null` is a successful selection.
 Unlike Go CUE, Cuestacean must evaluate the entire record first: even an unrelated
 incomplete or conflicting field prevents selection.
 
@@ -82,8 +86,8 @@ Unicode escapes past that point need not be diagnosed.
 Go CUE accepts some inputs outside this profile, including floats, larger
 integers, negative zero, and some repeated keys. Cuestacean does not try another
 format when explicit JSON is invalid or unsupported. Bare `-` continues to
-parse CUE and is not a portable way to feed JSON into Cuestacean. Use `-e name`
-to select a field after the entire JSON input has been decoded and validated.
+parse CUE and is not a portable way to feed JSON into Cuestacean. Use `-e path`
+to select a value after the entire JSON input has been decoded and validated.
 
 ## Output and failures
 
