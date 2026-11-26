@@ -1956,6 +1956,19 @@
         pkgs:
         (rustPackage pkgs).overrideAttrs (old: {
           pname = "bootstrap-legacy-codegen-seed";
+          # This build selects only bootstrap-codegen. The full executor still
+          # builds and checks the public CLI from the unfiltered Rust sources.
+          src = pkgs.lib.fileset.toSource {
+            root = ../../bootstrap;
+            fileset =
+              pkgs.lib.fileset.difference (pkgs.lib.fileset.fileFilter (file: !file.hasExt "md") ../../bootstrap)
+                (
+                  pkgs.lib.fileset.unions [
+                    ../../bootstrap/executor/src/bin/cuestacean.rs
+                    ../../bootstrap/executor/src/bin/cuestacean
+                  ]
+                );
+          };
           # Policy is fresh upstream CUE data, not a generated Rust seed dependency.
           CUESTACEAN_BOOTSTRAP_JSON = jsonExports pkgs;
           meta = old.meta // {
