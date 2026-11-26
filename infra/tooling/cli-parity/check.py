@@ -233,7 +233,8 @@ def json_profile(rust, cue):
 
 
 def nested_selection(rust, cue):
-    source = b'scope: {"x":42,"end":null,"items":[1],"answer":{"case":7},"true":8}\nother: 0\n'
+    source = (b'scope: close({"x":42,"end":null,"items":[1],'
+              b'"answer":close({"case":7}),"true":8})\nother: 0\n')
     data = b'{"scope":{"x":42,"end":null,"items":[1],"answer":{"case":7},"true":8},"scope.x":99}'
     Path("nested.cue").write_bytes(source)
     routes = [(["nested.cue"], b"42"), (["-"], source), *json_inputs(data)]
