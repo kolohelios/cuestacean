@@ -63,6 +63,14 @@ success normalized 'close({"items": [1, 2], "spare": 3})' '[1,2]' export -e item
 success normalized 'close({"item": close({"b": [1], "a": false}), "spare": 3})' \
   '{"a":false,"b":[1]}' export -e item input.cue
 
+# Concrete RHS records require close(...), even inside lists.
+for input in input.cue -; do
+  success exact 'items:[close({"answer":[[42]]}),null]' '42' \
+    export "$input" -e 'items[0].answer[0][0]'
+  success exact 'items:[close({"answer":[[42]]}),null]' 'null' \
+    export --expression='items[1]' "$input"
+done
+
 failure() {
   local diagnostic=$1 rc=0
   shift
@@ -95,11 +103,14 @@ failure 'only the export command'
 failure 'exactly one input' export
 failure 'exactly one input' export input.cue input.cue
 failure 'explicit .cue' export input.txt
-for selector in '' true false null outer..answer .answer outer. 'outer. answer' 'outer._hidden' 'outer[0]' '"quoted"' _hidden '#Definition' 'len(items)' 'café' 1name; do
-  failure '--expression requires a dot-separated ASCII field path' export "--expression=$selector" missing.cue
+for selector in '' true false null outer..answer .answer outer. 'outer. answer' 'outer._hidden' 'outer[-1]' 'outer[01]' 'outer[0x0]' 'outer[1+1]' 'outer[0:1]' '[0]' '"quoted"' _hidden '#Definition' 'len(items)' 'café' 1name; do
+  failure '--expression requires an ASCII field path' export "--expression=$selector" missing.cue
 done
-failure '--expression requires a dot-separated ASCII field path' export missing.cue -e
-failure '--expression requires a dot-separated ASCII field path' export missing.cue --expression
+failure '--expression requires an ASCII field path' export missing.cue -e
+failure '--expression requires an ASCII field path' export missing.cue --expression
+for selector in 'outer[268435455]' 'outer[9223372036854775807]' 'outer[18446744073709551616]'; do
+  failure 'unsupported selector index:' export "--expression=$selector" missing.cue
+done
 failure '--expression may only be specified once' export -e answer --expression=spare missing.cue
 failure 'exactly one input' export input.cue -- -e answer
 
