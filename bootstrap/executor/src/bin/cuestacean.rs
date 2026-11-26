@@ -11,24 +11,77 @@ const USAGE: &str =
 
 struct ExportArgs {
     input: OsString,
-    field: Option<String>,
+    field: Option<SelectorPath>,
     json: bool,
 }
 
-fn field_argument(field: Option<OsString>) -> Result<String, String> {
-    field
+#[derive(Debug, PartialEq)]
+enum SelectorStep {
+    Field(String),
+    Index(usize),
+}
+
+#[derive(Debug)]
+struct SelectorPath {
+    text: String,
+    // Each end offset identifies the full valid prefix after this step.
+    steps: Vec<(SelectorStep, usize)>,
+}
+
+fn field_argument(field: Option<OsString>) -> Result<SelectorPath, String> {
+    let invalid =
+        || "--expression requires an ASCII field path with optional decimal indices".to_string();
+    let text = field
         .and_then(|field| field.into_string().ok())
-        .filter(|field| {
-            field.split('.').enumerate().all(|(index, segment)| {
-                let mut bytes = segment.bytes();
-                matches!(bytes.next(), Some(first) if first.is_ascii_alphabetic())
-                    && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
-                    && (index != 0 || !matches!(segment, "true" | "false" | "null"))
-            })
-        })
-        .ok_or_else(|| {
-            "--expression requires a dot-separated ASCII field path (not a literal)".into()
-        })
+        .ok_or_else(invalid)?;
+    let bytes = text.as_bytes();
+    let mut steps = Vec::new();
+    let mut pos = 0;
+    loop {
+        let start = pos;
+        if !matches!(bytes.get(pos), Some(byte) if byte.is_ascii_alphabetic()) {
+            return Err(invalid());
+        }
+        pos += 1;
+        while matches!(bytes.get(pos), Some(byte) if byte.is_ascii_alphanumeric() || *byte == b'_')
+        {
+            pos += 1;
+        }
+        let name = &text[start..pos];
+        if steps.is_empty() && matches!(name, "true" | "false" | "null") {
+            return Err(invalid());
+        }
+        steps.push((SelectorStep::Field(name.into()), pos));
+        while bytes.get(pos) == Some(&b'[') {
+            pos += 1;
+            let start = pos;
+            while matches!(bytes.get(pos), Some(byte) if byte.is_ascii_digit()) {
+                pos += 1;
+            }
+            let digits = &text[start..pos];
+            if digits.is_empty()
+                || (digits.len() > 1 && digits.starts_with('0'))
+                || bytes.get(pos) != Some(&b']')
+            {
+                return Err(invalid());
+            }
+            let index = digits
+                .parse::<usize>()
+                .ok()
+                .filter(|index| *index <= 268_435_454)
+                .ok_or_else(|| format!("unsupported selector index: {digits}"))?;
+            pos += 1;
+            steps.push((SelectorStep::Index(index), pos));
+        }
+        if pos == bytes.len() {
+            break;
+        }
+        if bytes.get(pos) != Some(&b'.') {
+            return Err(invalid());
+        }
+        pos += 1;
+    }
+    Ok(SelectorPath { text, steps })
 }
 
 fn export_arguments(mut args: impl Iterator<Item = OsString>) -> Result<ExportArgs, String> {
@@ -125,7 +178,7 @@ fn run() -> Result<(), String> {
     } else {
         cue_value(&input)?
     };
-    let result = select(&value, field.as_deref())?;
+    let result = select(&value, field.as_ref())?;
     let output = serde_json::to_vec(result)
         .map_err(|error| format!("cannot serialize export result: {error}"))?;
     let mut stdout = io::stdout().lock();
@@ -161,30 +214,40 @@ fn cue_value(input: &OsStr) -> Result<serde_json::Value, String> {
 
 fn select<'a>(
     value: &'a serde_json::Value,
-    field: Option<&str>,
+    field: Option<&SelectorPath>,
 ) -> Result<&'a serde_json::Value, String> {
     let Some(path) = field else { return Ok(value) };
     let mut current = value;
     let mut prefix_len = 0;
-    for name in path.split('.') {
-        let record = current.as_object().ok_or_else(|| {
-            if prefix_len == 0 {
-                "--expression requires a concrete record".into()
-            } else {
-                format!("field {} is not a record", &path[..prefix_len - 1])
+    for (step, end) in &path.steps {
+        let prefix = &path.text[..prefix_len];
+        current = match step {
+            SelectorStep::Field(name) => {
+                let record = current.as_object().ok_or_else(|| {
+                    if prefix_len == 0 {
+                        "--expression requires a concrete record".into()
+                    } else {
+                        format!("field {prefix} is not a record")
+                    }
+                })?;
+                record.get(name).ok_or_else(|| {
+                    if prefix_len == 0 {
+                        format!("record has no field named {name}")
+                    } else {
+                        format!("record {prefix} has no field named {name}")
+                    }
+                })?
             }
-        })?;
-        current = record.get(name).ok_or_else(|| {
-            if prefix_len == 0 {
-                format!("record has no field named {name}")
-            } else {
-                format!(
-                    "record {} has no field named {name}",
-                    &path[..prefix_len - 1]
-                )
+            SelectorStep::Index(index) => {
+                let list = current
+                    .as_array()
+                    .ok_or_else(|| format!("field {prefix} is not a list"))?;
+                list.get(*index).ok_or_else(|| {
+                    format!("index out of range [{index}] with length {}", list.len())
+                })?
             }
-        })?;
-        prefix_len += name.len() + 1;
+        };
+        prefix_len = *end;
     }
     Ok(current)
 }
@@ -207,6 +270,107 @@ mod tests {
         export_arguments(args.iter().map(|arg| OsString::from(*arg)))
     }
 
+    fn select_path<'a>(
+        value: &'a serde_json::Value,
+        path: &str,
+    ) -> Result<&'a serde_json::Value, String> {
+        let path = field_argument(Some(path.into()))?;
+        select(value, Some(&path))
+    }
+
+    #[test]
+    fn typed_selector_paths_and_argument_rejections() {
+        let path = field_argument(Some("items[0][12].true".into())).unwrap();
+        assert_eq!(
+            path.steps,
+            vec![
+                (SelectorStep::Field("items".into()), 5),
+                (SelectorStep::Index(0), 8),
+                (SelectorStep::Index(12), 12),
+                (SelectorStep::Field("true".into()), 17),
+            ]
+        );
+        assert!(field_argument(Some("items[268435454]".into())).is_ok());
+        for path in [
+            "items[268435455]",
+            "items[9223372036854775807]",
+            "items[18446744073709551616]",
+        ] {
+            assert!(
+                field_argument(Some(path.into()))
+                    .unwrap_err()
+                    .starts_with("unsupported selector index:")
+            );
+        }
+        for path in [
+            "", "[0]", "true", "false.x", "null[0]", "_x", "x..y", "x.", "x[-1]", "x[01]", "x[00]",
+            "x[+1]", "x[0x0]", "x[1+1]", "x[0:1]", "x[]", "x[0", "x[0]y", "x.[0]", "x['a']",
+            "x[ 0]", "x[0 ]", "x.é", "x[０]", "x[0].", "x[0]..y", "x.\"y\"",
+        ] {
+            // Argument parsing rejects the selector even with an unreadable input.
+            let error = arguments(&["export", "does-not-exist.cue", "-e", path])
+                .err()
+                .expect("invalid argument");
+            assert!(
+                error.starts_with("--expression requires an ASCII field path"),
+                "{path}: {error}"
+            );
+        }
+        assert!(field_argument(None).is_err());
+    }
+
+    #[test]
+    fn mixed_selector_values_and_full_prefix_diagnostics() {
+        let value = serde_json::json!({
+            "items": [[{"answer": 42, "true": null}], null, false, {}, "text"],
+            "empty": [], "items[0]": 99, "scope.answer": 99,
+            "scope": {"answer": null}
+        });
+        for (path, expected) in [
+            ("items[0][0].answer", serde_json::json!(42)),
+            ("items[0][0].true", serde_json::Value::Null),
+            ("items[1]", serde_json::Value::Null),
+            ("scope.answer", serde_json::Value::Null),
+        ] {
+            assert_eq!(select_path(&value, path).unwrap(), &expected);
+        }
+        assert_eq!(select(&value, None).unwrap(), &value);
+        for (path, expected) in [
+            ("missing", "record has no field named missing"),
+            (
+                "items[0][0].missing",
+                "record items[0][0] has no field named missing",
+            ),
+            ("items[1].answer", "field items[1] is not a record"),
+            (
+                "items[0][0].answer.more",
+                "field items[0][0].answer is not a record",
+            ),
+            ("items[0][0][0]", "field items[0][0] is not a list"),
+            ("items[1][0]", "field items[1] is not a list"),
+            ("items[2][0]", "field items[2] is not a list"),
+            ("items[3][0]", "field items[3] is not a list"),
+            ("items[4][0]", "field items[4] is not a list"),
+            ("scope.answer[0]", "field scope.answer is not a list"),
+            ("empty[0]", "index out of range [0] with length 0"),
+            ("items[5]", "index out of range [5] with length 5"),
+            (
+                "items[268435454]",
+                "index out of range [268435454] with length 5",
+            ),
+        ] {
+            assert_eq!(select_path(&value, path).unwrap_err(), expected, "{path}");
+        }
+        assert_eq!(
+            select_path(&serde_json::json!([]), "items[0]").unwrap_err(),
+            "--expression requires a concrete record"
+        );
+        assert_eq!(
+            select_path(&serde_json::json!({"items[0]": 42}), "items[0]").unwrap_err(),
+            "record has no field named items"
+        );
+    }
+
     #[test]
     fn explicit_formats_options_and_selectors() {
         for args in [
@@ -216,7 +380,10 @@ mod tests {
         ] {
             let parsed = arguments(&args).expect("supported explicit input and options");
             assert!(parsed.json);
-            assert_eq!(parsed.field.as_deref(), Some("answer"));
+            assert_eq!(
+                parsed.field.as_ref().map(|path| path.text.as_str()),
+                Some("answer")
+            );
         }
         for input in ["-", "file.cue"] {
             assert!(
@@ -237,15 +404,15 @@ mod tests {
         let value =
             json::read(&br#"{"answer":42,"other":false}"#[..]).expect("valid selection data");
         assert_eq!(
-            select(&value, Some("answer")).expect("existing answer field"),
+            select_path(&value, "answer").expect("existing answer field"),
             &serde_json::json!(42)
         );
         assert_eq!(
-            select(&value, Some("missing")).expect_err("absent field"),
+            select_path(&value, "missing").expect_err("absent field"),
             "record has no field named missing"
         );
         assert_eq!(
-            select(&serde_json::Value::Null, Some("answer")).expect_err("non-record"),
+            select_path(&serde_json::Value::Null, "answer").expect_err("non-record"),
             "--expression requires a concrete record"
         );
     }
