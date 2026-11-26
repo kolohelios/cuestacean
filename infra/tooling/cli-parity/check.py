@@ -214,7 +214,7 @@ def json_profile(rust, cue):
                    b'cannot read missing.json', "missing JSON file cannot retry valid stdin")
     for selector in ('', 'true', 'false', 'null', 'a..b', '"a"', '_a', '#A', 'é', '1a'):
         expect_failure(run(rust, ["export", f"--expression={selector}", "json:", "-"],
-                           data=b'{}'), b'--expression requires a dot-separated ASCII field path',
+                           data=b'{}'), b'--expression requires an ASCII field path',
                        "unchanged JSON selector grammar")
     # Explicit JSON never retries as CUE. Conversely .cue/bare stdin never sniff JSON.
     for data in (b'40 + 2', b'answer:42', b'close({"a":1})'):
@@ -265,6 +265,94 @@ def nested_selection(rust, cue):
                            diagnostic, "no literal dotted-key fallback")
 
 
+def indexed_selection(rust, cue):
+    # Independent concrete CUE and JSON inputs; never translate one into the other.
+    source = (b'items:[close({"answer":[[42]],"true":7}),null,true]\n'
+              b'empty:[]\nscalar:false\nobject:close({"x":1})\n')
+    data = (b'{"items":[{"answer":[[42]],"true":7},null,true],'
+            b'"empty":[],"scalar":false,"object":{"x":1},"items[3]":99}')
+    Path("indexed.cue").write_bytes(source)
+    routes = [(["indexed.cue"], b"0"), (["-"], source), *json_inputs(data)]
+    for args, stdin in routes:
+        for options, expected in (
+            (["-e", "items[0].answer[0][0]"], b'42'),
+            (["--expression=items[1]"], b'null'),
+            (["--expression", "items[2]"], b'true'),
+            (["-e", "items[0].true"], b'7'),
+            (["-e", "items[0].answer[0]"], b'[42]'),
+            (["-e", "items[0]"], b'{"answer":[[42]],"true":7}'),
+        ):
+            for tool in rust, cue:
+                export(tool, [*options, *args], canonical(expected),
+                       f"indexed {options} {args}", data=stdin)
+        for path, rust_message, cue_message in (
+            ("items[3]", b"index out of range [3] with length 3", b"index out of range [3] with length 3"),
+            ("items[99]", b"index out of range [99] with length 3", b"index out of range [99] with length 3"),
+            ("items[268435454]", b"index out of range [268435454] with length 3",
+             b"index out of range [268435454] with length 3"),
+            ("empty[0]", b"index out of range [0] with length 0", b"index out of range [0] with length 0"),
+            ("scalar[0]", b"field scalar is not a list", b"invalid operand scalar"),
+            ("items[1][0]", b"field items[1] is not a list", b"invalid operand items[1]"),
+            ("items[2][0]", b"field items[2] is not a list", b"invalid operand items[2]"),
+            ("items[0].missing", b"record items[0] has no field named missing", b"undefined field: missing"),
+            ("items[1].x", b"field items[1] is not a record", b"invalid operand items[1]"),
+        ):
+            for tool, diagnostic in ((rust, rust_message), (cue, cue_message)):
+                expect_failure(run(tool, ["export", *args, "-e", path], data=stdin),
+                               diagnostic, f"indexed failure {path} {args}")
+        # Go permits integer struct labels; our profile admits arrays only.
+        expect_failure(run(rust, ["export", *args, "-e", "object[0]"], data=stdin),
+                       b"field object is not a list", "record is not an array")
+
+    # Syntax exclusions are not differential failures: some work upstream.
+    unsupported = ('items[-1]', 'items[01]', 'items[0x0]', 'items[1+1]',
+                   '[0]', 'items[0:1]', 'items[:1]', 'items["0"]',
+                   'items[]', 'items[ 0]', 'items[0 ]', 'items[0',
+                   'items[0]x', 'items.[0]', 'items[0].', 'items[0]._x')
+    for args in (["missing.cue"], ["-"], ["missing.json"], ["json:", "-"]):
+        for path in unsupported:
+            result = run(rust, ["export", *args, f"--expression={path}"], data=b'!')
+            expect_failure(result, b"--expression requires an ASCII field path",
+                           f"invalid selector before input {path} {args}")
+            require(result.stderr.startswith(b"cuestacean: --expression requires an ASCII field path"),
+                    f"invalid selector diagnostic prefix: {result.stderr!r}")
+        for index in ('268435455', '9223372036854775807', '18446744073709551616'):
+            expect_failure(run(rust, ["export", *args, "-e", f"items[{index}]"], data=b'!'),
+                           b"unsupported selector index:", "oversized selector before input")
+
+    # Neither dotted nor bracketed literal keys can rescue failed traversal.
+    no_fallback = (
+        (b'close({"items":[],"items[0]":99})', b'{"items":[],"items[0]":99}',
+         'items[0]', b'index out of range [0] with length 0'),
+        (b'close({"items":[close({})],"items[0].x":99})',
+         b'{"items":[{}],"items[0].x":99}', 'items[0].x',
+         b'record items[0] has no field named x'),
+    )
+    for source, data, path, diagnostic in no_fallback:
+        Path("indexed.cue").write_bytes(source)
+        for args, stdin in [(["indexed.cue"], b'0'), (["-"], source), *json_inputs(data)]:
+            expect_failure(run(rust, ["export", *args, "-e", path], data=stdin),
+                           diagnostic, "no literal selector-key fallback")
+
+    # Successful traversal cannot conceal invalid unselected input.
+    for sibling in (b'int', b'1 & 2'):
+        source = b'items:[42]\nother:' + sibling
+        Path("indexed.cue").write_bytes(source)
+        for args, stdin in ((["indexed.cue"], b'0'), (["-"], source)):
+            expect_failure(run(rust, ["export", *args, "-e", "items[0]"], data=stdin),
+                           b'cuestacean:', "whole CUE input before index")
+            export(cue, [*args, "-e", "items[0]"], canonical(b'42'),
+                   "Go lazy sibling exclusion", data=stdin)
+    for data, diagnostic in (
+        (b'{"items":[42],"other":}', b'invalid JSON:'),
+        (b'{"items":[42],"other":1.0}', b'unsupported JSON:'),
+        (b'{"items":[42],"other":{"x":0,"x":0}}', b'unsupported JSON:'),
+    ):
+        for args, stdin in json_inputs(data):
+            expect_failure(run(rust, ["export", *args, "-e", "items[0]"], data=stdin),
+                           diagnostic, "whole JSON input before index")
+
+
 def main():
     rust, cue = map(Path, sys.argv[1:])
     for tool in rust, cue:
@@ -290,6 +378,7 @@ def main():
 
     json_profile(rust, cue)
     nested_selection(rust, cue)
+    indexed_selection(rust, cue)
 
     forward = str(fixtures / "defaults-forward.cue")
     reverse = str(fixtures / "defaults-reverse.cue")
