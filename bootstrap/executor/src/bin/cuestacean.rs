@@ -280,7 +280,8 @@ mod tests {
 
     #[test]
     fn typed_selector_paths_and_argument_rejections() {
-        let path = field_argument(Some("items[0][12].true".into())).unwrap();
+        let path =
+            field_argument(Some("items[0][12].true".into())).expect("valid indexed selector");
         assert_eq!(
             path.steps,
             vec![
@@ -298,7 +299,7 @@ mod tests {
         ] {
             assert!(
                 field_argument(Some(path.into()))
-                    .unwrap_err()
+                    .expect_err("reject an invalid selector")
                     .starts_with("unsupported selector index:")
             );
         }
@@ -332,9 +333,15 @@ mod tests {
             ("items[1]", serde_json::Value::Null),
             ("scope.answer", serde_json::Value::Null),
         ] {
-            assert_eq!(select_path(&value, path).unwrap(), &expected);
+            assert_eq!(
+                select_path(&value, path).expect("valid selection"),
+                &expected
+            );
         }
-        assert_eq!(select(&value, None).unwrap(), &value);
+        assert_eq!(
+            select(&value, None).expect("select the whole value"),
+            &value
+        );
         for (path, expected) in [
             ("missing", "record has no field named missing"),
             (
@@ -359,14 +366,19 @@ mod tests {
                 "index out of range [268435454] with length 5",
             ),
         ] {
-            assert_eq!(select_path(&value, path).unwrap_err(), expected, "{path}");
+            assert_eq!(
+                select_path(&value, path).expect_err("invalid traversal"),
+                expected,
+                "{path}"
+            );
         }
         assert_eq!(
-            select_path(&serde_json::json!([]), "items[0]").unwrap_err(),
+            select_path(&serde_json::json!([]), "items[0]").expect_err("root list is not a record"),
             "--expression requires a concrete record"
         );
         assert_eq!(
-            select_path(&serde_json::json!({"items[0]": 42}), "items[0]").unwrap_err(),
+            select_path(&serde_json::json!({"items[0]": 42}), "items[0]")
+                .expect_err("no literal bracket-key fallback"),
             "record has no field named items"
         );
     }
