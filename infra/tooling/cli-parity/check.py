@@ -444,6 +444,10 @@ def vet_profile(rust, cue):
     for term in ("int & >=-3 & <=-1", "<=-1 & >=-3 & int"):
         parity(f"age: {term}", '{"age":-2}', "ok")
         parity(f"age: {term}", '{"age":0}', "conflict")
+    parity('age: int & < -1', '{"age":-2}', "ok")
+    files('age: int & <-1', '{"age":-2}')
+    native(None, "adjacent negative bound: retained Rust spelling")
+    expect_failure(run(cue, argv, data=sentinel), b"found '<-'", "Go adjacent negative bound gap")
     parity('name: string & "a🦀"', '{"name":"a\\uD83E\\uDD80"}', "ok")
     for source in ('age:int & >=0\nname:string\nprovided:42\n',
                    'provided:42\nname:string\nage:>=0 & int\n'):
@@ -576,14 +580,14 @@ def vet_profile(rust, cue):
     for count in (62, 63, 64):
         # Record root + one literal per field; missing literals supply values.
         files('\n'.join(f'f{i}:0' for i in range(count)), '{}')
-        native(None if count <= 63 else b"vet setup:", f"schema AST nodes {count + 1}")
+        native(None if count <= 63 else b"expression exceeds 64 nodes", f"schema AST nodes {count + 1}")
     for length in (64, 65):
         files('a' * length + ':0', '{}')
         native(None if length == 64 else b"unsupported vet schema:", f"label bytes {length}")
     for groups in (31, 32):
         # Field RHS starts at parser depth 1; each group adds one level.
         files('age:' + '(' * groups + '0' + ')' * groups, '{}')
-        native(None if groups == 31 else b"vet setup:", f"schema parse depth {groups + 1}")
+        native(None if groups == 31 else b"expression exceeds 32 parsing levels", f"schema parse depth {groups + 1}")
     # Large UTF-8 scalar and wide/deep extras bypass evaluator collection caps.
     files('age:string', '{"age":"' + 'é' * 10000 + '","extra":[' + ','.join('0' for _ in range(65)) + ']}')
     native(None, "UTF-8 scalar and extra width beyond evaluator cap")

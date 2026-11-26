@@ -102,7 +102,9 @@ Field names are ASCII and at most 64 bytes. Constraints may be scalar literals,
 `int`, `bool`, `string`, literal integer bounds, or combinations of these with
 `&`. A field with a bound must also contain an explicit `int` constraint; an
 untyped CUE bound can admit nonintegers. Computed bounds, nested schemas and
-exclusive bounds beyond the signed 64-bit domain are unsupported. A supplied value for a schema field must be a
+exclusive bounds beyond the signed 64-bit domain are unsupported. Write a
+space after `<` before a negative literal (`< -1`): Cuestacean also accepts
+`<-1`, but Go CUE does not. A supplied value for a schema field must be a
 scalar. Extra JSON fields are allowed and still must pass the full JSON input
 checks.
 
