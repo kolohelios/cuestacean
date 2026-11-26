@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 mod conjunction;
 mod file;
-pub use file::{parse_file, parse_file_interpreted};
+pub use file::{parse_fields_file, parse_file, parse_file_interpreted};
 #[cfg(test)]
 mod conjunction_tests;
 #[path = "../../generated/pratt.rs"]
