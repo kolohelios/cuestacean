@@ -100,8 +100,9 @@ There is no stdin, package loading, schema selection, or `-c=false`.
 The schema must be ordinary top-level fields, not a `close(...)` expression.
 Field names are ASCII and at most 64 bytes. Constraints may be scalar literals,
 `int`, `bool`, `string`, literal integer bounds, or combinations of these with
-`&`. Computed bounds, nested schemas and exclusive bounds beyond the signed
-64-bit domain are unsupported. A supplied value for a schema field must be a
+`&`. A field with a bound must also contain an explicit `int` constraint; an
+untyped CUE bound can admit nonintegers. Computed bounds, nested schemas and
+exclusive bounds beyond the signed 64-bit domain are unsupported. A supplied value for a schema field must be a
 scalar. Extra JSON fields are allowed and still must pass the full JSON input
 checks.
 
