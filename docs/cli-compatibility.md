@@ -100,13 +100,12 @@ There is no stdin, package loading, schema selection, or `-c=false`.
 The schema must be ordinary top-level fields, not a standalone `close(...)`
 expression. Within a field, use explicit `close({...})` for a closed record,
 for example `person: close({"age": int})`. Nested labels must be quoted in
-source and decode to unique ASCII field names of at most 64 bytes within each
-record. Record conjunctions and bare nested records are unsupported. Scalar
+source and decode to names matching `[A-Za-z][A-Za-z0-9_]*`, at most 64 bytes
+and unique within each record. Record conjunctions and bare nested records are unsupported. Scalar
 constraints may be scalar literals,
 `int`, `bool`, `string`, literal integer bounds, or combinations of these with
 `&`. A field with a bound must also contain an explicit `int` constraint; an
-untyped CUE bound can admit nonintegers. Computed bounds, nested schemas and
-exclusive bounds beyond the signed 64-bit domain are unsupported. Write a
+untyped CUE bound can admit nonintegers. Computed bounds and exclusive bounds beyond the signed 64-bit domain are unsupported. Write a
 space after `<` before a negative literal (`< -1`): Cuestacean also accepts
 `<-1`, but Go CUE does not. Supplied values must have the expected shape:
 scalars for scalar fields and JSON objects for closed records. Extra fields
@@ -117,9 +116,10 @@ A concrete schema value can supply an absent field. An absent field without a
 concrete result is incomplete. Incompatible values, types, or bounds are
 conflicts. Missing records are checked recursively: concrete children can supply
 values, but abstract children remain incomplete. Explicit `null` is not absence.
-Cuestacean admits both inputs before checking record structure and then evaluates
-scalar leaves in schema order. It need not report the same first failure as Go CUE
-when multiple fields fail.
+Cuestacean admits both inputs, checks all known scalar fields for unsupported
+container values, then checks record structure before evaluating scalar leaves
+in schema order. An earlier incomplete scalar leaf can mask a later scalar
+conflict, so the first failure can differ from Go CUE.
 
 Both files are limited to 1 MiB. The schema retains the ordinary parser limits,
 including 64 AST nodes and 32 parsing levels. JSON retains the limits described
