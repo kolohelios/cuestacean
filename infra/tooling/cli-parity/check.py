@@ -388,7 +388,8 @@ def vet_profile(rust, cue):
             tokens = {"incomplete": (b"incomplete value",),
                       "conflict": (b"conflicting values", b"out of bound",
                                    b"incompatible number bounds", b"incompatible integer bounds"),
-                      "closure": (b"field not allowed",)}
+                      "closure": (b"field not allowed",),
+                      "length": (b"incompatible list lengths",)}
             require(any(token in result.stderr for token in tokens[outcome]),
                     f"vet Go wrong category {label}: {result!r}")
 
@@ -475,7 +476,6 @@ def vet_profile(rust, cue):
         ('age:_', '{"age":0}'), ('age:1+1', '{"age":2}'),
         ('age:>=(0)', '{"age":0}'), ('age:and([int,>=0])', '{"age":0}'),
         ('age:close({"x":1}) & close({"x":1})', '{"age":{"x":1}}'),
-        ('age:[1]', '{"age":[1]}'),
         ('age:*1 | 2', '{}'), ('age:int & >9223372036854775807', '{"age":9223372036854775808}'),
     ]
     for source, document in gaps:
@@ -518,7 +518,7 @@ def vet_profile(rust, cue):
         native(b"invalid vet schema:", "excluded declarations")
 
     # Unsupported later nodes cannot hide behind early conflict/incompleteness.
-    excluded = ('1+1', '>= (0)', 'close({"x":1+1})', '[1]', 'and([int])', '_', '!(true)')
+    excluded = ('1+1', '>= (0)', 'close({"x":1+1})', '[1] & [1]', 'and([int])', '_', '!(true)')
     for first in ('int', '1 & 2'):
         for term in excluded:
             files(f"age:{first}\nlater:{term}", '{}')
@@ -735,7 +735,7 @@ def vet_profile(rust, cue):
         oracle('closure', 'unknown arbitrary JSON key')
 
     # Admission is recursive and complete, with no int leakage across leaves.
-    terms = ('_', '1+1', '>=(0)', '[1]', 'and([int])', '!(true)',
+    terms = ('_', '1+1', '>=(0)', '[1] & [1]', 'and([int])', '!(true)',
              '>=0', 'int & >9223372036854775807',
              'close({}) & close({})', 'int & close({})')
     for first in ('int', '1 & 2'):
@@ -812,6 +812,211 @@ def vet_profile(rust, cue):
     nested('person:close({})', '{"person":{},"extra":{' + extras + '}}', 'ok')
     nested('person:close({})', '{"person":{' + extras + '}}', 'closure',
            'person.k0', b'field not allowed')
+    # #319: fixed positional schemas, not runtime abstract-list construction.
+    # Category prefixes remain separate from path/reason assertions. List
+    # diagnostics omit the old scalar/record "field " marker by contract.
+    def fixed(source, document, outcome, path=None, reason=None, *, go=None):
+        files(source, document)
+        label = f"fixed {source!r} {document!r} => {outcome}"
+        category = None if outcome == 'ok' else b'vet ' + (
+            b'incomplete' if outcome == 'incomplete' else b'conflict') + b':'
+        result = native(category, label, reason=reason)
+        if path is not None:
+            require((path + ':').encode() in result.stderr,
+                    f"fixed wrong native path {label}: {result!r}")
+        oracle(outcome if go is None else go, label)
+
+    def length(term, document, expected, actual, path='x', *, go='length'):
+        fixed('x:' + term, document, 'length', path,
+              f'{path}: incompatible list lengths (expected {expected}, got {actual})'.encode(),
+              go=go)
+
+    # All 23 scratch-oracle observations, with multi-defect rows below kept
+    # explicitly separate from isolated category/path parity.
+    for document, outcome, path in (
+        ('{}', 'incomplete', 'x[0]'),
+        ('{"x":[1,"kg"]}', 'ok', None),
+        ('{"x":[false,"kg"]}', 'conflict', 'x[0]'),
+    ):
+        fixed('x:[int,"kg"]', document, outcome, path)
+    for document, actual in (('{"x":[]}', 0), ('{"x":[1]}', 1),
+                              ('{"x":[1,"kg",0]}', 3)):
+        length('[int,"kg"]', document, 2, actual)
+    for document in ('{"x":null}', '{"x":{}}'):
+        fixed('x:[int,"kg"]', document, 'conflict', 'x', b'x: expected a list')
+    fixed('x:[42,"kg"]', '{}', 'ok')
+    length('[42,"kg"]', '{"x":[42]}', 2, 1)
+    for document in ('{}', '{"x":[]}'):
+        fixed('x:[]', document, 'ok')
+    length('[]', '{"x":[1]}', 0, 1)
+    term = '[close({"n":int}),[42]]'
+    for document, outcome, path, reason in (
+        ('{}', 'incomplete', 'x[0].n', None),
+        ('{"x":[{"n":1},[42]]}', 'ok', None, None),
+        ('{"x":[{"n":1,"extra":0},[42]]}', 'closure', 'x[0].extra', b'field not allowed'),
+        ('{"x":[{},[42]]}', 'incomplete', 'x[0].n', None),
+    ):
+        fixed('x:' + term, document, outcome, path, reason)
+    length(term, '{"x":[{"n":1},[]]}', 1, 0, 'x[1]')
+    # Deliberate first-error divergence, NOT clean single-defect parity.
+    fixed('x:[int,1 & 2]', '{}', 'incomplete', 'x[0]', go='conflict')
+    length('[int,1 & 2]', '{"x":[0]}', 2, 1, go='conflict')
+    fixed('x:[int,1 & 2]', '{"x":[0,1]}', 'conflict', 'x[1]')
+    for document, actual in (('{"x":[false]}', 1), ('{"x":[false,0,1]}', 3)):
+        length('[int,int]', document, 2, actual, go='conflict')
+
+    # Reclassified old list exclusions now have positive packaged coverage.
+    fixed('age:[1]', '{"age":[1]}', 'ok')
+    fixed('r:close({"x":[1]})', '{"r":{"x":[1]}}', 'ok')
+    for candidate in ('true', '0', '"s"'):
+        fixed('x:[int]', '{"x":' + candidate + '}', 'conflict', 'x',
+              b'x: expected a list')
+    literals = '[null,true,"a🦀",-9223372036854775808,9223372036854775807,9007199254740993]'
+    for document in ('{}', '{"x":' + literals.replace('🦀', '\\uD83E\\uDD80') + '}'):
+        fixed('x:' + literals, document, 'ok')
+    for term in ('[int & >=0 & <10]', '[<10 & >=0 & int]'):
+        for document, outcome in (('{"x":[0]}', 'ok'), ('{"x":[9]}', 'ok'),
+                                   ('{"x":[-1]}', 'conflict'), ('{"x":[10]}', 'conflict'),
+                                   ('{}', 'incomplete')):
+            fixed('x:' + term, document, outcome, None if outcome == 'ok' else 'x[0]')
+    for document, outcome in (('{}', 'incomplete'), ('{"x":[42]}', 'ok'),
+                               ('{"x":[41]}', 'conflict')):
+        fixed('x:[int & >=42 & <=42]', document, outcome,
+              None if outcome == 'ok' else 'x[0]')
+    for document in ('{}', '{"x":[[42],{}]}'):
+        fixed('x:[[42],close({"a":[],"n":null})]', document, 'ok')
+    for document in ('{}', '{"x":{}}', '{"x":{"items":[{}]}}'):
+        fixed('x:close({"items":[close({"n":int})]})', document,
+              'incomplete', 'x.items[0].n')
+    fixed('x:close({"items":[close({"n":int})]})',
+          '{"x":{"items":[{"n":42}]}}', 'ok')
+    fixed('x:[[int]]', '{"x":[null]}', 'conflict', 'x[0]', b'x[0]: expected a list')
+    fixed('x:[[int]]', '{"x":[[null]]}', 'conflict', 'x[0][0]')
+    length('[[int]]', '{"x":[[]]}', 1, 0, 'x[0]')
+    fixed('x:[close({})]', '{"x":[null]}', 'conflict', 'x[0]', b'expected a record')
+    length('[]', '{"x":[null]}', 0, 1)
+
+    # Native phase controls: zip only overlapping positions even when lengths
+    # differ. Extra positions have JSON admission but no invented scalar term.
+    for term, document in (
+        ('[int,int]', '{"x":[{}]}'),
+        ('[int,int]', '{"x":[{},0,1]}'),
+        ('[int,int]', '{"x":[1,{},0]}'),
+        ('[close({"n":int}),int]', '{"x":[{"n":[]}]}'),
+        ('[[int],int]', '{"x":[[{}]]}'),
+    ):
+        files('x:' + term, document)
+        native(b'unsupported vet data:', 'overlap scalar shapes before length',
+               reason=b'known fields require scalar values')
+    length('[int]', '{"x":[1,{}]}', 1, 2)
+    length('[]', '{"x":[{}]}', 0, 1)
+    for source in ('x:[int,int]\ny:close({"n":int})',
+                   'y:close({"n":int})\nx:[int,int]'):
+        for candidate in ('[]', 'null', '{}'):
+            files(source, '{"x":' + candidate + ',"y":{"n":[]}}')
+            native(b'unsupported vet data:', 'all reachable shapes before list structure',
+                   reason=b'known fields require scalar values')
+    for first in ('int', '1 & 2'):
+        for source in (f'first:{first}\nx:[int]', f'x:[int]\nfirst:{first}'):
+            fixed(source, '{"x":[]}', 'length', 'x',
+                  b'x: incompatible list lengths (expected 1, got 0)', go='conflict'
+                  if first == '1 & 2' else 'length')
+            fixed(source, '{"x":null}', 'conflict', 'x', b'x: expected a list')
+    # Parent structure precedes child structure; sibling structure is schema DFS.
+    length('[close({})]', '{"x":[{"extra":0},0]}', 1, 2)
+    for source, path, reason in (
+        ('x:[[int],close({})]', 'x[0]', b'incompatible list lengths'),
+        ('x:[close({}),[int]]', 'x[0].extra', b'field not allowed'),
+    ):
+        document = ('{"x":[[],{"extra":0}]}' if '[[int]' in source
+                    else '{"x":[{"extra":0},[]]}')
+        files(source, document)
+        result = native(b'vet conflict:', 'schema/index structural DFS', reason=reason)
+        require((path + ':').encode() in result.stderr, 'wrong structural DFS path')
+    fixed('x:[1 & 2,int]', '{}', 'conflict', 'x[0]')
+    for document in ('{"x":[false,true]}', '{"x":[true,false]}'):
+        fixed('x:[int,int]', document, 'conflict', 'x[0]')
+
+    for key in ('a.b', '', 'line\n', '"', 'é'):
+        files('x:[close({})]', json.dumps({'x': [{key: 0}]}, ensure_ascii=False))
+        rendered = 'x[0][' + json.dumps(key, ensure_ascii=False) + ']'
+        result = native(b'vet conflict:', 'escaped indexed unknown-key path',
+                        reason=b'field not allowed')
+        require(('field ' + rendered + ':').encode() in result.stderr,
+                f'wrong indexed unknown-key path: {result!r}')
+        require(result.stderr.count(b'\n') == 1, 'raw newline in indexed path')
+        oracle('closure', 'indexed unknown arbitrary JSON key')
+
+    # Whole syntax admission; no flags leak from one list position to another.
+    for term in ('_', '1+1', '>=(0)', 'and([int])', '!(true)', '>=0',
+                 'int & >9223372036854775807', '[1] & [1]',
+                 'int & [1]', 'close({}) & [1]', 'close({}) & close({})'):
+        for first in ('int', '1 & 2'):
+            files('first:' + first + '\nx:[close({"typed":int}),[' + term + ']]', '{}')
+            native(b'unsupported vet schema:', 'whole fixed schema before semantics')
+    for source in ('x:[int,>=0]', 'x:[close({"a":0,"\\u0061":0})]',
+                   'x:[close({"a.b":0})]'):
+        files(source, '{}')
+        native(b'unsupported vet schema:', 'recursive list admission exclusions')
+    for source in ('x:[int,...int]', 'x:[...int]', 'x:[*1 | 2]',
+                   'x:[ref]', 'x:[{a:0}]', 'x:[close({"a"?:int})]',
+                   'x:[close({"a"!:int})]'):
+        files(source, '{}')
+        native(b'invalid vet schema:', 'fixed syntax exclusions')
+    files('x:[int,1+1]', '{')
+    native(b'unsupported vet schema:', 'fixed schema before invalid JSON')
+    for member, category in ((b'1.0', b'unsupported JSON:'),
+                              (b'{"a":0,"\\u0061":0}', b'unsupported JSON:'),
+                              (b'"\\uD800"', b'invalid JSON:'),
+                              (b'{"a":}', b'invalid JSON:')):
+        files('x:[int]', b'{"x":[0,' + member + b']}')
+        native(category, 'whole surplus JSON before length')
+    files('x:[]', b'{"x":[' + b'[' * 63 + b'0' + b']' * 63 + b']}')
+    native(b'unsupported JSON:', 'surplus container depth before length')
+    files('x:[int]', '{"x":[0],"extra":1.0}')
+    native(b'unsupported JSON:', 'whole ignored extra before fixed semantics')
+
+    # Independent aggregate counts: root + list + scalar elements, and
+    # root + every empty list. This does not raise any parser/value bounds.
+    for count in (61, 62, 63):
+        files('x:[' + ','.join('0' for _ in range(count)) + ']', '{}')
+        native(None if count <= 62 else b'invalid vet schema:',
+               f'fixed aggregate AST nodes {count + 2}',
+               reason=None if count <= 62 else b'expression exceeds 64 nodes')
+    for count in (62, 63, 64):
+        files('\n'.join(f'f{i}:[]' for i in range(count)), '{}')
+        native(None if count <= 63 else b'invalid vet schema:',
+               f'empty list AST charges {count + 1}',
+               reason=None if count <= 63 else b'expression exceeds 64 nodes')
+    for count in (62, 63, 64):
+        files('\n'.join(f'f{i}:' + ('[]' if i % 2 else 'close({})')
+                        for i in range(count)), '{}')
+        native(None if count <= 63 else b'invalid vet schema:',
+               f'mixed empty container AST charges {count + 1}',
+               reason=None if count <= 63 else b'expression exceeds 64 nodes')
+    for count in (60, 61, 62):
+        left = '[' + ','.join('0' for _ in range(count // 2)) + ']'
+        right = 'close({' + ','.join(f'"f{i}":0' for i in range(count - count // 2)) + '})'
+        files('left:' + left + '\nright:' + right, '{}')
+        native(None if count <= 61 else b'invalid vet schema:',
+               f'mixed sibling aggregate AST nodes {count + 3}',
+               reason=None if count <= 61 else b'expression exceeds 64 nodes')
+    for depth in (31, 32, 33):
+        for mixed in (False, True):
+            term = '[]'
+            for level in range(depth - 1):
+                term = 'close({"n":' + term + '})' if mixed and level % 2 else '[' + term + ']'
+            files('x:' + term, '{}')
+            native(None if depth <= 32 else b'invalid vet schema:',
+                   f'fixed parse levels {depth} mixed={mixed}',
+                   reason=None if depth <= 32 else b'expression exceeds 32 parsing levels')
+    for groups in (30, 31):
+        files('x:[' + '(' * groups + '0' + ')' * groups + ']', '{}')
+        native(None if groups == 30 else b'invalid vet schema:',
+               f'fixed grouped parse levels {groups + 2}',
+               reason=None if groups == 30 else b'expression exceeds 32 parsing levels')
+    fixed('x:[string]', '{"x":["' + 'é' * 10000 + '"],"extra":['
+          + ','.join('0' for _ in range(65)) + ']}', 'ok')
     print("Packaged vet parity, categories, phase/limit controls and explicit gaps verified")
 
 
