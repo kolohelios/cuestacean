@@ -130,6 +130,26 @@ fn fields_only_positive_probe_never_enters_expression_fallback() -> Result<(), E
 }
 
 #[test]
+fn vet_list_minimum_propagates_into_nested_tails() -> Result<(), Error> {
+    let source = "a: [[...int & >=0]]";
+    let grammar = program!("vet-grammar");
+    for reference in [false, true] {
+        let normal = if reference {
+            parse_vet_fields_file_interpreted(source, grammar)
+        } else {
+            parse_vet_fields_file(source, grammar)
+        };
+        normal?;
+        assert!(matches!(
+            parse_vet_fields_file_high_minimum(source, grammar, reference),
+            Err(Error::Source { offset: 12, reason })
+                if reason == "expected closing bracket after list tail"
+        ));
+    }
+    Ok(())
+}
+
+#[test]
 fn file_overlay_is_explicit_and_parser_family_only() -> Result<(), Box<dyn std::error::Error>> {
     let input = r#"{"formatVersion":1,"body":[{"op":"if","condition":{"op":"fileBoundary"},"then":[{"op":"return"}]}]}"#;
     assert!(crate::pratt::generate(input).is_err());

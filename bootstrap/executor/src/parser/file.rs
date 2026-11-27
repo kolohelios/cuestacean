@@ -14,6 +14,11 @@ mod label;
 mod primary;
 #[path = "../../../generated/file-tail.rs"]
 mod tail;
+#[path = "../../../generated/vet-primary.rs"]
+mod vet_primary;
+#[cfg(test)]
+#[path = "../../../generated/vet-primary-high-minimum.rs"]
+mod vet_primary_high_minimum;
 
 macro_rules! program {
     ($name:literal) => {
@@ -33,29 +38,67 @@ fn interpreted(program: &str) -> Result<Engine, Error> {
 
 /// Parse an explicit file, probing declarations without committing expression input.
 pub fn parse_file(source: &str, grammar: &str) -> Result<Value, Error> {
-    parse_entry(source, grammar, false, false)
+    parse_entry(source, grammar, false, false, None)
 }
 
 /// Parse ordinary file declarations only, rejecting standalone expressions.
 /// Uses the same generated positive declaration probe as `parse_file`.
 pub fn parse_fields_file(source: &str, grammar: &str) -> Result<Value, Error> {
-    parse_entry(source, grammar, false, true)
+    parse_entry(source, grammar, false, true, None)
 }
 
-fn fields_primary(frame: &mut Frame<'_, '_>) -> Result<(), Error> {
-    frame.file.require_fields = true;
-    primary::execute(frame)
+/// Parse vet declarations with the explicitly selected typed-tail primary.
+/// This does not change the production vet consumer or ordinary file profile.
+pub fn parse_vet_fields_file(source: &str, grammar: &str) -> Result<Value, Error> {
+    parse_entry(
+        source,
+        grammar,
+        false,
+        true,
+        Some((vet_primary::execute, program!("vet-primary"))),
+    )
+}
+
+/// Reference VM counterpart; fields-only admission is shared with compiled mode.
+pub fn parse_vet_fields_file_interpreted(source: &str, grammar: &str) -> Result<Value, Error> {
+    parse_entry(
+        source,
+        grammar,
+        true,
+        true,
+        Some((vet_primary::execute, program!("vet-primary"))),
+    )
+}
+
+/// Real alternate CUE control, available only to unit-test consumers.
+#[cfg(test)]
+pub fn parse_vet_fields_file_high_minimum(
+    source: &str,
+    grammar: &str,
+    reference: bool,
+) -> Result<Value, Error> {
+    parse_entry(
+        source,
+        grammar,
+        reference,
+        true,
+        Some((
+            vet_primary_high_minimum::execute,
+            program!("vet-primary-high-minimum"),
+        )),
+    )
 }
 
 /// Independent control/scanner VM entry for the same file profile.
 pub fn parse_file_interpreted(source: &str, grammar: &str) -> Result<Value, Error> {
-    parse_entry(source, grammar, true, false)
+    parse_entry(source, grammar, true, false, None)
 }
 fn parse_entry(
     source: &str,
     grammar: &str,
     reference: bool,
     fields_only: bool,
+    selected_primary: Option<(Driver, &str)>,
 ) -> Result<Value, Error> {
     let grammar: Grammar = serde_json::from_str(grammar).context(JsonSnafu)?;
     grammar.validate()?;
@@ -66,26 +109,23 @@ fn parse_entry(
             Ok(Engine::Compiled(driver))
         }
     };
-    let entry_driver: Driver = if fields_only {
-        fields_primary
-    } else {
-        primary::execute
-    };
-    let entry_engine = engine(entry_driver, program!("file-primary"))?;
+    let entry_engine = engine(primary::execute as Driver, program!("file-primary"))?;
+    let (primary_driver, primary_program) =
+        selected_primary.unwrap_or((generated_primary::execute as Driver, PRIMARY_PROGRAM));
     let mut parser = Parser {
         source,
         grammar: &grammar,
         offset: 0,
         nodes: 0,
         engine: engine(expression::execute as Driver, program!("file-pratt"))?,
-        primary_engine: engine(generated_primary::execute as Driver, PRIMARY_PROGRAM)?,
+        primary_engine: engine(primary_driver, primary_program)?,
         record_engine: engine(generated_record::execute as Driver, RECORD_PROGRAM)?,
         conjunction_engine: engine(
             generated_conjunction::execute as Driver,
             CONJUNCTION_PROGRAM,
         )?,
     };
-    let entry = parser.expression_control(0, 0, false, entry_engine)?;
+    let entry = parser.expression_control_fields(0, 0, false, entry_engine, fields_only)?;
     parser.whitespace()?;
     if parser.offset != source.len() {
         return parser.error("unexpected or unsupported syntax");
@@ -96,7 +136,7 @@ fn parse_entry(
 #[derive(Default)]
 pub(super) struct Context {
     pub scope: bool,
-    require_fields: bool,
+    pub(super) require_fields: bool,
     boundary: Option<bool>,
     pub state: Option<State>,
 }

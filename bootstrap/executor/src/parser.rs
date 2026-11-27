@@ -8,7 +8,12 @@ use std::sync::Arc;
 
 mod conjunction;
 mod file;
-pub use file::{parse_fields_file, parse_file, parse_file_interpreted};
+#[cfg(test)]
+pub use file::parse_vet_fields_file_high_minimum;
+pub use file::{
+    parse_fields_file, parse_file, parse_file_interpreted, parse_vet_fields_file,
+    parse_vet_fields_file_interpreted,
+};
 #[cfg(test)]
 mod conjunction_tests;
 #[path = "../../generated/pratt.rs"]
@@ -26,6 +31,7 @@ mod selector_tests;
 mod slice;
 #[cfg(test)]
 mod slice_tests;
+mod typed_list;
 use record::SourceRecordState;
 use selector::SelectorState;
 
@@ -91,6 +97,8 @@ struct Grammar {
     #[serde(default)]
     list: Option<List>,
     #[serde(default)]
+    typed_list: Option<TypedList>,
+    #[serde(default)]
     record: Option<Record>,
     #[serde(default)]
     conjunction: Option<Conjunction>,
@@ -126,6 +134,14 @@ struct Integer {
 struct List {
     kind: String,
     elements_field: String,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct TypedList {
+    kind: String,
+    elements_field: String,
+    tail_field: String,
 }
 
 #[derive(Clone, Deserialize)]
@@ -265,6 +281,18 @@ impl Grammar {
         {
             return GrammarSnafu {
                 reason: "invalid list constructor",
+            }
+            .fail();
+        }
+        if let Some(list) = &self.typed_list
+            && (self.list.is_none()
+                || list.kind.is_empty()
+                || !field(&list.elements_field)
+                || !field(&list.tail_field)
+                || list.elements_field == list.tail_field)
+        {
+            return GrammarSnafu {
+                reason: "invalid typed list constructor",
             }
             .fail();
         }
@@ -651,6 +679,17 @@ impl Parser<'_> {
         scope: bool,
         engine: Engine,
     ) -> Result<Value, Error> {
+        self.expression_control_fields(minimum, depth, scope, engine, false)
+    }
+
+    fn expression_control_fields(
+        &mut self,
+        minimum: u8,
+        depth: usize,
+        scope: bool,
+        engine: Engine,
+        require_fields: bool,
+    ) -> Result<Value, Error> {
         if depth > 32 {
             return self.error("expression exceeds 32 parsing levels");
         }
@@ -674,6 +713,7 @@ impl Parser<'_> {
             selector_state: None,
             slice_upper: None,
         };
+        frame.file.require_fields = require_fields;
         match engine {
             Engine::Compiled(driver) => driver(&mut frame)?,
             Engine::Interpreted(program) => crate::pratt::interpret(&program, &mut frame)?,
@@ -798,6 +838,10 @@ enum PrimaryState {
     ListParsed,
     ListAppended,
     ListClosed,
+    ListEllipsisScanned(Option<usize>),
+    ListEllipsisAdvanced,
+    ListEllipsisParsed,
+    ListEllipsisClosed,
     ConjunctionSelected(usize),
     ConjunctionNamed,
     ConjunctionCallOpened,
@@ -1050,6 +1094,7 @@ impl Frame<'_, '_> {
                 PrimaryState::Start
                     | PrimaryState::BoundAdvanced(_)
                     | PrimaryState::ListReady
+                    | PrimaryState::ListEllipsisAdvanced
                     | PrimaryState::ConjunctionCallOpened
                     | PrimaryState::ConjunctionListReady
             )
@@ -1415,7 +1460,10 @@ impl Frame<'_, '_> {
     }
     pub fn parse_list_element(&mut self, minimum: u8) -> Result<(), Error> {
         let next = match self.primary_state {
-            Some(PrimaryState::ListReady) => PrimaryState::ListParsed,
+            Some(PrimaryState::ListReady | PrimaryState::ListEllipsisScanned(None)) => {
+                PrimaryState::ListParsed
+            }
+            Some(PrimaryState::ListEllipsisAdvanced) => PrimaryState::ListEllipsisParsed,
             Some(PrimaryState::ConjunctionListReady) => PrimaryState::ConjunctionListParsed,
             _ => return self.primary_state_error(),
         };
@@ -1973,6 +2021,39 @@ mod list_state_tests {
         assert!(frame.append_list_element().is_err());
         assert!(frame.advance_list_tail().is_err());
         assert!(frame.build_list().is_err());
+        // Tail operations cannot enter from ordinary or conjunction stages.
+        for state in [
+            PrimaryState::Start,
+            PrimaryState::ListClosed,
+            PrimaryState::ListParsed,
+            PrimaryState::ListAppended,
+            PrimaryState::ConjunctionListReady,
+            PrimaryState::ConjunctionListParsed,
+            PrimaryState::ConjunctionListClosed,
+        ] {
+            frame.primary_state = Some(state);
+            assert!(frame.probe_list_ellipsis().is_err());
+            assert!(frame.has_list_ellipsis().is_err());
+            assert!(frame.advance_list_ellipsis().is_err());
+            assert!(frame.close_list_ellipsis().is_err());
+            assert!(frame.build_typed_list().is_err());
+            assert_eq!(frame.parser.offset, 0);
+        }
+        frame.primary_state = Some(PrimaryState::ListReady);
+        frame.probe_list_ellipsis()?;
+        assert!(!frame.has_list_ellipsis()?);
+        assert!(frame.probe_list_ellipsis().is_err());
+        assert!(frame.advance_list_ellipsis().is_err());
+        assert!(frame.close_list_ellipsis().is_err());
+        assert!(frame.build_typed_list().is_err());
+        // A recognized marker cannot commit without constructor metadata.
+        frame.parser.source = "...int]";
+        frame.primary_state = Some(PrimaryState::ListReady);
+        frame.probe_list_ellipsis()?;
+        assert!(frame.has_list_ellipsis()?);
+        assert!(frame.advance_list_ellipsis().is_err());
+        assert_eq!(frame.parser.offset, 0);
+        frame.parser.source = "[λ]";
         for end in [0, 2, 5] {
             frame.primary_state = Some(PrimaryState::ListScanned(Some(end)));
             assert!(frame.advance_list().is_err());
@@ -2015,6 +2096,17 @@ mod list_state_tests {
         assert_eq!(frame.parser.nodes, 1);
         assert!(frame.list_elements.is_empty());
         assert!(frame.build_list().is_err());
+        // A parsed tail is never appendable as a prefix or buildable as fixed.
+        frame.primary_state = Some(PrimaryState::ListEllipsisParsed);
+        assert!(frame.append_list_element().is_err());
+        assert!(frame.advance_list_tail().is_err());
+        assert!(frame.build_list().is_err());
+        assert!(frame.parse_list_element(0).is_err());
+        assert!(frame.probe_list_end().is_err());
+        frame.primary_state = Some(PrimaryState::ListEllipsisClosed);
+        assert!(frame.close_list_ellipsis().is_err());
+        assert!(frame.build_typed_list().is_err()); // Still no metadata.
+        assert_eq!(frame.parser.nodes, 1);
         Ok(())
     }
 }
