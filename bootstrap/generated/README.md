@@ -92,6 +92,11 @@ The CUE compiler selects footer and return spelling from checked native flow fac
 `pratt-index-high-minimum` changes index expression minimum to 100.
 `index-close`, `list-index` and the compiled `list-index-zero` establish
 [CUE postfix/domain/range control](../list-indexing.md), not native algorithms.
+`vet-primary` and `vet-primary-high-minimum` use the separate
+`vet-pratt-lowering` overlay, never the canonical compiler-policy proof loop.
+The latter selects raw minima owners and list minimum 100; the former imports
+selected bound/call/list DATA. `list-ellipsis{,-close}` are generated scanners.
+These are parser prerequisite fixtures, not production typed-tail vet support.
 `primary-no-lists` preserves the pre-list primary byte-exact;
 `primary-call-high-minimum` now changes both argument and element binding to 100. `list-open/close/tail`
 and `length-control` connect [source lists](../source-lists.md), CUE parsing loops
@@ -230,7 +235,7 @@ done
 bootstrap/executor/target/debug/bootstrap-codegen "$CUESTACEAN_BOOTSTRAP_JSON/evaluation.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/lowering-reverse.json" \
   | rustfmt --edition 2024 > bootstrap/generated/evaluation-reverse.rs
-for machine in conjunction-open slice-separator selector-open selector-identifier record-open record-close record-label record-colon record-tail tests/valid/bound-inclusive-only index-close list-open list-close list-tail call-open integer-literal tests/valid/string-no-wide tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
+for machine in conjunction-open slice-separator selector-open selector-identifier record-open record-close record-label record-colon record-tail tests/valid/bound-inclusive-only index-close list-open list-close list-tail list-ellipsis list-ellipsis-close call-open integer-literal tests/valid/string-no-wide tests/valid/string-unrolled tests/valid/scanner-repeat tests/valid/repeat-scopes tests/valid/repeat-zero tests/valid/repeat-fuel tests/valid/repeat-fuel-over tests/valid/string-nested tests/valid/scanner-predicates tests/valid/string-no-unicode whitespace after-operand after-word-operator group-open group-close negation-prefix not-prefix bound-prefix infix decimal identifier string-literal \
   tests/valid/scanner-horizontal \
   tests/valid/scanner-stalled tests/valid/scanner-advance \
   tests/valid/scanner-decimal-permissive tests/valid/scanner-reject tests/valid/scanner-state \
@@ -260,6 +265,11 @@ for control in slice-control tests/valid/slice-control-lower-one tests/valid/sli
   name=$(basename "$control")
   bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
     | rustfmt --edition 2024 > "bootstrap/generated/$name.rs"
+done
+for control in vet-primary vet-primary-high-minimum; do
+  bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" \
+    "$CUESTACEAN_BOOTSTRAP_JSON/vet-pratt-lowering.json" \
+    | rustfmt --edition 2024 > "bootstrap/generated/$control.rs"
 done
 bootstrap/executor/target/debug/bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/pratt.json" \
   "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/pratt-lowering-no-increment.json" \

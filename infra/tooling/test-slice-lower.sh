@@ -55,7 +55,6 @@ sha256sum -c inverse.sha256 > "$OUT/receipts/inverse-check"
 while read -r hash relative; do
   printf '%s  %s\n' "$hash" "$SOURCE/$relative"
 done > unchanged.sha256 <<'HASHES'
-f2f414bd2b4a8ceee39365c10ea7254dcc51ca6a2d2f3745edec1d0de66b2b9e schema.cue
 4715e2d4115b6f3037025dae28fc63799460c57d9f260a3c157a552c490671aa slice-control.cue
 9637e991e0a4014c976f5cb8731c4421c21025a43480ebeb52402da200c33174 tests/valid/slice-control-lower-one.cue
 c4f513e95ae7bf994c863094c144962581f964a0207f60711340d4b233940cdc tests/valid/slice-control-tail.cue

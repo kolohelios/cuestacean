@@ -9,7 +9,8 @@ primary_control_minima_provider() {
     fi
     local fixture=$1 selected
     case "$fixture" in
-        primary) selected=yes ;;
+        primary|vet-primary) selected=yes ;;
+        vet-primary-high-minimum) selected=no ;;
         tests/valid/primary-no-conjunction|tests/valid/primary-bound-high-minimum|tests/valid/primary-call-high-minimum|tests/valid/primary-no-lists|tests/valid/primary-no-records)
             selected=no ;;
         *) return 0 ;;
