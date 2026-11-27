@@ -34,7 +34,7 @@ printf '40 + 2\n' | cuestacean export --out json -
 | Argument order | Supported options may precede or follow the input. Use `--` to end option parsing. Duplicate options and multiple inputs are rejected. |
 | Field selection | `-e path`, `--expression path`, or `--expression=path` selects a value along a field and list-index path through fully concrete data. |
 | Other `export` options | Unsupported, including `--escape`, `--force`, injection, `--list`, `--merge`, `--name`, package/path/schema flags, protobuf options, `--with-context`, and global error/ignore/simplify flags. Non-JSON formats and output files are unsupported. |
-| `vet -c schema.cue data.json` | Validate one JSON object against a [flat scalar schema](#vet-flat-scalar-schemas). |
+| `vet -c schema.cue data.json` | Validate one JSON object against a [scalar and closed-record schema](#vet-schemas). |
 | Other commands | Unsupported: `cmd`, `completion`, `def`, `eval`, `fix`, `fmt`, `get`, `help`, `import`, `login`, `mod`, `trim`, `version`. |
 
 There is no implicit current-directory, package, module, import, glob, or
@@ -90,28 +90,36 @@ format when explicit JSON is invalid or unsupported. Bare `-` continues to
 parse CUE and is not a portable way to feed JSON into Cuestacean. Use `-e path`
 to select a value after the entire JSON input has been decoded and validated.
 
-## Vet flat scalar schemas
+## Vet schemas
 
 For example, `cuestacean vet -c schema.cue data.json` accepts
 `{"age":42}` against `age: int & >=0`. Success is silent. The only supported
 form takes `-c`, one explicit `.cue` schema, then one explicit `.json` instance.
 There is no stdin, package loading, schema selection, or `-c=false`.
 
-The schema must be ordinary top-level fields, not a `close(...)` expression.
-Field names are ASCII and at most 64 bytes. Constraints may be scalar literals,
+The schema must be ordinary top-level fields, not a standalone `close(...)`
+expression. Within a field, use explicit `close({...})` for a closed record,
+for example `person: close({"age": int})`. Nested labels must be quoted in
+source and decode to unique ASCII field names of at most 64 bytes within each
+record. Record conjunctions and bare nested records are unsupported. Scalar
+constraints may be scalar literals,
 `int`, `bool`, `string`, literal integer bounds, or combinations of these with
 `&`. A field with a bound must also contain an explicit `int` constraint; an
 untyped CUE bound can admit nonintegers. Computed bounds, nested schemas and
 exclusive bounds beyond the signed 64-bit domain are unsupported. Write a
 space after `<` before a negative literal (`< -1`): Cuestacean also accepts
-`<-1`, but Go CUE does not. A supplied value for a schema field must be a
-scalar. Extra JSON fields are allowed and still must pass the full JSON input
-checks.
+`<-1`, but Go CUE does not. Supplied values must have the expected shape:
+scalars for scalar fields and JSON objects for closed records. Extra fields
+are allowed at the root but forbidden inside closed records. The entire JSON
+input, including extras, must still pass the JSON input checks.
 
 A concrete schema value can supply an absent field. An absent field without a
 concrete result is incomplete. Incompatible values, types, or bounds are
-conflicts. Cuestacean admits both inputs before evaluating schema fields in
-source order; it need not report failures in the same order as Go CUE.
+conflicts. Missing records are checked recursively: concrete children can supply
+values, but abstract children remain incomplete. Explicit `null` is not absence.
+Cuestacean admits both inputs before checking record structure and then evaluates
+scalar leaves in schema order. It need not report the same first failure as Go CUE
+when multiple fields fail.
 
 Both files are limited to 1 MiB. The schema retains the ordinary parser limits,
 including 64 AST nodes and 32 parsing levels. JSON retains the limits described
