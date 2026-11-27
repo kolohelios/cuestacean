@@ -34,7 +34,7 @@ printf '40 + 2\n' | cuestacean export --out json -
 | Argument order | Supported options may precede or follow the input. Use `--` to end option parsing. Duplicate options and multiple inputs are rejected. |
 | Field selection | `-e path`, `--expression path`, or `--expression=path` selects a value along a field and list-index path through fully concrete data. |
 | Other `export` options | Unsupported, including `--escape`, `--force`, injection, `--list`, `--merge`, `--name`, package/path/schema flags, protobuf options, `--with-context`, and global error/ignore/simplify flags. Non-JSON formats and output files are unsupported. |
-| `vet -c schema.cue data.json` | Validate one JSON object against a [scalar and closed-record schema](#vet-schemas). |
+| `vet -c schema.cue data.json` | Validate one JSON object against a [scalar, closed-record, and fixed-list schema](#vet-schemas). |
 | Other commands | Unsupported: `cmd`, `completion`, `def`, `eval`, `fix`, `fmt`, `get`, `help`, `import`, `login`, `mod`, `trim`, `version`. |
 
 There is no implicit current-directory, package, module, import, glob, or
@@ -101,25 +101,32 @@ The schema must be ordinary top-level fields, not a standalone `close(...)`
 expression. Within a field, use explicit `close({...})` for a closed record,
 for example `person: close({"age": int})`. Nested labels must be quoted in
 source and decode to names matching `[A-Za-z][A-Za-z0-9_]*`, at most 64 bytes
-and unique within each record. Record conjunctions and bare nested records are unsupported. Scalar
-constraints may be scalar literals,
+and unique within each record. A list such as `items: [int, "kg"]` constrains
+exactly two positions. Lists and closed records can nest within one another.
+Open list tails, collection conjunctions, and bare nested records are
+unsupported. Scalar constraints may be scalar literals,
 `int`, `bool`, `string`, literal integer bounds, or combinations of these with
 `&`. A field with a bound must also contain an explicit `int` constraint; an
 untyped CUE bound can admit nonintegers. Computed bounds and exclusive bounds beyond the signed 64-bit domain are unsupported. Write a
 space after `<` before a negative literal (`< -1`): Cuestacean also accepts
 `<-1`, but Go CUE does not. Supplied values must have the expected shape:
-scalars for scalar fields and JSON objects for closed records. Extra fields
+scalars for scalar fields, JSON objects for closed records, and arrays of exactly
+the declared length for list fields. A short array is not filled from the schema.
+Extra fields
 are allowed at the root but forbidden inside closed records. The entire JSON
 input, including extras, must still pass the JSON input checks.
 
 A concrete schema value can supply an absent field. An absent field without a
 concrete result is incomplete. Incompatible values, types, or bounds are
-conflicts. Missing records are checked recursively: concrete children can supply
-values, but abstract children remain incomplete. Explicit `null` is not absence.
-Cuestacean admits both inputs, checks all known scalar fields for unsupported
-container values, then checks record structure before evaluating scalar leaves
-in schema order. An earlier incomplete scalar leaf can mask a later scalar
-conflict, so the first failure can differ from Go CUE.
+conflicts. Missing lists and records are checked recursively: concrete children
+can supply values, but abstract children remain incomplete. Explicit `null` is
+not absence. Cuestacean admits both inputs, checks known scalar positions for
+unsupported container values, then checks collection structure before evaluating
+scalar leaves in schema order. For a wrong-length array, the shape check visits
+only positions present in both the schema and data; the JSON decoder still checks
+every value. The first failure can differ from Go CUE when several constraints
+fail. For example, Cuestacean may report a length mismatch before a conflicting
+list element.
 
 Both files are limited to 1 MiB. The schema retains the ordinary parser limits,
 including 64 AST nodes and 32 parsing levels. JSON retains the limits described
