@@ -387,7 +387,8 @@ def vet_profile(rust, cue):
             # Oracle categories are asserted separately, never used as Rust answers.
             tokens = {"incomplete": (b"incomplete value",),
                       "conflict": (b"conflicting values", b"out of bound",
-                                   b"incompatible number bounds", b"incompatible integer bounds")}
+                                   b"incompatible number bounds", b"incompatible integer bounds"),
+                      "closure": (b"field not allowed",)}
             require(any(token in result.stderr for token in tokens[outcome]),
                     f"vet Go wrong category {label}: {result!r}")
 
@@ -473,7 +474,8 @@ def vet_profile(rust, cue):
     gaps = [
         ('age:_', '{"age":0}'), ('age:1+1', '{"age":2}'),
         ('age:>=(0)', '{"age":0}'), ('age:and([int,>=0])', '{"age":0}'),
-        ('age:close({"x":1})', '{"age":{"x":1}}'), ('age:[1]', '{"age":[1]}'),
+        ('age:close({"x":1}) & close({"x":1})', '{"age":{"x":1}}'),
+        ('age:[1]', '{"age":[1]}'),
         ('age:*1 | 2', '{}'), ('age:int & >9223372036854775807', '{"age":9223372036854775808}'),
     ]
     for source, document in gaps:
@@ -516,7 +518,7 @@ def vet_profile(rust, cue):
         native(b"invalid vet schema:", "excluded declarations")
 
     # Unsupported later nodes cannot hide behind early conflict/incompleteness.
-    excluded = ('1+1', '>= (0)', 'close({"x":1})', '[1]', 'and([int])', '_', '!(true)')
+    excluded = ('1+1', '>= (0)', 'close({"x":1+1})', '[1]', 'and([int])', '_', '!(true)')
     for first in ('int', '1 & 2'):
         for term in excluded:
             files(f"age:{first}\nlater:{term}", '{}')
@@ -618,6 +620,198 @@ def vet_profile(rust, cue):
            ["vet", "-c", "vet-missing.cue", str(data)])
     native(b"vet setup:", "missing data cannot retry stdin",
            ["vet", "-c", str(schema), "vet-missing.json"])
+    # #317: independently authored answers, not exported schema DATA or runtime
+    # record equality. Native and pinned public-oracle categories stay separate.
+    def nested(source, document, outcome, path=None, reason=None):
+        files(source, document)
+        label = f"nested {source!r} {document!r} => {outcome}"
+        result = native(None if outcome == "ok" else b"vet " + (
+            b"conflict" if outcome == "closure" else outcome.encode()) + b":",
+            label, reason=reason)
+        if path is not None:
+            require(b"field " + path.encode() + b":" in result.stderr,
+                    f"nested wrong native path {label}: {result!r}")
+        oracle(outcome, label)
+
+    # The formerly excluded exact close row is now successful parity.
+    nested('age:close({"x":1})', '{"age":{"x":1}}', 'ok')
+    person = 'person:close({"age":int,"units":"years"})'
+    for document in ('{}', '{"person":{}}'):
+        nested(person, document, 'incomplete', 'person.age')
+    nested(person, '{"person":{"age":42}}', 'ok')
+    nested(person, '{"person":{"age":false}}', 'conflict', 'person.age')
+    for document in ('{"person":{"age":42,"extra":0}}',
+                     '{"person":{"extra":0}}'):
+        nested(person, document, 'closure', 'person.extra', b'field not allowed')
+    for term in ('close({"units":"years"})', 'close({})'):
+        source = 'person:' + term
+        for document in ('{}', '{"person":{}}'):
+            nested(source, document, 'ok')
+        nested(source, '{"person":{"age":42}}', 'closure', 'person.age',
+               b'field not allowed')
+    for source in (person, 'person:close({"units":"years"})', 'person:close({})'):
+        for value in ('null', '[]', 'true', '0', '"x"'):
+            nested(source, '{"person":' + value + '}', 'conflict', 'person',
+                   b'expected a record')
+    deep = 'person:close({"child":close({"age":int})})'
+    for document in ('{}', '{"person":{}}', '{"person":{"child":{}}}'):
+        nested(deep, document, 'incomplete', 'person.child.age')
+    nested(deep, '{"person":{"child":{"age":42}}}', 'ok')
+    nested(deep, '{"person":{"child":null}}', 'conflict', 'person.child',
+           b'expected a record')
+    nested(deep, '{"person":{"child":{"extra":0}}}', 'closure',
+           'person.child.extra', b'field not allowed')
+    for term in ('close({})', 'close({"value":null})', 'close({"value":42})'):
+        nested('person:close({"child":' + term + '})', '{}', 'ok')
+    nullable = 'person:close({"value":null})'
+    for document in ('{}', '{"person":{}}', '{"person":{"value":null}}'):
+        nested(nullable, document, 'ok')
+    nested(nullable, '{"person":null}', 'conflict', 'person', b'expected a record')
+    for term in ('int & >=42 & <=42', '<=42 & >=42 & int'):
+        source = 'person:close({"age":' + term + '})'
+        nested(source, '{}', 'incomplete', 'person.age')
+        nested(source, '{"person":{"age":42}}', 'ok')
+        nested(source, '{"person":{"age":41}}', 'conflict', 'person.age')
+    for term in ('int & >0 & <1', '<1 & >0 & int', '1 & 2'):
+        nested('person:close({"age":' + term + '})', '{}', 'conflict', 'person.age')
+    for term, value in (('bool', 'true'), ('string', '"a\\uD83E\\uDD80"'),
+                        ('null', 'null'), ('int', '-9223372036854775808'),
+                        ('int', '9223372036854775807'), ('int', '9007199254740993')):
+        nested('person:close({"value":' + term + '})',
+               '{"person":{"value":' + value + '}}', 'ok')
+    mixed = 'age:int\nperson:close({"name":string,"supplied":42})'
+    nested(mixed, '{"person":{"name":"A"},"age":0,"extra":[null,{"x":true}]}', 'ok')
+    nested(mixed, '{"person":{"name":"A","extra":0},"age":0}', 'closure',
+           'person.extra', b'field not allowed')
+    nested('person:close({"\\u0061ge":int,"true":bool,"false":null,"null":42})',
+           '{"person":{"age":42,"true":false}}', 'ok')
+
+    # Exact native ordering is NOT a claim of general Go multi-error ordering.
+    # Shape checks cover every known scalar before any record structure check.
+    for source, document in (
+        ('first:int\nperson:close({"age":int})', '{"person":{"age":[]}}'),
+        ('person:close({"age":int})\nlater:close({})',
+         '{"person":{"age":{}},"later":{"extra":0}}'),
+        ('person:close({})\nlater:close({"age":int})',
+         '{"person":null,"later":{"age":[]}}'),
+    ):
+        files(source, document)
+        native(b'unsupported vet data:', 'recursive scalar shape before structure/semantics',
+               reason=b'known fields require scalar values')
+    for first in ('int', '1 & 2'):
+        for value, path, reason in (('null', 'person', b'expected a record'),
+                                    ('{"extra":0}', 'person.extra', b'field not allowed')):
+            nested('first:' + first + '\nperson:close({})',
+                   '{"person":' + value + '}',
+                   'conflict' if value == 'null' else 'closure', path, reason)
+    for source in ('person:close({"age":int,"child":close({})})',
+                   'person:close({"child":close({}),"age":int})'):
+        nested(source, '{"person":{"extra":0}}', 'closure', 'person.extra',
+               b'field not allowed')
+    # Go prioritizes the intrinsic contradiction; native scalar source order
+    # deliberately reports earlier incompleteness. This is divergence evidence.
+    files('person:close({"age":int,"n":1 & 2})', '{}')
+    result = native(b'vet incomplete:', 'source-order scalar multi-error divergence')
+    require(b'field person.age:' in result.stderr, 'wrong first incomplete path')
+    oracle('conflict', 'Go intrinsic contradiction before missing scalar')
+    nested('person:close({"n":1 & 2,"age":int})', '{}', 'conflict', 'person.n')
+    for document in ('{"person":{"b":false,"a":false}}',
+                     '{"person":{"a":false,"b":false}}'):
+        for first, second in (('a', 'b'), ('b', 'a')):
+            nested(f'person:close({{"{first}":int,"{second}":int}})',
+                   document, 'conflict', 'person.' + first)
+    for document in ('{"person":{"z":0,"a":0}}', '{"person":{"a":0,"z":0}}'):
+        nested('person:close({})', document, 'closure', 'person.a', b'field not allowed')
+    nested('person:close({"first":close({}),"second":close({})})',
+           '{"person":{"second":null,"first":{"extra":0}}}', 'closure',
+           'person.first.extra', b'field not allowed')
+    for key, rendered in (('a.b', '["a.b"]'), ('', '[""]'),
+                          ('a\\nb', '["a\\nb"]'), ('é', '["é"]')):
+        files('person:close({})', '{"person":{"' + key + '":0}}')
+        result = native(b'vet conflict:', 'safe unknown-key path', reason=b'field not allowed')
+        require(('field person' + rendered + ':').encode() in result.stderr,
+                f'unsafe/ambiguous path: {result!r}')
+        require(result.stderr.count(b'\n') == 1, 'raw newline in unknown-key path')
+        oracle('closure', 'unknown arbitrary JSON key')
+
+    # Admission is recursive and complete, with no int leakage across leaves.
+    terms = ('_', '1+1', '>=(0)', '[1]', 'and([int])', '!(true)',
+             '>=0', 'int & >9223372036854775807',
+             'close({}) & close({})', 'int & close({})')
+    for first in ('int', '1 & 2'):
+        for term in terms:
+            files('first:' + first + '\nperson:close({"typed":int,"child":close({"bad":'
+                  + term + '})})', '{}')
+            native(b'unsupported vet schema:', 'whole recursive schema before semantics')
+    for label in ('', '_hidden', '#Definition', 'a.b', 'é', 'a' * 65):
+        files('person:close({"' + label + '":0})', '{}')
+        native(b'unsupported vet schema:', 'decoded label profile')
+    for source in ('person:close({"age":0,"\\u0061ge":0})',
+                   'person:close({"child":close({"x":0,"x":0})})'):
+        files('first:1 & 2\n' + source, '{}')
+        native(b'unsupported vet schema:', 'duplicate decoded schema labels before semantics')
+    nested('person:close({"child":close({"age":0}),"age":0})', '{}', 'ok')
+    for source in ('person:{age:0}', 'person:close({"age"?:int})',
+                   'person:close({"age"!:int})', 'person:close({"age":*1 | 2})',
+                   'person:close({"age":ref})', 'person:close({"age":0 "b":0})',
+                   'person:close({"age":0}', 'person:close({"age":0,})\nlater:'):
+        files(source, '{}')
+        native(b'invalid vet schema:', 'recursive syntax exclusions')
+    files('person:close({"bad":1+1})', '{')
+    native(b'unsupported vet schema:', 'recursive schema phase before JSON')
+    for category, values in ((b'invalid JSON:', malformed),
+                             (b'unsupported JSON:', excluded_json)):
+        for document in values:
+            # Even a closure violation cannot conceal invalid member contents.
+            files('person:close({})', b'{"person":' + document + b'}')
+            native(category, 'whole JSON before nested closure')
+    for first in ('int', '1 & 2'):
+        files('first:' + first + '\nperson:close({})',
+              b'{"person":{"extra":' + b'[' * 63 + b'0' + b']' * 63 + b'}}')
+        native(b'unsupported JSON:', 'nested extra depth before scalar/closure')
+
+    # Aggregate expression counts include root and every (even empty) record.
+    for count in (61, 62, 63):
+        source = 'person:close({' + ','.join(f'"f{i}":0' for i in range(count)) + '})'
+        files(source, '{}')  # total nodes = 2 + count
+        native(None if count <= 62 else b'invalid vet schema:',
+               f'nested aggregate AST nodes {count + 2}',
+               reason=None if count <= 62 else b'expression exceeds 64 nodes')
+    for count in (60, 61, 62):
+        # Root + two records + count scalar children, not a per-record allowance.
+        left = ','.join(f'"f{i}":0' for i in range(count // 2))
+        right = ','.join(f'"f{i}":0' for i in range(count - count // 2))
+        files('left:close({' + left + '})\nright:close({' + right + '})', '{}')
+        native(None if count <= 61 else b'invalid vet schema:',
+               f'sibling aggregate AST nodes {count + 3}',
+               reason=None if count <= 61 else b'expression exceeds 64 nodes')
+    for count in (62, 63, 64):
+        files('\n'.join(f'f{i}:close({{}})' for i in range(count)), '{}')
+        native(None if count <= 63 else b'invalid vet schema:',
+               f'empty record node charges {count + 1}',
+               reason=None if count <= 63 else b'expression exceeds 64 nodes')
+    for groups in (30, 31):
+        # person RHS record depth1, child expression depth2, then groups.
+        files('person:close({"age":' + '(' * groups + '0' + ')' * groups + '})', '{}')
+        native(None if groups == 30 else b'invalid vet schema:',
+               f'nested parse levels {groups + 2}',
+               reason=None if groups == 30 else b'expression exceeds 32 parsing levels')
+    for depth in (31, 32, 33):
+        # Root RHS starts at level1; each nested record adds exactly one.
+        source = 'person:' + 'close({"child":' * (depth - 1) + 'close({})' + '})' * (depth - 1)
+        files(source, '{}')
+        native(None if depth <= 32 else b'invalid vet schema:',
+               f'nested record parse levels {depth}',
+               reason=None if depth <= 32 else b'expression exceeds 32 parsing levels')
+    for length in (64, 65):
+        files('person:close({"' + 'a' * length + '":0})', '{}')
+        native(None if length == 64 else b'unsupported vet schema:',
+               f'nested decoded label bytes {length}')
+    # Wide decoded data is not the evaluator's closed-value width profile.
+    extras = ','.join(f'"k{i}":0' for i in range(65))
+    nested('person:close({})', '{"person":{},"extra":{' + extras + '}}', 'ok')
+    nested('person:close({})', '{"person":{' + extras + '}}', 'closure',
+           'person.k0', b'field not allowed')
     print("Packaged vet parity, categories, phase/limit controls and explicit gaps verified")
 
 
