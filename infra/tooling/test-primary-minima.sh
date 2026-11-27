@@ -58,7 +58,6 @@ eval_ok() {
 }
 # Exact 23d31f4923499b312c9846b2f506b7c2d7ee50a1 baseline.
 while read -r hash relative; do printf '%s  %s\n' "$hash" "$SOURCE/$relative"; done > unchanged.sha256 <<'HASHES'
-f2f414bd2b4a8ceee39365c10ea7254dcc51ca6a2d2f3745edec1d0de66b2b9e schema.cue
 8a3e950bff2dae554bdd400a62d42e9afa84bc2fe72baa09fc102345d14d25a2 record-primary.cue
 d6e8b649eb014dc38324fbcb3608b7aaa9360d701dc4e37ed6b6ffff66e69a50 conjunction-primary.cue
 2520b0e9a5e65ef62a8e127163f738d6a10404c22a7d6f480f041c3e258e585c tests/valid/record-primary-high-minimum.cue

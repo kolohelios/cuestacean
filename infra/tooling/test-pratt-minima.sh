@@ -67,7 +67,6 @@ if fail false-status 'expected diagnostic' wrong_status ||
 fi
 # Exact c1d47b7b89ba55c59b20e21c87747e8a22f9f5eb identities, not derived answers.
 while read -r hash relative; do printf '%s  %s\n' "$hash" "$SOURCE/$relative"; done > unchanged.sha256 <<'HASHES'
-f2f414bd2b4a8ceee39365c10ea7254dcc51ca6a2d2f3745edec1d0de66b2b9e schema.cue
 0c9a161eb025e83a67e093b01e28df602f07238f8279b6456111762e909c8e85 pratt.cue
 12fd6db156a23b3aec9f3225b6fa17ed4b287db2ddc724ae28a966d62c477118 file-pratt.cue
 cc062a832a459f06d75f0abfebaa6f18fb910726a9c69d7c9c538de7294fa208 tests/valid/pratt-no-slices.cue
@@ -86,9 +85,13 @@ ef1bce3357ac4230aefce350f89084fdc4c3334640cbe25a5db43560b413d81c generated/pratt
 3fe0f13fff480ca1b5dfe6cfc5e5d4e7a501027a0e700bda38251728a955dd53 generated/pratt-right.rs
 HASHES
 sha256sum -c unchanged.sha256 > "$OUT/receipts/unchanged-check"
-# Anchor's complete 256-file bundle; includes every unrelated sibling export.
-test "$(find "$EXPORTS" -type f | wc -l)" -eq 256
-(cd "$EXPORTS"; find . -type f -print | LC_ALL=C sort | while IFS= read -r file; do sha256sum "$file"; done) > "$OUT/receipts/bundle.sha256"
+# Schema may grow; retain the anchor's entire 256-file emitted-byte proof.
+# Exclude ONLY the six separately checked vet parser additions, not old siblings.
+printf './%s.json\n' list-ellipsis list-ellipsis-close vet-grammar vet-pratt-lowering vet-primary vet-primary-high-minimum > vet-additions
+while IFS= read -r file; do test -f "$EXPORTS/$file"; done < vet-additions
+test "$(find "$EXPORTS" -type f | wc -l)" -eq 262
+additions=$PWD/vet-additions
+(cd "$EXPORTS"; find . -type f -print | grep -vxF -f "$additions" | LC_ALL=C sort | while IFS= read -r file; do sha256sum "$file"; done) > "$OUT/receipts/bundle.sha256"
 printf '%s  %s\n' 3c2f78d5701a78c77886b65cf8558deb7cba2312d29dfa461091c7abd4e24097 "$OUT/receipts/bundle.sha256" | sha256sum -c - > "$OUT/receipts/bundle-check"
 IFS= read -r -d '' text < "$fragment" || [[ -n $text ]]
 for i in 0 1; do

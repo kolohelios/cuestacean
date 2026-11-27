@@ -62,9 +62,9 @@ eval_ok() {
   cue eval "$@" > eval.out 2> eval.err
   test -s eval.out && test ! -s eval.err
 }
-# Exact merged 1ac785e9d080ac16e9bfbc996a38048641240bca source identities.
+# Exact preexisting selector/Rust identities. Schema and guarded template may
+# grow; independent whole PROGRAM/Rust expectations below pin old emitted bytes.
 while read -r hash relative; do printf '%s  %s\n' "$hash" "$SOURCE/$relative"; done > unchanged.sha256 <<'HASHES'
-f2f414bd2b4a8ceee39365c10ea7254dcc51ca6a2d2f3745edec1d0de66b2b9e schema.cue
 a26cd6d0b3c728da3fc1dd912809392bafefc4cf409e50d6d37f2fae5214d913 primary.cue
 ade2811802bcf80b4c4283d6adc1625ad1a93e672e76e24458d7427a2d3a0f29 tests/valid/primary-no-conjunction.cue
 f03d6cfb7fbf8781b18c64053d3986937f8f710d2631fb856c55f3504da8c4eb tests/valid/primary-bound-high-minimum.cue
@@ -79,7 +79,8 @@ ab44a821eb222da573f41a8d554a138c68a08d9a01cf32031133ea51cc920dee generated/prima
 4de98ae5572788509f2587eedb8bfd6eddb7294eca075a27cf8519218e8e602b generated/primary-no-records.rs
 HASHES
 sha256sum -c unchanged.sha256 > "$OUT/receipts/unchanged-check"
-# Preserve trailing newline in the exact three-substitution inverse.
+# Preserve trailing newline while restoring the pre-provider minimum defaults.
+# The guarded template is checked by independent whole PROGRAM/Rust expectations.
 IFS= read -r -d '' text < "$fragment" || [[ -n $text ]]
 for i in 0 1 2; do
   slot=${slots[i]}; helper=${helpers[i]}
@@ -90,7 +91,22 @@ for i in 0 1 2; do
   text=${text/"$needle"/"_${slot}Minimum:${padding}*0 | 100"}
 done
 printf '%s' "$text" > original.cue
-printf '%s  original.cue\n' a139a1057f6e07400b798c7e4b8bd2edcdfdd4e174858af38179fd8ecaa1e335 | sha256sum -c - > "$OUT/receipts/inverse"
+# Vet selected/default routing must import all three DATA helpers; the high
+# alternate must retain all three unresolved owners, including list minimum.
+for key in vet-primary vet-primary-high-minimum; do
+  primary_control_minima_provider "$key" "${data[@]}" "${raw[@]}"
+  [[ ${#primary_control_providers[@]} = 3 ]]
+  for i in 0 1 2; do
+    if [[ $key = vet-primary-high-minimum ]]; then
+      [[ ${primary_control_providers[i]} = "${raw[i]}" ]]
+    else
+      [[ ${primary_control_providers[i]} != "${raw[i]}" ]]
+      clean_json vet-helper.json cue export "${primary_control_providers[i]}" -e "#${helpers[i]}"
+      jq -S . "${data[i]}" > vet-selected.json
+      cmp vet-helper.json vet-selected.json
+    fi
+  done
+done
 # Hand-authored whole PROGRAM, including disabled-feature variants. No actual
 # export, golden, or compiler output is used to construct these expectations.
 expected_json() {

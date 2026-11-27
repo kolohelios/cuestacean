@@ -19,6 +19,12 @@
         "file-pratt"
       ];
       filePrattNames = builtins.concatStringsSep " " filePrattFixtures;
+      # Vet overlay is a consumer input, not canonical native-policy evidence.
+      vetPrattFixtures = [
+        "vet-primary"
+        "vet-primary-high-minimum"
+      ];
+      vetPrattNames = builtins.concatStringsSep " " vetPrattFixtures;
       scannerFixtures = [
         "file-label"
         "file-colon"
@@ -38,6 +44,8 @@
         "list-open"
         "list-close"
         "list-tail"
+        "list-ellipsis"
+        "list-ellipsis-close"
         "call-open"
         "whitespace"
         "after-operand"
@@ -278,6 +286,7 @@
         "tests/valid/strings-mixed"
         "evaluation"
         "grammar"
+        "vet-grammar"
         "tests/valid/grammar-no-brackets"
         "tests/valid/evaluation-left-twice"
         "tests/valid/pratt-lowering-no-increment"
@@ -292,7 +301,11 @@
         "tests/valid/ast-literal"
       ]
       ++ filePrattFixtures
-      ++ [ "file-pratt-lowering" ]
+      ++ [
+        "file-pratt-lowering"
+        "vet-pratt-lowering"
+      ]
+      ++ vetPrattFixtures
       ++ scannerFixtures
       ++ builderFixtures
       ++ prattFixtures
@@ -850,12 +863,14 @@
               esac
               fragments=()
               case "$fixture" in
-                file-pratt-lowering)
+                file-pratt-lowering|vet-pratt-lowering)
                   ${pkgs.cue}/bin/cue export "${cueSources}/schema.cue" \
-                    "${cueSources}/file-pratt-lowering.cue" \
+                    "${cueSources}/$fixture.cue" \
                     ${nativePrattLoweringPolicy pkgs}/pratt-lowering.json > "$out/$fixture.json"
                   continue ;;
                 file-pratt) fragments=(pratt-fragments) ;;
+                vet-grammar) fragments=(grammar) ;;
+                vet-primary|vet-primary-high-minimum) fragments=(primary-fragments) ;;
                 file-label|file-colon|file-boundary|file-tail) fragments=(scanner-fragments file-scanner-fragments) ;;
                 pratt|tests/valid/pratt-no-slices|tests/valid/pratt-slice-high-minimum|tests/valid/pratt-no-selectors|tests/valid/pratt-no-index|tests/valid/pratt-index-high-minimum|tests/valid/pratt-right) fragments=(pratt-fragments) ;;
                 list-control|tests/valid/list-control-reverse|tests/valid/list-control-scalars|tests/valid/list-control-homogeneous) fragments=(list-control-fragments) ;;
@@ -1705,6 +1720,13 @@
               cmp first.rs ${../../bootstrap/generated}/"$control.rs"
               cp first.rs "$out/$control.rs"
             done
+            for control in ${vetPrattNames}; do
+              generate ${jsonExports pkgs}/"$control.json" ${jsonExports pkgs}/vet-pratt-lowering.json > first.rs
+              generate ${jsonExports pkgs}/"$control.json" ${jsonExports pkgs}/vet-pratt-lowering.json > second.rs
+              cmp first.rs second.rs
+              cmp first.rs ${../../bootstrap/generated}/"$control.rs"
+              cp first.rs "$out/$control.rs"
+            done
             for repeat in 1 2; do
               generate ${jsonExports pkgs}/pratt.json \
                 ${jsonExports pkgs}/tests/valid/pratt-lowering-no-increment.json > "$repeat.rs"
@@ -2145,6 +2167,9 @@
               done
               for control in ${filePrattNames}; do
                 bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" "$CUESTACEAN_BOOTSTRAP_JSON/file-pratt-lowering.json" | rustfmt --edition 2024 > "../generated/$control.rs"
+              done
+              for control in ${vetPrattNames}; do
+                bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/$control.json" "$CUESTACEAN_BOOTSTRAP_JSON/vet-pratt-lowering.json" | rustfmt --edition 2024 > "../generated/$control.rs"
               done
               bootstrap-pratt-codegen "$CUESTACEAN_BOOTSTRAP_JSON/pratt.json" "$CUESTACEAN_BOOTSTRAP_JSON/tests/valid/pratt-lowering-no-increment.json" | rustfmt --edition 2024 > ../generated/pratt-no-increment.rs
               for control in ${unifyNames}; do
@@ -8446,6 +8471,12 @@
                 for control in ${filePrattNames}; do
                   bootstrap-pratt-codegen ${jsonExports pkgs}/"$control.json" ${jsonExports pkgs}/file-pratt-lowering.json | rustfmt --edition 2024 > first.rs
                   bootstrap-pratt-codegen ${jsonExports pkgs}/"$control.json" ${jsonExports pkgs}/file-pratt-lowering.json | rustfmt --edition 2024 > second.rs
+                  cmp first.rs second.rs
+                  diff -u ${../../bootstrap/generated}/"$control.rs" first.rs
+                done
+                for control in ${vetPrattNames}; do
+                  bootstrap-pratt-codegen ${jsonExports pkgs}/"$control.json" ${jsonExports pkgs}/vet-pratt-lowering.json | rustfmt --edition 2024 > first.rs
+                  bootstrap-pratt-codegen ${jsonExports pkgs}/"$control.json" ${jsonExports pkgs}/vet-pratt-lowering.json | rustfmt --edition 2024 > second.rs
                   cmp first.rs second.rs
                   diff -u ${../../bootstrap/generated}/"$control.rs" first.rs
                 done
