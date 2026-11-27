@@ -1,4 +1,4 @@
-//! Bounded flat scalar vet profile; all constraint execution stays generated.
+//! Bounded scalar/explicit closed-record vet; scalar execution stays generated.
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::io::Read;
@@ -20,6 +20,8 @@ pub(super) enum Error {
     UnsupportedData(&'static str),
     Json(String),
     Evaluation { field: String, source: RuntimeError },
+    RecordType { field: String },
+    ClosedField { field: String },
 }
 
 #[derive(Debug, PartialEq)]
@@ -54,6 +56,12 @@ impl fmt::Display for Error {
             Self::UnsupportedSchema(reason) => write!(f, "unsupported vet schema: {reason}"),
             Self::UnsupportedData(reason) => write!(f, "unsupported vet data: {reason}"),
             Self::Json(reason) => f.write_str(reason),
+            Self::RecordType { field } => {
+                write!(f, "vet conflict: field {field}: expected a record")
+            }
+            Self::ClosedField { field } => {
+                write!(f, "vet conflict: field {field}: field not allowed")
+            }
             Self::Evaluation { field, source } => {
                 let class = match classify(source) {
                     Class::Conflict => "conflict",
@@ -100,7 +108,34 @@ fn schema_text(reader: impl Read) -> Result<String, Error> {
 
 struct Field {
     name: String,
-    term: Value,
+    term: Term,
+}
+
+enum Term {
+    Scalar(Value),
+    Closed {
+        fields: Vec<Field>,
+        names: std::collections::BTreeSet<String>,
+    },
+}
+
+fn identifier(name: &str) -> bool {
+    let mut bytes = name.bytes();
+    bytes.next().is_some_and(|byte| byte.is_ascii_alphabetic())
+        && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+}
+
+fn path(parent: &str, name: &str) -> String {
+    if identifier(name) {
+        if parent.is_empty() {
+            name.into()
+        } else {
+            format!("{parent}.{name}")
+        }
+    } else {
+        // Serializing a string cannot fail and escapes control characters.
+        format!("{parent}[{}]", json!(name))
+    }
 }
 
 #[derive(Default)]
@@ -170,6 +205,75 @@ fn admit(node: &Value, nodes: &mut usize) -> Result<Terms, Error> {
     Ok(terms)
 }
 
+// Decode the entire schema before inspecting data. Records under scalar unify
+// stay on the old scalar admission path and are therefore unsupported.
+fn decode_fields(fields: &[Value], nodes: &mut usize, parent: &str) -> Result<Vec<Field>, Error> {
+    let mut names = std::collections::BTreeSet::new();
+    let mut result = Vec::with_capacity(fields.len());
+    for field in fields {
+        let object = field
+            .as_object()
+            .ok_or_else(|| unsupported("expected field wrapper"))?;
+        if object.len() != 2 || !object.contains_key("name") || !object.contains_key("value") {
+            return Err(unsupported("unexpected field AST fields"));
+        }
+        let name = field
+            .get("name")
+            .and_then(Value::as_str)
+            .ok_or_else(|| unsupported("missing field label"))?;
+        if name.len() > 64 {
+            return Err(unsupported("field label exceeds 64 bytes"));
+        }
+        if !identifier(name) {
+            return Err(unsupported(
+                "field labels require visible ASCII identifiers",
+            ));
+        }
+        if !names.insert(name) {
+            return Err(unsupported(format!(
+                "duplicate field {}",
+                path(parent, name)
+            )));
+        }
+        let term = field
+            .get("value")
+            .ok_or_else(|| unsupported("missing field term"))?;
+        let field_path = path(parent, name);
+        let term = if term.get("kind").and_then(Value::as_str) == Some("recordExpression") {
+            *nodes += 1;
+            if *nodes > 63 {
+                return Err(Error::Setup("schema exceeds 63 AST nodes".into()));
+            }
+            let object = term
+                .as_object()
+                .ok_or_else(|| unsupported("expected record AST"))?;
+            if object.len() != 2 || !object.contains_key("fields") {
+                return Err(unsupported("unexpected record AST fields"));
+            }
+            let children = term
+                .get("fields")
+                .and_then(Value::as_array)
+                .ok_or_else(|| unsupported("expected record fields"))?;
+            let fields = decode_fields(children, nodes, &field_path)?;
+            let names = fields.iter().map(|field| field.name.clone()).collect();
+            Term::Closed { fields, names }
+        } else {
+            let terms = admit(term, nodes)?;
+            if terms.bound && !terms.int {
+                return Err(unsupported(format!(
+                    "field {field_path}: bounds require an explicit int term"
+                )));
+            }
+            Term::Scalar(term.clone())
+        };
+        result.push(Field {
+            name: name.into(),
+            term,
+        });
+    }
+    Ok(result)
+}
+
 fn schema(source: &str) -> Result<Vec<Field>, Error> {
     let program = parser::parse_fields_file(source, GRAMMAR).map_err(|error| match error {
         parser::Error::Source { .. } | parser::Error::Integer { .. } => Error::InvalidSchema(error),
@@ -180,31 +284,7 @@ fn schema(source: &str) -> Result<Vec<Field>, Error> {
         .and_then(|entry| entry.get("fields"))
         .and_then(Value::as_array)
         .ok_or_else(|| Error::Setup("missing file fields".into()))?;
-    let mut nodes = 0;
-    let mut result = Vec::with_capacity(fields.len());
-    for field in fields {
-        let name = field
-            .get("name")
-            .and_then(Value::as_str)
-            .ok_or_else(|| Error::Setup("missing file label".into()))?;
-        if name.len() > 64 {
-            return Err(unsupported("field label exceeds 64 bytes"));
-        }
-        let term = field
-            .get("value")
-            .ok_or_else(|| Error::Setup("missing field term".into()))?;
-        let terms = admit(term, &mut nodes)?;
-        if terms.bound && !terms.int {
-            return Err(unsupported(format!(
-                "field {name}: bounds require an explicit int term"
-            )));
-        }
-        result.push(Field {
-            name: name.into(),
-            term: term.clone(),
-        });
-    }
-    Ok(result)
+    decode_fields(fields, &mut 0, "")
 }
 
 fn scalar(value: &Value) -> Result<Value, Error> {
@@ -235,33 +315,93 @@ fn bridge(term: &Value, candidate: Option<&Value>) -> Result<Value, Error> {
     Ok(ast::program(entry))
 }
 
+// Three bounded passes: known-scalar shapes, record structure, scalar execution.
+// Missing records pass None down, never synthetic null or an empty runtime value.
+fn shapes(fields: &[Field], data: Option<&serde_json::Map<String, Value>>) -> Result<(), Error> {
+    for field in fields {
+        let candidate = data.and_then(|data| data.get(&field.name));
+        match &field.term {
+            Term::Scalar(_) => {
+                if candidate.is_some_and(|value| value.is_array() || value.is_object()) {
+                    return Err(Error::UnsupportedData("known fields require scalar values"));
+                }
+            }
+            Term::Closed { fields, .. } => {
+                // Mismatched record candidates are deferred to the structural pass.
+                if let Some(object) = candidate.and_then(Value::as_object) {
+                    shapes(fields, Some(object))?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn structure(
+    fields: &[Field],
+    data: Option<&serde_json::Map<String, Value>>,
+    parent: &str,
+) -> Result<(), Error> {
+    for field in fields {
+        if let Term::Closed { fields, names } = &field.term {
+            let field_path = path(parent, &field.name);
+            let candidate = data.and_then(|data| data.get(&field.name));
+            let object = match candidate {
+                None => None,
+                Some(Value::Object(object)) => Some(object),
+                Some(_) => return Err(Error::RecordType { field: field_path }),
+            };
+            if let Some(object) = object {
+                // Explicit min keeps ordering independent of serde map features.
+                if let Some(extra) = object.keys().filter(|key| !names.contains(*key)).min() {
+                    return Err(Error::ClosedField {
+                        field: path(&field_path, extra),
+                    });
+                }
+            }
+            structure(fields, object, &field_path)?;
+        }
+    }
+    Ok(())
+}
+
+fn leaves(
+    fields: &[Field],
+    data: Option<&serde_json::Map<String, Value>>,
+    parent: &str,
+) -> Result<(), Error> {
+    for field in fields {
+        let candidate = data.and_then(|data| data.get(&field.name));
+        let field_path = path(parent, &field.name);
+        match &field.term {
+            Term::Closed { fields, .. } => {
+                leaves(fields, candidate.and_then(Value::as_object), &field_path)?;
+            }
+            Term::Scalar(term) => {
+                let program = bridge(term, candidate)?;
+                let input = serde_json::to_string(&program).map_err(|error| {
+                    Error::Setup(format!("cannot serialize vet program: {error}"))
+                })?;
+                generated::execute_json(&input).map_err(|source| Error::Evaluation {
+                    field: field_path,
+                    source,
+                })?;
+            }
+        }
+    }
+    Ok(())
+}
+
 fn validate(fields: &[Field], data: &Value) -> Result<(), Error> {
     let data = data
         .as_object()
         .ok_or(Error::UnsupportedData("object root required"))?;
-    // Complete every shape check before the first semantic failure. Extras are
-    // already fully decoded, but never enter the evaluator's collection profile.
-    for field in fields {
-        if data
-            .get(&field.name)
-            .is_some_and(|value| value.is_array() || value.is_object())
-        {
-            return Err(Error::UnsupportedData("known fields require scalar values"));
-        }
-    }
-    // sum(field AST nodes) <= 63; each supplied scalar adds two visits. With
-    // <= 63 fields this is <= 189 cumulative visits, without retries/repetition.
-    // Only this field's term and scalar are cloned/serialized, never other data.
-    for field in fields {
-        let program = bridge(&field.term, data.get(&field.name))?;
-        let input = serde_json::to_string(&program)
-            .map_err(|error| Error::Setup(format!("cannot serialize vet program: {error}")))?;
-        generated::execute_json(&input).map_err(|source| Error::Evaluation {
-            field: field.name.clone(),
-            source,
-        })?;
-    }
-    Ok(())
+    shapes(fields, Some(data))?;
+    structure(fields, Some(data), "")?;
+    // S scalar AST nodes + R records <=63; L scalar leaves <=S. Each supplied
+    // scalar adds two visits, so total generated visits S+2L<=189. No retries,
+    // and only each leaf term/candidate is serialized, never sibling/extra data.
+    leaves(fields, Some(data), "")
 }
 
 pub(super) fn run(args: impl Iterator<Item = OsString>) -> Result<(), Error> {
@@ -349,7 +489,7 @@ mod tests {
             "x: >=(0)",
             "x: 1+1",
             "x: -(2)",
-            "x: close({\"y\":1})",
+            "x: close({\"y\":1}) & close({})",
             "x: [1]",
             "x: len(\"a\")",
             "x: int == 1",
@@ -495,6 +635,321 @@ mod tests {
             assert!(super::super::json::read(text.as_bytes()).is_err());
         }
         check("x: int", json!({"x":1,"extra":{"list":[null]}}))?;
+        Ok(())
+    }
+
+    #[test]
+    fn recursive_ast_and_decoded_label_admission() -> Result<(), Error> {
+        let source = r#"person: close({"age":int,"child":close({"units":"years"})})"#;
+        let expected = json!({"formatVersion":1,"entry":{"kind":"recordExpression","fields":[
+            {"name":"person","value":{"kind":"recordExpression","fields":[
+                {"name":"age","value":{"kind":"intType"}},
+                {"name":"child","value":{"kind":"recordExpression","fields":[
+                    {"name":"units","value":{"kind":"string","value":"years"}}
+                ]}}
+            ]}}
+        ]}});
+        assert_eq!(
+            parser::parse_fields_file(source, GRAMMAR).map_err(Error::InvalidSchema)?,
+            expected
+        );
+        let fields = schema(source)?;
+        let Term::Closed { fields, names } = &fields[0].term else {
+            return Err(Error::Setup("expected closed schema term".into()));
+        };
+        assert_eq!(fields[0].name, "age");
+        assert!(names.contains("age") && names.contains("child"));
+        check(
+            r#"r: close({"\u0061":int,"a_2":close({"a":true})})"#,
+            json!({"r":{"a":1}}),
+        )?;
+        for source in [
+            r#"r: close({"a":1,"\u0061":1})"#,
+            r#"r: close({"":1})"#,
+            r#"r: close({"_hidden":1})"#,
+            r#"r: close({"1a":1})"#,
+            r#"r: close({"a.b":1})"#,
+            r#"r: close({"a\n":1})"#,
+            r#"r: close({"é":1})"#,
+            r#"r: close({"\u00e9":1})"#,
+            r#"r: close({"x":int & close({})})"#,
+            r#"r: close({"x":close({}) & close({})})"#,
+            r#"r: close({"x":>=0,"y":int})"#,
+            r#"r: close({"x":int & >=0,"y":>=0})"#,
+            r#"r: close({"x":1,"later":_})"#,
+            r#"r: close({"x":[1]})"#,
+        ] {
+            assert!(
+                matches!(schema(source), Err(Error::UnsupportedSchema(_))),
+                "{source}"
+            );
+        }
+        for length in [64, 65] {
+            let source = format!("r: close({{\"{}\":1}})", "a".repeat(length));
+            assert_eq!(schema(&source).is_ok(), length == 64);
+        }
+        // Malformed wrappers/record metadata are never silently ignored.
+        for node in [
+            json!({"kind":"recordExpression","fields":[],"extra":true}),
+            json!({"kind":"recordExpression","fields":null}),
+            json!({"kind":"recordExpression","fields":[{"name":"x","value":{"kind":"intType"},"extra":0}]}),
+            json!({"kind":"recordExpression","fields":[{"name":0,"value":{"kind":"intType"}}]}),
+        ] {
+            assert!(matches!(
+                decode_fields(&[json!({"name":"r","value":node})], &mut 0, ""),
+                Err(Error::UnsupportedSchema(_))
+            ));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn recursive_absence_null_empty_and_mixed_leaves() -> Result<(), Error> {
+        for source in [
+            r#"r: close({})"#,
+            r#"r: close({"units":"years"})"#,
+            r#"r: close({"child":close({"n":int & 42,"empty":close({})})})"#,
+        ] {
+            check(source, json!({}))?;
+            check(source, json!({"r":{}}))?;
+            check(source, json!({"extra":[{"arbitrary":true}]}))?;
+            for candidate in [Value::Null, json!([]), json!(0), json!(true), json!("x")] {
+                let error = check(source, json!({"r":candidate}))
+                    .err()
+                    .ok_or_else(|| Error::Setup("expected record conflict".into()))?;
+                assert!(matches!(&error, Error::RecordType { field } if field == "r"));
+                assert_eq!(
+                    error.to_string(),
+                    "vet conflict: field r: expected a record"
+                );
+            }
+        }
+        let source = r#"r: close({"child":close({"n":int,"units":"years"})})
+flag: bool"#;
+        for document in [json!({}), json!({"r":{}}), json!({"r":{"child":{}}})] {
+            assert!(matches!(check(source, document), Err(Error::Evaluation {
+                field, source: RuntimeError::Incomplete, ..
+            }) if field == "r.child.n"));
+        }
+        check(
+            source,
+            json!({"r":{"child":{"n":42}},"flag":true,"extra":[]}),
+        )?;
+        assert!(
+            matches!(check(source, json!({"r":{"child":{"n":null}},"flag":true})),
+            Err(Error::Evaluation { field, source: RuntimeError::TypeConflict })
+                if field == "r.child.n")
+        );
+        assert!(matches!(check(r#"r: close({"n":1 & 2})"#, json!({})),
+            Err(Error::Evaluation { field, source: RuntimeError::Conflict { .. } })
+                if field == "r.n"));
+        for source in [
+            r#"r: close({"n":int & >=42 & <=42})"#,
+            r#"r: close({"n":<=42 & int & >=42})"#,
+        ] {
+            assert!(matches!(
+                check(source, json!({})),
+                Err(Error::Evaluation {
+                    source: RuntimeError::IncompleteBounds,
+                    ..
+                })
+            ));
+            check(source, json!({"r":{"n":42}}))?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn structural_precedence_and_safe_unknown_paths() -> Result<(), Error> {
+        let source = r#"r: close({"n":int,"child":close({})})"#;
+        for document in [
+            json!({"r":{"z":0,"a":0}}),
+            json!({"r":{"a":0,"z":0,"child":null}}),
+        ] {
+            assert!(
+                matches!(check(source, document), Err(Error::ClosedField { field })
+                if field == "r.a")
+            );
+        }
+        for (key, expected) in [
+            ("a.b", r#"r["a.b"]"#),
+            ("line\n", r#"r["line\n"]"#),
+            ("\"", r#"r["\""]"#),
+            ("", r#"r[""]"#),
+        ] {
+            let error = check("r: close({})", json!({"r":{key:0}}))
+                .err()
+                .ok_or_else(|| Error::Setup("expected closed-field conflict".into()))?;
+            assert!(matches!(&error, Error::ClosedField { field } if field == expected));
+            assert_eq!(
+                error.to_string(),
+                format!("vet conflict: field {expected}: field not allowed")
+            );
+            assert!(!error.to_string().contains('\n'));
+        }
+        assert!(matches!(check(source, json!({"r":{"child":{"extra":0}}})),
+            Err(Error::ClosedField { field }) if field == "r.child.extra"));
+        // Structural traversal is depth first in schema order, not JSON order.
+        for (source, expected) in [
+            ("a: close({\"child\":close({})})\nb: close({})", "a.child"),
+            ("b: close({})\na: close({\"child\":close({})})", "b"),
+        ] {
+            assert!(matches!(
+                check(source, json!({"b":null,"a":{"child":null}})),
+                Err(Error::RecordType { field }) if field == expected
+            ));
+        }
+        // Structural errors anywhere precede even an earlier scalar conflict or
+        // missing leaf. Both declaration orders are intentional pinned controls.
+        for source in [
+            "first: int\nr: close({})",
+            "r: close({})\nfirst: int",
+            "first: 1 & 2\nr: close({})",
+            "r: close({})\nfirst: 1 & 2",
+        ] {
+            assert!(matches!(
+                check(source, json!({"r":null})),
+                Err(Error::RecordType { .. })
+            ));
+            assert!(matches!(
+                check(source, json!({"r":{"extra":0}})),
+                Err(Error::ClosedField { .. })
+            ));
+        }
+        // Known scalar container shapes anywhere precede record structure.
+        for source in [
+            "r: close({})\ns: close({\"n\":int})",
+            "s: close({\"n\":int})\nr: close({})",
+        ] {
+            for record in [Value::Null, json!({"extra":0})] {
+                assert!(matches!(
+                    check(source, json!({"r":record,"s":{"n":[]}})),
+                    Err(Error::UnsupportedData(_))
+                ));
+            }
+        }
+        // A mismatched record is not descended into during shape admission.
+        assert!(
+            matches!(check(source, json!({"r":null})), Err(Error::RecordType { field })
+            if field == "r")
+        );
+        // Scalar semantics retain source-order first failure, not Go's general
+        // preference for a conflict over another field's incompleteness.
+        assert!(
+            matches!(check("r: close({\"missing\":int,\"bad\":1 & 2})", json!({})),
+            Err(Error::Evaluation { field, source: RuntimeError::Incomplete })
+                if field == "r.missing")
+        );
+        assert!(
+            matches!(check("r: close({\"bad\":1 & 2,\"missing\":int})", json!({})),
+            Err(Error::Evaluation { field, source: RuntimeError::Conflict { .. } })
+                if field == "r.bad")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn nested_scalar_profile_and_whole_json_controls() -> Result<(), Error> {
+        let source = r#"person: close({"age":int,"units":"years"})"#;
+        check(source, json!({"person":{"age":42}}))?;
+        check(source, json!({"person":{"units":"years","age":42}}))?;
+        assert!(matches!(check(source, json!({"person":{"age":false}})),
+            Err(Error::Evaluation { field, source: RuntimeError::TypeConflict })
+                if field == "person.age"));
+        for text in [
+            r#"{"person":{"age":42},"extra":{"a":1,"\u0061":2}}"#,
+            r#"{"person":{"age":42,"extra":0.5}}"#,
+            r#"{"person":{"age":42}} junk"#,
+        ] {
+            assert!(super::super::json::read(text.as_bytes()).is_err());
+        }
+        // Record shape admission does not absorb scalar objects/arrays or allow
+        // out-of-domain bounds, computed terms, required fields or defaults.
+        for source in [
+            r#"r: close({"n":int & >9223372036854775807})"#,
+            r#"r: close({"n":< -9223372036854775808 & int})"#,
+            r#"r: close({"n":1+1})"#,
+        ] {
+            assert!(matches!(schema(source), Err(Error::UnsupportedSchema(_))));
+        }
+        for source in [r#"r: close({"n"!:int})"#, r#"r: close({"n":*1 | 2})"#] {
+            assert!(matches!(schema(source), Err(Error::InvalidSchema(_))));
+        }
+        for candidate in [json!({}), json!([])] {
+            assert!(matches!(
+                check(source, json!({"person":{"age":candidate}})),
+                Err(Error::UnsupportedData(_))
+            ));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn recursive_whole_admission_and_cumulative_limits() -> Result<(), Error> {
+        for source in [
+            "early: 1 & 2\nr: close({\"later\":_})",
+            "early: int\nr: close({\"later\":>=0})",
+        ] {
+            assert!(matches!(
+                check(source, json!({})),
+                Err(Error::UnsupportedSchema(_))
+            ));
+        }
+        // Empty records count even without scalar leaves; root costs one.
+        for count in [63, 64] {
+            let source = (0..count)
+                .map(|i| format!("r{i}: close({{}})"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            if count == 63 {
+                check(&source, json!({}))?;
+            } else {
+                assert!(matches!(schema(&source), Err(Error::InvalidSchema(_))));
+            }
+            let fields: Vec<_> = (0..count)
+                .map(|i| {
+                    json!({"name":format!("r{i}"),
+                "value":{"kind":"recordExpression","fields":[]}})
+                })
+                .collect();
+            let mut nodes = 0;
+            assert_eq!(decode_fields(&fields, &mut nodes, "").is_ok(), count == 63);
+            assert_eq!(nodes, count);
+        }
+        // A shared ledger across sibling records, not a fresh budget per subtree.
+        let children: Vec<_> = (0..30)
+            .map(|i| {
+                json!({"name":format!("n{i}"),
+            "value":{"kind":"integer","value":1}})
+            })
+            .collect();
+        let subtree = json!({"kind":"recordExpression","fields":children});
+        let mut fields = vec![
+            json!({"name":"a","value":subtree}),
+            json!({"name":"b","value":subtree}),
+        ];
+        let mut nodes = 0;
+        decode_fields(&fields, &mut nodes, "")?;
+        assert_eq!(nodes, 62);
+        fields.push(json!({"name":"c","value":{"kind":"recordExpression","fields":[]}}));
+        decode_fields(&fields, &mut 0, "")?;
+        fields.push(json!({"name":"d","value":{"kind":"recordExpression","fields":[]}}));
+        assert!(matches!(
+            decode_fields(&fields, &mut 0, ""),
+            Err(Error::Setup(_))
+        ));
+        for depth in [31, 32] {
+            let mut term = "1".to_string();
+            for _ in 0..depth {
+                term = format!("close({{\"n\":{term}}})");
+            }
+            let source = format!("r: {term}");
+            if depth == 31 {
+                check(&source, json!({}))?;
+            } else {
+                assert!(matches!(schema(&source), Err(Error::InvalidSchema(_))));
+            }
+        }
         Ok(())
     }
 
