@@ -41,6 +41,7 @@ impl Condition {
             Self::HasString {} => frame.has_string()?,
             Self::HasList {} => frame.has_list()?,
             Self::HasListElement {} => frame.has_list_element()?,
+            Self::HasListEllipsis {} => frame.has_list_ellipsis()?,
             Self::HasIdentifier {} => frame.has_identifier()?,
             Self::HasCall {} => frame.has_call()?,
             Self::HasRecord {} => frame.has_record()?,
@@ -188,6 +189,10 @@ fn execute(
                     Statement::AppendListElement {} => frame.append_list_element()?,
                     Statement::AdvanceListTail {} => frame.advance_list_tail()?,
                     Statement::BuildList {} => frame.build_list()?,
+                    Statement::ProbeListEllipsis {} => frame.probe_list_ellipsis()?,
+                    Statement::AdvanceListEllipsis {} => frame.advance_list_ellipsis()?,
+                    Statement::CloseListEllipsis {} => frame.close_list_ellipsis()?,
+                    Statement::BuildTypedList {} => frame.build_typed_list()?,
                     Statement::ScanIdentifier {} => frame.scan_identifier()?,
                     Statement::AdvanceCall {} => frame.advance_call()?,
                     Statement::Record {} => frame.record()?,
@@ -485,6 +490,10 @@ mod target_tests {
             "appendListElement",
             "advanceListTail",
             "buildList",
+            "probeListEllipsis",
+            "advanceListEllipsis",
+            "closeListEllipsis",
+            "buildTypedList",
         ] {
             let mut action = serde_json::json!({"op":op});
             if op == "parseListElement" {
@@ -495,7 +504,7 @@ mod target_tests {
             input["target"] = serde_json::json!("list");
             assert!(parse(&input.to_string()).is_err(), "{op}");
         }
-        for op in ["hasList", "hasListElement"] {
+        for op in ["hasList", "hasListElement", "hasListEllipsis"] {
             let mut input = serde_json::json!({"formatVersion":1,"body":[
                 {"op":"if","condition":{"op":op},"then":[]}
             ]});

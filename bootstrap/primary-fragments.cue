@@ -5,6 +5,7 @@ package bootstrap
 	_boundMinimum: #PrimaryBoundMinimumInput.v
 	_callMinimum:  #PrimaryCallMinimumInput.v
 	_listMinimum:  #PrimaryListMinimumInput.v
+	_typedTails:   *false | true
 	_lists:        *true | false
 	_records:      *true | false
 	_conjunctions: *true | false
@@ -31,7 +32,12 @@ package bootstrap
 		op: "if", condition: {op: "hasList"}
 		then: [{op: "advanceList"}, {op: "whitespace"}, {op: "probeListEnd"}, {
 			op: "while", condition: {op: "hasListElement"}
-			body: [{op: "parseListElement", minimum: {op: "integer", value: _listMinimum}},
+			body: [if _typedTails {op: "probeListEllipsis"}, if _typedTails {
+				op: "if", condition: {op: "hasListEllipsis"}
+				then: [{op: "advanceListEllipsis"}, {op: "whitespace"},
+					{op: "parseListElement", minimum: {op: "integer", value: _listMinimum}},
+					{op: "closeListEllipsis"}, {op: "buildTypedList"}, {op: "return"}]
+			}, {op: "parseListElement", minimum: {op: "integer", value: _listMinimum}},
 				{op: "appendListElement"}, {op: "advanceListTail"}, {
 					op: "if", condition: {op: "hasListElement"}
 					then: [{op: "whitespace"}, {op: "probeListEnd"}]

@@ -49,6 +49,13 @@ mod generated_list_open;
 mod generated_list_close;
 
 #[cfg(feature = "source")]
+#[path = "../../generated/list-ellipsis.rs"]
+mod generated_list_ellipsis;
+#[cfg(feature = "source")]
+#[path = "../../generated/list-ellipsis-close.rs"]
+mod generated_list_ellipsis_close;
+
+#[cfg(feature = "source")]
 #[path = "../../generated/index-close.rs"]
 mod generated_index_close;
 
@@ -652,6 +659,16 @@ pub fn list_open(source: &str, offset: usize) -> Result<Scan, Error> {
 #[cfg(feature = "source")]
 pub fn list_close(source: &str, offset: usize) -> Result<Scan, Error> {
     generated_list_close::scan(source, offset)
+}
+
+#[cfg(feature = "source")]
+pub fn list_ellipsis(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_list_ellipsis::scan(source, offset)
+}
+
+#[cfg(feature = "source")]
+pub fn list_ellipsis_close(source: &str, offset: usize) -> Result<Scan, Error> {
+    generated_list_ellipsis_close::scan(source, offset)
 }
 
 /// Run CUE-owned trivia and required closing-index recognition.
