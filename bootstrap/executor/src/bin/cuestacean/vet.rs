@@ -1,4 +1,4 @@
-//! Bounded scalar/fixed-list/closed-record vet; scalar execution stays generated.
+//! Bounded scalar/prefix-list/closed-record vet; scalar execution stays generated.
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::io::Read;
@@ -8,7 +8,11 @@ use bootstrap_executor::{Error as RuntimeError, ast, generated, parser};
 use serde_json::{Value, json};
 
 const MAX_BYTES: usize = 1024 * 1024;
-const GRAMMAR: &str = include_str!(concat!(env!("CUESTACEAN_BOOTSTRAP_JSON"), "/grammar.json"));
+const MAX_INSTANCE_WORK: usize = 16 * 1024 * 1024;
+const GRAMMAR: &str = include_str!(concat!(
+    env!("CUESTACEAN_BOOTSTRAP_JSON"),
+    "/vet-grammar.json"
+));
 const USAGE: &str = "usage: cuestacean vet -c schema.cue data.json";
 
 #[derive(Debug)]
@@ -30,6 +34,11 @@ pub(super) enum Error {
         field: String,
     },
     ListLength {
+        field: String,
+        expected: usize,
+        actual: usize,
+    },
+    ListMinimum {
         field: String,
         expected: usize,
         actual: usize,
@@ -87,6 +96,14 @@ impl fmt::Display for Error {
                     "vet conflict: {field}: incompatible list lengths (expected {expected}, got {actual})"
                 )
             }
+            Self::ListMinimum {
+                field,
+                expected,
+                actual,
+            } => write!(
+                f,
+                "vet conflict: {field}: incompatible list lengths (expected at least {expected}, got {actual})"
+            ),
             Self::ClosedField { field } => {
                 write!(f, "vet conflict: field {field}: field not allowed")
             }
@@ -141,11 +158,22 @@ struct Field {
 
 enum Term {
     Scalar(Value),
-    List(Vec<Term>),
+    List {
+        elements: Vec<Term>,
+        tail: Option<Tail>,
+    },
     Closed {
         fields: Vec<Field>,
         names: std::collections::BTreeSet<String>,
     },
+}
+
+// Only admitted scalar ASTs can be instantiated. Byte size is measured once,
+// not by serializing the tail again for every projected position.
+struct Tail {
+    scalar: Value,
+    nodes: usize,
+    bytes: usize,
 }
 
 fn identifier(name: &str) -> bool {
@@ -238,17 +266,25 @@ fn admit(node: &Value, nodes: &mut usize) -> Result<Terms, Error> {
     Ok(terms)
 }
 
+fn admit_scalar(term: &Value, nodes: &mut usize, term_path: &str) -> Result<(), Error> {
+    let terms = admit(term, nodes)?;
+    if terms.bound && !terms.int {
+        return Err(unsupported(format!(
+            "field {term_path}: bounds require an explicit int term"
+        )));
+    }
+    Ok(())
+}
+
 // Decode the entire schema before inspecting data. Containers under scalar
 // unify stay on the scalar admission path and are therefore unsupported.
 fn decode_term(term: &Value, nodes: &mut usize, term_path: &str) -> Result<Term, Error> {
     let kind = term.get("kind").and_then(Value::as_str);
-    if !matches!(kind, Some("recordExpression" | "listExpression")) {
-        let terms = admit(term, nodes)?;
-        if terms.bound && !terms.int {
-            return Err(unsupported(format!(
-                "field {term_path}: bounds require an explicit int term"
-            )));
-        }
+    if !matches!(
+        kind,
+        Some("recordExpression" | "listExpression" | "typedListExpression")
+    ) {
+        admit_scalar(term, nodes, term_path)?;
         return Ok(Term::Scalar(term.clone()));
     }
     *nodes += 1;
@@ -263,7 +299,11 @@ fn decode_term(term: &Value, nodes: &mut usize, term_path: &str) -> Result<Term,
     let object = term
         .as_object()
         .ok_or_else(|| unsupported("expected container AST"))?;
-    if object.len() != 2 || !object.contains_key(key) {
+    let typed = kind == Some("typedListExpression");
+    if object.len() != if typed { 3 } else { 2 }
+        || !object.contains_key(key)
+        || (typed && !object.contains_key("tail"))
+    {
         return Err(unsupported("unexpected container AST fields"));
     }
     let children = term
@@ -280,7 +320,23 @@ fn decode_term(term: &Value, nodes: &mut usize, term_path: &str) -> Result<Term,
             .enumerate()
             .map(|(index, child)| decode_term(child, nodes, &index_path(term_path, index)))
             .collect::<Result<_, _>>()?;
-        Ok(Term::List(elements))
+        let tail = if typed {
+            let scalar = &term["tail"];
+            let before = *nodes;
+            // The tail needs its own explicit int, independently of the prefix.
+            admit_scalar(scalar, nodes, &format!("{term_path}[tail]"))?;
+            let bytes = serde_json::to_vec(scalar)
+                .map_err(|error| Error::Setup(format!("cannot serialize vet tail: {error}")))?
+                .len();
+            Some(Tail {
+                scalar: scalar.clone(),
+                nodes: *nodes - before,
+                bytes,
+            })
+        } else {
+            None
+        };
+        Ok(Term::List { elements, tail })
     }
 }
 
@@ -326,7 +382,7 @@ fn decode_fields(fields: &[Value], nodes: &mut usize, parent: &str) -> Result<Ve
 }
 
 fn schema(source: &str) -> Result<Vec<Field>, Error> {
-    let program = parser::parse_fields_file(source, GRAMMAR).map_err(|error| match error {
+    let program = parser::parse_vet_fields_file(source, GRAMMAR).map_err(|error| match error {
         parser::Error::Source { .. } | parser::Error::Integer { .. } => Error::InvalidSchema(error),
         _ => Error::Setup(error.to_string()),
     })?;
@@ -366,7 +422,76 @@ fn bridge(term: &Value, candidate: Option<&Value>) -> Result<Value, Error> {
     Ok(ast::program(entry))
 }
 
-// Three bounded passes: known-scalar shapes, container structure, scalar execution.
+// Inclusive 16 Mi-unit logical bound, not wall time or total memory. Each extra
+// position costs exactly 128 + scalar AST nodes + compact AST bytes + 6*decoded
+// candidate string bytes. The factor six bounds JSON escaping; wrong-kind
+// scalar candidates still pay the base cost before the shape pass rejects them.
+// Reserve only additional tail applications. One ledger follows all schema
+// associations, even beyond an earlier semantic failure; unknown fields and
+// wrong-kind containers are not descended into. No bridge/evaluator work here.
+struct InstanceWork {
+    used: usize,
+    limit: usize,
+}
+
+fn work_limit() -> Error {
+    Error::Setup("instance work limit exceeded".into())
+}
+
+impl InstanceWork {
+    fn tail(&mut self, tail: &Tail, candidate: &Value) -> Result<(), Error> {
+        let string_bytes = candidate.as_str().map_or(0, str::len);
+        let cost = string_bytes
+            .checked_mul(6)
+            .and_then(|cost| cost.checked_add(128))
+            .and_then(|cost| cost.checked_add(tail.nodes))
+            .and_then(|cost| cost.checked_add(tail.bytes))
+            .ok_or_else(work_limit)?;
+        let used = self.used.checked_add(cost).ok_or_else(work_limit)?;
+        if used > self.limit {
+            return Err(work_limit());
+        }
+        self.used = used;
+        Ok(())
+    }
+
+    fn term(&mut self, term: &Term, candidate: Option<&Value>) -> Result<(), Error> {
+        match term {
+            Term::Scalar(_) => {}
+            Term::Closed { fields, .. } => {
+                if let Some(object) = candidate.and_then(Value::as_object) {
+                    self.fields(fields, object)?;
+                }
+            }
+            Term::List { elements, tail } => {
+                if let Some(array) = candidate.and_then(Value::as_array) {
+                    for (term, value) in elements.iter().zip(array) {
+                        self.term(term, Some(value))?;
+                    }
+                    if let Some(tail) = tail {
+                        for value in array.iter().skip(elements.len()) {
+                            self.tail(tail, value)?;
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn fields(
+        &mut self,
+        fields: &[Field],
+        data: &serde_json::Map<String, Value>,
+    ) -> Result<(), Error> {
+        for field in fields {
+            self.term(&field.term, data.get(&field.name))?;
+        }
+        Ok(())
+    }
+}
+
+// After reservation: known-scalar shapes, container structure, scalar execution.
 // Missing containers pass None down, never synthetic null or empty runtime values.
 fn term_shapes(term: &Term, candidate: Option<&Value>) -> Result<(), Error> {
     match term {
@@ -380,12 +505,20 @@ fn term_shapes(term: &Term, candidate: Option<&Value>) -> Result<(), Error> {
                 shapes(fields, Some(object))?;
             }
         }
-        Term::List(elements) => {
-            // Check paired positions even on wrong lengths; extras have no schema.
+        Term::List { elements, tail } => {
+            // Check paired and typed trailing positions even on wrong lengths.
             // Wrong-kind containers are deferred to structure, as for records.
             if let Some(array) = candidate.and_then(Value::as_array) {
                 for (term, value) in elements.iter().zip(array) {
                     term_shapes(term, Some(value))?;
+                }
+                if tail.is_some()
+                    && array
+                        .iter()
+                        .skip(elements.len())
+                        .any(|value| value.is_array() || value.is_object())
+                {
+                    return Err(Error::UnsupportedData("known fields require scalar values"));
                 }
             }
         }
@@ -439,11 +572,18 @@ fn term_structure(term: &Term, candidate: Option<&Value>, term_path: &str) -> Re
             }
             structure(fields, object, term_path)?;
         }
-        Term::List(elements) => {
+        Term::List { elements, tail } => {
             let array = match candidate {
                 None => None,
                 Some(Value::Array(array)) => {
-                    if array.len() != elements.len() {
+                    if tail.is_some() && array.len() < elements.len() {
+                        return Err(Error::ListMinimum {
+                            field: term_path.into(),
+                            expected: elements.len(),
+                            actual: array.len(),
+                        });
+                    }
+                    if tail.is_none() && array.len() != elements.len() {
                         return Err(Error::ListLength {
                             field: term_path.into(),
                             expected: elements.len(),
@@ -488,7 +628,7 @@ fn term_leaves(term: &Term, candidate: Option<&Value>, term_path: &str) -> Resul
         Term::Closed { fields, .. } => {
             leaves(fields, candidate.and_then(Value::as_object), term_path)?;
         }
-        Term::List(elements) => {
+        Term::List { elements, tail } => {
             let array = candidate.and_then(Value::as_array);
             for (index, term) in elements.iter().enumerate() {
                 term_leaves(
@@ -497,17 +637,25 @@ fn term_leaves(term: &Term, candidate: Option<&Value>, term_path: &str) -> Resul
                     &index_path(term_path, index),
                 )?;
             }
+            if let (Some(tail), Some(array)) = (tail, array) {
+                for (index, candidate) in array.iter().enumerate().skip(elements.len()) {
+                    scalar_leaf(&tail.scalar, Some(candidate), &index_path(term_path, index))?;
+                }
+            }
         }
-        Term::Scalar(term) => {
-            let program = bridge(term, candidate)?;
-            let input = serde_json::to_string(&program)
-                .map_err(|error| Error::Setup(format!("cannot serialize vet program: {error}")))?;
-            generated::execute_json(&input).map_err(|source| Error::Evaluation {
-                field: term_path.into(),
-                source,
-            })?;
-        }
+        Term::Scalar(term) => scalar_leaf(term, candidate, term_path)?,
     }
+    Ok(())
+}
+
+fn scalar_leaf(term: &Value, candidate: Option<&Value>, term_path: &str) -> Result<(), Error> {
+    let program = bridge(term, candidate)?;
+    let input = serde_json::to_string(&program)
+        .map_err(|error| Error::Setup(format!("cannot serialize vet program: {error}")))?;
+    generated::execute_json(&input).map_err(|source| Error::Evaluation {
+        field: term_path.into(),
+        source,
+    })?;
     Ok(())
 }
 
@@ -515,10 +663,16 @@ fn validate(fields: &[Field], data: &Value) -> Result<(), Error> {
     let data = data
         .as_object()
         .ok_or(Error::UnsupportedData("object root required"))?;
+    InstanceWork {
+        used: 0,
+        limit: MAX_INSTANCE_WORK,
+    }
+    .fields(fields, data)?;
     shapes(fields, Some(data))?;
     structure(fields, Some(data), "")?;
     // S scalar AST nodes + R records + A lists <=63; L scalar leaves <=S. Each supplied
-    // scalar adds two visits, so total generated visits S+2L<=189. No retries,
+    // scalar adds two visits, so ordinary generated visits S+2L<=189. Additional
+    // tail applications use the shared byte-sensitive reservation above. No retries,
     // and only each leaf term/candidate is serialized, never sibling/extra data.
     leaves(fields, Some(data), "")
 }
@@ -1311,7 +1465,6 @@ flag: bool"#;
     #[test]
     fn fixed_list_nested_negative_controls() -> Result<(), Error> {
         for term in [
-            "[int,...int]",
             "[ref]",
             "[*1 | 2]",
             "[{n:1}]",
@@ -1410,6 +1563,367 @@ flag: bool"#;
                 assert_eq!(schema(&format!("x: {term}")).is_ok(), depth <= 32);
             }
         }
+        Ok(())
+    }
+
+    #[test]
+    fn typed_tail_ast_and_whole_admission() -> Result<(), Error> {
+        assert_eq!(
+            parser::parse_vet_fields_file("x: [42,...int]", GRAMMAR)
+                .map_err(Error::InvalidSchema)?,
+            json!({"formatVersion":1,"entry":{"kind":"recordExpression","fields":[
+                {"name":"x","value":{"kind":"typedListExpression",
+                    "elements":[{"kind":"integer","value":42}],"tail":{"kind":"intType"}}}
+            ]}})
+        );
+        // Admission is independent of demand, including contradictory prefixes.
+        for tail in [
+            "_",
+            ">=0",
+            "1+1",
+            "int & [1]",
+            "[]",
+            "close({})",
+            "[...int]",
+            "int & >9223372036854775807",
+            "< -9223372036854775808 & int",
+        ] {
+            for prefix in ["", "int,", "1 & 2,"] {
+                let source = format!("x: [{prefix}...({tail})]");
+                for data in [json!({}), json!({"x":[]})] {
+                    assert!(
+                        matches!(check(&source, data), Err(Error::UnsupportedSchema(_))),
+                        "{source}"
+                    );
+                }
+            }
+        }
+        for source in [
+            "x: [...]",
+            "x: [...int,]",
+            "x: [...int,1]",
+            "x: [...ref]",
+            "x: [...*1 | 2]",
+            "[...int]",
+        ] {
+            assert!(
+                matches!(schema(source), Err(Error::InvalidSchema(_))),
+                "{source}"
+            );
+        }
+        // Prefix int cannot qualify an untyped bound tail (or vice versa).
+        for source in ["x: [int,...>=0]", "x: [>=0,...int]"] {
+            assert!(matches!(schema(source), Err(Error::UnsupportedSchema(_))));
+        }
+        for node in [
+            json!({"kind":"typedListExpression","elements":[]}),
+            json!({"kind":"typedListExpression","elements":[],"tail":null}),
+            json!({"kind":"typedListExpression","elements":null,"tail":{"kind":"intType"}}),
+            json!({"kind":"typedListExpression","elements":[],"tail":{"kind":"intType"},"extra":0}),
+            json!({"kind":"typedListExpression","elements":[],"tail":{"kind":"intType","extra":0}}),
+            json!({"kind":"typedListExpression","elements":[],"tail":{"kind":"unify","left":{"kind":"intType"}}}),
+            json!({"kind":"typedListExpression","elements":[],"tail":{"kind":"listExpression","elements":[]}}),
+            json!({"kind":"listExpression","elements":[],"tail":{"kind":"intType"}}),
+        ] {
+            assert!(matches!(
+                decode_term(&node, &mut 0, "x"),
+                Err(Error::UnsupportedSchema(_))
+            ));
+        }
+        // Both container and whole scalar tail count toward the original cap.
+        let tail = json!({"kind":"unify","left":{"kind":"intType"},"right":{"kind":"lowerBound","value":0}});
+        for count in [59, 60] {
+            let node = json!({"kind":"typedListExpression",
+                "elements":vec![json!({"kind":"integer","value":0});count],"tail":tail});
+            let mut nodes = 0;
+            assert_eq!(decode_term(&node, &mut nodes, "x").is_ok(), count == 59);
+            assert_eq!(nodes, count + 4);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn typed_tail_absence_prefix_null_and_paths() -> Result<(), Error> {
+        for (source, data) in [
+            ("x: [...int]", json!({})),
+            ("x: [...int]", json!({"x":[]})),
+            ("x: [42,...int]", json!({})),
+            ("x: [42,...int]", json!({"x":[42]})),
+            ("x: [42,...int]", json!({"x":[42,1,2]})),
+            ("x: [...(1 & 2)]", json!({"x":[]})),
+            ("x: [42,...(int & string)]", json!({"x":[42]})),
+            ("x: [...null]", json!({"x":[null,null]})),
+            ("x: [...bool]", json!({"x":[true,false]})),
+            ("x: [...string]", json!({"x":["é","\n"]})),
+            (
+                "x: [...int]",
+                json!({"x":[i64::MIN,i64::MAX,9007199254740993_i64]}),
+            ),
+            (
+                r#"x: [close({"a":[42,...int]}),[...string],...bool]"#,
+                json!({"x":[{},[],true,false]}),
+            ),
+        ] {
+            check(source, data)?;
+        }
+        for source in ["x: [...(1 & 2)]", "x: [42,...(int & string)]"] {
+            check(source, json!({}))?;
+            let data = if source.contains("42") {
+                json!({"x":[42,0]})
+            } else {
+                json!({"x":[0]})
+            };
+            assert!(matches!(check(source, data), Err(Error::Evaluation { .. })));
+        }
+        for (source, data, expected) in [
+            ("x: [int,...bool]", json!({}), "x[0]"),
+            ("x: [1 & 2,...bool]", json!({}), "x[0]"),
+            ("x: [42,...int]", json!({"x":[42,1,null]}), "x[2]"),
+            (
+                r#"r: close({"items":[[42,...int]]})"#,
+                json!({"r":{"items":[[42,false]]}}),
+                "r.items[0][1]",
+            ),
+        ] {
+            assert!(
+                matches!(check(source, data), Err(Error::Evaluation { field, .. }) if field == expected)
+            );
+        }
+        assert!(
+            matches!(check("x: [...int]", json!({"x":null})), Err(Error::ListType { field }) if field == "x")
+        );
+        let error = check("x: [int,true,...bool]", json!({"x":[false]})).expect_err("short prefix");
+        assert!(matches!(
+            &error,
+            Error::ListMinimum {
+                expected: 2,
+                actual: 1,
+                ..
+            }
+        ));
+        assert_eq!(
+            error.to_string(),
+            "vet conflict: x: incompatible list lengths (expected at least 2, got 1)"
+        );
+        for term in ["int & >=0 & <10", "<10 & >=0 & int"] {
+            let source = format!("x: [42,...({term})]");
+            check(&source, json!({"x":[42,0,9]}))?;
+            assert!(
+                matches!(check(&source, json!({"x":[42,0,10]})), Err(Error::Evaluation { field, .. }) if field == "x[2]")
+            );
+        }
+        // Merely singleton bounds remain absent-tail lazy, unlike prefix bounds.
+        check("x: [...(int & >=42 & <=42)]", json!({}))?;
+        check("x: [...(int & >=42 & <=42)]", json!({"x":[42]}))?;
+        Ok(())
+    }
+
+    #[test]
+    fn typed_tail_shapes_before_structure_and_semantics() {
+        for (source, data) in [
+            ("x: [int,int,...bool]", json!({"x":[{}]})),
+            ("x: [int,...bool]", json!({"x":[1,{}]})),
+            ("x: [int,...bool]", json!({"x":[false,true,[]]})),
+            ("first: 1 & 2\nx: [...int]", json!({"x":[0,{}]})),
+            ("r: close({})\nx: [...int]", json!({"r":null,"x":[[]]})),
+            (
+                r#"x: [close({"n":[...int]}),...bool]"#,
+                json!({"x":[{"n":[{}]}]}),
+            ),
+        ] {
+            assert!(matches!(
+                check(source, data),
+                Err(Error::UnsupportedData(_))
+            ));
+        }
+        // Wrong-kind containers are not traversed; fixed extras stay unpaired.
+        assert!(
+            matches!(check("x: [[...int],...bool]", json!({"x":[null]})), Err(Error::ListType { field }) if field == "x[0]")
+        );
+        assert!(matches!(
+            check("x: []", json!({"x":[{}]})),
+            Err(Error::ListLength { .. })
+        ));
+        assert!(matches!(
+            check("x: [1,...bool]", json!({"x":[]})),
+            Err(Error::ListMinimum { .. })
+        ));
+    }
+
+    fn planned(fields: &[Field], data: &Value, limit: usize) -> Result<usize, Error> {
+        let mut work = InstanceWork { used: 0, limit };
+        work.fields(fields, data.as_object().expect("test object"))?;
+        Ok(work.used)
+    }
+
+    #[test]
+    fn tail_work_exact_bytes_and_checked_arithmetic() -> Result<(), Error> {
+        // Independent compact byte lengths, not the production size calculation.
+        let fields = schema(r#"x: [..."é\n"]"#)?;
+        let Term::List {
+            tail: Some(tail), ..
+        } = &fields[0].term
+        else {
+            panic!("tail")
+        };
+        assert_eq!(tail.nodes, 1);
+        assert_eq!(tail.bytes, 32); // {"kind":"string","value":"é\n"}
+        // Decoded é + newline + quote = 4 UTF-8 bytes, not source/JSON length.
+        let data = json!({"x":["é\n\""]});
+        assert_eq!(planned(&fields, &data, 185)?, 185); // 128+1+32+6*4
+        assert_eq!(
+            planned(&fields, &data, 184)
+                .expect_err("over exact allowance")
+                .to_string(),
+            "vet setup: instance work limit exceeded"
+        );
+        assert_eq!(planned(&fields, &json!({"x":[{}]}), 161)?, 161);
+        // A multi-node tail charges every admitted AST node, not just its root.
+        let conjunction = schema("x: [...(int & >=0)]")?;
+        let Term::List {
+            tail: Some(composite),
+            ..
+        } = &conjunction[0].term
+        else {
+            panic!("tail")
+        };
+        assert_eq!((composite.nodes, composite.bytes), (3, 82));
+        assert_eq!(planned(&conjunction, &json!({"x":[0]}), 213)?, 213);
+        assert!(planned(&conjunction, &json!({"x":[0]}), 212).is_err());
+        let mut work = InstanceWork {
+            used: usize::MAX,
+            limit: usize::MAX,
+        };
+        assert!(work.tail(tail, &Value::Null).is_err());
+        let huge = Tail {
+            scalar: json!({"kind":"null"}),
+            nodes: 1,
+            bytes: usize::MAX,
+        };
+        assert!(
+            InstanceWork {
+                used: 0,
+                limit: usize::MAX
+            }
+            .tail(&huge, &Value::Null)
+            .is_err()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn tail_work_associations_and_zero_demand() -> Result<(), Error> {
+        let fields = schema(
+            r#"a: [close({"x":[42,...int]}),...bool]
+b: close({"y":[...string]})"#,
+        )?;
+        // intType: 18 bytes; boolType: 19; stringType: 21.
+        let data = json!({"a":[{"x":[42,1,2]},true],"b":{"y":["é"]},"unknown":[1,2]});
+        assert_eq!(planned(&fields, &data, 604)?, 2 * 147 + 148 + 162);
+        assert!(planned(&fields, &data, 603).is_err());
+        for data in [
+            json!({}),
+            json!({"a":[{"x":[42]}],"b":{"y":[]}}),
+            json!({"a":null,"b":[]}),
+            json!({"a":[null],"b":{"y":null}}),
+        ] {
+            assert_eq!(planned(&fields, &data, 0)?, 0);
+        }
+        let fixed = schema("x: [int]\nr: close({})")?;
+        assert_eq!(
+            planned(&fixed, &json!({"x":[1,"large",{}],"r":{"extra":[]}}), 0)?,
+            0
+        );
+        // Short prefix does not conceal nested reached tail applications.
+        let fields = schema("x: [[...int],true,...bool]")?;
+        assert_eq!(planned(&fields, &json!({"x":[[0,1]]}), 294)?, 294);
+        Ok(())
+    }
+
+    // Exercise the same DATA reader as run(), not merely serde_json's decoder.
+    fn admitted_data(data: Value) -> Value {
+        let input = serde_json::to_vec(&data).expect("serialize test DATA");
+        super::super::json::read(input.as_slice()).expect("fully admitted DATA")
+    }
+
+    #[test]
+    fn large_tail_real_allowance_and_phase_order() -> Result<(), Error> {
+        let literal = "a".repeat(16_384);
+        let source = format!("a: [...{literal:?}]\nb: [...{literal:?}]");
+        let fields = schema(&schema_text(source.as_bytes())?)?;
+        let Term::List {
+            tail: Some(tail), ..
+        } = &fields[0].term
+        else {
+            panic!("tail")
+        };
+        assert_eq!((tail.nodes, tail.bytes), (1, 16_412));
+        // Independent issue arithmetic: each "z" costs 16,547 units.
+        let below = admitted_data(json!({"a":vec!["z";1_013]}));
+        assert_eq!(planned(&fields, &below, MAX_INSTANCE_WORK)?, 16_762_111);
+        assert!(matches!(validate(&fields, &below), Err(Error::Evaluation {
+            field, source: RuntimeError::StringConflict { .. } }) if field == "a[0]"));
+        // Both sibling lists individually fit, but their shared sum does not.
+        let over = admitted_data(json!({"a":vec!["z";507],"b":vec!["z";507]}));
+        assert_eq!(planned(&fields, &over, usize::MAX)?, 16_778_658);
+        assert_eq!(
+            validate(&fields, &over)
+                .expect_err("shared sibling allowance")
+                .to_string(),
+            "vet setup: instance work limit exceeded"
+        );
+        // Genuine equal literal execution: no hidden scanner/runtime byte cap.
+        validate(&fields, &admitted_data(json!({"a":[literal]})))?;
+        // Exact production cap: 1,010*(128+1+16,412) + 6*11,801.
+        let mut candidates = vec![String::new(); 1_010];
+        candidates[1_009] = "z".repeat(11_801);
+        let exact = admitted_data(json!({"a":candidates}));
+        assert_eq!(planned(&fields, &exact, MAX_INSTANCE_WORK)?, 16_777_216);
+        assert!(matches!(
+            validate(&fields, &exact),
+            Err(Error::Evaluation {
+                source: RuntimeError::StringConflict { .. },
+                ..
+            })
+        ));
+        // One decoded byte over fails before the first conflict.
+        let mut over = exact;
+        over["a"][1_009] = json!("z".repeat(11_802));
+        assert_eq!(
+            validate(&fields, &over)
+                .expect_err("one byte over cap")
+                .to_string(),
+            "vet setup: instance work limit exceeded"
+        );
+        // Failures do not leak the ledger into a fresh invocation, even when
+        // that invocation demands a real (successful) scalar tail evaluation.
+        validate(&fields, &admitted_data(json!({"a":["a".repeat(16_384)]})))?;
+        validate(&fields, &json!({"a":[]}))?;
+        check("x: [...int]", json!({"x":[42]}))?;
+        // Reservation beats earlier semantic, shape and structural failures.
+        for first in ["first: int", "first: 1 & 2", "first: close({})"] {
+            let fields = schema(&format!("{first}\n{source}"))?;
+            let data = admitted_data(json!({"first":null,"a":vec!["z";1_014]}));
+            assert_eq!(
+                validate(&fields, &data)
+                    .expect_err("reserve before earlier failure")
+                    .to_string(),
+                "vet setup: instance work limit exceeded"
+            );
+        }
+        let mut wrong_shape = over;
+        wrong_shape["a"][0] = json!({}); // wrong-kind candidates still pay the base
+        assert_eq!(
+            validate(&fields, &wrong_shape)
+                .expect_err("reserve before shape failure")
+                .to_string(),
+            "vet setup: instance work limit exceeded"
+        );
+        // Root admission precedes planning.
+        assert!(matches!(
+            validate(&fields, &json!([])),
+            Err(Error::UnsupportedData("object root required"))
+        ));
         Ok(())
     }
 
