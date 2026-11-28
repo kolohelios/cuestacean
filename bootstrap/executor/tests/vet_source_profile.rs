@@ -134,6 +134,79 @@ fn scanners_use_complete_spans_and_require_closure() {
 }
 
 #[test]
+fn vet_metadata_is_validated_before_parsing() {
+    let grammar: Value = serde_json::from_str(VET).expect("vet grammar");
+    for (field, value) in [
+        ("kind", ""),
+        ("elementsField", "kind"),
+        ("tailField", ""),
+        ("tailField", "elements"),
+    ] {
+        let mut invalid = grammar.clone();
+        invalid["typedList"][field] = json!(value);
+        assert!(matches!(
+            parser::parse_vet_fields_file("?", &invalid.to_string()),
+            Err(parser::Error::Grammar { .. })
+        ));
+    }
+    let mut unknown = grammar.clone();
+    unknown["typedList"]["extra"] = json!(true);
+    assert!(matches!(
+        parser::parse_vet_fields_file("?", &unknown.to_string()),
+        Err(parser::Error::Json { .. })
+    ));
+    let mut no_list = grammar.clone();
+    no_list
+        .as_object_mut()
+        .expect("grammar object")
+        .remove("list");
+    assert!(matches!(
+        parser::parse_vet_fields_file("?", &no_list.to_string()),
+        Err(parser::Error::Grammar { .. })
+    ));
+    let mut custom = grammar;
+    custom["typedList"] = json!({"kind":"alternate","elementsField":"prefix","tailField":"rest"});
+    assert_eq!(
+        parser::parse_vet_fields_file("x: [...int]", &custom.to_string())
+            .expect("custom constructor"),
+        fields(json!({"kind":"alternate","prefix":[],"rest":{"kind":"intType"}}))
+    );
+}
+
+#[test]
+fn tail_shares_depth_and_sibling_node_limits() {
+    for lists in [31, 32] {
+        let source = format!("x: {}...int{}", "[".repeat(lists), "]".repeat(lists));
+        for result in routes(&source) {
+            if lists == 31 {
+                assert!(result.is_ok(), "{result:?}");
+            } else {
+                assert!(
+                    matches!(result, Err(parser::Error::Source {offset: 38, reason})
+                    if reason == "expression exceeds 32 parsing levels")
+                );
+            }
+        }
+    }
+    for extra in ["", "\nz: 0"] {
+        let source = format!(
+            "x: [{}...int]\ny: [{}...int]{extra}",
+            "0,".repeat(29),
+            "0,".repeat(30)
+        );
+        for result in routes(&source) {
+            if extra.is_empty() {
+                assert!(result.is_ok(), "{result:?}");
+            } else {
+                assert!(
+                    matches!(result, Err(parser::Error::Source {reason, ..}) if reason == "expression exceeds 64 nodes")
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn tail_is_charged_in_the_same_ast_budget_as_prefix_and_root() {
     for count in [61, 62] {
         let source = format!("x: [{}...int]", "0,".repeat(count));
