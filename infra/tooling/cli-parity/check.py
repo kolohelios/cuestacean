@@ -958,7 +958,7 @@ def vet_profile(rust, cue):
                    'x:[close({"a.b":0})]'):
         files(source, '{}')
         native(b'unsupported vet schema:', 'recursive list admission exclusions')
-    for source in ('x:[int,...int]', 'x:[...int]', 'x:[*1 | 2]',
+    for source in ('x:[*1 | 2]',
                    'x:[ref]', 'x:[{a:0}]', 'x:[close({"a"?:int})]',
                    'x:[close({"a"!:int})]'):
         files(source, '{}')
@@ -1020,6 +1020,246 @@ def vet_profile(rust, cue):
     print("Packaged vet parity, categories, phase/limit controls and explicit gaps verified")
 
 
+def vet_tail_profile(rust, cue):
+    """#321: authored source/JSON, public Go observations, no exported answers."""
+    schema, data = Path('tail-schema.cue'), Path('tail-data.json')
+    argv = ['vet', '-c', str(schema), str(data)]
+    sentinel = b'{"stdin_only":true}'
+
+    def files(source, document):
+        schema.write_bytes(source.encode() if isinstance(source, str) else source)
+        data.write_bytes(document.encode() if isinstance(document, str) else document)
+
+    def native(category=None, path=None, reason=None):
+        result = run(rust, argv, data=sentinel)
+        label = f'tail {schema.stat().st_size}/{data.stat().st_size} bytes'
+        if category is None:
+            require(result.returncode == 0 and not result.stdout and not result.stderr,
+                    f'{label}: expected silent success; {result!r}')
+        else:
+            expect_failure(result, category, label)
+            diagnostic = result.stderr.removeprefix(b'cuestacean: ')
+            require(diagnostic.startswith(category), f'{label}: wrong category {result!r}')
+            if path is not None:
+                # Scalar errors retain "field "; list structure errors omit it.
+                list_structure = reason is not None and any(token in reason for token in
+                    (b'expected a list', b'incompatible list lengths', b'expected at least'))
+                marker = b' ' if list_structure else b' field '
+                require(diagnostic.startswith(category + marker + path.encode() + b':'),
+                        f'{label}: wrong path {result!r}')
+            if reason is not None:
+                require(reason in diagnostic, f'{label}: wrong reason {result!r}')
+        return result
+
+    def oracle(outcome, path=None):
+        result = run(cue, argv, data=sentinel)
+        if outcome == 'ok':
+            require(result.returncode == 0 and not result.stdout and not result.stderr,
+                    f'tail Go expected silent success: {result!r}')
+        else:
+            tokens = {
+                'conflict': (b'conflicting values', b'out of bound',
+                             b'incompatible integer bounds', b'incompatible number bounds'),
+                'incomplete': (b'incomplete value',),
+                'length': (b'incompatible list lengths',),
+                'closure': (b'field not allowed',),
+            }
+            require(result.returncode == 1 and not result.stdout and
+                    any(token in result.stderr for token in tokens[outcome]),
+                    f'tail Go wrong category: {result!r}')
+            if path is not None:
+                require(any(line.startswith(path.encode() + b':')
+                            for line in result.stderr.splitlines()),
+                        f'tail Go wrong path {path}: {result!r}')
+
+    def case(source, document, outcome='ok', path=None, reason=None, *, go=None):
+        files(source, document)
+        category = None if outcome == 'ok' else (
+            b'vet incomplete:' if outcome == 'incomplete' else b'vet conflict:')
+        native(category, path, reason)
+        oracle(outcome if go is None else go,
+               None if path is None else path.replace('[', '.').replace(']', ''))
+
+    # All admitted scalar rows from the pinned public receipt, including null
+    # versus absence. Record-tail rows are separately retained as exclusions.
+    for term in ('[...int]', '[int,...int]'):
+        case('x:' + term, '{"x":[0,1]}')
+    for document in ('{}', '{"x":[]}', '{"x":[0,1]}'):
+        case('x:[...int]', document)
+    case('x:[...int]', '{"x":[false]}', 'conflict', 'x[0]')
+    case('x:[...int]', '{"x":null}', 'conflict', 'x', b'expected a list')
+    for document in ('{}', '{"x":[42]}', '{"x":[42,1]}'):
+        case('x:[42,...int]', document)
+    case('x:[42,...int]', '{"x":[]}', 'length', 'x',
+         b'incompatible list lengths (expected at least 1, got 0)')
+    case('x:[42,...int]', '{"x":[41,1]}', 'conflict', 'x[0]')
+    case('x:[42,...int]', '{"x":[42,false]}', 'conflict', 'x[1]')
+    case('x:[int,...string]', '{}', 'incomplete', 'x[0]')
+    case('x:[int,...string]', '{"x":[]}', 'length', 'x',
+         b'incompatible list lengths (expected at least 1, got 0)')
+    for document in ('{"x":[0]}', '{"x":[0,"a"]}'):
+        case('x:[int,...string]', document)
+    case('x:[int,...string]', '{"x":[0,1]}', 'conflict', 'x[1]')
+
+    # Reversed bounds/type terms are original source, never preselected DATA.
+    for term in ('int & >=0', '>=0 & int', 'int & >=0 & <10', '<10 & >=0 & int'):
+        for document in ('{}', '{"x":[]}', '{"x":[0,1]}'):
+            case('x:[...(' + term + ')]', document)
+        case('x:[...(' + term + ')]', '{"x":[0,-1]}', 'conflict', 'x[1]')
+    for term in ('int & >=42 & <=42', '<=42 & >=42 & int'):
+        case('x:[...(' + term + ')]', '{}')
+        case('x:[...(' + term + ')]', '{"x":[42]}')
+        case('x:[...(' + term + ')]', '{"x":[41]}', 'conflict', 'x[0]')
+    for term, values in (('null', '[null,null]'), ('bool', '[true,false]'),
+                         ('string', '["a\\uD83E\\uDD80",""]'),
+                         ('int', '[-9223372036854775808,9223372036854775807,9007199254740993]')):
+        case('x:[...' + term + ']', '{"x":' + values + '}')
+    case('x:[...null]', '{"x":[0]}', 'conflict', 'x[0]')
+    for value in ('{}', 'true', '0', '"s"'):
+        case('x:[...int]', '{"x":' + value + '}', 'conflict', 'x', b'expected a list')
+
+    # Whole-schema admission does NOT demand unused contradictory scalar tails.
+    for term in ('int & string', '1 & 2', 'int & >0 & <1', '<1 & >0 & int'):
+        for document in ('{}', '{"x":[]}'):
+            case('x:[...(' + term + ')]', document)
+        for document in ('{"x":[42]}', '{"x":[42,42]}'):
+            case('x:[...(' + term + ')]', document, 'conflict', 'x[0]')
+        for document in ('{}', '{"x":[42]}'):
+            case('x:[42,...(' + term + ')]', document)
+        case('x:[42,...(' + term + ')]', '{"x":[42,42]}', 'conflict', 'x[1]')
+    case('x:[42,...(int & string)]', '{"x":[]}', 'length', 'x',
+         b'incompatible list lengths (expected at least 1, got 0)')
+
+    # Scalar tails may appear in fixed prefixes, nested lists and closed records.
+    mixed = 'x:[close({"items":[42,...int]}),[...string],...bool]'
+    case(mixed, '{}')
+    case(mixed, '{"x":[{"items":[42,0]},["a"],true,false]}')
+    case(mixed, '{"x":[{"items":[42,false]},[]]}', 'conflict', 'x[0].items[1]')
+    case(mixed, '{"x":[{},[0]]}', 'conflict', 'x[1][0]')
+    case(mixed, '{"x":[{},[],true,0]}', 'conflict', 'x[3]')
+    nested = 'x:close({"items":[[...int],...string]})'
+    case(nested, '{}')
+    case(nested, '{"x":{"items":[[0,1],"a"]}}')
+    case(nested, '{"x":{"items":[[0,false]]}}', 'conflict', 'x.items[0][1]')
+    case('x:[int,...string]', '{"x":[0,"a",false]}', 'conflict', 'x[2]')
+
+    # Explicit valid-upstream exclusions; collection tails are NOT scalar tails.
+    for term, document, outcome in (
+        ('[...close({"n":int})]', '{}', 'ok'),
+        ('[...close({"n":int})]', '{"x":[{}]}', 'incomplete'),
+        ('[...close({"n":int})]', '{"x":[{"n":1}]}', 'ok'),
+        ('[...close({"n":int})]', '{"x":[{"n":1,"extra":0}]}', 'closure'),
+        ('[...[]]', '{"x":[[]]}', 'ok'),
+        ('[...[int]]', '{"x":[[0]]}', 'ok'),
+        ('[42,...int,]', '{"x":[42,0]}', 'ok'),
+        ('[...]', '{"x":[42]}', 'ok'),
+        ('[..._]', '{"x":[42]}', 'ok'),
+        ('[...int] & [...int]', '{"x":[0]}', 'ok'),
+        ('[...(*1 | 2)]', '{}', 'ok'),
+    ):
+        files('x:' + term, document)
+        native(b'invalid vet schema:' if term in ('[...]', '[42,...int,]', '[...(*1 | 2)]')
+               else b'unsupported vet schema:')
+        oracle(outcome)
+    for term in ('1+1', '>=(0)', '>=0', '_', '[1]', 'close({})'):
+        for document in ('{}', '{"x":[]}', '{'):
+            files('first:1 & 2\nx:[...(' + term + ')]', document)
+            native(b'unsupported vet schema:')
+    for source in ('x:[...int,0]', 'x:[...int,...string]', 'x:[...]', 'x:[...ref]'):
+        files(source, '{}')
+        native(b'invalid vet schema:')
+
+    # Phase controls: all JSON, then shapes, then structure, then scalar order.
+    for suffix, category in ((b',"extra":}', b'invalid JSON:'),
+                             (b',"extra":1.0}', b'unsupported JSON:'),
+                             (b',"extra":{"a":0,"a":0}}', b'unsupported JSON:')):
+        files('x:[...(1 & 2)]', b'{"x":[42]' + suffix)
+        native(category)
+    for source, document in (
+        ('first:1 & 2\nx:[...int]', '{"x":[{}]}'),
+        ('x:[42,...int]\ny:[...string]', '{"x":[],"y":[[]]}'),
+        ('x:[...int]\ny:close({})', '{"x":[{}],"y":{"extra":0}}'),
+    ):
+        files(source, document)
+        native(b'unsupported vet data:', reason=b'known fields require scalar values')
+    files('first:1 & 2\nx:[42,...int]', '{"x":[]}')
+    native(b'vet conflict:', 'x', b'expected at least 1, got 0')
+    files('first:int\nx:[...int]', '{"x":[false]}')
+    native(b'vet incomplete:', reason=b'field first:')
+
+    # Independent real byte-sensitive work witness. Literal AST encoding is
+    # {"kind":"string","value":"..."}: 28 framing bytes, NOT schema source bytes.
+    # N=1, B=16412, S=1 => 16547. No implementation counter is consulted.
+    cap, per_slot = 16 * 1024 * 1024, 128 + 1 + 16412 + 6
+    require(per_slot == 16547 and 1013 * per_slot == 16762111 and
+            1014 * per_slot == 16778658 and
+            1013 * per_slot <= cap < 1014 * per_slot, 'bad independent work witness')
+    literal = 'a' * 16384
+    tail = '[...' + json.dumps(literal) + ']'
+    for count in (1013, 1014):
+        files('x:' + tail, json.dumps({'x': ['z'] * count}))
+        native(b'vet conflict:' if count == 1013 else b'vet setup:',
+               'x[0]' if count == 1013 else None,
+               None if count == 1013 else b'vet setup: instance work limit exceeded')
+    # Decoded UTF-8 bytes, not code points or raw JSON escape bytes. At 1000
+    # slots S=38 costs 16769000 (admitted), S=40 costs 16781000 (exhausted).
+    for text, exhausted in (('é' * 19, False), ('é' * 20, True),
+                            ('\u0000' * 38, False), ('\u0000' * 40, True)):
+        files('x:' + tail, json.dumps({'x': [text] * 1000}))
+        native(b'vet setup:' if exhausted else b'vet conflict:',
+               None if exhausted else 'x[0]',
+               b'vet setup: instance work limit exceeded' if exhausted else None)
+    # Same decoded tail bytes despite multibyte source and escaped input spelling.
+    files('x:[...' + json.dumps('é' * 8192, ensure_ascii=False) + ']',
+          json.dumps({'x': ['z'] * 1014}))
+    native(b'vet setup:', reason=b'vet setup: instance work limit exceeded')
+    # Inclusive exact-cap control: N=1, B=16411, 1012 applications and
+    # 6456 decoded candidate bytes. One more byte crosses the cap by six.
+    require(1012 * (128 + 1 + 16411) + 6 * 6456 == cap, 'bad exact-cap fixture')
+    for extra in (0, 1):
+        files('x:[...' + json.dumps('a' * 16383) + ']',
+              json.dumps({'x': [''] * 1011 + ['z' * (6456 + extra)]}))
+        native(b'vet setup:' if extra else b'vet conflict:', None if extra else 'x[0]',
+               b'vet setup: instance work limit exceeded' if extra else None)
+    # Neither sibling alone exceeds the cap; both source orders must aggregate.
+    for source in ('x:' + tail + '\ny:' + tail, 'y:' + tail + '\nx:' + tail):
+        files(source, json.dumps({'x': ['z'] * 507, 'y': ['z'] * 507}))
+        native(b'vet setup:', reason=b'vet setup: instance work limit exceeded')
+    # Reservation precedes an earlier semantic error, scalar shape, and structure.
+    for first, value in (('int', None), ('1 & 2', None), ('string', []),
+                         ('[0]', []), ('close({})', None)):
+        files('first:' + first + '\nx:' + tail,
+              json.dumps({'first': value, 'x': ['z'] * 1014}))
+        native(b'vet setup:', reason=b'vet setup: instance work limit exceeded')
+    # Wrong-kind scalar-tail slots pay base cost; 1024 * (128+1+16412) > cap.
+    files('x:' + tail, json.dumps({'x': [{}] * 1024}))
+    native(b'vet setup:', reason=b'vet setup: instance work limit exceeded')
+    for suffix, category in ((b',"extra":}', b'invalid JSON:'),
+                             (b',"extra":1.0}', b'unsupported JSON:')):
+        document = json.dumps({'x': ['z'] * 1014}).encode()
+        files('x:' + tail, document[:-1] + suffix)
+        native(category)
+    files('x:' + tail + '\nbad:[...[]]', json.dumps({'x': ['z'] * 1014}))
+    native(b'unsupported vet schema:')
+    # Ignored extras, wrong-kind containers, absence and exact prefixes demand
+    # no tail applications. No arbitrary traversal of unrelated data is charged.
+    for source, document in (
+        ('x:' + tail, {'extra': ['z'] * 1014}),
+        ('x:' + tail, {'x': []}),
+        ('x:[42,...' + json.dumps(literal) + ']', {'x': [42]}),
+    ):
+        files(source, json.dumps(document))
+        native()
+    files('x:' + tail, '{"x":{}}')
+    native(b'vet conflict:', 'x', b'expected a list')
+    # Equal literal and decoded UTF-8/escape bytes survive independent invocations.
+    case('x:' + tail, json.dumps({'x': [literal]}))
+    for literal in ('é🦀', '\u0000\n"\\'):
+        case('x:[...' + json.dumps(literal) + ']', json.dumps({'x': [literal]}))
+    case('x:[...int]', '{"x":[0]}')  # fresh after every failure above
+    print('Packaged scalar-tail oracle, demand, exclusion and shared work evidence verified')
+
+
 def main():
     rust, cue = map(Path, sys.argv[1:])
     for tool in rust, cue:
@@ -1047,6 +1287,7 @@ def main():
     nested_selection(rust, cue)
     indexed_selection(rust, cue)
     vet_profile(rust, cue)
+    vet_tail_profile(rust, cue)
 
     forward = str(fixtures / "defaults-forward.cue")
     reverse = str(fixtures / "defaults-reverse.cue")
