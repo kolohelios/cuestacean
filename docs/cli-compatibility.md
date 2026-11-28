@@ -34,7 +34,7 @@ printf '40 + 2\n' | cuestacean export --out json -
 | Argument order | Supported options may precede or follow the input. Use `--` to end option parsing. Duplicate options and multiple inputs are rejected. |
 | Field selection | `-e path`, `--expression path`, or `--expression=path` selects a value along a field and list-index path through fully concrete data. |
 | Other `export` options | Unsupported, including `--escape`, `--force`, injection, `--list`, `--merge`, `--name`, package/path/schema flags, protobuf options, `--with-context`, and global error/ignore/simplify flags. Non-JSON formats and output files are unsupported. |
-| `vet -c schema.cue data.json` | Validate one JSON object against a [scalar, closed-record, and fixed-list schema](#vet-schemas). |
+| `vet -c schema.cue data.json` | Validate one JSON object against a [scalar, closed-record, and list schema](#vet-schemas). |
 | Other commands | Unsupported: `cmd`, `completion`, `def`, `eval`, `fix`, `fmt`, `get`, `help`, `import`, `login`, `mod`, `trim`, `version`. |
 
 There is no implicit current-directory, package, module, import, glob, or
@@ -102,28 +102,37 @@ expression. Within a field, use explicit `close({...})` for a closed record,
 for example `person: close({"age": int})`. Nested labels must be quoted in
 source and decode to names matching `[A-Za-z][A-Za-z0-9_]*`, at most 64 bytes
 and unique within each record. A list such as `items: [int, "kg"]` constrains
-exactly two positions. Lists and closed records can nest within one another.
-Open list tails, collection conjunctions, and bare nested records are
-unsupported. Scalar constraints may be scalar literals,
+exactly two positions. A typed tail, as in `items: [42,...int]`, constrains
+extra positions beyond the required prefix; `[...int]` has no required prefix.
+Lists and closed records can nest within one another in explicit positions.
+A tail must be one final scalar constraint, with no trailing comma. Untyped
+ellipsis, collection tails, collection conjunctions, and bare nested records
+are unsupported. Scalar constraints may be scalar literals,
 `int`, `bool`, `string`, literal integer bounds, or combinations of these with
-`&`. A field with a bound must also contain an explicit `int` constraint; an
+`&`. A scalar constraint with a bound must also contain an explicit `int` in
+that same constraint; an
 untyped CUE bound can admit nonintegers. Computed bounds and exclusive bounds beyond the signed 64-bit domain are unsupported. Write a
 space after `<` before a negative literal (`< -1`): Cuestacean also accepts
 `<-1`, but Go CUE does not. Supplied values must have the expected shape:
-scalars for scalar fields, JSON objects for closed records, and arrays of exactly
-the declared length for list fields. A short array is not filled from the schema.
-Extra fields
-are allowed at the root but forbidden inside closed records. The entire JSON
+scalars for scalar constraints, JSON objects for closed records, and arrays for
+list fields. Fixed lists require exactly the declared length; typed-tail lists
+require at least the prefix length. A supplied short array is not filled from
+the schema. Extra fields are allowed at the root but forbidden inside closed records. The entire JSON
 input, including extras, must still pass the JSON input checks.
 
 A concrete schema value can supply an absent field. An absent field without a
 concrete result is incomplete. Incompatible values, types, or bounds are
 conflicts. Missing lists and records are checked recursively: concrete children
 can supply values, but abstract children remain incomplete. Explicit `null` is
-not absence. Cuestacean admits both inputs, checks known scalar positions for
-unsupported container values, then checks collection structure before evaluating
-scalar leaves in schema order. For a wrong-length array, the shape check visits
-only positions present in both the schema and data; the JSON decoder still checks
+not absence. An absent list or one supplied at exactly the prefix length does
+not evaluate its tail, even if that tail is contradictory. The entire schema
+must still be supported, including unused tails.
+
+After admitting both inputs and checking the JSON object root, Cuestacean
+reserves work for all supplied tail positions. It then checks known scalar
+positions for unsupported container values, checks collection structure, and
+evaluates scalar leaves in schema and array-index order. A fixed list's extra
+positions have no schema in the shape pass, but the JSON decoder still checks
 every value. The first failure can differ from Go CUE when several constraints
 fail. For example, Cuestacean may report a length mismatch before a conflicting
 list element.
@@ -131,6 +140,15 @@ list element.
 Both files are limited to 1 MiB. The schema retains the ordinary parser limits,
 including 64 AST nodes and 32 parsing levels. JSON retains the limits described
 above. Validation uses the existing generated evaluator; it does not run Go CUE.
+
+The shared allowance for additional tail work is 16,777,216 units per invocation,
+inclusive. Each supplied tail position charges 128 units plus the tail's AST
+node count and compact JSON AST byte count, plus six times the decoded byte
+length of a supplied string. This accounts for repeated serialization as well
+as evaluation; it is not a wall-clock or total memory limit. The ledger is
+shared across all nested and sibling lists. An over-limit input is rejected
+before any scalar evaluation, even if an earlier scalar would conflict. Fixed
+lists and unused tails incur no additional charge.
 
 ## Output and failures
 
