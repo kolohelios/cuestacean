@@ -9,13 +9,14 @@ references and general constraints remain outside the expression profile. Nested
 syntax may parse and evaluate through the separate [bounded nested-value contract](../docs/nested-list-values.md).
 
 The separate vet source profile recognizes one final typed ellipsis in a bracket
-list, e.g. `[42,...int]`. This is a parser prerequisite, not CLI support. It reuses
+list, e.g. `[42,...int]`. It reuses
 ordinary field framing, prefix parsing and child budgets, but a CUE-selected
 primary branch parses exactly one tail expression and requires an immediate `]`.
 Untyped ellipsis and a trailing comma after the tail are not admitted. The
 resulting `typedListExpression` has distinct `elements` and `tail` fields and
-is not evaluable by the ordinary runtime. Existing parser profiles and the
-production `vet` command do not select this grammar or primary driver.
+is not evaluable by the ordinary runtime. Only [`vet`](../docs/cli-compatibility.md#vet-schemas)
+selects this grammar and primary driver and limits tails to scalar constraints.
+Ordinary expression and file profiles do not recognize typed ellipsis.
 
 Optional grammar `list: {kind, elementsField}` selects the constructor; absence
 disables it with no native fallback. Fields are validated before parsing and
